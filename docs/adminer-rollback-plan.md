@@ -168,6 +168,41 @@ Drift check cũng đảo chiều: dòng phải đang giữ giá trị **`before`
 ghi được `after` — câu lệnh gõ tay ở trang SQL chỉ chụp giá trị cũ — thì **không làm lại được**, báo
 `redo-no-after` và bỏ qua chứ không đoán. Redo không đụng tới snapshot: snapshot chỉ ghi trạng thái *trước* test.
 
+### 5.2c Gộp nhanh: A→B, B→C hoàn tác thẳng C→A
+
+Rollback từng bước chạy mỗi thay đổi một câu: sửa A→B rồi B→C thì hoàn tác là C→B rồi B→A — hai câu, hai lần
+đọc lại, và có lúc dòng giữ giá trị B không ai cần. Chế độ **gộp** (`dbtools/compact.js`) theo từng dòng qua cả
+changeset rồi chỉ phát **một câu cho mỗi dòng**, từ trạng thái hiện tại về thẳng trạng thái ban đầu. Làm lại cũng
+gộp theo cùng cách (A→C).
+
+| Dòng trong lượt test | Rollback gộp | Làm lại gộp |
+|---|---|---|
+| có sẵn · vẫn còn | `UPDATE` các cột đã ghi về giá trị **đầu tiên**, tìm dòng theo khoá **hiện tại** | `UPDATE` về giá trị **cuối cùng**, theo khoá **ban đầu** |
+| có sẵn · bị xoá | `INSERT` dòng như lúc đầu (dòng lúc xoá, phủ các cột đã sửa trước đó) | `DELETE` theo khoá ban đầu |
+| chèn mới · vẫn còn | `DELETE` theo khoá hiện tại | `INSERT` dòng như lượt test để lại |
+| chèn mới · bị xoá, hoặc mọi cột về lại giá trị cũ | không cần câu nào — thay đổi vẫn được đánh dấu đã hoàn tác | như bên trái |
+| bị xoá rồi chèn lại cùng khoá | **không gộp** — chạy từng bước | như bên trái |
+
+Quy tắc giữ cho việc gộp trung thực:
+
+- **Theo dõi dòng bằng khoá hiện tại**: đổi `id` 1→2 rồi sửa dòng `id`=2 vẫn là một dòng, câu gộp là
+  `SET id=1, … WHERE id=2`.
+- **Không gộp xuyên qua thay đổi ngoài lượt chạy** (không được chọn, hoặc đã hoàn tác riêng): dòng bị cắt đôi ở
+  đó, mỗi đoạn một câu — gộp xuyên qua sẽ âm thầm hoàn tác luôn thay đổi người dùng không chọn.
+- **Câu gõ tay ở trang SQL** (không có `after`): rollback gộp vẫn được, luôn ghi lại cột đó vì không biết nó có tự
+  về như cũ không; làm lại thì bị chặn `redo-no-after` như §5.2b.
+- **Thứ tự**: xếp theo thay đổi *quyết định* của dòng — `INSERT`/`DELETE` tạo hay xoá nó, còn không thì lần sửa
+  cuối — giảm dần khi rollback, tăng dần khi làm lại. Dòng con chèn sau dòng cha bị xoá trước, kể cả khi dòng cha
+  được sửa sau cùng. Không phải mọi thứ tự khoá ngoại đều giải được bằng một câu mỗi dòng; khi đó lượt chạy dừng ở
+  câu lỗi đầu tiên như mọi khi, và chế độ từng bước vẫn còn đó.
+- **Drift check** đọc lại mỗi dòng **một lần**: rollback so với giá trị cuối đã ghi, làm lại so với giá trị đầu.
+- **Trạng thái**: thay đổi được đánh dấu `undone` khi mọi dòng của nó đã xong; xong một phần (drift, hoặc dừng giữa
+  chừng) thì `partialUndo`, như chế độ từng bước.
+
+Giao diện: màn preview có nút chuyển **Từng bước · N câu | Gộp nhanh · M câu**, chỉ hiện khi M < N; SQL, tóm tắt
+và nút xác nhận đổi ngay tại chỗ. Lựa chọn được nhớ (`compactRun` trong settings, cũng chỉnh được ở trang quản
+lý) và *Xuất .sql* theo đúng chế độ đó. Guard của Playback vẫn chạy từng bước.
+
 ### 5.3 Các ca biên bắt buộc xử lý
 
 1. **`NULL` vs chuỗi rỗng** — lưu tri-state (`null` / `''` / giá trị), đọc từ `function[col] = NULL`,
@@ -270,18 +305,21 @@ Ràng buộc kỹ thuật cần tôn trọng:
 | **4** | ✅ **Xong** — ⏸ **tạm ẩn** (`TABLE_COPIES = false` trong `dbtools/features.js`). Tầng 2: `dbtools/snapshot.js` — chụp cả bảng, rollback bằng diff (DELETE → UPDATE → INSERT). Tầng 3: nút tạo bảng backup, khôi phục bằng diff hoặc chép lại toàn bộ khi bảng quá lớn, xoá bảng backup | Dữ liệu snapshot lưu trong IndexedDB của extension (`dbtools/snapstore.js`), không chiếm quota 10 MB của `chrome.storage.local` — không cần quyền `unlimitedStorage` |
 | **5** | ✅ **Xong** — ⏸ **tạm ẩn** cùng GĐ 4 (guard dựa trên snapshot). `bg/dbguard.js`: mỗi lần Playback (kịch bản, chuỗi, CSV) mở phiên + chụp các bảng đã chọn trước khi chạy, tự rollback khi chạy xong. Không có tab Adminer của database đó thì **từ chối chạy** | Bật ở thẻ DB Test Session trong popup; chọn database/bảng trong Settings của trang quản lý |
 | **6** | ✅ **Xong.** Làm lại: `redoStatements` / `redoBlockingReason` (`dbtools/undo.js`), `runRedo` (`dbtools/rollback.js`), nút **↷ Làm lại** trên panel và trang quản lý, làm lại riêng từng thay đổi | Xem §5.2b. Không áp dụng cho thay đổi không ghi được `after` |
+| **7** | ✅ **Xong.** Gộp nhanh: `compactPlan` (`dbtools/compact.js`), `opts.compact` của `runRollback`/`runRedo`, nút chuyển chế độ trong preview, setting `compactRun`, *Xuất .sql* gộp | Xem §5.2c. Mặc định vẫn là từng bước |
 
 ### Kiểm thử (đã có)
 
 ```bash
-node dbtools/selftest.mjs     # 451 check, Node thuần, không dependency
+node dbtools/selftest.mjs     # 501 check, Node thuần, không dependency
 bash dbtools/e2e/setup.sh     # Adminer 4.8.1 thật trên SQLite
 node dbtools/e2e/run.mjs      # extension thật, trình duyệt thật, DB thật
 ```
 
 `selftest.mjs` phủ phần số học: sinh SQL hoàn tác cho từng ca biên ở §5.3 (`NULL` vs `''`, đổi PK, bảng không
 khoá, capture không có "after"), chiều làm lại ở §5.2b (mệnh đề `WHERE` lấy từ lúc ghi, thứ tự FIFO, drift so
-với `before`, từ chối khi không có `after`), quote đúng theo từng engine, bóc mệnh đề `WHERE` nguyên văn kể cả có subquery,
+với `before`, từ chối khi không có `after`), chế độ gộp ở §5.2c (A→B→C thành một câu, dòng về lại như cũ không cần
+câu nào, theo dõi qua đổi khoá, không gộp xuyên qua thay đổi không chọn, xoá rồi chèn lại thì chạy từng bước, thứ tự
+cha/con), quote đúng theo từng engine, bóc mệnh đề `WHERE` nguyên văn kể cả có subquery,
 và hai catalog dịch không thiếu key.
 
 `e2e/run.mjs` phủ phần *không* kiểm chứng được bằng unit test — tức là mọi giả định về HTML của Adminer: sửa dòng,

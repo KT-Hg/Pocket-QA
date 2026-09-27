@@ -40,8 +40,9 @@ import {
 import { keyColsFromDoc } from './adapters/adminer.js';
 import * as store from './session.js';
 import {
-  summaryLines, rowKeyLabel, isSpent, cleanupCandidates, defaultSessionName, changesInPlay,
+  summaryLines, rowKeyLabel, isSpent, cleanupCandidates, defaultSessionName, changesInPlay, compactSummaryLines,
 } from './summary.js';
+import { compactPlan, planStatements, compactUndoScript, unitDrift } from './compact.js';
 import { CATALOGS, LANGUAGES, setLang, t, missingKeys, clearMissingKeys } from './i18n.js';
 
 let passed = 0;
@@ -347,6 +348,164 @@ function eq(name, actual, expected) {
     driftOf(update, update.rows[0], { value: 'Z', note: null }, 'redo').diffs[0].actual, 'Z');
   check('a vanished row is missing whichever way it is run',
     driftOf(update, update.rows[0], null, 'redo').missing);
+}
+
+/* ---------------------------------------------------------------------
+ * 3c. Folded runs — the changes to one row turned into the one statement that
+ *     goes straight from where it is to where it has to be: A → B → C is
+ *     undone as C → A, and redone as A → C.
+ *
+ *     The failure with teeth here is a fold that reaches too far: across a
+ *     change the person did not pick, or across a row that was deleted and
+ *     inserted again, which would put back values nobody recorded.
+ * ------------------------------------------------------------------- */
+{
+  const upd = (id, seq, where, before, after, extra = {}) => ({
+    id, seq, op: 'update', table: 't', keyCols: ['id'], rows: [{ where, before, after }], ...extra,
+  });
+  const sess = (...changes) => ({ conn: { driver: '' }, changes });
+  const sql = (plan) => planStatements(plan).join('\n');
+
+  const abc = sess(
+    upd('c1', 1, { id: '1' }, { v: 'A' }, { v: 'B' }),
+    upd('c2', 2, { id: '1' }, { v: 'B' }, { v: 'C' }),
+  );
+  const undo = compactPlan(abc);
+  eq('two edits of one row are undone in one statement', sql(undo), "UPDATE `t` SET `v` = 'A' WHERE `id` = 1");
+  eq('where step by step takes two', undo.steps, 2);
+  eq('both changes take part', undo.units[0].parts.length, 2);
+  eq('and a redo goes straight to the last value',
+    sql(compactPlan(abc, { dir: 'redo', includeApplied: true })), "UPDATE `t` SET `v` = 'C' WHERE `id` = 1");
+
+  const back = compactPlan(sess(
+    upd('c1', 1, { id: '1' }, { v: 'A' }, { v: 'B' }),
+    upd('c2', 2, { id: '1' }, { v: 'B' }, { v: 'A' }),
+  ));
+  eq('a row that ended where it started needs no statement', planStatements(back).length, 0);
+  eq('but its changes are still in the run', back.units[0].parts.length, 2);
+
+  const twoCols = compactPlan(sess(
+    upd('c1', 1, { id: '1' }, { v: 'A', w: null }, { v: 'B', w: '' }),
+    upd('c2', 2, { id: '1' }, { v: 'B' }, { v: 'A' }),
+  ));
+  eq('only the columns that did not come back are written, NULL kept apart from empty',
+    sql(twoCols), 'UPDATE `t` SET `w` = NULL WHERE `id` = 1');
+
+  // The key moved on the first edit; the second reached the row by its new key.
+  const moved = sess(
+    upd('c1', 1, { id: '1' }, { id: '1', v: 'a' }, { id: '2', v: 'b' }),
+    upd('c2', 2, { id: '2' }, { v: 'b' }, { v: 'c' }),
+  );
+  eq('a row is followed through a key change and found by the key it has now',
+    sql(compactPlan(moved)), "UPDATE `t` SET `id` = 1, `v` = 'a' WHERE `id` = 2");
+  eq('a redo reaches it by the key it had at the start',
+    sql(compactPlan(moved, { dir: 'redo', includeApplied: true })), "UPDATE `t` SET `id` = 2, `v` = 'c' WHERE `id` = 1");
+
+  const ins = { id: 'i', seq: 1, op: 'insert', table: 't', keyCols: ['id'],
+    rows: [{ where: { id: '5' }, before: null, after: { id: '5', a: 'x' } }] };
+  const insEdit = sess(ins, upd('u', 2, { id: '5' }, { a: 'x' }, { a: 'y' }));
+  eq('a row inserted and then edited is simply deleted', sql(compactPlan(insEdit)), 'DELETE FROM `t` WHERE `id` = 5');
+  eq('and redone as one INSERT of the row as the test left it',
+    sql(compactPlan(insEdit, { dir: 'redo', includeApplied: true })), "INSERT INTO `t` (`id`, `a`) VALUES (5, 'y')");
+
+  const del9 = (seq, before) => ({ id: `d${seq}`, seq, op: 'delete', table: 't', keyCols: ['id'],
+    rows: [{ where: { id: '9' }, before, after: null }] });
+  const insDel = compactPlan(sess(
+    { ...ins, rows: [{ where: { id: '9' }, before: null, after: { id: '9', a: 'x' } }] },
+    del9(2, { id: '9', a: 'x' }),
+  ));
+  eq('a row inserted and deleted again needs nothing', planStatements(insDel).length, 0);
+  eq('and says so', insDel.units[0].net, 'none');
+
+  const editDel = sess(upd('u', 1, { id: '9' }, { a: 'z' }, { a: 'w' }), del9(2, { id: '9', a: 'w', b: null }));
+  eq('a row edited and then deleted comes back as it was before the edit',
+    sql(compactPlan(editDel)), "INSERT INTO `t` (`id`, `a`, `b`) VALUES (9, 'z', NULL)");
+  eq('and a redo just deletes it', sql(compactPlan(editDel, { dir: 'redo', includeApplied: true })),
+    'DELETE FROM `t` WHERE `id` = 9');
+
+  // Deleted, then inserted under the same key: what that INSERT wrote over was
+  // never read, so the row is run change by change, newest first.
+  const delIns = compactPlan(sess(
+    del9(1, { id: '9', a: 'old' }),
+    { ...ins, seq: 2, rows: [{ where: { id: '9' }, before: null, after: { id: '9', a: 'new' } }] },
+  ));
+  eq('a row deleted and inserted again is not folded', delIns.units.map((u) => u.net).join(), 'steps,steps');
+  eq('its changes run as the step-by-step rollback runs them', sql(delIns),
+    "DELETE FROM `t` WHERE `id` = 9\nINSERT INTO `t` (`id`, `a`) VALUES (9, 'old')");
+
+  // A fold stops at a change that is not part of the run.
+  const three = sess(
+    upd('c1', 1, { id: '1' }, { v: 'A' }, { v: 'B' }),
+    upd('c2', 2, { id: '1' }, { v: 'B' }, { v: 'C' }),
+    upd('c3', 3, { id: '1' }, { v: 'C' }, { v: 'D' }),
+  );
+  eq('a fold never reaches across a change that was not picked',
+    sql(compactPlan(three, { changeIds: ['c1', 'c3'] })),
+    "UPDATE `t` SET `v` = 'C' WHERE `id` = 1\nUPDATE `t` SET `v` = 'A' WHERE `id` = 1");
+  eq('nor across a keyless one that may have written the same row',
+    compactPlan(sess(three.changes[0], upd('k', 2, {}, { v: 'B' }, { v: 'C' }), three.changes[2])).units.length, 2);
+  eq('nor across one already rolled back',
+    compactPlan(sess(three.changes[0], { ...three.changes[1], undone: true }, three.changes[2])).units.length, 2);
+
+  // Order: whatever created or removed a row decides where it goes.
+  const fk = compactPlan(sess(
+    { id: 'p', seq: 1, op: 'insert', table: 'parent', keyCols: ['id'], rows: [{ where: { id: '1' }, before: null, after: { id: '1' } }] },
+    { id: 'c', seq: 2, op: 'insert', table: 'child', keyCols: ['id'], rows: [{ where: { id: '7' }, before: null, after: { id: '7', p: '1' } }] },
+    { id: 'pu', seq: 3, op: 'update', table: 'parent', keyCols: ['id'], rows: [{ where: { id: '1' }, before: { n: 'a' }, after: { n: 'b' } }] },
+  ));
+  eq('a child inserted after its parent is deleted first, even if the parent was edited last',
+    fk.units.map((u) => u.table).join(), 'child,parent');
+
+  // A statement typed on the SQL page names the columns it wrote and never reads
+  // them back. Folded with a later edit, the undo still goes back to the start.
+  const typed = sess(
+    { id: 'b', seq: 1, op: 'update', table: 't', keyCols: ['id'], restoreCols: ['value'],
+      rows: [{ where: { id: '1' }, before: { id: '1', value: 'A' }, after: {} }] },
+    upd('e', 2, { id: '1' }, { value: 'B' }, { value: 'C' }),
+  );
+  eq('a typed statement folds with the edit after it', sql(compactPlan(typed)), "UPDATE `t` SET `value` = 'A' WHERE `id` = 1");
+  const typedRedo = compactPlan(typed, { dir: 'redo', includeApplied: true });
+  eq('but a redo cannot repeat it and says why', typedRedo.skipped.map((s) => s.reason).join(), 'redo-no-after');
+  eq('and repeats only the edit it could read', sql(typedRedo), "UPDATE `t` SET `value` = 'C' WHERE `id` = 1");
+  const unread = compactPlan(sess(
+    upd('e', 1, { id: '1' }, { value: 'A' }, { value: 'B' }),
+    { id: 'b', seq: 2, op: 'update', table: 't', keyCols: ['id'], restoreCols: ['value'],
+      rows: [{ where: { id: '1' }, before: { id: '1', value: 'B' }, after: {} }] },
+  ));
+  eq('a last value never read back is written anyway, even if it may have come back',
+    sql(unread), "UPDATE `t` SET `value` = 'A' WHERE `id` = 1");
+
+  const bulk = compactPlan(sess(
+    { id: 'b', seq: 1, op: 'update', table: 't', keyCols: ['id'], rows: [
+      { where: { id: '1' }, before: { v: 'A' }, after: { v: 'B' } },
+      { where: { id: '2' }, before: { v: 'A' }, after: { v: 'B' } },
+    ] },
+    upd('e', 2, { id: '1' }, { v: 'B' }, { v: 'C' }),
+  ));
+  eq('a bulk change folds row by row', `${planStatements(bulk).length}/${bulk.steps}`, '2/3');
+
+  eq('a blocked change is left out and named',
+    compactPlan(sess(upd('k', 1, {}, { v: 'A' }, { v: 'B' }))).skipped[0].reason, 'no-key');
+  eq('quoting follows the session engine',
+    sql(compactPlan({ conn: { driver: 'pgsql' }, changes: abc.changes })), 'UPDATE "t" SET "v" = \'A\' WHERE "id" = 1');
+  eq('the folded export script is the plan', compactUndoScript(abc).join(), "UPDATE `t` SET `v` = 'A' WHERE `id` = 1");
+
+  // Drift is checked once per row, against the row's last recorded values.
+  const unit = undo.units[0];
+  eq('a row as the test left it is not drift', unitDrift(unit, { id: '1', v: 'C' }), null);
+  eq('a row someone else changed is', unitDrift(unit, { id: '1', v: 'Z' }).diffs[0].expected, 'C');
+  check('a row that is gone is missing', unitDrift(unit, null).missing);
+  const redoUnit = compactPlan(abc, { dir: 'redo', includeApplied: true }).units[0];
+  eq('a redo expects the row as it was before the test', unitDrift(redoUnit, { v: 'A' }), null);
+  check('a row the undo would put back must not be there already',
+    compactPlan(editDel).units[0] && unitDrift(compactPlan(editDel).units[0], { id: '9' }).present);
+
+  setLang('en');
+  const lines = compactSummaryLines(undo, { statements: 1 });
+  eq('the preview says what was folded', lines[0].say, 'restore 1 row(s) · folded from 2 change(s)');
+  eq('and how much shorter it is', lines[lines.length - 1].say, '2 statements folded into 1');
+  eq('a row that came back is said to need nothing',
+    compactSummaryLines(back, { statements: 0 })[0].say, '1 row(s) end where they started — no statement needed');
 }
 
 /* ---------------------------------------------------------------------

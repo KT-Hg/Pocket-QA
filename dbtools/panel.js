@@ -166,6 +166,11 @@ button.more.on { background: #3b4358; }
 .sheet .summary .line.skip .say { color: #fbbf24; }
 .sheet .summary .total { color: #9aa3b5; padding-top: 2px; }
 .sheet .split { padding: 10px 14px 0; font-size: 11px; color: #9aa3b5; text-transform: uppercase; letter-spacing: .04em; }
+/* Step by step or folded: the same run two ways, switched in place above what it
+   comes to. The hint under the buttons says what the one chosen does. */
+.sheet .modes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 12px 14px 0; flex: none; }
+.sheet .modes button.mode.on { background: #2563eb2e; border-color: #2563eb; }
+.sheet .modes .hint { flex-basis: 100%; font-size: 12px; color: #9aa3b5; }
 /* The drift question's rows. */
 .grid-wrap { padding: 8px 14px 12px; overflow: auto; flex: 1; min-height: 0; }
 .grid { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -236,6 +241,8 @@ button.danger:hover { background: #991b1b; border-color: #991b1b; }
 .sheet .summary .op.delete { color: #b91c1c; }
 .sheet .summary .op.insert { color: #0f9d63; }
 .sheet .summary .say, .sheet .summary .total, .sheet .split { color: #5c6579; }
+.sheet .modes button.mode.on { background: #2563eb1f; border-color: #2563eb; }
+.sheet .modes .hint { color: #5c6579; }
 .sheet .summary .line.skip .say { color: #a35a06; }
 .sheet .note { color: #a35a06; }
 .grid th { color: #5c6579; border-color: #d7dbe5; }
@@ -622,7 +629,8 @@ export function mountPanel(handlers = {}, { theme = '' } = {}) {
     const card = modal.querySelector('.sheet');
     card.querySelector('h2').textContent = title;
     const noteEl = modal.querySelector('.note');
-    if (note) noteEl.textContent = note; else noteEl.remove();
+    noteEl.textContent = note || '';
+    noteEl.hidden = !note;
     modal.querySelector('.foot').append(...buttons(close));
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
     const headingId = `frp-sheet-${Math.random().toString(36).slice(2, 8)}`;
@@ -648,7 +656,7 @@ export function mountPanel(handlers = {}, { theme = '' } = {}) {
 
     const returnTo = document.activeElement;
     card.focus();
-    const view = { modal, card, body: modal.querySelector('.body'), close, focus: () => card.focus() };
+    const view = { modal, card, body: modal.querySelector('.body'), note: noteEl, close, focus: () => card.focus() };
     openSheet = view;
 
     function close() {
@@ -680,47 +688,94 @@ export function mountPanel(handlers = {}, { theme = '' } = {}) {
    * run, but nobody decides by reading forty quoted UPDATEs. `cancelLabel` lets
    * the caller say what walking away *does*: on the drift question, cancelling is
    * not "nothing happens", it is "skip those rows and roll the rest back".
+   *
+   * `modes` offers the same run two ways — step by step, or folded per row —
+   * as `{ value, label, options: [{ id, label, hint, sql, summary, note,
+   * confirmLabel }] }`. A row of buttons above the summary switches between them
+   * in place, SQL and all, so what is confirmed is what is on screen; the promise
+   * then resolves to that option's id instead of `true`.
    */
   function preview({ title, sql, note, confirmLabel, cancelLabel, confirmKind = 'primary', summary, table,
-    copyButton = true }) {
+    copyButton = true, modes = null }) {
     if (busy()) return Promise.resolve(false);
+    const options = modes && modes.options && modes.options.length ? modes.options : null;
+    let current = options
+      ? (options.find((o) => o.id === modes.value) || options[0])
+      : { sql, note, confirmLabel, summary };
     return new Promise((resolve) => {
       let answered = false;
       const done = (value) => { answered = true; resolve(value); };
+      let confirmBtn = null;
       const view = sheet({
         title,
-        note,
+        note: current.note,
         onDismiss: () => { if (!answered) resolve(false); },
-        buttons: (close) => [
-          copyButton && button(t('rollback.copy'), async () => {
-            try {
-              await navigator.clipboard.writeText(sql);
-              notice(t('rollback.copied'), 'ok');
-            } catch {
-              // Clipboard can be refused without a user gesture chain; the text is
-              // on screen and selectable, so this is a nicety, not a failure.
-            }
-          }, '', 'copy'),
-          button(cancelLabel || t('rollback.cancel'), () => { done(false); close(); }, '', 'cancel'),
-          button(confirmLabel, () => { done(true); close(); }, confirmKind, 'confirm'),
-        ].filter(Boolean),
+        buttons: (close) => {
+          confirmBtn = button(current.confirmLabel, () => { done(options ? current.id : true); close(); },
+            confirmKind, 'confirm');
+          return [
+            copyButton && button(t('rollback.copy'), async () => {
+              try {
+                await navigator.clipboard.writeText(current.sql);
+                notice(t('rollback.copied'), 'ok');
+              } catch {
+                // Clipboard can be refused without a user gesture chain; the text is
+                // on screen and selectable, so this is a nicety, not a failure.
+              }
+            }, '', 'copy'),
+            button(cancelLabel || t('rollback.cancel'), () => { done(false); close(); }, '', 'cancel'),
+            confirmBtn,
+          ].filter(Boolean);
+        },
       });
 
       // A table, when the content is rows of values — the drift question — rather
       // than statements: "column / recorded / now" side by side is read at a
       // glance, the same facts run together in a code block are not.
       const pre = table ? gridTable(table) : document.createElement('pre');
-      if (!table) pre.textContent = sql;
-      if (summary && summary.length) {
-        view.body.replaceWith(summaryBlock(summary));
-        const label = document.createElement('div');
-        label.className = 'split';
-        label.textContent = table ? (table.heading || '') : t('rollback.sqlHeading');
-        view.card.querySelector('.summary').after(label);
-        label.after(pre);
-      } else {
-        view.body.replaceWith(pre);
+      const label = document.createElement('div');
+      label.className = 'split';
+      label.textContent = table ? (table.heading || '') : t('rollback.sqlHeading');
+      let sumEl = document.createElement('div');
+      const bar = options ? modeBar() : null;
+      view.body.replaceWith(...[bar, sumEl, label, pre].filter(Boolean));
+
+      function modeBar() {
+        const box = document.createElement('div');
+        box.className = 'modes';
+        box.setAttribute('role', 'group');
+        if (modes.label) box.setAttribute('aria-label', modes.label);
+        for (const option of options) {
+          const b = button(option.label, () => { current = option; paint(); }, 'mode', `mode-${option.id}`);
+          b.dataset.mode = String(option.id);
+          box.append(b);
+        }
+        const hint = document.createElement('span');
+        hint.className = 'hint';
+        box.append(hint);
+        return box;
       }
+
+      function paint() {
+        if (!table) pre.textContent = current.sql;
+        const lines = current.summary || [];
+        const next = lines.length ? summaryBlock(lines) : document.createElement('div');
+        next.hidden = !lines.length;
+        sumEl.replaceWith(next);
+        sumEl = next;
+        label.hidden = !lines.length;
+        view.note.textContent = current.note || '';
+        view.note.hidden = !current.note;
+        confirmBtn.textContent = current.confirmLabel;
+        if (!bar) return;
+        for (const b of bar.querySelectorAll('button.mode')) {
+          const on = b.dataset.mode === String(current.id);
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+        bar.querySelector('.hint').textContent = current.hint || '';
+      }
+      paint();
     });
   }
 

@@ -39,6 +39,9 @@ checks that:
    change, before it runs;
 4. rolling the session back restores every value exactly — including a NULL that
    was replaced by text, and an empty string that must not come back as NULL;
+   A value edited twice (A → B → C) is then rolled back *folded* — one statement
+   per row, straight from C to A — and re-applied folded, straight from A to C,
+   with the preview opening on the mode it was last answered with;
 5. deleting a row records enough to re-insert it;
 6. a row changed by someone else in the meantime is reported as drift and left
    alone, while the rest of the session still rolls back;

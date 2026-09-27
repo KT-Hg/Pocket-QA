@@ -24,11 +24,17 @@
  * call it a conflict, when in fact the very next statement of this rollback puts
  * it back. By the time the earlier change's turn comes, the later one has already
  * been undone and there is nothing to report.
+ *
+ * `opts.compact` runs the folded plan from compact.js instead: one statement per
+ * row rather than one per change, so A → B → C is put back as C → A. The same
+ * rules hold — a row checked right before its own statement, a stop at the first
+ * failure — at the grain of a row instead of a change.
  */
 
 import {
   blockingReason, redoBlockingReason, undoStatements, redoStatements, driftOf, undoWhere,
 } from './undo.js';
+import { compactPlan, unitDrift } from './compact.js';
 import { engineOf, joinStatements } from './sqlquote.js';
 import { runSql, readRow } from './executor.js';
 import { updateChange } from './session.js';
@@ -100,6 +106,7 @@ export function runRedo(ctx, session, opts = {}) {
 }
 
 async function runChanges(ctx, session, opts, dir) {
+  if (opts.compact) return runCompacted(ctx, session, opts, dir);
   const redo = dir === 'redo';
   const onProgress = opts.onProgress || noop;
   const engine = ctx.engine || engineOf(session.conn && session.conn.driver);
@@ -187,4 +194,148 @@ async function runChanges(ctx, session, opts, dir) {
   }
 
   return report;
+}
+
+/**
+ * The folded run: each unit of the plan in order — one row, one statement — read
+ * back right before it runs and sent as its own submission.
+ *
+ * A change counts as undone (or redone) once every row it touched has been dealt
+ * with: its statement ran, or the row turned out to need none. One that was only
+ * partly dealt with — some rows drifted, or the run stopped part way — is marked
+ * partial, as the step-by-step run marks it; the rows it still holds are then
+ * read back again, like any other, before a later run writes to them.
+ */
+async function runCompacted(ctx, session, opts, dir) {
+  const redo = dir === 'redo';
+  const onProgress = opts.onProgress || noop;
+  const engine = ctx.engine || engineOf(session.conn && session.conn.driver);
+  const plan = compactPlan(session, {
+    changeIds: opts.changeIds,
+    includeUndone: opts.includeUndone,
+    includeApplied: opts.includeApplied,
+    dir,
+    engine,
+  });
+
+  const report = {
+    total: plan.changes.length + plan.skipped.length,
+    ok: 0, failed: 0, skipped: 0, statements: [], details: [], plan,
+  };
+  for (const { change, reason } of plan.skipped) {
+    report.skipped++;
+    report.details.push({ change: change.id, skipped: reason });
+  }
+
+  // How many of each change's rows there are, and how many have been dealt with.
+  const tally = new Map();
+  for (const unit of plan.units) {
+    for (const { change } of unit.parts) {
+      const entry = tally.get(change.id) || { change, total: 0, done: 0, drifted: 0, settled: false };
+      entry.total++;
+      tally.set(change.id, entry);
+    }
+  }
+
+  const mark = (change, fully) => {
+    if (opts.dryRun) return null;
+    const at = new Date().toISOString();
+    return updateChange(session.id, change.id, redo
+      ? { undone: false, redoneAt: at, partialRedo: !fully }
+      : { undone: fully, undoneAt: at, partialUndo: !fully });
+  };
+
+  const settle = async (unit, how) => {
+    for (const { change } of unit.parts) {
+      const entry = tally.get(change.id);
+      entry[how]++;
+      if (entry.settled || entry.done + entry.drifted < entry.total) continue;
+      entry.settled = true;
+      if (!entry.done) {
+        report.skipped++;
+        report.details.push({ change: change.id, skipped: 'all-rows-drifted' });
+        continue;
+      }
+      report.ok++;
+      report.details.push({ change: change.id, ok: true, partial: Boolean(entry.drifted) });
+      await mark(change, !entry.drifted);
+    }
+  };
+
+  const n = plan.units.length;
+  for (let i = 0; i < n; i++) {
+    const unit = plan.units[i];
+    const lead = unit.parts[0].change;
+
+    // A row that ended where it started has nothing to send and nothing to check.
+    if (opts.dryRun || !unit.statements.length) {
+      report.statements.push(...unit.statements);
+      await settle(unit, 'done');
+      continue;
+    }
+
+    if (opts.driftCheck) {
+      onProgress({ phase: 'drift', i: i + 1, n, change: lead });
+      const drifted = await unitDriftNow(ctx, unit, dir);
+      if (drifted.length) {
+        const answer = opts.force
+          ? 'force'
+          : (opts.onDrift ? await opts.onDrift(unit.check || { ...lead, table: unit.table }, drifted) : 'skip');
+        report.details.push({ change: lead.id, drifted: drifted.length, answer });
+        if (answer !== 'force') {
+          await settle(unit, 'drifted');
+          continue;
+        }
+      }
+    }
+
+    report.statements.push(...unit.statements);
+    onProgress({ phase: 'run', i: i + 1, n, change: lead });
+    let result;
+    try {
+      result = await runSql(ctx, joinStatements(unit.statements));
+    } catch (err) {
+      result = { ok: false, errors: [String(err && err.message || err)] };
+    }
+    if (result.ok) {
+      await settle(unit, 'done');
+      continue;
+    }
+
+    const failed = new Set(unit.parts.map((p) => p.change.id));
+    for (const id of failed) {
+      tally.get(id).settled = true;
+      report.failed++;
+      report.details.push({ change: id, ok: false, errors: result.errors });
+    }
+    break;
+  }
+
+  // Stopped part way: what did go through is recorded as partial, never as done.
+  for (const entry of tally.values()) {
+    if (!entry.done || (entry.settled && entry.done + entry.drifted === entry.total)) continue;
+    if (!report.details.some((d) => d.change === entry.change.id && d.ok === false)) {
+      report.ok++;
+      report.details.push({ change: entry.change.id, ok: true, partial: true });
+    }
+    await mark(entry.change, false);
+  }
+
+  return report;
+}
+
+/** The drift check for one unit of a folded run, in the shape `checkDrift` reports. */
+async function unitDriftNow(ctx, unit, dir) {
+  if (unit.check) return checkDrift(ctx, unit.check, dir);
+  if (!unit.expect) return [];
+  const { where } = unit.expect;
+  let current = null;
+  try {
+    const read = await readRow(ctx, unit.table, where);
+    current = read.ok ? read.values : null;
+  } catch (err) {
+    return [{ row: { where }, error: String(err && err.message || err), diffs: [] }];
+  }
+  const drift = unitDrift(unit, current);
+  return drift ? [{ row: { where }, ...drift }] : [];
 }

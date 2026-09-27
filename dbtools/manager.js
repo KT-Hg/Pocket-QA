@@ -14,6 +14,7 @@
 
 import * as store from './session.js';
 import { sessionUndoScript, blockingReason, redoBlockingReason, columnsToRestore } from './undo.js';
+import { compactUndoScript } from './compact.js';
 import { backupRestoreSql } from './snapshot.js';
 import { joinStatements, engineOf } from './sqlquote.js';
 import { connLabel, buildUrl } from './params.js';
@@ -68,6 +69,9 @@ async function init() {
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.dbtoolsSessions) reload().then(() => render());
+    // An Adminer tab remembers the preview's last choice in the settings; without
+    // this, saving the settings dialog here would write the stale one back.
+    if (area === 'local' && changes.dbtoolsSettings) store.getSettings().then((next) => { settings = next; });
   });
 }
 
@@ -751,7 +755,9 @@ async function redoSelected() {
 function exportSql() {
   const session = sessions[currentId];
   if (!session) return;
-  const statements = sessionUndoScript(session, {});
+  // Folded per row when that is how rollbacks are run (the preview's last choice,
+  // or the setting): the file is then the same statements the preview shows.
+  const statements = settings.compactRun ? compactUndoScript(session) : sessionUndoScript(session, {});
   if (!statements.length) return toast(t('rollback.nothing'));
   const header = `-- ${session.name}\n-- ${connLabel(session.conn)}\n-- ${new Date().toISOString()}\n\n`;
   download(`${slug(session.name)}-undo.sql`, header + joinStatements(statements), 'text/plain');
@@ -878,6 +884,7 @@ async function openSettings() {
   el('setEnabled').checked = settings.enabled;
   el('setAutoExecute').checked = settings.autoExecute;
   el('setDrift').checked = settings.driftCheck;
+  el('setCompact').checked = Boolean(settings.compactRun);
   el('setSqlPage').checked = settings.captureSqlPage;
   el('setLimit').value = settings.prefetchLimit;
   el('setSnapLimit').value = settings.snapshotLimit;
@@ -929,6 +936,7 @@ async function openSettings() {
       enabled: el('setEnabled').checked,
       autoExecute: el('setAutoExecute').checked,
       driftCheck: el('setDrift').checked,
+      compactRun: el('setCompact').checked,
       captureSqlPage: el('setSqlPage').checked,
       prefetchLimit: Math.max(1, Number(el('setLimit').value) || 200),
       snapshotLimit: Math.max(1, Number(el('setSnapLimit').value) || 5000),

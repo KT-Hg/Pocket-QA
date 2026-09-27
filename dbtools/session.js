@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS = {
   enabled: true,          // master switch for the whole Adminer integration
   autoExecute: true,      // allow the panel to run rollback SQL itself (phase 2)
   driftCheck: true,       // read each row back before undoing it
+  compactRun: false,      // preview opens on the folded run (compact.js); the last choice made there
   captureSqlPage: true,   // prefetch rows before a hand-written UPDATE/DELETE
   prefetchLimit: 200,     // refuse to snapshot more rows than this in one statement
   snapshotLimit: 5000,    // largest table a whole-table snapshot will copy

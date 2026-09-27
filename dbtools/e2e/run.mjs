@@ -198,6 +198,52 @@ try {
   check('the hand-written bulk update is left out rather than guessed at', now[2].value === '0101',
     JSON.stringify(now[2]));
 
+  // 3c. One value edited twice, A → B → C, then rolled back folded: one statement
+  //     per row, straight from C to A, never through B.
+  await page.goto(`${BASE}?${CONN}&edit=m_generic&where%5Bid%5D=3`);
+  await page.waitForSelector('textarea[name="fields[value]"]');
+  await page.fill('textarea[name="fields[value]"]', 'P1');
+  await page.click('input[name="insert"]');
+  await page.waitForTimeout(1200);
+  await page.fill('textarea[name="fields[value]"]', 'P2');
+  await page.click('input[name="insert"]');
+  await page.waitForTimeout(1200);
+  check('the row went A → B → C', rows()[2].value === 'P2', JSON.stringify(rows()[2]));
+
+  const statementsIn = (sql) => (sql.match(/;\s*$/gm) || []).length;
+  await page.click('#frp-dbtools-panel [data-act="rollback"]');
+  await page.waitForSelector('#frp-dbtools-panel .sheet pre');
+  const stepSql = await page.locator('#frp-dbtools-panel .sheet pre').textContent();
+  check('a folded run is offered next to the step-by-step one',
+    (await page.locator('#frp-dbtools-panel .sheet [data-act="mode-compact"]').count()) === 1);
+  await page.click('#frp-dbtools-panel .sheet [data-act="mode-compact"]');
+  const foldSql = await page.locator('#frp-dbtools-panel .sheet pre').textContent();
+  // Rows 1 and 3 were each edited twice, row 2 once: five statements, three rows.
+  check('folded, it is one statement per row', statementsIn(stepSql) === 5 && statementsIn(foldSql) === 3,
+    `${statementsIn(stepSql)} → ${statementsIn(foldSql)}`);
+  check('and it goes straight from C back to A', foldSql.includes("'0101'") && !foldSql.includes('P1'), foldSql);
+  await page.click('#frp-dbtools-panel .sheet .foot button:last-child');
+  await page.waitForTimeout(3000);
+
+  now = rows();
+  check('the folded rollback puts every row back',
+    now[0].value === '10' && now[0].note === 'thue' && now[1].value === 'VND' && now[1].note === null
+      && now[2].value === '0101', JSON.stringify(now.slice(0, 3)));
+
+  // And forwards: the preview opens on the fold it was last answered with, and
+  // the redo goes straight from A to C.
+  await page.click('#frp-dbtools-panel [data-act="redo"]');
+  await page.waitForSelector('#frp-dbtools-panel .sheet pre');
+  check('the last choice is remembered',
+    (await page.locator('#frp-dbtools-panel .sheet [data-act="mode-compact"][aria-pressed="true"]').count()) === 1);
+  const redoSql = await page.locator('#frp-dbtools-panel .sheet pre').textContent();
+  check('a folded redo skips the value in between', redoSql.includes("'P2'") && !redoSql.includes('P1'), redoSql);
+  await page.click('#frp-dbtools-panel .sheet .foot button:last-child');
+  await page.waitForTimeout(3000);
+  now = rows();
+  check('the folded redo applies the test values again',
+    now[0].value === 'T2' && now[1].value === 'XXX' && now[2].value === 'P2', JSON.stringify(now.slice(0, 3)));
+
   /* ── Delete, drift, and the manager page ───────────────────────────────── */
 
   console.log('\nDelete, drift and the manager page');

@@ -41,7 +41,7 @@ import {
   backupName, backupCreateSql, backupRestoreSql, backupDropSql,
 } from './snapshot.js';
 import { mountPanel } from './panel.js';
-import { summaryLines, defaultSessionName } from './summary.js';
+import { summaryLines, compactSummaryLines, defaultSessionName } from './summary.js';
 import { t, setLang } from './i18n.js';
 import { TABLE_COPIES } from './features.js';
 
@@ -1243,6 +1243,51 @@ async function keyColsFor(table) {
 
 /* === Rollback ════════════════════════════════════════════════════════════ */
 
+/** A dry run of the folded plan (compact.js), with the same options as the step-by-step one. */
+function foldedDry(dir, session, opts) {
+  const run = dir === 'redo' ? runRedo : runRollback;
+  return run(state.ctx, session, { ...opts, dryRun: true, compact: true });
+}
+
+/**
+ * The run offered two ways in the preview: step by step, as recorded, or folded
+ * per row so that A → B → C goes straight back to A. `stepView` is what the
+ * preview shows for the step-by-step run; `step` and `folded` are the dry runs of
+ * each. Null when folding would not make the run any shorter: then there is
+ * nothing to choose between, and the preview is the plain one it always was.
+ *
+ * The preview opens on whichever was chosen last (`settings.compactRun`).
+ */
+function runModes(dir, stepView, step, folded, { extra = [], confirm = null } = {}) {
+  if (!folded || folded.statements.length >= step.statements.length) return null;
+  const n = folded.statements.length;
+  return {
+    value: state.settings.compactRun ? 'compact' : 'step',
+    label: t('compact.modes'),
+    options: [
+      { ...stepView, id: 'step', label: t('compact.step', { n: step.statements.length }), hint: t('compact.stepHint') },
+      {
+        id: 'compact',
+        label: t('compact.fold', { n }),
+        hint: t(dir === 'redo' ? 'compact.foldHintRedo' : 'compact.foldHint'),
+        sql: n ? joinStatements(folded.statements) : `-- ${t('compact.nothingToRun')}`,
+        summary: [...compactSummaryLines(folded.plan, { statements: n }), ...extra],
+        note: stepView.note,
+        // Every row back where it started: nothing is sent, and confirming only
+        // records that the changes are undone.
+        confirmLabel: confirm ? confirm(n) : (n ? t('rollback.confirm', { n }) : t('compact.markDone')),
+      },
+    ],
+  };
+}
+
+/** Keep the way the preview was answered as the way the next one opens. */
+async function rememberMode(answer) {
+  const compact = answer === 'compact';
+  if (Boolean(state.settings.compactRun) === compact) return;
+  state.settings = await store.setSettings({ compactRun: compact });
+}
+
 async function exportSql() {
   const session = state.session || (await refresh());
   if (!session) return;
@@ -1251,17 +1296,25 @@ async function exportSql() {
     state.panel.notice(t('rollback.nothing'), 'warn');
     return;
   }
-  const sql = joinStatements(dry.statements);
+  const stepView = {
+    sql: joinStatements(dry.statements),
+    note: dry.skipped ? t('rollback.blocked', { n: dry.skipped }) : '',
+    confirmLabel: t('rollback.copyGo'),
+  };
+  const modes = runModes('undo', stepView, dry, await foldedDry('undo', session, {}), {
+    confirm: () => t('rollback.copyGo'),
+  });
   // Copying is the whole point of this sheet, so it is the one button that does
   // it — the sheet's own spare "Copy" would sit next to it saying the same.
   const go = await state.panel.preview({
     title: t('rollback.exportTitle'),
-    sql,
-    note: dry.skipped ? t('rollback.blocked', { n: dry.skipped }) : '',
-    confirmLabel: t('rollback.copyGo'),
+    ...stepView,
     copyButton: false,
+    modes,
   });
   if (!go) return;
+  if (modes) await rememberMode(go);
+  const sql = modes ? modes.options.find((o) => o.id === go).sql : stepView.sql;
   try {
     await navigator.clipboard.writeText(sql);
     state.panel.notice(t('rollback.copied'), 'ok');
@@ -1314,8 +1367,7 @@ async function rollback({ sessionId, changeIds, auto = false, includeUndone = fa
       again ? t('rollback.againNote') : '',
       dry.skipped ? t('rollback.blocked', { n: dry.skipped }) : '',
     ].filter(Boolean);
-    const go = auto || await state.panel.preview({
-      title: again ? t('rollback.againTitle') : t('rollback.title'),
+    const stepView = {
       sql: joinStatements(dry.statements),
       summary: summaryLines(session, {
         changeIds,
@@ -1326,17 +1378,32 @@ async function rollback({ sessionId, changeIds, auto = false, includeUndone = fa
       }),
       note: notes.join('\n'),
       confirmLabel: t('rollback.confirm', { n: dry.statements.length }),
+    };
+    // The Playback guard runs unattended and step by step, as it always has:
+    // nobody is there to pick, and folding is a choice made in the preview.
+    const modes = auto ? null : runModes('undo', stepView, dry,
+      await foldedDry('undo', session, { changeIds, includeUndone: again }), {
+        extra: hasSnapshots
+          ? [{ total: true, say: t('rollback.alsoSnapshots', { n: (session.snapshots || []).length }) }]
+          : [],
+      });
+    const go = auto || await state.panel.preview({
+      title: again ? t('rollback.againTitle') : t('rollback.title'),
+      ...stepView,
+      modes,
       // Blue is for "proceed"; this writes over rows that are in the database
       // right now, and the button that does it should look like the one on the
       // panel that opened it.
       confirmKind: 'danger',
     });
     if (!go) return { ...dry, cancelled: true };
+    if (modes) await rememberMode(go);
 
     try {
       Object.assign(report, await runRollback(state.ctx, session, {
         changeIds,
         includeUndone: again,
+        compact: go === 'compact',
         driftCheck: state.settings.driftCheck,
         onDrift: auto ? async () => 'skip' : askAboutDrift,
         // Only the run itself; the drift check reports the same position and would
@@ -1402,8 +1469,7 @@ async function redo({ sessionId, changeIds, includeApplied = false } = {}) {
     again ? t('redo.againNote') : t('redo.note'),
     dry.skipped ? t('redo.blocked', { n: dry.skipped }) : '',
   ].filter(Boolean);
-  const go = await state.panel.preview({
-    title: again ? t('redo.againTitle') : t('redo.title'),
+  const stepView = {
     sql: joinStatements(dry.statements),
     summary: summaryLines(session, {
       dir: 'redo',
@@ -1414,14 +1480,23 @@ async function redo({ sessionId, changeIds, includeApplied = false } = {}) {
     }),
     note: notes.join('\n'),
     confirmLabel: t('rollback.confirm', { n: dry.statements.length }),
+  };
+  const modes = runModes('redo', stepView, dry,
+    await foldedDry('redo', session, { changeIds, includeApplied: again }));
+  const go = await state.panel.preview({
+    title: again ? t('redo.againTitle') : t('redo.title'),
+    ...stepView,
+    modes,
     confirmKind: 'danger',
   });
   if (!go) return { ...dry, cancelled: true };
+  if (modes) await rememberMode(go);
 
   try {
     Object.assign(report, await runRedo(state.ctx, session, {
       changeIds,
       includeApplied: again,
+      compact: go === 'compact',
       driftCheck: state.settings.driftCheck,
       onDrift: askAboutDrift,
       onProgress: ({ phase, i, n }) => {
@@ -1823,6 +1898,10 @@ async function askAboutDrift(change, drifted) {
       lines.push(t('rollback.driftMissing', { table: change.table, where }));
       rows.push([where, '—', '', { text: entry.present ? t('rollback.driftBack') : t('rollback.driftGone'),
         cls: entry.present ? 'now' : 'gone' }]);
+    } else if (entry.error) {
+      // The row could not be read back at all: say so rather than show no diff.
+      lines.push(`${change.table} ${where}: ${entry.error}`);
+      rows.push([where, '—', '', { text: entry.error, cls: 'gone' }]);
     } else {
       for (const diff of entry.diffs) {
         lines.push(t('rollback.driftRow', {
