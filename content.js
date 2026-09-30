@@ -463,6 +463,92 @@ document.addEventListener('input', (event) => {
    PLAYBACK
 ───────────────────────────────────────────────────────────────────────────── */
 
+/* ── Read DOM ──────────────────────────────────────────────────────────────────
+ * tests/readdom.test.mjs loads everything between the two marker comments into
+ * a sandbox, so keep this block free of anything else from the file except
+ * findElementWithFallback / findElementByCondition, which the test stubs.
+ * ────────────────────────────────────────────────────────────────────────────── */
+/* <readdom-core> */
+function _rdCollapse(s) {
+  return String(s ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/** Rendered text: innerText (visible only, no <script>/<style>), textContent where unavailable. */
+function _rdInnerText(el) {
+  return typeof el.innerText === 'string' ? el.innerText : (el.textContent ?? '');
+}
+
+/**
+ * The value a Read DOM step stores.
+ *   text     textContent, trimmed — the original behaviour, kept as is
+ *   visible  what the user sees: innerText with whitespace collapsed; the chosen
+ *            option's text for <select>, the typed value for input/textarea
+ *   value    form value; selected options joined by ", " for <select multiple>;
+ *            innerText for contenteditable; other elements try .value, then text
+ *   attr     getAttribute(attrName), '' when absent
+ */
+function readElementValue(el, readFrom, attrName) {
+  const tag = String(el.tagName || '').toUpperCase();
+  const isField = tag === 'INPUT' || tag === 'TEXTAREA';
+
+  if (readFrom === 'attr') return el.getAttribute(attrName) ?? '';
+
+  if (readFrom === 'value') {
+    if (tag === 'SELECT' && el.multiple) {
+      return Array.from(el.selectedOptions || []).map(o => o.value).join(', ');
+    }
+    if (isField || tag === 'SELECT') return el.value ?? '';
+    if (el.isContentEditable) return _rdInnerText(el).trim();
+    const v = el.value;
+    if (typeof v === 'string' && v !== '') return v;
+    if (typeof v === 'number' && tag !== 'LI') return String(v);
+    const text = _rdInnerText(el).trim();
+    if (text) return text;
+    console.warn('[CONTENT] Read DOM: element has no value or text — stored an empty string', el);
+    return '';
+  }
+
+  if (readFrom === 'visible') {
+    if (tag === 'SELECT') {
+      return Array.from(el.selectedOptions || []).map(o => _rdCollapse(o.text)).join(', ');
+    }
+    if (isField) return el.value ?? '';
+    return _rdCollapse(_rdInnerText(el));
+  }
+
+  return el.textContent?.trim() ?? '';
+}
+
+/** Run one Read DOM action: { value } on success, { failed, error } otherwise. */
+async function readDomAction(action) {
+  const timeout = (action.timeout && action.timeout > 0) ? action.timeout : 5000;
+  const sels = (action.selectors && typeof action.selectors === 'object')
+    ? action.selectors
+    : (action.selector ? { css: action.selector } : null);
+  const hasSel = !!sels && Object.values(sels).some(v => typeof v === 'string' && v.trim());
+  // Actions saved before the form checked these could still lack them.
+  if (!hasSel) return { failed: true, error: 'Read DOM: missing selector' };
+  if (action.readFrom === 'attr' && !String(action.attrName || '').trim()) {
+    return { failed: true, error: 'Read DOM: missing attribute name' };
+  }
+
+  const resolvedFallbacks = {};
+  try {
+    let el = await findElementWithFallback(sels, timeout);
+    if (!el) return { failed: true, error: 'Read DOM: element not found' };
+    if (action.conditions) {
+      const found = findElementByCondition(el, action.conditions);
+      Object.assign(resolvedFallbacks, found.resolvedFallbacks);
+      el = found.el;
+      if (!el) return { failed: true, error: 'Read DOM: no child element matches the condition', resolvedFallbacks };
+    }
+    return { value: readElementValue(el, action.readFrom, action.attrName), resolvedFallbacks };
+  } catch (e) {
+    return { failed: true, error: e?.message || 'Read DOM: element not found', resolvedFallbacks };
+  }
+}
+/* </readdom-core> */
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== 'PLAY_ACTION') return;
 
@@ -477,22 +563,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     /* ── readdom ── */
     if (action.type === 'readdom') {
-      const actionTimeout = (action.timeout && action.timeout > 0) ? action.timeout : 5000;
-      try {
-        let el;
-        if (action.selectors && typeof action.selectors === 'object') {
-          el = await findElementWithFallback(action.selectors, actionTimeout);
-        } else if (action.selector) {
-          el = await findElementWithFallback({ css: action.selector }, actionTimeout);
-        }
-        if (!el) { sendResponse({ failed: true }); return; }
-        const value = action.readFrom === 'value' ? (el.value ?? '')
-                    : action.readFrom === 'attr'  ? (el.getAttribute(action.attrName || '') ?? '')
-                    : (el.textContent?.trim() ?? '');
-        _ok({ value });
-      } catch (_) {
-        sendResponse({ failed: true });
-      }
+      sendResponse(await readDomAction(action));
       return;
     }
 
@@ -1073,8 +1144,8 @@ document.addEventListener('click', (event) => {
     height: Math.round(_cr.height),
   };
 
-  try { chrome.storage.local.set({ lastPickedSelector: selectors.css, lastPickedSelectors: selectors }); } catch (_) {}
-  safeSend({ type: 'ELEMENT_PICKED', selector: selectors.css, selectors, rect: pickedRect });
+  try { chrome.storage.local.set({ lastPickedSelector: selectors.css, lastPickedSelectors: selectors, lastPickedFrameId: _myFrameId }); } catch (_) {}
+  safeSend({ type: 'ELEMENT_PICKED', selector: selectors.css, selectors, rect: pickedRect, frameId: _myFrameId });
   pickerMode = false;
   clearPickerUI();
 }, true);

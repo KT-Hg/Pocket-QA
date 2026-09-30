@@ -193,6 +193,7 @@
           <input id="manualSelector" class="flex-1" placeholder="Selector (e.g., #btn, .class, //div)" />
           <button id="pickElement" class="secondary w-auto" aria-label="Pick element on page" title="Pick element"><span aria-hidden="true">🎯</span></button>
         </div>
+        <span id="pickedFrameNote" class="helper-text sw-frame-note" style="display:none;"></span>
         <div id="pickedSelectorsWrap" class="hidden-by-default">
           <div id="pickedSelectorsInfo"></div>
           <button id="clearPickedSelectorsBtn" class="secondary w-auto" title="Clear picked selector">✕ Clear</button>
@@ -204,12 +205,14 @@
         <div class="step-label" id="readdomStepLabel">Read DOM Settings</div>
         <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
           <label style="font-size:12px; color:var(--muted); white-space:nowrap;">Save to var</label>
-          <input id="readdomVarName" placeholder="${varName}" style="flex:1; margin:0;" />
+          <input id="readdomVarName" placeholder="varName" style="flex:1; margin:0;" />
         </div>
+        <span class="helper-text" style="display:block; margin:-2px 0 6px;">Then use it as <code>${varName}</code> in later steps.</span>
         <div style="display:flex; gap:6px; align-items:center;">
           <label style="font-size:12px; color:var(--muted); white-space:nowrap;">Read from</label>
           <select id="readdomReadFrom" style="flex:1; margin:0;">
             <option value="text">Text content</option>
+            <option value="visible">Visible text</option>
             <option value="value">Input value</option>
             <option value="attr">Attribute</option>
           </select>
@@ -317,9 +320,21 @@
           <input id="switchCaseValue" placeholder="Case value  (e.g. admin)" style="flex:1; margin:0; font-size:12px;" />
           <select id="switchCaseScenario" style="flex:1.5; margin:0; font-size:12px;"></select>
           <input id="switchCaseStart" class="sw-start-input" type="number" min="1" placeholder="#1" title="Start at action # (1 = first)" />
+          <input id="switchCaseEnd" class="sw-start-input" type="number" min="1" placeholder="…#" title="Last action to play (empty = to the end)" />
           <button id="switchAddCase" class="secondary" style="width:auto; flex:0 0 auto; margin:0; padding:4px 8px; font-size:12px;">+ Add</button>
         </div>
-        <span class="helper-text">Leave case value empty to set as <strong>default</strong>. Cases are checked top-to-bottom; first match wins. <strong>#</strong> = action number to start from (default 1). <strong>↻ This scenario</strong> jumps to that action in the scenario being played instead of running another one.</span>
+        <div id="switchCaseRangeRow" class="sw-range-row" style="display:none;">
+          <label for="switchCaseFrom">From</label>
+          <select id="switchCaseFrom"></select>
+          <label for="switchCaseTo">to</label>
+          <select id="switchCaseTo"></select>
+        </div>
+        <div id="switchContinueRow" class="sw-range-row" style="display:none;">
+          <label for="switchContinueAt">Continue at</label>
+          <select id="switchContinueAt"></select>
+        </div>
+        <div id="switchValidation" class="sw-validation" style="display:none;"></div>
+        <span class="helper-text">Leave case value empty to set as <strong>default</strong>. Cases are checked top-to-bottom; first match wins. <strong>↻ This scenario</strong>: pick <strong>From</strong> / <strong>to</strong> to give the case its own block of actions — only the matching case's actions run, then playback continues after the block. <strong>To the end</strong> keeps the old jump. For another scenario, <strong>#</strong> / <strong>…#</strong> = first / last action to play (empty = 1 / to the end). Put the Switch above the actions it should own (drag it there), then pick their range.</span>
       </div>
 
       <!-- CHILD CONDITION (optional collapsible) — shown for click/input/hover -->
@@ -402,6 +417,7 @@
             <option value="3000">3s</option>
             <option value="5000">5s</option>
             <option value="10000">10s</option>
+            <option value="">No delay</option>
             <option value="custom">Custom…</option>
           </select>
           <input id="manualDelay" type="number" min="0" placeholder="ms"

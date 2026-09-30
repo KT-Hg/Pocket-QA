@@ -1,4 +1,6 @@
 import { showToast, lockScroll, unlockScroll, trapFocus, escHtml, getUsedVarNames } from './utils.js';
+import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget } from '../bg/switch-blocks.js';
+import { normalizeVarName } from '../bg/var-name.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -60,7 +62,7 @@ export function previewRandom(type, length) {
 // `sleep` would shadow a helper and one called `class` is a SyntaxError — those
 // get a `_v` suffix instead.
 const _RESERVED_JS = new Set([
-  'sleep', 'getEl', 'setInput', '_qsel', '_findChild', 'err', 'res', 'rej', 'obs',
+  'sleep', 'getEl', 'setInput', '_qsel', '_findChild', '_readVal', 'err', 'res', 'rej', 'obs',
   'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete',
   'do', 'else', 'enum', 'export', 'extends', 'false', 'finally', 'for', 'function', 'if',
   'import', 'in', 'instanceof', 'new', 'null', 'return', 'super', 'switch', 'this', 'throw',
@@ -173,7 +175,7 @@ function _conditionsToJS(cond) {
 // Generates the "if (condExpr) {" header for a condition action
 function condHeader(action, stepNum) {
   const sel = getBestSel(action);
-  const s = JSON.stringify(sel);
+  const s = valueToJS(sel);
   const exp = valueToJS(action.expectedValue);
   const lbl = action.label ? ` — ${action.label}` : '';
 
@@ -215,11 +217,11 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
     case 'click':
       out.push(`// Step ${stepNum}: click${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${JSON.stringify(sel)}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${valueToJS(sel)}, ${elTimeout});`);
         out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${JSON.stringify(sel)}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       }
       out.push(`${v}.click();`);
       if (delay > 0) out.push(`await sleep(${delay});`);
@@ -228,11 +230,11 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
     case 'input':
       out.push(`// Step ${stepNum}: input${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${JSON.stringify(sel)}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${valueToJS(sel)}, ${elTimeout});`);
         out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${JSON.stringify(sel)}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       }
       out.push(`setInput(${v}, ${valueToJS(action.value)});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
@@ -241,11 +243,11 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
     case 'hover':
       out.push(`// Step ${stepNum}: hover${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${JSON.stringify(sel)}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${valueToJS(sel)}, ${elTimeout});`);
         out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${JSON.stringify(sel)}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       }
       out.push(`${v}.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));`);
       out.push(`${v}.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));`);
@@ -254,7 +256,7 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
 
     case 'dropdown':
       out.push(`// Step ${stepNum}: open dropdown (freeze)${lbl}`);
-      out.push(`const ${v} = await getEl(${JSON.stringify(sel)}, ${elTimeout});`);
+      out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       out.push(`${v}.click();`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
@@ -262,8 +264,8 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
     case 'dragdrop': {
       const tgt = action.targetSelectors?.css || action.targetSelector || '';
       out.push(`// Step ${stepNum}: dragdrop${lbl}`);
-      out.push(`const ${v}_s = await getEl(${JSON.stringify(sel)}, ${elTimeout});`);
-      out.push(`const ${v}_t = await getEl(${JSON.stringify(tgt)}, ${elTimeout});`);
+      out.push(`const ${v}_s = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+      out.push(`const ${v}_t = await getEl(${valueToJS(tgt)}, ${elTimeout});`);
       out.push(`const _sr${stepNum} = ${v}_s.getBoundingClientRect(), _tr${stepNum} = ${v}_t.getBoundingClientRect();`);
       out.push(`${v}_s.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, clientX:_sr${stepNum}.x+_sr${stepNum}.width/2, clientY:_sr${stepNum}.y+_sr${stepNum}.height/2 }));`);
       out.push(`await sleep(50);`);
@@ -312,12 +314,17 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
     }
 
     case 'readdom': {
-      const varName = _sanitizeVarName((action.varName || 'domVar').replace(/^\$\{|\}$/g, ''));
+      const varName = _sanitizeVarName(normalizeVarName(action.varName) || 'domVar');
       out.push(`// Step ${stepNum}: readdom → "${varName}"${lbl}`);
-      out.push(`const ${v} = await getEl(${JSON.stringify(sel)}, ${elTimeout});`);
-      if (action.readFrom === 'value')        out.push(`${varName} = ${v}.value || '';`);
-      else if (action.readFrom === 'attr')    out.push(`${varName} = ${v}.getAttribute(${JSON.stringify(action.attrName || '')}) || '';`);
-      else                                    out.push(`${varName} = ${v}.textContent.trim();`);
+      if (action.conditions) {
+        out.push(`const ${v}_p = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
+        out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
+      } else {
+        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+      }
+      // _readVal mirrors what the extension reads for each "Read from" choice.
+      out.push(`${varName} = _readVal(${v}, ${JSON.stringify(action.readFrom || 'text')}, ${valueToJS(action.attrName || '')});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
     }
@@ -337,6 +344,18 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx) {
 
   while (i < actions.length) {
     const action = actions[i];
+    const abs    = baseIdx + i;
+
+    // A Switch block only ever runs one of its cases, which a bookmarklet
+    // cannot choose — emitting the block would run every case in a row.
+    if (ctx.all && hasBlock(ctx.all[abs])) {
+      const end = blockEnd(ctx.all, abs);
+      out.push(`// Step ${abs + 1}: [SKIPPED] switch block — steps ${abs + 2}–${end + 1} not exported (requires Chrome Extension API)`);
+      out.push('');
+      ctx.warnings.add(`Switch block at step ${abs + 1} skipped together with its ${end - abs} action(s)`);
+      i = end - baseIdx + 1;
+      continue;
+    }
 
     if (action.disabled) {
       i++;
@@ -348,12 +367,14 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx) {
     if (action.type === 'condition') {
       const skipCount = Math.max(1, action.skipCount || 1);
       out.push(...condHeader(action, stepNum));
-      const body = actions.slice(i + 1, i + 1 + skipCount);
+      // Same span playback skips: a Switch and its block count as one action.
+      const bodyEnd = ctx.all ? conditionSkipTarget(ctx.all, abs, skipCount, ctx.layout) - baseIdx : i + 1 + skipCount;
+      const body = actions.slice(i + 1, bodyEnd);
       const bodyLines = processActions(body, baseIdx + i + 1, stepDelay, elTimeout, ctx);
       out.push(...indentLines(bodyLines, '  '));
       out.push('}');
       out.push('');
-      i += 1 + skipCount;
+      i = Math.max(i + 1, bodyEnd);
     } else {
       out.push(...actionLines(action, stepNum, stepDelay, elTimeout, ctx));
       out.push('');
@@ -396,9 +417,8 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   // itself is skipped: without a declaration a later `${shot}` is a ReferenceError
   // that takes down the whole run.
   for (const a of enabled) {
-    if ((a.type === 'readdom' || a.type === 'screenshot_tovar') && a.varName) {
-      writtenVars.add(_sanitizeVarName(String(a.varName).replace(/^\$\{|\}$/g, '')));
-    }
+    const vn = (a.type === 'readdom' || a.type === 'screenshot_tovar') ? normalizeVarName(a.varName) : null;
+    if (vn) writtenVars.add(_sanitizeVarName(vn));
   }
 
   // Two different variable names can sanitize to the same identifier
@@ -424,14 +444,18 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     }
   }
 
-  const ctx = { staticVars, warnings };
+  const all    = actions || [];
+  const layout = getSwitchLayout(all);
+  const ctx = { staticVars, warnings, all, layout };
 
+  // A Switch block is skipped with everything in it (see processActions).
   let skipped = 0, supported = 0, hasNavigate = false;
-  for (const a of enabled) {
-    if (SKIPPED_TYPES.has(a.type)) skipped++;
+  all.forEach((a, j) => {
+    if (!a || a.disabled) return;
+    if (SKIPPED_TYPES.has(a.type) || layout[j]?.chain?.length) skipped++;
     else supported++;
     if (a.type === 'navigate') hasNavigate = true;
-  }
+  });
 
   const out = [];
 
@@ -502,6 +526,29 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push("    }");
   out.push('    return _tryFind(cond);');
   out.push('  };');
+  if (enabled.some(a => a.type === 'readdom')) {
+    out.push('');
+  out.push('  const _readVal = (el, from, attr) => {');
+  out.push('    const tag = String(el.tagName || \'\').toUpperCase(), fld = tag === \'INPUT\' || tag === \'TEXTAREA\';');
+  out.push('    const txt = () => (typeof el.innerText === \'string\' ? el.innerText : (el.textContent || \'\'));');
+  out.push('    const ws = (s) => String(s == null ? \'\' : s).replace(/\\s+/g, \' \').trim();');
+  out.push('    if (from === \'attr\') return el.getAttribute(attr) ?? \'\';');
+  out.push('    if (from === \'value\') {');
+  out.push('      if (tag === \'SELECT\' && el.multiple) return Array.from(el.selectedOptions).map(o => o.value).join(\', \');');
+  out.push('      if (fld || tag === \'SELECT\') return el.value ?? \'\';');
+  out.push('      if (el.isContentEditable) return txt().trim();');
+  out.push('      if (typeof el.value === \'string\' && el.value !== \'\') return el.value;');
+  out.push('      if (typeof el.value === \'number\' && tag !== \'LI\') return String(el.value);');
+  out.push('      return txt().trim();');
+  out.push('    }');
+  out.push('    if (from === \'visible\') {');
+  out.push('      if (tag === \'SELECT\') return Array.from(el.selectedOptions).map(o => ws(o.text)).join(\', \');');
+  out.push('      if (fld) return el.value ?? \'\';');
+  out.push('      return ws(txt());');
+  out.push('    }');
+  out.push('    return (el.textContent || \'\').trim();');
+  out.push('  };');
+  }
 
   if (Object.keys(randomSpecs).length > 0) {
     out.push('');
@@ -579,9 +626,8 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     ...Object.keys(staticVars), ...Object.keys(randomSpecs), ...Object.keys(pickSpecs),
   ]);
   for (const a of enabled) {
-    if ((a.type === 'readdom' || a.type === 'screenshot_tovar') && a.varName) {
-      knownNames.add(String(a.varName).replace(/^\$\{|\}$/g, ''));
-    }
+    const vn = (a.type === 'readdom' || a.type === 'screenshot_tovar') ? normalizeVarName(a.varName) : null;
+    if (vn) knownNames.add(vn);
   }
   for (const name of getUsedVarNames(enabled)) {
     if (!knownNames.has(name)) {

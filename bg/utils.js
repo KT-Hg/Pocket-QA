@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { markSessionOpen, markSessionClosed } from './cdp-session.js';
+import { SELECTOR_KEYS } from './var-name.js';
 
 /* ── Badge ─────────────────────────────────────────────────────────────────── */
 
@@ -230,10 +231,26 @@ function _applyVarsToCode(code, vars) {
   });
 }
 
+/** Copy of a `selectors` / `targetSelectors` map with variables applied to every string. */
+function _applyVarsToSelectors(sels, vars) {
+  if (!sels || typeof sels !== 'object') return sels;
+  const out = { ...sels };
+  for (const k of SELECTOR_KEYS) {
+    if (typeof out[k] === 'string') out[k] = applyVars(out[k], vars);
+  }
+  return out;
+}
+
 export function interpolateAction(action, vars) {
   if (!vars || !Object.keys(vars).length) return action;
   const a = { ...action };
   if (a.selector)      a.selector      = applyVars(a.selector, vars);
+  // content.js prefers `selectors` over `selector`, and the form always sets it,
+  // so substituting only `selector` left `#row-${id}` unresolved in practice.
+  if (a.selectors)       a.selectors       = _applyVarsToSelectors(a.selectors, vars);
+  if (a.targetSelector)  a.targetSelector  = applyVars(a.targetSelector, vars);
+  if (a.targetSelectors) a.targetSelectors = _applyVarsToSelectors(a.targetSelectors, vars);
+  if (a.attrName)        a.attrName        = applyVars(a.attrName, vars);
   if (a.value)         a.value         = applyVars(a.value, vars);
   if (a.url)           a.url           = applyVars(a.url, vars);
   // Code is escaped, not plain-substituted — see _applyVarsToCode.

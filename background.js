@@ -19,6 +19,7 @@ import {
   startPlayback, startPlaybackFromCheckpoint, startSequence, startCsvPlayback,
   refuseIfRecording, refuseRecordingIfPlaying,
 } from './bg/playback.js';
+import { remapAfterRemove, remapAfterReorder } from './bg/switch-blocks.js';
 import {
   takeFullPageScreenshot, takeElementScreenshot, compareScreenshots, downloadDataUrl,
   openCropUI, buildScreenshotFilename, getPendingCrop, reportCaptureResult,
@@ -581,18 +582,21 @@ function handleMessage(request, sender, sendResponse) {
     return;
   }
 
+  // Removing or reordering shifts absolute indices, so Switch case ranges,
+  // old-style jump targets and continueAt are rewritten in the same step (see
+  // bg/switch-blocks.js) — the undo snapshot then restores both together.
   if (type === "REMOVE_ACTION") {
     if (request.scenarioId) {
       mutateScenarioActions(request.scenarioId, (a) => {
         if (!_validIndex(request.index, a.length)) throw new Error("index out of range");
-        return a.filter((_, i) => i !== request.index);
+        return remapAfterRemove(a, request.index);
       }).then(() => sendResponse({ success: true }))
         .catch(() => sendResponse({ success: false }));
       return true;
     }
     if (!_validIndex(request.index, state.currentActions.length)) { sendResponse({ success: false }); return; }
     pushUndo("current", [...state.currentActions]);
-    state.currentActions.splice(request.index, 1);
+    state.currentActions = remapAfterRemove(state.currentActions, request.index);
     sendResponse({ success: true });
     return;
   }
@@ -624,17 +628,27 @@ function handleMessage(request, sender, sendResponse) {
       new Set(order).size === len &&
       order.every((i) => _validIndex(i, len));
 
+    // `move` (optional) says which unit was dragged and which case it was
+    // dropped into; without it every action keeps its case.
+    const _move = (len) => {
+      const m = request.move;
+      if (!m || !Array.isArray(m.items) || !m.items.every((i) => _validIndex(i, len))) return null;
+      const t = m.target;
+      if (t && !_validIndex(t.switchIdx, len)) return null;
+      return m;
+    };
+
     if (request.scenarioId) {
       mutateScenarioActions(request.scenarioId, (a) => {
         if (!_isPermutation(request.newOrder, a.length)) throw new Error("invalid reorder");
-        return request.newOrder.map((i) => a[i]);
+        return remapAfterReorder(a, request.newOrder, _move(a.length));
       }).then(() => sendResponse({ success: true }))
         .catch(() => sendResponse({ success: false }));
       return true;
     }
     if (!_isPermutation(request.newOrder, state.currentActions.length)) { sendResponse({ success: false }); return; }
     pushUndo("current", [...state.currentActions]);
-    state.currentActions = request.newOrder.map((i) => state.currentActions[i]);
+    state.currentActions = remapAfterReorder(state.currentActions, request.newOrder, _move(state.currentActions.length));
     sendResponse({ success: true });
     return;
   }
@@ -903,7 +917,7 @@ function handleMessage(request, sender, sendResponse) {
       // Half-finished popup interactions.
       "pendingEdit", "manualFormDraft", "pendingRecordScenarioId",
       "elemShotPickPending", "elemShotPickCrop",
-      "lastPickedSelector", "lastPickedSelectors",
+      "lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId",
       "dragdropTargetPickPending", "dragdropTargetPickState",
       // Update bookkeeping belongs to this install, not to the backup. Importing
       // another machine's grace-period anchors could lock this one out.
@@ -1264,7 +1278,7 @@ function handleMessage(request, sender, sendResponse) {
         return;
       }
       if (flags.elemShotPickPending && request.selector) {
-        chrome.storage.local.remove(["elemShotPickPending", "elemShotPickCrop", "lastPickedSelector", "lastPickedSelectors"]);
+        chrome.storage.local.remove(["elemShotPickPending", "elemShotPickCrop", "lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId"]);
         const crop = !!flags.elemShotPickCrop;
         const tabId = request.tabId || sender.tab?.id;
         if (!tabId) { _elemShotErr("Lost track of the tab — try the capture again"); return; }

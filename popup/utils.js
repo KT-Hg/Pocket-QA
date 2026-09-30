@@ -1,3 +1,4 @@
+import { normalizeVarName, selectorStrings } from '../bg/var-name.js';
 /* === HTML Escape === */
 
 export function escHtml(s) {
@@ -296,12 +297,17 @@ export function getUsedVarNames(actions) {
   for (const action of (actions || [])) {
     if (!action) continue;
     for (const f of FIELDS) scan(action[f]);
+    // selectors.* / targetSelectors.* and attrName get variables substituted at
+    // playback too (bg/utils.js interpolateAction).
+    selectorStrings(action).forEach(scan);
+    scan(action.attrName);
     if (Array.isArray(action.fileNames)) action.fileNames.forEach(scan);
     if (action.conditions && typeof action.conditions === 'object') {
       for (const f of C_FIELDS) scan(action.conditions[f]);
     }
-    if ((action.type === 'readdom' || action.type === 'screenshot_tovar') && action.varName) {
-      used.add(String(action.varName).replace(/^\$\{|\}$/g, ''));
+    if (action.type === 'readdom' || action.type === 'screenshot_tovar') {
+      const vn = normalizeVarName(action.varName);
+      if (vn) used.add(vn);
     }
   }
   return used;

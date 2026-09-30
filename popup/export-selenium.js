@@ -1,4 +1,6 @@
 import { showToast, lockScroll, unlockScroll, trapFocus, escHtml, getUsedVarNames } from './utils.js';
+import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget } from '../bg/switch-blocks.js';
+import { normalizeVarName } from '../bg/var-name.js';
 
 function _activeVal(v) {
   if (typeof v === 'string') return v;
@@ -62,29 +64,30 @@ function getBestTargetSelInfo(action) {
   return { type: action.targetSelectorType || 'css', value: action.targetSelector || '' };
 }
 
-// Returns a Python (By.*, "selector") tuple string
+// Returns a Python (By.*, "selector") tuple string. Selectors can hold
+// ${var} references, so they go through valueToPy() like any other value.
 function selToPy(selInfo) {
   const { type, value } = selInfo;
   switch (type) {
     case 'css':
-      return `By.CSS_SELECTOR, ${JSON.stringify(value)}`;
+      return `By.CSS_SELECTOR, ${valueToPy(value)}`;
     case 'id':
-      return `By.ID, ${JSON.stringify(value)}`;
+      return `By.ID, ${valueToPy(value)}`;
     case 'name':
-      return `By.NAME, ${JSON.stringify(value)}`;
+      return `By.NAME, ${valueToPy(value)}`;
     case 'xpath':
     case 'fullXpath':
-      return `By.XPATH, ${JSON.stringify(value)}`;
+      return `By.XPATH, ${valueToPy(value)}`;
     case 'text': {
       // Build XPath using single-quotes when safe, else use concat()
       if (!value.includes("'")) {
-        return `By.XPATH, ${JSON.stringify(`//*[contains(text(), '${value}')]`)}`;
+        return `By.XPATH, ${valueToPy(`//*[contains(text(), '${value}')]`)}`;
       }
       const parts = value.split("'").map(p => `'${p}'`).join(", \"'\", ");
-      return `By.XPATH, ${JSON.stringify(`//*[contains(text(), concat(${parts}))]`)}`;
+      return `By.XPATH, ${valueToPy(`//*[contains(text(), concat(${parts}))]`)}`;
     }
     default:
-      return `By.CSS_SELECTOR, ${JSON.stringify(value)}`;
+      return `By.CSS_SELECTOR, ${valueToPy(value)}`;
   }
 }
 
@@ -242,6 +245,37 @@ function condExprPy(action, selPy) {
     default:
       return `True  # unknown condition: ${action.conditionType}`;
   }
+}
+
+function _readValHelperPy() {
+  return [
+    '# Same reader as the extension (content.js readElementValue).',
+    '_READ_VAL_JS = """',
+    'const el = arguments[0], from = arguments[1], attr = arguments[2];',
+    'const tag = String(el.tagName || \'\').toUpperCase(), fld = tag === \'INPUT\' || tag === \'TEXTAREA\';',
+    'const txt = () => (typeof el.innerText === \'string\' ? el.innerText : (el.textContent || \'\'));',
+    'const ws = (s) => String(s == null ? \'\' : s).replace(/\\s+/g, \' \').trim();',
+    'if (from === \'attr\') return el.getAttribute(attr) ?? \'\';',
+    'if (from === \'value\') {',
+    '  if (tag === \'SELECT\' && el.multiple) return Array.from(el.selectedOptions).map(o => o.value).join(\', \');',
+    '  if (fld || tag === \'SELECT\') return el.value ?? \'\';',
+    '  if (el.isContentEditable) return txt().trim();',
+    '  if (typeof el.value === \'string\' && el.value !== \'\') return el.value;',
+    '  if (typeof el.value === \'number\' && tag !== \'LI\') return String(el.value);',
+    '  return txt().trim();',
+    '}',
+    'if (from === \'visible\') {',
+    '  if (tag === \'SELECT\') return Array.from(el.selectedOptions).map(o => ws(o.text)).join(\', \');',
+    '  if (fld) return el.value ?? \'\';',
+    '  return ws(txt());',
+    '}',
+    'return (el.textContent || \'\').trim();',
+    '"""',
+    '',
+    '',
+    'def _read_val(el, read_from, attr=""):',
+    '    return driver.execute_script(_READ_VAL_JS, el, read_from, attr) or ""',
+  ];
 }
 
 const COND_FIELDS = ['valueEquals', 'textContains', 'idContains', 'classContains', 'typeEquals'];
@@ -431,15 +465,16 @@ function actionLines(action, stepNum, stepDelay, elTimeout) {
     }
 
     case 'readdom': {
-      const varName = safeVarName(action.varName || 'dom_var');
+      const varName = safeVarName(normalizeVarName(action.varName) || 'dom_var');
       out.push(`# Step ${stepNum}: read DOM → "${varName}"${lbl}`);
-      out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
-      if (action.readFrom === 'value')
-        out.push(`${varName} = ${elVar}.get_attribute('value') or ''`);
-      else if (action.readFrom === 'attr')
-        out.push(`${varName} = ${elVar}.get_attribute(${JSON.stringify(action.attrName || '')}) or ''`);
-      else
-        out.push(`${varName} = ${elVar}.text.strip()`);
+      if (action.conditions) {
+        out.push(..._buildChildCondPy(action.conditions, elVar, tout, selPy, stepNum));
+      } else {
+        out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
+      }
+      // _read_val runs the extension's own reader in the page, so "Text content"
+      // (textContent) and "Visible text" (innerText) match playback exactly.
+      out.push(`${varName} = _read_val(${elVar}, ${JSON.stringify(action.readFrom || 'text')}, ${valueToPy(action.attrName || '')})`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
     }
@@ -492,12 +527,24 @@ function actionLines(action, stepNum, stepDelay, elTimeout) {
 
 // Recursively processes an action array, grouping condition blocks
 // Disabled actions are skipped inline so skipCount stays aligned with the original array.
-function processActions(actions, baseIdx, stepDelay, elTimeout) {
+function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
   const out = [];
   let i = 0;
 
   while (i < actions.length) {
     const action  = actions[i];
+    const abs     = baseIdx + i;
+
+    // A Switch block only ever runs one of its cases; the script cannot pick
+    // one, and emitting the block would run every case in a row.
+    if (ctx.all && hasBlock(ctx.all[abs])) {
+      const end = blockEnd(ctx.all, abs);
+      out.push(`# Step ${abs + 1}: switch block [SKIPPED] — steps ${abs + 2}–${end + 1} not exported (requires extension scenario routing)`);
+      out.push('');
+      ctx.warnings?.add(`Switch block at step ${abs + 1} skipped together with its ${end - abs} action(s)`);
+      i = end - baseIdx + 1;
+      continue;
+    }
 
     if (action.disabled) {
       i++;
@@ -515,8 +562,10 @@ function processActions(actions, baseIdx, stepDelay, elTimeout) {
       out.push(`# Step ${stepNum}: condition — ${action.conditionType}${lbl}`);
       out.push(`if ${condExprPy(action, selPy)}:`);
 
-      const body      = actions.slice(i + 1, i + 1 + skipCount);
-      const bodyLines = processActions(body, baseIdx + i + 1, stepDelay, elTimeout);
+      // Same span playback skips: a Switch and its block count as one action.
+      const bodyEnd   = ctx.all ? conditionSkipTarget(ctx.all, abs, skipCount, ctx.layout) - baseIdx : i + 1 + skipCount;
+      const body      = actions.slice(i + 1, bodyEnd);
+      const bodyLines = processActions(body, baseIdx + i + 1, stepDelay, elTimeout, ctx);
       if (bodyLines.length === 0 || bodyLines.every(l => l === '')) {
         out.push('    pass');
       } else {
@@ -525,7 +574,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout) {
         }
       }
       out.push('');
-      i += 1 + skipCount;
+      i = Math.max(i + 1, bodyEnd);
     } else {
       out.push(...actionLines(action, stepNum, stepDelay, elTimeout));
       out.push('');
@@ -569,9 +618,8 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   // the flow, so a run where its branch never executes leaves a later reference
   // with nothing bound (NameError).
   for (const a of enabled) {
-    if ((a.type === 'readdom' || a.type === 'screenshot_tovar') && a.varName) {
-      writtenVars.add(safeVarName(a.varName));
-    }
+    const vn = (a.type === 'readdom' || a.type === 'screenshot_tovar') ? normalizeVarName(a.varName) : null;
+    if (vn) writtenVars.add(safeVarName(vn));
   }
 
   // Two different names can sanitize to the same Python identifier, which
@@ -589,13 +637,17 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     }
   }
 
+  const all    = actions || [];
+  const layout = getSwitchLayout(all);
+  // A Switch block is skipped with everything in it (see processActions).
   let skipped = 0, supported = 0, hasScript = false, hasScreenshot = false;
-  for (const a of enabled) {
-    if (a.type === 'switch') skipped++;
+  all.forEach((a, j) => {
+    if (!a || a.disabled) return;
+    if (a.type === 'switch' || layout[j]?.chain?.length) skipped++;
     else supported++;
     if (a.type === 'script') hasScript = true;
     if (['screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar'].includes(a.type)) hasScreenshot = true;
-  }
+  });
 
   const needsRandom       = Object.keys(randomSpecs).length > 0 || Object.keys(pickSpecs).length > 0;
   const needsDatetime     = Object.values(randomSpecs).some(s => s.type === 'datetime');
@@ -628,6 +680,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
   if (needsJsEscape) {
     out.push(..._jsEscapeHelperPy());
+    out.push('');
+    out.push('');
+  }
+  if (enabled.some(a => a.type === 'readdom')) {
+    out.push(..._readValHelperPy());
     out.push('');
     out.push('');
   }
@@ -707,7 +764,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('try:');
   out.push('');
 
-  const bodyLines = processActions(actions || [], 0, stepDelay, elTimeout);
+  const bodyLines = processActions(all, 0, stepDelay, elTimeout, { all, layout, warnings });
   for (const line of bodyLines) {
     out.push(line === '' ? '' : '    ' + line);
   }
@@ -728,9 +785,8 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     ...Object.keys(staticVars), ...Object.keys(randomSpecs), ...Object.keys(pickSpecs),
   ]);
   for (const a of enabled) {
-    if ((a.type === 'readdom' || a.type === 'screenshot_tovar') && a.varName) {
-      knownNames.add(String(a.varName).replace(/^\$\{|\}$/g, ''));
-    }
+    const vn = (a.type === 'readdom' || a.type === 'screenshot_tovar') ? normalizeVarName(a.varName) : null;
+    if (vn) knownNames.add(vn);
   }
   for (const name of getUsedVarNames(enabled)) {
     if (!knownNames.has(name)) {

@@ -121,14 +121,49 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 | Type | Description |
 |---|---|
 | `condition` | 12-type DOM/URL check → skip next N actions if false |
-| `switch` | Variable value → run matching named scenario |
+| `switch` | Variable value → run a matching scenario, jump within this one, or run only the matching case's **block** of actions |
 
 **Condition types:** `elementExists`, `elementNotExists`, `elementVisible`, `elementHidden`, `textContains`, `textEquals`, `valueEquals`, `valueContains`, `urlContains`, `urlEquals`, `hasClass`, `hasAttribute`
+
+### Switch blocks
+
+A `switch` case that targets **↻ This scenario** can own a range of the actions after it (**From** / **to** in
+the form). Only the matched case's actions run; playback then continues after the block:
+
+```
+#1 Switch ${a}   "1" → #2..#3   |   "2" → #4..#5   |   anything else → nothing
+#2..#5 actions,  #6 action
+a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
+```
+
+- **Stored** as absolute 1-based indices: `{ value, scenarioId: '__self__', startAt, endAt }`, plus
+  `continueAt` on the Switch (absent = right after the block). A case that runs nothing is `{ empty: true }`.
+  A case **without** `endAt` works exactly as before (jump to `startAt` and play on, or run another scenario from
+  `startAt`); a case into another scenario may also carry `endAt` to play just that range.
+- **Numbering in the preview** is computed at render time, never stored: `switch.case.step`. Case order is the
+  order in the case list (a case with no actions in the block still takes its number); nested Switches add levels
+  (`2.1.2.1.1`); an action inside a block but in no case shows `1.?` with ⚠; disabled actions keep their number.
+  The tooltip shows the absolute `#N`.
+- **Playback** (`bg/playback.js` + `bg/switch-blocks.js`): the matched case plays its range, then `continueAt`;
+  no match → skip the block, no error; a disabled block Switch skips its block; a Condition's `skipCount` counts a
+  Switch and its block as one action, and a skip landing inside a block goes to its `continueAt`; resuming after
+  a reload inside a case finishes that case, then continues after the block. A broken block (range before the
+  Switch, overlapping cases, block past its parent case, …) stops on the Switch with Retry / Skip / Stop.
+- **Editing the list** keeps the ranges right: deleting shrinks/shifts them (a case that loses every action becomes
+  empty ⚠), dragging an action into a case / onto a case header / onto the "⤓ out of the block" zone changes its
+  case, dragging the Switch moves its whole block. Old-style `startAt` jump targets and `continueAt` follow their
+  action too (pointing at the next action, with ⚠, if theirs was deleted). Cases that point into *another*
+  scenario are never rewritten — they get ⚠ when their range no longer fits. Undo restores ranges and actions
+  together.
+- **Export:** the bookmarklet and Selenium exports skip a block Switch *with its whole block* (otherwise every case
+  would run), and say so in the warnings. A scenario or folder export that uses blocks carries `minVersion` — the
+  version that wrote it; older versions ignore `endAt` and would play every case one after the other.
+- Tests: `node --test tests/` (Node 18+, no npm install).
 
 ### Data, Screenshot & File
 | Type | Description |
 |---|---|
-| `readdom` | Extract text/value/attribute → store as `${varName}` |
+| `readdom` | Read **Text content** (textContent, unchanged), **Visible text** (innerText, whitespace collapsed; `<select>` → chosen option, input → value), **Input value** (multi-select → `a, b`; contenteditable → text) or an **Attribute** → store in a variable. The name is saved without `${ }` (older `${abc}` names still work) and used as `${abc}` later. Supports Child Condition; an element picked with 🎯 in an iframe is read in that iframe. A failed read that is skipped leaves the variable empty. |
 | `screenshot` | Capture visible viewport |
 | `screenshot_full` | Full page via CDP |
 | `screenshot_element` | Specific element via CDP clip |
@@ -146,7 +181,9 @@ From the **Data** tab → **Export Code** card, select any saved scenario and ge
 - Runs directly in the browser console or as a saved bookmark URL
 - No Selenium or Python required
 - Supported actions: `click`, `input`, `hover`, `dropdown`, `dragdrop`, `navigate`, `wait`, `script`, `readdom`, `condition`
-- Skipped actions: `screenshot*` (require Extension API), `switch`
+- Skipped actions: `screenshot*` (require Extension API), `switch` — a Switch with a block is skipped together with its block
+- Selectors and the Read DOM attribute name may contain `${var}` — emitted as template literals
+- Read DOM uses a `_readVal()` helper that mirrors the extension's reader for each "Read from" choice
 - Not supported: `uploadFile` (no way to reach the local filesystem from a bookmarklet) — emitted as a skipped step
 - Selectors: a `_qsel()` helper injected into the generated script dispatches by shape — selectors starting with `/` or `(` go through `document.evaluate` (XPath), everything else through `document.querySelector`
 - Copy as a single-line bookmark URL or download as a `.js` file
@@ -176,7 +213,8 @@ javascript:(async () => {
 - Supported actions: every type except `switch` and `uploadFile` — including **screenshot**, which the bookmarklet cannot do
 - `input` actions auto-detect `<select>` elements at runtime — uses `Select.select_by_value()` with fallback to `select_by_visible_text()`
 - `condition` actions use `find_elements()` (returns list, never raises)
-- `switch` is skipped (extension-specific scenario routing) and `uploadFile` is emitted as an unsupported step — both are commented into the generated script rather than silently dropped
+- `switch` is skipped (extension-specific scenario routing) — a Switch with a block together with its block — and `uploadFile` is emitted as an unsupported step — both are commented into the generated script rather than silently dropped
+- Selectors may contain `${var}` (emitted as f-strings); Read DOM runs the extension's own reader through `execute_script`, so "Text content" and "Visible text" match playback
 
 **Settings available in the modal:**
 
@@ -535,7 +573,7 @@ Priority (highest → lowest):
   3. chrome.storage.local  — global persistent variables
 ```
 
-**Token syntax:** `${varName}` — applied to: selector, value, URL, JS code, expected value, switchVar, folderPath, fileNames
+**Token syntax:** `${varName}` — applied to: selector (every flavour in `selectors`, drag-drop target too), value, URL, JS code, expected value, switchVar, folderPath, fileNames, Child Condition fields, Read DOM attribute name
 
 **Variable types:**
 

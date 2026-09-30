@@ -10,6 +10,11 @@ import {
 } from './screenshot.js';
 import { ssWrite, ssClear, csvResultWrite, csvResultClear } from './idb-screenshots.js';
 import { beginDbGuard, endDbGuard } from './dbguard.js';
+import {
+  anyBlocks, getSwitchLayout, hasBlock, isBlockCase, caseRange, blockEnd, continueIndex,
+  validateSwitch, conditionSkipTarget, resumeSegments,
+} from './switch-blocks.js';
+import { normalizeVarName, selectorStrings } from './var-name.js';
 
 /* ── SW keep-alive ──────────────────────────────────────────────────────────── */
 
@@ -238,10 +243,15 @@ async function _getSsSettings() {
 const SWITCH_SELF    = '__self__';
 const MAX_SELF_JUMPS = 1000;
 
+/**
+ * Play `actions` from `startFromIndex`. `endAtIndex` (0-based, inclusive) stops
+ * the run early — a Switch block case plays only its own range this way, then
+ * the caller moves on to the block's continueAt (see bg/switch-blocks.js).
+ */
 export async function playActionsOnTab(
   tabId, actions, vars = null, screenshotsResult = null,
   forceAutoSave = false, skipDownload = false, startFromIndex = 0,
-  failedActions = null, _depth = 0,
+  failedActions = null, _depth = 0, endAtIndex = null,
 ) {
   if (_depth > 10) {
     console.error('[PLAYBACK] Max switch/nested-scenario depth (10) exceeded — aborting branch');
@@ -259,13 +269,32 @@ export async function playActionsOnTab(
 
   let _selfJumps = 0; // Switch → "this scenario" hops taken in this run
 
+  // Only scenarios that use Switch blocks pay for the layout; without one every
+  // Switch and Condition below takes exactly its old path.
+  const _layout = anyBlocks(actions) ? getSwitchLayout(actions) : null;
+  const _last = endAtIndex == null
+    ? actions.length - 1
+    : Math.min(endAtIndex, actions.length - 1);
+
   // Pauses on the in-page prompt. Each call site steps i back on FAIL_RETRY and
   // breaks on FAIL_STOP; FAIL_SKIP falls through to the action's usual tail.
   const fail = (i, action, reason, record) =>
     _onActionFailed(tabId, i, actions, action, reason, failedActions, record);
 
+  // Sticky fallback resolution: if the content script resolved a {fallback:...}
+  // variable, persist the winning value into resolvedVars so every subsequent
+  // action in this run uses the same value (not A→B→C again from scratch).
+  const _stickFallbacks = (result) => {
+    if (!result?.resolvedFallbacks || typeof result.resolvedFallbacks !== 'object') return;
+    for (const [spec, resolvedVal] of Object.entries(result.resolvedFallbacks)) {
+      for (const varName of Object.keys(resolvedVars)) {
+        if (resolvedVars[varName] === spec) resolvedVars[varName] = resolvedVal;
+      }
+    }
+  };
+
   try {
-    for (let i = startFromIndex; i < actions.length; i++) {
+    for (let i = startFromIndex; i <= _last; i++) {
       if (!state.playback.active || _tabClosed) break;
 
       state.playback.actionIndex = i;
@@ -285,7 +314,12 @@ export async function playActionsOnTab(
 
       try {
         const action = interpolateAction(actions[i], resolvedVars);
-        if (action.disabled) continue;
+        if (action.disabled) {
+          // A disabled block Switch takes its block with it; a disabled Switch
+          // without one still lets playback run on into the next action as before.
+          if (_layout && hasBlock(action)) i = blockEnd(actions, i);
+          continue;
+        }
 
         /* ── Navigate ── */
         if (action.type === 'navigate') {
@@ -407,9 +441,10 @@ export async function playActionsOnTab(
               res = await takeVisibleScreenshot(tabId, saveMode, prefix, null, false, true, skipDownload);
             }
             if (res?.error) throw new Error(res.error);
-            if (res && action.varName) {
-              resolvedVars[action.varName] = res.filename || '';
-              if (screenshotsResult && res.base64) screenshotsResult[action.varName] = res.base64;
+            const ssVar = normalizeVarName(action.varName);
+            if (res && ssVar) {
+              resolvedVars[ssVar] = res.filename || '';
+              if (screenshotsResult && res.base64) screenshotsResult[ssVar] = res.base64;
             }
           } catch (e) {
             console.error('[PLAYBACK] screenshot_tovar failed:', e);
@@ -441,13 +476,19 @@ export async function playActionsOnTab(
 
         /* ── Read DOM value → variable ── */
         if (action.type === 'readdom') {
+          // `${abc}` saved by older versions of the form is read as `abc`.
+          const rdVar    = normalizeVarName(action.varName);
           const rdResult = await tabMsg(tabId, { type: 'PLAY_ACTION', action }, Math.max(10_000, (action.timeout || 0) + 2_000), action.frameId);
-          if (rdResult?.value !== undefined && action.varName) {
-            resolvedVars[action.varName] = rdResult.value;
+          _stickFallbacks(rdResult);
+          if (rdResult?.value !== undefined && !rdResult?.failed) {
+            if (rdVar) resolvedVars[rdVar] = rdResult.value;
           } else if (rdResult?.failed) {
             const next = await fail(i, action, rdResult.error || null);
             if (next === FAIL_RETRY) { i--; continue; }
             if (next === FAIL_STOP) break;
+            // Skipped: in a looped run the variable would otherwise still hold the
+            // previous iteration's value and later steps would use it silently.
+            if (rdVar) resolvedVars[rdVar] = '';
           }
           if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
           continue;
@@ -469,7 +510,9 @@ export async function playActionsOnTab(
             // Guard against misconfigured skipCount=0 which would create an
             // infinite loop (condition re-evaluates itself every iteration).
             if (rawSkip === 0) console.warn('[PLAYBACK] Condition skipCount=0 would cause infinite loop; treating as 1');
-            i += skip;
+            // A Switch counts as one action together with its block, and a skip
+            // landing inside a block goes on to that block's continueAt.
+            i = _layout ? conditionSkipTarget(actions, i, skip, _layout) - 1 : i + skip;
           }
           if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
           continue;
@@ -477,13 +520,46 @@ export async function playActionsOnTab(
 
         /* ── Switch (variable → scenario branch) ── */
         if (action.type === 'switch') {
+          // A block Switch owns the actions after it: only the matched case's
+          // range runs, then playback goes on at continueAt. Without a block
+          // every path below is the old one.
+          const block = !!_layout && hasBlock(action);
+          if (block) {
+            const { errors } = validateSwitch(actions, i, _layout);
+            if (errors.length) {
+              const more = errors.length > 1 ? ` (+${errors.length - 1} more)` : '';
+              const next = await fail(i, action, `Switch: ${errors[0]}${more}`, 'Invalid Switch block');
+              if (next === FAIL_RETRY) { i--; continue; }
+              if (next === FAIL_STOP) break;
+              i = blockEnd(actions, i); // skipped: leave the block without running any of it
+              continue;
+            }
+          }
+          const contIdx = block ? continueIndex(actions, i) : null;
+
           const switchVal = action.switchVar || '';
           const cases     = action.cases || [];
           let matched     = cases.find(c => c.value === switchVal);
           if (!matched) matched = cases.find(c => c.value === '__default__');
           // 1-based "start at action #N" on the case; absent on older cases = 1.
           const startIdx  = Math.max(0, (parseInt(matched?.startAt, 10) || 1) - 1);
-          if (matched?.scenarioId === SWITCH_SELF) {
+          // 1-based last action of the case's range; absent = play on to the end.
+          const endRaw    = parseInt(matched?.endAt, 10);
+          const endIdx    = Number.isFinite(endRaw) ? endRaw - 1 : null;
+          if (matched && isBlockCase(matched)) {
+            // Play just this case's actions. A nested Switch at the end of the
+            // range that jumps past it simply ends this run; this Switch's
+            // continueAt then applies.
+            const range = caseRange(matched);
+            if (range) {
+              const nestedVars = await playActionsOnTab(
+                tabId, actions, { ...resolvedVars },
+                screenshotsResult, forceAutoSave, skipDownload, range.start, failedActions, _depth + 1, range.end,
+              );
+              Object.assign(resolvedVars, nestedVars);
+              if (!state.playback.active || _tabClosed) break;
+            }
+          } else if (matched?.scenarioId === SWITCH_SELF) {
             // Jump within the scenario being played: no nested run, just move i.
             // A backward jump is a loop, so cap the hops — a case that always
             // matches would otherwise spin forever.
@@ -503,11 +579,16 @@ export async function playActionsOnTab(
           } else if (matched?.scenarioId) {
             const scenarios      = await getScenarios();
             const targetScenario = scenarios[matched.scenarioId];
-            if (targetScenario?.actions?.length && startIdx >= targetScenario.actions.length) {
-              const next = await fail(i, action, `Switch: "${targetScenario.name || matched.scenarioId}" has no action #${startIdx + 1} (only ${targetScenario.actions.length})`, 'Switch start action out of range');
+            const targetLen      = targetScenario?.actions?.length || 0;
+            if (targetLen && startIdx >= targetLen) {
+              const next = await fail(i, action, `Switch: "${targetScenario.name || matched.scenarioId}" has no action #${startIdx + 1} (only ${targetLen})`, 'Switch start action out of range');
               if (next === FAIL_RETRY) { i--; continue; }
               if (next === FAIL_STOP) break;
-            } else if (targetScenario?.actions?.length) {
+            } else if (targetLen && endIdx != null && (endIdx >= targetLen || endIdx < startIdx)) {
+              const next = await fail(i, action, `Switch: "${targetScenario.name || matched.scenarioId}" has no range #${startIdx + 1}–#${endIdx + 1} (only ${targetLen})`, 'Switch range out of range');
+              if (next === FAIL_RETRY) { i--; continue; }
+              if (next === FAIL_STOP) break;
+            } else if (targetLen) {
               const caseLabel    = matched.value === '__default__' ? 'default' : matched.value;
               const switchedName = targetScenario.name || matched.scenarioId;
               const parentName   = state.playback.scenarioName;
@@ -530,9 +611,11 @@ export async function playActionsOnTab(
               // actions and still be reported as a clean run — a CSV row with only
               // nested failures counted as passed, and its exported `failures` list
               // came back empty.
+              //
+              // endIdx limits the branch to a range of the target when the case has one.
               const nestedVars = await playActionsOnTab(
                 tabId, targetScenario.actions, { ...resolvedVars },
-                screenshotsResult, forceAutoSave, skipDownload, startIdx, failedActions, _depth + 1,
+                screenshotsResult, forceAutoSave, skipDownload, startIdx, failedActions, _depth + 1, endIdx,
               );
               Object.assign(resolvedVars, nestedVars);
               // Back in this scenario: progress counts its actions again, not the branch's.
@@ -543,12 +626,25 @@ export async function playActionsOnTab(
               if (next === FAIL_RETRY) { i--; continue; }
               if (next === FAIL_STOP) break;
             }
-          } else {
+          } else if (!block) {
+            // A block Switch with no matching case simply runs none of its cases.
             const next = await fail(i, action, `Switch: no case matched value "${switchVal}" and no default case set`);
             if (next === FAIL_RETRY) { i--; continue; }
             if (next === FAIL_STOP) break;
           }
           if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+          if (block) {
+            // Leave the block — whatever ran (or failed and was skipped) above,
+            // the other cases' actions must not run. A backward continueAt is a
+            // loop and shares the jump cap.
+            if (contIdx <= i && ++_selfJumps > MAX_SELF_JUMPS) {
+              const next = await fail(i, action, `Switch: more than ${MAX_SELF_JUMPS} jumps — possible infinite loop, leaving the block`, 'Jump limit exceeded');
+              if (next === FAIL_STOP) break;
+              i = blockEnd(actions, i);
+            } else {
+              i = contIdx - 1; // the loop's i++ lands on continueAt
+            }
+          }
           continue;
         }
 
@@ -592,16 +688,7 @@ export async function playActionsOnTab(
 
         const result = await tabMsg(tabId, { type: 'PLAY_ACTION', action }, Math.max(10_000, (action.timeout || 0) + 2_000), action.frameId);
 
-        // Sticky fallback resolution: if the content script resolved a {fallback:...}
-        // variable, persist the winning value into resolvedVars so every subsequent
-        // action in this run uses the same value (not A→B→C again from scratch).
-        if (result?.resolvedFallbacks && typeof result.resolvedFallbacks === 'object') {
-          for (const [spec, resolvedVal] of Object.entries(result.resolvedFallbacks)) {
-            for (const varName of Object.keys(resolvedVars)) {
-              if (resolvedVars[varName] === spec) resolvedVars[varName] = resolvedVal;
-            }
-          }
-        }
+        _stickFallbacks(result);
 
         // If a click/select caused an immediate navigation, the content script may
         // have become unreachable before it could send a response.  Detect this by
@@ -680,7 +767,14 @@ export async function startPlaybackFromCheckpoint(scenarioId, fromIndex, tabId) 
   // had failed along the way — playback does not stop at the first one.
   const failedActions = [];
   try {
-    await playActionsOnTab(tabId, actions, null, null, false, false, fromIndex, failedActions);
+    // Resuming inside a Switch block case: finish that case, then go on at the
+    // block's continueAt (and each enclosing block's) rather than running the
+    // other cases. Without blocks this is a single segment from fromIndex.
+    let vars = null;
+    for (const seg of resumeSegments(actions, fromIndex)) {
+      if (!state.playback.active || seg.start >= actions.length) break;
+      vars = await playActionsOnTab(tabId, actions, vars, null, false, false, seg.start, failedActions, 0, seg.end);
+    }
   } finally {
     await _stopKeepalive();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
@@ -846,7 +940,8 @@ export async function startSequence(runList) {
  * Variable names a scenario actually touches. Only these are kept in the per-row
  * IndexedDB record, which is what the CSV/XLSX/HTML export turns into columns.
  *
- * The field list must stay in step with interpolateAction() in bg/utils.js — a
+ * The field list must stay in step with interpolateAction() in bg/utils.js
+ * (selectors, targetSelectors and attrName included) — a
  * field that gets variables substituted but is not scanned here silently loses
  * its column. folderPath, fileName, fileNames and the idContains/classContains
  * conditions were missing, so a scenario uploading `${docFolder}/${invoiceFile}`
@@ -869,12 +964,17 @@ function collectRelevantKeys(actions) {
 
   for (const a of actions) {
     for (const f of FIELDS) scan(a[f]);
+    selectorStrings(a).forEach(scan);
+    scan(a.attrName);
     if (Array.isArray(a.fileNames)) a.fileNames.forEach(scan);
     if (a.conditions && typeof a.conditions === 'object') {
       for (const f of C_FIELDS) scan(a.conditions[f]);
     }
     // readdom and screenshot_tovar produce variables that are also "relevant".
-    if ((a.type === 'readdom' || a.type === 'screenshot_tovar') && a.varName) keys.add(a.varName);
+    if (a.type === 'readdom' || a.type === 'screenshot_tovar') {
+      const vn = normalizeVarName(a.varName);
+      if (vn) keys.add(vn);
+    }
   }
   return keys;
 }
@@ -939,9 +1039,10 @@ export async function startCsvPlayback(scenarioId, rows, delayBetween, exportFor
     function _collectSsVars(acts, visited) {
       const out = [];
       for (const a of acts) {
-        if (a.type === 'screenshot_tovar' && a.varName && !visited.has('var:' + a.varName)) {
-          visited.add('var:' + a.varName);
-          out.push(a.varName);
+        const vn = a.type === 'screenshot_tovar' ? normalizeVarName(a.varName) : null;
+        if (vn && !visited.has('var:' + vn)) {
+          visited.add('var:' + vn);
+          out.push(vn);
         }
         if (a.type === 'switch' && a.cases) {
           for (const c of a.cases) {

@@ -49,6 +49,12 @@
   --code-toolbar-btn-bg: #f8fafc;
   --code-toolbar-btn-border: #cbd5e1;
   --code-toolbar-btn-text: #475569;
+  /* Switch case colours (preview + form). Dark text-safe on a light surface. */
+  --sw-c0: #c026d3;
+  --sw-c1: #0284c7;
+  --sw-c2: #b45309;
+  --sw-c3: #047857;
+  --sw-c4: #e11d48;
 }
 
 [data-theme="dark"] {
@@ -89,6 +95,11 @@
   --code-toolbar-btn-bg: rgba(255, 255, 255, 0.05);
   --code-toolbar-btn-border: rgba(255, 255, 255, 0.1);
   --code-toolbar-btn-text: #9ca3af;
+  --sw-c0: #e879f9;
+  --sw-c1: #38bdf8;
+  --sw-c2: #fbbf24;
+  --sw-c3: #34d399;
+  --sw-c4: #fb7185;
   color-scheme: dark;
 }
 
@@ -5445,3 +5456,123 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
 .switch-row:has(input:disabled) { opacity: 0.5; cursor: not-allowed; }
 .switch-row:has(input:disabled) .hl-toggle-switch,
 .switch-row:has(input:disabled) .hl-toggle-slider { cursor: not-allowed; }
+
+/* === Switch blocks — preview === */
+/* Nested numbers (1.2.1) need a wider index column than 1..N. */
+#actions .index {
+  width: var(--idx-w, 18px);
+  min-width: var(--idx-w, 18px);
+  flex: 0 0 var(--idx-w, 18px);
+}
+#actions.has-blocks .index { justify-content: flex-start; padding-left: 6px; }
+.actions li.sw-in-block {
+  margin-left: calc(var(--sw-depth, 0) * 12px);
+  border-left-color: var(--sw-color) !important;
+}
+.actions li.sw-hidden { display: none !important; }
+.actions li.sw-case-head {
+  cursor: default;
+  background: transparent;
+  padding: 2px 6px;
+  margin-top: 4px;
+  margin-bottom: 1px;
+  min-height: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sw-color);
+  border-left: 3px solid var(--sw-color);
+  gap: 6px;
+}
+.actions li.sw-case-head::before,
+.actions li.sw-outside::before { content: none; }
+.actions li.sw-case-head:hover { background: transparent; }
+.sw-case-head-rule { flex: 1 1 auto; border-top: 1px dashed var(--sw-color); opacity: 0.5; }
+.sw-case-empty { color: var(--warning-text); font-weight: 500; }
+/* Only while dragging: the drop target that takes a row out of the block. */
+.actions li.sw-outside { display: none; }
+.actions.sw-dragging li.sw-outside {
+  display: flex;
+  justify-content: center;
+  cursor: default;
+  background: transparent;
+  border: 1px dashed var(--muted);
+  border-left-width: 1px;
+  color: var(--muted);
+  font-size: 10px;
+  padding: 3px 6px;
+}
+.actions.sw-dragging li.sw-outside.sw-hidden { display: none !important; }
+.actions li.sw-hl { outline: 1px solid var(--sw-color, var(--primary)); outline-offset: -1px; }
+.actions li.sw-flash { animation: sw-flash 1.2s ease-out; }
+@keyframes sw-flash {
+  0%, 50% { box-shadow: 0 0 0 2px var(--sw-color, var(--primary)); }
+  100%    { box-shadow: 0 0 0 0 transparent; }
+}
+.actions li.sw-invalid { outline: 1px solid var(--danger); outline-offset: -1px; }
+.actions li.sw-orphan .index { color: var(--warning-text); }
+.sw-warn { color: var(--warning-text); margin-right: 3px; cursor: help; }
+.sw-invalid .sw-warn { color: var(--danger); }
+.sw-toggle {
+  flex: 0 0 auto;
+  width: 12px;
+  font-size: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.sw-toggle:hover, .sw-toggle:focus-visible { color: var(--text); }
+.actions li.has-chips { flex-wrap: wrap; row-gap: 2px; }
+.sw-chips {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding-left: calc(var(--idx-w, 18px) + 18px);
+  white-space: normal;
+}
+.sw-chip {
+  font-size: 9px;
+  line-height: 14px;
+  padding: 0 5px;
+  border-radius: 7px;
+  border: 1px solid var(--sw-color, var(--border));
+  color: var(--sw-color, var(--muted));
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sw-chip:hover, .sw-chip:focus-visible { background: var(--secondary-bg); }
+.sw-chip-else { cursor: default; color: var(--muted); border-color: var(--border); }
+.sw-note {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 1px;
+}
+
+/* === Switch blocks — form === */
+.sw-range-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+.sw-range-row label {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sw-range-row select {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0 !important;
+  font-size: 11px !important;
+}
+.sw-case-label-block { color: var(--sw-color); }
+.sw-validation { margin-top: 6px; font-size: 11px; }
+.sw-val-error { color: var(--danger); }
+.sw-val-warn  { color: var(--warning-text); }
+.sw-frame-note { display: block; margin-top: 4px; color: var(--secondary); }

@@ -6,6 +6,11 @@ import { escHtml, getActionIcon, showToast, showConfirm, showAlert, showPrompt,
 import { updateRangeFill } from './settings.js';
 import { startConnectionCheck, setCsvDoneBar, clearCsvDoneBar, openPbPanel } from './connection.js';
 import { addVariableRow } from './variables.js';
+import {
+  getSwitchLayout, validateSwitch, validateExternalCase, hasBlock, isBlockCase,
+  caseRange, caseLabel, continueIndex, planDrop, anyBlocks, SWITCH_SELF, CASE_COLORS,
+} from '../bg/switch-blocks.js';
+import { normalizeVarName, selectorStrings } from '../bg/var-name.js';
 import { TABLE_COPIES } from '../dbtools/features.js';
 
 /* === Init Main === */
@@ -22,6 +27,9 @@ let foldersCache = {};
 let editing = null;
 let dragFromIndex = null;
 let currentPickedSelectors = null;
+// Frame the picked element lives in (0 = top page). Carried onto the action
+// while the selector is still the picked one, so it plays in that iframe.
+let currentPickedFrameId = null;
 let currentPickedDragdropTargetSelectors = null;
 let actionClipboard = null;
 let pickerMode = false;
@@ -284,13 +292,13 @@ const CARD_HELP_DATA = {
         • <b>Wait (ms)</b> — dừng chờ một khoảng thời gian cố định (tính bằng ms). Không cần selector.<br>
         • <b>Run JS</b> — chạy đoạn code JavaScript tùy ý qua CDP (bỏ qua CSP của trang). Ví dụ: <code>window.scrollTo(0, 500)</code>.<br>
         • <b>Condition (If)</b> — kiểm tra điều kiện; nếu <b>FALSE</b> thì bỏ qua N action tiếp theo. Nhấn nút <b>?</b> bên cạnh dropdown để xem hướng dẫn chi tiết.<br>
-        • <b>Switch (Variable → Scenario)</b> — rẽ nhánh sang scenario khác dựa trên giá trị biến. Định nghĩa các case: giá trị → scenario.<br>
-        • <b>Read DOM → Variable</b> — đọc text, value hoặc thuộc tính của element và lưu vào biến để dùng ở action sau.<br>
+        • <b>Switch (Variable → Scenario)</b> — rẽ nhánh dựa trên giá trị biến. Mỗi case: giá trị → scenario khác, hoặc <b>↻ This scenario</b>. Với ↻, chọn <b>From</b>/<b>to</b> để case có <b>khối action riêng</b>: chỉ các action của case khớp được chạy, rồi chạy tiếp sau khối (<b>Continue at</b>, mặc định ngay sau khối); không case nào khớp thì bỏ qua cả khối. Trong preview, action trong khối đánh số <code>Switch.case.thứ tự</code> (ví dụ <code>1.2.1</code>); kéo action vào/ra khối để đổi case. <b>To the end</b> giữ kiểu nhảy cũ.<br>
+        • <b>Read DOM → Variable</b> — đọc element và lưu vào biến để dùng ở action sau. <b>Text content</b> = textContent (như cũ, gồm cả chữ ẩn); <b>Visible text</b> = chữ đang hiển thị (gộp khoảng trắng; &lt;select&gt; → option đang chọn); <b>Input value</b> = giá trị ô nhập (select nhiều lựa chọn → nối bằng <code>, </code>; contenteditable → chữ); <b>Attribute</b> = thuộc tính (bắt buộc nhập tên). Tên biến nhập <b>không</b> có <code>\${ }</code>, ví dụ <code>orderId</code>, rồi dùng <code>\${orderId}</code> ở bước sau. Dùng được Child Condition; element chọn bằng 🎯 trong iframe được đọc trong đúng iframe đó.<br>
         • <b>Screenshot (Visible)</b> — chụp phần nhìn thấy của trang (viewport).<br>
         • <b>Screenshot (Full Page)</b> — chụp toàn bộ trang bằng cách cuộn và ghép nhiều ảnh lại.<br>
         • <b>Screenshot (Element)</b> — chụp một element cụ thể theo selector.<br>
         • <b>Screenshot → Variable (CSV)</b> — chụp ảnh và lưu tên file/base64 vào biến. Dùng trong CSV run để mỗi dòng dữ liệu có ảnh riêng.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">Child Condition</span><span class="ch-title">Tìm phần tử con theo điều kiện</span></div><p class="ch-desc">Có thể dùng với <b>Click</b>, <b>Input</b>, <b>Hover</b>. Khi điền vào, trường <b>Selector</b> trở thành <b>phần tử cha</b>, extension tìm trong các con của nó một phần tử khớp điều kiện:<br>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">Child Condition</span><span class="ch-title">Tìm phần tử con theo điều kiện</span></div><p class="ch-desc">Có thể dùng với <b>Click</b>, <b>Input</b>, <b>Hover</b>, <b>Read DOM</b>. Khi điền vào, trường <b>Selector</b> trở thành <b>phần tử cha</b>, extension tìm trong các con của nó một phần tử khớp điều kiện:<br>
         • <b>value equals</b> — khớp <code>el.value === "..."</code> (input, select, checkbox)<br>
         • <b>text contains</b> — khớp element có nội dung text chứa chuỗi (không phân biệt hoa thường)<br>
         Để trống cả hai để tác động trực tiếp lên selector như bình thường.</p></div>
@@ -328,13 +336,13 @@ const CARD_HELP_DATA = {
         • <b>Wait (ms)</b> — pause for a fixed number of milliseconds. No selector needed.<br>
         • <b>Run JS</b> — execute arbitrary JavaScript via CDP (bypasses page CSP). E.g. <code>window.scrollTo(0, 500)</code>.<br>
         • <b>Condition (If)</b> — evaluate a condition; if <b>FALSE</b>, skip the next N actions. Click <b>?</b> next to the dropdown for condition types.<br>
-        • <b>Switch (Variable → Scenario)</b> — branch to a different scenario based on a variable value. Define cases value → scenario.<br>
-        • <b>Read DOM → Variable</b> — read an element's text, value, or attribute and store it in a variable for later use.<br>
+        • <b>Switch (Variable → Scenario)</b> — branch on a variable's value. Each case: value → another scenario, or <b>↻ This scenario</b>. With ↻, pick <b>From</b>/<b>to</b> to give the case its <b>own block of actions</b>: only the matching case's actions run, then playback continues after the block (<b>Continue at</b>, by default right after it); when no case matches the whole block is skipped. In the preview, block actions are numbered <code>switch.case.step</code> (e.g. <code>1.2.1</code>); drag actions into or out of a block to change their case. <b>To the end</b> keeps the old jump.<br>
+        • <b>Read DOM → Variable</b> — read an element and store it in a variable for later steps. <b>Text content</b> = textContent (as before, hidden text included); <b>Visible text</b> = what is shown (whitespace collapsed; &lt;select&gt; → chosen option); <b>Input value</b> = the field's value (multi-select → joined with <code>, </code>; contenteditable → its text); <b>Attribute</b> = an attribute (name required). Type the variable name <b>without</b> <code>\${ }</code>, e.g. <code>orderId</code>, then use <code>\${orderId}</code> later. Works with Child Condition; an element picked with 🎯 inside an iframe is read in that iframe.<br>
         • <b>Screenshot (Visible)</b> — capture the visible viewport.<br>
         • <b>Screenshot (Full Page)</b> — capture the entire page by scrolling and stitching tiles.<br>
         • <b>Screenshot (Element)</b> — capture a specific element by its selector.<br>
         • <b>Screenshot → Variable (CSV)</b> — capture a screenshot and store the filename/base64 in a named variable. Useful in CSV runs so each row gets its own screenshot reference.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">Child Condition</span><span class="ch-title">Find child element by condition</span></div><p class="ch-desc">Available for <b>Click</b>, <b>Input</b>, <b>Hover</b>. When filled, the <b>Selector</b> field becomes the <b>parent container</b>, and the extension searches its children for one matching the condition:<br>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">Child Condition</span><span class="ch-title">Find child element by condition</span></div><p class="ch-desc">Available for <b>Click</b>, <b>Input</b>, <b>Hover</b>, <b>Read DOM</b>. When filled, the <b>Selector</b> field becomes the <b>parent container</b>, and the extension searches its children for one matching the condition:<br>
         • <b>value equals</b> — matches <code>el.value === "..."</code> (inputs, selects, checkboxes)<br>
         • <b>text contains</b> — matches elements whose text content contains the string (case-insensitive)<br>
         Leave both empty to act on the selector directly as usual.</p></div>
@@ -530,8 +538,8 @@ const CARD_HELP_DATA = {
     title: { vi: 'Hướng dẫn Export Code', en: 'Export Code Guide' },
     vi: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Mục đích</span><span class="ch-title">Chạy scenario mà không cần extension</span></div><p class="ch-desc">Biến một scenario đã lưu thành <b>một tệp chạy độc lập</b>, để đưa cho người không cài extension, gắn vào CI, hay lưu kèm tài liệu test. Chọn scenario ở dropdown phía trên rồi chọn một trong hai định dạng.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">⚡ JS Bookmarklet</span><span class="ch-title">Chạy thẳng trong trình duyệt</span></div><p class="ch-desc">Sinh mã JavaScript dán vào thanh bookmark hoặc Console — không cần cài gì thêm. Đổi lại, những action <b>phải dùng API của extension</b> sẽ bị bỏ qua và được ghi chú rõ trong mã: <code>Screenshot</code> (cả 4 dạng) và <code>Switch</code>. Số bị bỏ qua hiện ở ô cảnh báo và ở pill <i>skipped</i> cuối cửa sổ.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">🐍 Selenium Python</span><span class="ch-title">Tệp .py độc lập</span></div><p class="ch-desc">Sinh script Selenium chạy bằng Python. Trong tab <b>Settings</b> đặt được: <b>Starting URL</b> (nút 🔄 lấy URL tab hiện tại), <b>WebDriver</b> (Chrome / Firefox / Edge / Safari), delay giữa các bước và timeout chờ element. Action <code>Switch</code> bị bỏ qua vì rẽ nhánh sang scenario khác là khái niệm chỉ có trong extension.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">⚡ JS Bookmarklet</span><span class="ch-title">Chạy thẳng trong trình duyệt</span></div><p class="ch-desc">Sinh mã JavaScript dán vào thanh bookmark hoặc Console — không cần cài gì thêm. Đổi lại, những action <b>phải dùng API của extension</b> sẽ bị bỏ qua và được ghi chú rõ trong mã: <code>Screenshot</code> (cả 4 dạng) và <code>Switch</code> — Switch có khối bị bỏ qua <b>cùng mọi action trong khối</b>, nếu không script sẽ chạy hết mọi case. Số bị bỏ qua hiện ở ô cảnh báo và ở pill <i>skipped</i> cuối cửa sổ.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">🐍 Selenium Python</span><span class="ch-title">Tệp .py độc lập</span></div><p class="ch-desc">Sinh script Selenium chạy bằng Python. Trong tab <b>Settings</b> đặt được: <b>Starting URL</b> (nút 🔄 lấy URL tab hiện tại), <b>WebDriver</b> (Chrome / Firefox / Edge / Safari), delay giữa các bước và timeout chờ element. Action <code>Switch</code> bị bỏ qua vì rẽ nhánh sang scenario khác là khái niệm chỉ có trong extension; Switch có khối bị bỏ qua cùng cả khối.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">4 tab trong cửa sổ xuất</span><span class="ch-title">Code · Variables · Actions · Settings</span></div><p class="ch-desc">
         • <b>Code</b> — xem trước mã, nút <i>wrap</i> để xuống dòng, <i>select all</i> để bôi đen nhanh<br>
         • <b>Variables</b> — những biến mà scenario thực sự dùng, kèm giá trị sẽ được nhúng vào tệp<br>
@@ -542,8 +550,8 @@ const CARD_HELP_DATA = {
         • Giá trị biến được <b>nhúng thẳng</b> vào tệp tại thời điểm xuất. Sửa bảng Variables sau đó thì phải xuất lại.</p></div>`,
     en: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Purpose</span><span class="ch-title">Run a scenario without the extension</span></div><p class="ch-desc">Turns a saved scenario into a <b>standalone file</b> — to hand to someone who has not installed the extension, to wire into CI, or to keep alongside test documentation. Pick a scenario in the dropdown above, then choose one of the two formats.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">⚡ JS Bookmarklet</span><span class="ch-title">Runs straight in the browser</span></div><p class="ch-desc">Generates JavaScript to paste into a bookmark or the Console — nothing to install. In exchange, actions that <b>require extension APIs</b> are skipped and marked as such in the code: <code>Screenshot</code> (all four kinds) and <code>Switch</code>. The count appears in the warning strip and in the <i>skipped</i> pill at the bottom.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">🐍 Selenium Python</span><span class="ch-title">Standalone .py file</span></div><p class="ch-desc">Generates a Selenium script for Python. The <b>Settings</b> tab sets the <b>Starting URL</b> (🔄 pulls the current tab's URL), the <b>WebDriver</b> (Chrome / Firefox / Edge / Safari), the delay between steps and the element timeout. <code>Switch</code> actions are skipped, since branching to another scenario only exists inside the extension.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">⚡ JS Bookmarklet</span><span class="ch-title">Runs straight in the browser</span></div><p class="ch-desc">Generates JavaScript to paste into a bookmark or the Console — nothing to install. In exchange, actions that <b>require extension APIs</b> are skipped and marked as such in the code: <code>Screenshot</code> (all four kinds) and <code>Switch</code> — a Switch with a block is skipped <b>together with every action in its block</b>, otherwise the script would run every case. The count appears in the warning strip and in the <i>skipped</i> pill at the bottom.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">🐍 Selenium Python</span><span class="ch-title">Standalone .py file</span></div><p class="ch-desc">Generates a Selenium script for Python. The <b>Settings</b> tab sets the <b>Starting URL</b> (🔄 pulls the current tab's URL), the <b>WebDriver</b> (Chrome / Firefox / Edge / Safari), the delay between steps and the element timeout. <code>Switch</code> actions are skipped, since branching to another scenario only exists inside the extension; a Switch with a block is skipped together with its block.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">Four tabs in the export window</span><span class="ch-title">Code · Variables · Actions · Settings</span></div><p class="ch-desc">
         • <b>Code</b> — preview, with <i>wrap</i> for long lines and <i>select all</i><br>
         • <b>Variables</b> — the variables this scenario actually uses, with the values that will be baked in<br>
@@ -1064,23 +1072,230 @@ const MAX_CONNECTION_RETRIES = 5;
 let connectionCheckInterval = null;
 
 /* === Switch Case Builder === */
-let _switchCases = []; // [{ value, scenarioId, scenarioName, startAt? }]
+let _switchCases = []; // [{ value, scenarioId, scenarioName, startAt?, endAt?, empty? }]
+// continueAt of the Switch in the form: null = automatic (right after its block).
+let _switchContinueAt = null;
 
-// Case target that jumps within the scenario being played instead of branching
-// into another one — must match SWITCH_SELF in bg/playback.js.
-const SWITCH_SELF = "__self__";
+// A case targeting SWITCH_SELF (bg/switch-blocks.js) stays in the scenario being
+// played: with an end action it owns that block of actions, without one it
+// jumps and plays on (the original behaviour).
 const SWITCH_SELF_LABEL = "↻ This scenario (jump)";
 
-/** "#N" suffix for a case that doesn't start at the first action. */
-function _switchStartSuffix(c) {
-  const n = parseInt(c.startAt, 10) || 1;
-  return c.scenarioId === SWITCH_SELF || n > 1 ? ` @#${n}` : "";
+/* The scenario on screen and its Switch layout. The form lists actions by the
+   numbers the preview shows (1.2.1 …), so it reads the list the preview read. */
+let _swCtx = { scenarioId: null, actions: [], layout: [] };
+
+function _setSwitchContext(scenarioId, actions) {
+  const list = Array.isArray(actions) ? actions.filter(a => a != null) : [];
+  _swCtx = { scenarioId, actions: list, layout: getSwitchLayout(list) };
 }
 
-/** Case fields from the form: a 1-based start action, omitted when it's the first. */
-function _switchCaseTarget(scenarioId, scenarioName, startRaw) {
+/** Reload the scenario the form edits into _swCtx, then run `done`. */
+function _refreshSwitchContext(done) {
+  const scenarioId = editing ? editing.scenarioId : (scenarioList.value || null);
+  chrome.runtime.sendMessage({ type: "GET_PREVIEW_ACTIONS", scenarioId }, (res) => {
+    _setSwitchContext(scenarioId, res?.actions || []);
+    done?.();
+  });
+}
+
+/** Index the Switch in the form has — or will have once added at the end. */
+function _switchSelfIdx() {
+  return editing && editing.scenarioId === _swCtx.scenarioId ? editing.index : _swCtx.actions.length;
+}
+
+/** The Switch as the form currently describes it. */
+function _candidateSwitch() {
+  const sw = {
+    type: "switch",
+    switchVar: document.getElementById("switchVar")?.value?.trim() || "",
+    cases: _switchCases.map(c => ({ ...c })),
+  };
+  if (_switchContinueAt != null && sw.cases.some(isBlockCase)) sw.continueAt = _switchContinueAt;
+  return sw;
+}
+
+/** The scenario's actions with the form's Switch in place (or appended). */
+function _candidateActions(sw = _candidateSwitch()) {
+  const list = [..._swCtx.actions];
+  const self = _switchSelfIdx();
+  if (self < list.length) list[self] = sw; else list.push(sw);
+  return list;
+}
+
+/** Display number of action `idx` (0-based), e.g. "1.2.1". */
+function _noOf(idx, layout = _swCtx.layout) {
+  return layout?.[idx]?.displayNo ?? `#${idx + 1}`;
+}
+
+/** Layout of another scenario, for the numbers of a case that runs part of it. */
+function _layoutOfScenario(id) {
+  const acts = scenariosCache?.[id]?.actions;
+  return Array.isArray(acts) ? getSwitchLayout(acts) : null;
+}
+
+/** " 1.1.1–1.1.2" / " @3" / " (nothing)" — where a case goes, in display numbers. */
+function _switchStartSuffix(c, layout = _swCtx.layout) {
+  if (c.scenarioId === SWITCH_SELF) {
+    if (isBlockCase(c)) {
+      if (c.empty) return " (nothing)";
+      const r = caseRange(c);
+      return r.start === r.end
+        ? ` ${_noOf(r.start, layout)}`
+        : ` ${_noOf(r.start, layout)}–${_noOf(r.end, layout)}`;
+    }
+    return ` @${_noOf((parseInt(c.startAt, 10) || 1) - 1, layout)}`;
+  }
+  const n = parseInt(c.startAt, 10) || 1;
+  const e = parseInt(c.endAt, 10);
+  const tl = _layoutOfScenario(c.scenarioId);
+  const no = (k) => tl?.[k - 1]?.displayNo ?? `#${k}`;
+  if (Number.isFinite(e)) return ` @${no(n)}–${no(e)}`;
+  return n > 1 ? ` @${no(n)}` : "";
+}
+
+/** Case fields for a target that is another scenario: 1-based start (omitted when 1), optional end. */
+function _switchCaseTarget(scenarioId, scenarioName, startRaw, endRaw) {
   const startAt = Math.max(1, parseInt(startRaw, 10) || 1);
-  return { scenarioId, scenarioName, ...(startAt > 1 || scenarioId === SWITCH_SELF ? { startAt } : {}) };
+  const endAt   = parseInt(endRaw, 10);
+  return {
+    scenarioId, scenarioName,
+    ...(startAt > 1 ? { startAt } : {}),
+    ...(endAt >= 1 ? { endAt } : {}),
+  };
+}
+
+/** Case fields for SWITCH_SELF from the From / To dropdowns. */
+function _switchSelfTarget(fromVal, toVal) {
+  const base = { scenarioId: SWITCH_SELF, scenarioName: SWITCH_SELF_LABEL };
+  if (fromVal === "none" || fromVal === "" || fromVal == null) return { ...base, empty: true };
+  const startAt = Number(fromVal) + 1;
+  if (toVal === "tail") return { ...base, startAt };
+  if (toVal === "only" || toVal === "" || toVal == null) return { ...base, startAt, endAt: startAt };
+  return { ...base, startAt, endAt: Number(toVal) + 1 };
+}
+
+/** Same destination? Used to keep an untouched case byte-for-byte as it was saved. */
+function _sameCaseTarget(a, b) {
+  const n = (v) => (v == null || v === "" ? null : parseInt(v, 10));
+  return a.value === b.value && a.scenarioId === b.scenarioId &&
+    n(a.startAt) === n(b.startAt) && n(a.endAt) === n(b.endAt) && !!a.empty === !!b.empty;
+}
+
+/** <option>s listing the scenario's actions (display number + summary). */
+function _actionOptions(selected, layout, { from = 0, skip = -1 } = {}) {
+  const list = _candidateActions();
+  let html = "";
+  for (let i = from; i < list.length; i++) {
+    if (i === skip) continue;
+    const a = list[i];
+    const txt = `${_noOf(i, layout)}  ${a.type} ${a.label || _getActionDisplayValue(a) || ""}`.slice(0, 60);
+    html += `<option value="${i}"${i === selected ? " selected" : ""}>${escHtml(txt)}</option>`;
+  }
+  return html;
+}
+
+/**
+ * Fill a From / To dropdown pair for a SWITCH_SELF case. `c` is the case being
+ * edited (null for a new one): an old jump case opens on "To the end", a new
+ * case on "Only this action".
+ */
+function _fillRangeSelects(fromEl, toEl, c) {
+  const layout = getSwitchLayout(_candidateActions());
+  const self   = _switchSelfIdx();
+  let from = "none", to = "only";
+  if (c && c.scenarioId === SWITCH_SELF) {
+    if (isBlockCase(c)) {
+      const r = caseRange(c);
+      if (r) { from = r.start; to = r.end === r.start ? "only" : r.end; }
+    } else {
+      from = (parseInt(c.startAt, 10) || 1) - 1;
+      to = "tail";
+    }
+  } else if (self + 1 < _candidateActions().length) {
+    from = self + 1;
+  }
+  let fromHtml = `<option value="none">— nothing (do nothing) —</option>` + _actionOptions(from, layout, { skip: self });
+  if (typeof from === "number" && from >= _candidateActions().length) {
+    fromHtml += `<option value="${from}" selected>#${from + 1} (missing)</option>`;
+  }
+  fromEl.innerHTML = fromHtml;
+  fromEl.value = String(from);
+
+  const renderTo = (want) => {
+    const f = fromEl.value;
+    if (f === "none" || f === "") { toEl.innerHTML = ""; toEl.disabled = true; return; }
+    toEl.disabled = false;
+    const fi = Number(f);
+    toEl.innerHTML = `<option value="only">Only this action</option>`
+      + _actionOptions(-1, layout, { from: fi + 1, skip: self })
+      + `<option value="tail">To the end (old-style jump)</option>`;
+    toEl.value = [...toEl.options].some(o => o.value === String(want)) ? String(want) : "only";
+  };
+  renderTo(to);
+  fromEl.onchange = () => renderTo(toEl.value || "only");
+}
+
+/** Show the From / To pair for "↻ This scenario", the start / end numbers otherwise. */
+function _syncAddRowMode() {
+  const sel     = document.getElementById("switchCaseScenario");
+  const isSelf  = sel?.value === SWITCH_SELF;
+  const start   = document.getElementById("switchCaseStart");
+  const end     = document.getElementById("switchCaseEnd");
+  const range   = document.getElementById("switchCaseRangeRow");
+  if (start) start.style.display = isSelf ? "none" : "";
+  if (end)   end.style.display   = isSelf ? "none" : "";
+  if (range) range.style.display = isSelf ? "flex" : "none";
+  if (isSelf) {
+    _fillRangeSelects(document.getElementById("switchCaseFrom"), document.getElementById("switchCaseTo"), null);
+  }
+}
+
+/** "Continue at" dropdown — only for a Switch that owns a block. */
+function _renderSwitchContinue() {
+  const row = document.getElementById("switchContinueRow");
+  const sel = document.getElementById("switchContinueAt");
+  if (!row || !sel) return;
+  const block = _switchCases.some(isBlockCase);
+  row.style.display = block ? "flex" : "none";
+  if (!block) return;
+  const list   = _candidateActions();
+  const self   = _switchSelfIdx();
+  const layout = getSwitchLayout(list);
+  const autoSw = { ..._candidateSwitch() };
+  delete autoSw.continueAt;
+  const autoIdx = continueIndex(_candidateActions(autoSw), self);
+  const autoNo  = autoIdx < list.length ? _noOf(autoIdx, layout) : "end of scenario";
+  let html = `<option value="auto">Auto: ${escHtml(autoNo)}</option>`;
+  // Only actions after the block: inside it is an error, and before the Switch a loop.
+  html += _actionOptions(-1, layout, { from: autoIdx });
+  html += `<option value="${list.length}">End of scenario</option>`;
+  // A saved continueAt outside that range (a backward loop) stays selectable.
+  const saved = _switchContinueAt != null ? _switchContinueAt - 1 : null;
+  if (saved != null && (saved < autoIdx || saved > list.length)) {
+    html += `<option value="${saved}">${escHtml(saved < list.length ? _noOf(saved, layout) : `#${saved + 1}`)} (saved)</option>`;
+  }
+  sel.innerHTML = html;
+  sel.value = _switchContinueAt == null ? "auto" : String(_switchContinueAt - 1);
+  if (!sel.value) sel.value = "auto";
+}
+
+/** Errors / warnings for the Switch as the form describes it. */
+function _renderSwitchValidation() {
+  const box = document.getElementById("switchValidation");
+  if (!box) return;
+  const list = _candidateActions();
+  const self = _switchSelfIdx();
+  const { errors, warnings } = validateSwitch(list, self);
+  for (const c of _switchCases) {
+    const err = validateExternalCase(c, scenariosCache?.[c.scenarioId]?.actions);
+    if (err) errors.push(err);
+  }
+  box.innerHTML = [
+    ...errors.map(m => `<div class="sw-val-error">⚠ ${escHtml(m)}</div>`),
+    ...warnings.map(m => `<div class="sw-val-warn">⚠ ${escHtml(m)}</div>`),
+  ].join("");
+  box.style.display = errors.length || warnings.length ? "block" : "none";
 }
 
 function populateSwitchScenarioSelect() {
@@ -1102,14 +1317,31 @@ function populateSwitchScenarioSelect() {
   // "+ Add" has always meant "branch to the first scenario" by default.
   const selfOpt = document.createElement("option");
   selfOpt.value = SWITCH_SELF;
-  selfOpt.textContent = SWITCH_SELF_LABEL;
+  selfOpt.textContent = "↻ This scenario";
   sel.appendChild(selfOpt);
+  _syncAddRowMode();
+}
+document.getElementById("switchCaseScenario")?.addEventListener("change", _syncAddRowMode);
+document.getElementById("switchContinueAt")?.addEventListener("change", (e) => {
+  const v = e.target.value;
+  _switchContinueAt = v === "auto" || v === "" ? null : Number(v) + 1;
+  _renderSwitchValidation();
+  debouncedSaveDraft?.();
+});
+
+/** Re-render everything in the Switch form that depends on the cases. */
+function _refreshSwitchForm(editingIdx = -1) {
+  renderSwitchCaseList(editingIdx);
+  _syncAddRowMode();
+  _renderSwitchContinue();
+  _renderSwitchValidation();
 }
 
 function renderSwitchCaseList(editingIdx = -1) {
   const list = document.getElementById("switchCaseList");
   if (!list) return;
   list.innerHTML = "";
+  const layout = getSwitchLayout(_candidateActions());
   _switchCases.forEach((c, idx) => {
     const row = document.createElement("div");
 
@@ -1144,8 +1376,9 @@ function renderSwitchCaseList(editingIdx = -1) {
       });
       // Appended last so a case whose scenario was deleted (nothing selected)
       // still falls back to the first scenario, not to a jump.
-      optionsHtml += `<option value="${SWITCH_SELF}"${c.scenarioId === SWITCH_SELF ? " selected" : ""}>${SWITCH_SELF_LABEL}</option>`;
+      optionsHtml += `<option value="${SWITCH_SELF}"${c.scenarioId === SWITCH_SELF ? " selected" : ""}>↻ This scenario</option>`;
 
+      const endVal = parseInt(c.endAt, 10);
       row.innerHTML = `
         <div class="sw-inline-row">
           <input class="sw-edit-val sw-edit-input" placeholder="Case value (empty = default)"
@@ -1157,6 +1390,12 @@ function renderSwitchCaseList(editingIdx = -1) {
           <select class="sw-edit-scen sw-edit-input">${optionsHtml}</select>
           <input class="sw-edit-start sw-start-input" type="number" min="1" placeholder="#"
             title="Start at action # (1 = first)" value="${parseInt(c.startAt, 10) || 1}" />
+          <input class="sw-edit-end sw-start-input" type="number" min="1" placeholder="…#"
+            title="Last action to play (empty = to the end)" value="${Number.isFinite(endVal) ? endVal : ""}" />
+        </div>
+        <div class="sw-inline-row sw-range-row sw-edit-range">
+          <label>From</label><select class="sw-edit-from sw-edit-input"></select>
+          <label>to</label><select class="sw-edit-to sw-edit-input"></select>
         </div>
         <div class="sw-inline-row-end">
           <button class="sw-edit-confirm secondary sw-edit-btn">✓</button>
@@ -1166,33 +1405,56 @@ function renderSwitchCaseList(editingIdx = -1) {
 
       list.appendChild(row);
 
+      const scenSel = row.querySelector(".sw-edit-scen");
+      const syncEditMode = () => {
+        const isSelf = scenSel.value === SWITCH_SELF;
+        row.querySelector(".sw-edit-start").style.display = isSelf ? "none" : "";
+        row.querySelector(".sw-edit-end").style.display   = isSelf ? "none" : "";
+        row.querySelector(".sw-edit-range").style.display = isSelf ? "flex" : "none";
+        if (isSelf) {
+          _fillRangeSelects(row.querySelector(".sw-edit-from"), row.querySelector(".sw-edit-to"),
+            c.scenarioId === SWITCH_SELF ? c : null);
+        }
+      };
+      scenSel.addEventListener("change", syncEditMode);
+      syncEditMode();
+
       row.querySelector(".sw-edit-confirm").addEventListener("click", () => {
         const newVal = row.querySelector(".sw-edit-val").value.trim();
-        const newScenId = row.querySelector(".sw-edit-scen").value;
-        const newScenName = row.querySelector(".sw-edit-scen").selectedOptions[0]?.textContent || newScenId;
+        const newScenId = scenSel.value;
+        const newScenName = scenSel.selectedOptions[0]?.textContent || newScenId;
         const resolvedVal = (isDefault || newVal === "") ? "__default__" : newVal;
         // Check duplicate (skip self)
         if (_switchCases.some((x, i) => i !== idx && x.value === resolvedVal)) {
           showToast(`Case "${resolvedVal === "__default__" ? "default" : resolvedVal}" already exists`, "error");
           return;
         }
-        const newStart = row.querySelector(".sw-edit-start").value;
-        _switchCases[idx] = { value: resolvedVal, ..._switchCaseTarget(newScenId, newScenName, newStart) };
-        renderSwitchCaseList();
+        const target = newScenId === SWITCH_SELF
+          ? _switchSelfTarget(row.querySelector(".sw-edit-from").value, row.querySelector(".sw-edit-to").value)
+          : _switchCaseTarget(newScenId, newScenName,
+              row.querySelector(".sw-edit-start").value, row.querySelector(".sw-edit-end").value);
+        const next = { value: resolvedVal, ...target };
+        // Unchanged → keep the saved case as it was (same JSON on save).
+        _switchCases[idx] = _sameCaseTarget(c, next) ? c : next;
+        _refreshSwitchForm();
       });
 
       row.querySelector(".sw-edit-cancel").addEventListener("click", () => {
-        renderSwitchCaseList();
+        _refreshSwitchForm();
       });
 
     } else {
       // ── View mode ──
       row.className = "sw-case-row-view";
+      if (isBlockCase(c)) row.style.setProperty("--sw-color", `var(--sw-c${idx % CASE_COLORS})`);
       // c.value and c.scenarioName are user-authored — escape before inserting into innerHTML.
       const label = c.value === "__default__" ? "⬡ default" : `"${escHtml(c.value)}"`;
+      const target = c.scenarioId === SWITCH_SELF
+        ? (isBlockCase(c) ? "↻ this" : SWITCH_SELF_LABEL)
+        : (c.scenarioName || c.scenarioId);
       row.innerHTML = `
-        <span class="sw-case-label">${label}</span>
-        <span class="sw-case-target">→ ${escHtml(c.scenarioId === SWITCH_SELF ? SWITCH_SELF_LABEL : (c.scenarioName || c.scenarioId))}${_switchStartSuffix(c)}</span>
+        <span class="sw-case-label${isBlockCase(c) ? " sw-case-label-block" : ""}">${label}</span>
+        <span class="sw-case-target">→ ${escHtml(target)}${escHtml(_switchStartSuffix(c, layout))}</span>
         <button data-idx="${idx}" class="sw-case-edit secondary sw-case-btn" title="Edit case">✎</button>
         <button data-idx="${idx}" class="sw-case-del secondary sw-case-btn" title="Delete case">🗑</button>
       `;
@@ -1202,13 +1464,13 @@ function renderSwitchCaseList(editingIdx = -1) {
 
   list.querySelectorAll(".sw-case-edit").forEach(btn => {
     btn.addEventListener("click", () => {
-      renderSwitchCaseList(Number(btn.dataset.idx));
+      _refreshSwitchForm(Number(btn.dataset.idx));
     });
   });
   list.querySelectorAll(".sw-case-del").forEach(btn => {
     btn.addEventListener("click", () => {
       _switchCases.splice(Number(btn.dataset.idx), 1);
-      renderSwitchCaseList();
+      _refreshSwitchForm();
     });
   });
 }
@@ -1223,21 +1485,19 @@ document.getElementById("switchAddCase")?.addEventListener("click", () => {
     showToast(`Case "${caseVal === "__default__" ? "default" : caseVal}" already exists`, "error"); return;
   }
   const startEl = document.getElementById("switchCaseStart");
-  if (selEl.value === SWITCH_SELF && !(parseInt(startEl?.value, 10) >= 1)) {
-    showToast("Enter the action # to jump to", "error"); return;
-  }
-  _switchCases.push({
-    value: caseVal,
-    ..._switchCaseTarget(
-      selEl.value,
-      selEl.options[selEl.selectedIndex]?.textContent || selEl.value,
-      startEl?.value,
-    ),
-  });
+  const endEl   = document.getElementById("switchCaseEnd");
+  const target = selEl.value === SWITCH_SELF
+    ? _switchSelfTarget(document.getElementById("switchCaseFrom")?.value, document.getElementById("switchCaseTo")?.value)
+    : _switchCaseTarget(selEl.value, selEl.options[selEl.selectedIndex]?.textContent || selEl.value,
+        startEl?.value, endEl?.value);
+  _switchCases.push({ value: caseVal, ...target });
   if (valEl) valEl.value = "";
   if (startEl) startEl.value = "";
-  renderSwitchCaseList();
+  if (endEl) endEl.value = "";
+  _refreshSwitchForm();
+  debouncedSaveDraft?.();
 });
+document.getElementById("switchVar")?.addEventListener("input", () => _renderSwitchValidation());
 let sequenceClipboard = null; // Copy/paste clipboard for sequence items
 
 /* === COLLAPSIBLE CARDS === */
@@ -1624,13 +1884,39 @@ function displayPickedSelectors(selectors) {
     },
     onClear: () => {
       currentPickedSelectors = null;
+      currentPickedFrameId = null;
+      _updateFrameNote();
       manualSelector.value = '';
       pickedSelectorsInfo.innerHTML = '';
       pickedSelectorsWrap.style.display = 'none';
-      chrome.storage.local.remove(["lastPickedSelector", "lastPickedSelectors"]);
+      chrome.storage.local.remove(["lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId"]);
     },
   });
 }
+
+/** True while the selector box still holds one of the picked element's selectors. */
+function _selectorIsPicked(selector) {
+  if (!currentPickedSelectors || !selector) return false;
+  return Object.values(currentPickedSelectors).some(v => typeof v === "string" && v === selector);
+}
+
+/** "in iframe" note beside the selector while the picked element is in a frame. */
+function _updateFrameNote() {
+  const note = document.getElementById("pickedFrameNote");
+  if (!note) return;
+  const inFrame = currentPickedFrameId != null && currentPickedFrameId !== 0;
+  note.style.display = inFrame ? "block" : "none";
+  note.textContent = inFrame ? `⧉ In an iframe (frame ${currentPickedFrameId}) — plays back in that frame` : "";
+}
+
+// Typing a different selector drops the picked frame: the new selector is
+// looked up in the top page, as for any hand-written selector.
+manualSelector?.addEventListener("input", () => {
+  if (currentPickedFrameId != null && !_selectorIsPicked(manualSelector.value.trim())) {
+    currentPickedFrameId = null;
+    _updateFrameNote();
+  }
+});
 
 /* Switching the selector flavour swaps in the matching picked selector rather
    than leaving a stale one from the previous flavour in the box. */
@@ -1686,7 +1972,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       manualSelector.value = msg.selector || "";
       currentPickedSelectors = msg.selectors || { css: msg.selector };
+      currentPickedFrameId = msg.frameId ?? null;
       displayPickedSelectors(currentPickedSelectors);
+      _updateFrameNote();
       selectorType.value = 'css';
       pickerMode = false;
       pickElement.textContent = "🎯";
@@ -1698,7 +1986,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 });
 
 // If popup opens after picking, restore the cached selector from storage
-chrome.storage.local.get(["lastPickedSelector", "lastPickedSelectors", "pendingEdit", "dragdropTargetPickPending", "dragdropTargetPickState", "elemShotPickPending", "manualFormDraft"], (res) => {
+chrome.storage.local.get(["lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId", "pendingEdit", "dragdropTargetPickPending", "dragdropTargetPickState", "elemShotPickPending", "manualFormDraft"], (res) => {
   // Restore pending edit/add state (saved before pick mode opens)
   if (res?.pendingEdit) {
     const pe = res.pendingEdit;
@@ -1762,11 +2050,13 @@ chrome.storage.local.get(["lastPickedSelector", "lastPickedSelectors", "pendingE
     if (res?.lastPickedSelectors) {
       try {
         currentPickedSelectors = res.lastPickedSelectors;
+        currentPickedFrameId = res.lastPickedFrameId ?? null;
         displayPickedSelectors(currentPickedSelectors);
+        _updateFrameNote();
         if (res.lastPickedSelector) {
           manualSelector.value = res.lastPickedSelector;
         }
-        chrome.storage.local.remove(["lastPickedSelector", "lastPickedSelectors"]);
+        chrome.storage.local.remove(["lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId"]);
       } catch (e) { /* ignore */ }
     } else if (res?.lastPickedSelector) {
       try {
@@ -2110,52 +2400,251 @@ function _getActionDisplayValue(a) {
   }
   if (a.type === "readdom") {
     const from = a.readFrom === "attr" ? `attr:${a.attrName || "?"}` : (a.readFrom || "text");
-    return `${a.selector || "(no selector)"} → ${from} → $\{${a.varName || "?"}}`;
+    const vn = normalizeVarName(a.varName) || a.varName || "?";
+    return `${a.selector || "(no selector)"} → ${from} → $\{${vn}}`;
   }
   return value;
 }
 
-function createActionListItem(a, i, scenarioId) {
+/* === Switch blocks in the preview ===
+ * Numbers come from getSwitchLayout (1, 1.2.1 …); the absolute #N is in the
+ * tooltip. Cases get a header row and their own colour; a collapsed Switch
+ * hides its block. Collapsed state is per scenario, in localStorage.
+ */
+let _previewCollapsed = new Set();
+const _collapseKey = (scenarioId) => `pqa.switchCollapsed.${scenarioId || "current"}`;
+
+function _loadCollapsed(scenarioId) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(_collapseKey(scenarioId)) || "[]");
+    return new Set(Array.isArray(raw) ? raw.map(Number) : []);
+  } catch (_) { return new Set(); }
+}
+function _saveCollapsed(scenarioId, set) {
+  try { localStorage.setItem(_collapseKey(scenarioId), JSON.stringify([...set])); } catch (_) {}
+}
+
+/** Everything wrong with a Switch row: validateSwitch + ranges into other scenarios. */
+function _switchIssues(actions, i, layout) {
+  const { errors, warnings } = validateSwitch(actions, i, layout);
+  for (const c of (actions[i]?.cases || [])) {
+    const err = validateExternalCase(c, scenariosCache?.[c.scenarioId]?.actions);
+    if (err) errors.push(err);
+  }
+  return { errors, warnings };
+}
+
+/** "2" for an action index, or "end" past the last action. */
+function _contNo(idx, layout) {
+  return idx < layout.length ? layout[idx].displayNo : "end";
+}
+
+function _applyBlockStyle(el, depth, color) {
+  if (!depth) return;
+  el.classList.add("sw-in-block");
+  el.style.setProperty("--sw-depth", depth);
+  el.style.setProperty("--sw-color", color != null ? `var(--sw-c${color})` : "var(--muted)");
+}
+
+/** Space-separated keys used to find a block's / a case's rows. */
+function _blockKeys(chain) {
+  return {
+    blocks: chain.map(c => c.switchIdx).join(" "),
+    cases: chain.filter(c => c.caseIdx != null).map(c => `${c.switchIdx}:${c.caseIdx}`).join(" "),
+  };
+}
+
+function _caseHeadLi(s, k, actions, layout, empty) {
+  const li = document.createElement("li");
+  li.className = "sw-case-head";
+  li.dataset.switch = s;
+  li.dataset.case = k;
+  const sw = layout[s];
+  _applyBlockStyle(li, sw.depth + 1, k % CASE_COLORS);
+  const keys = _blockKeys(sw.chain);
+  li.dataset.blocks = `${keys.blocks} ${s}`.trim();
+  const c = actions[s].cases[k];
+  li.innerHTML = `<span class="sw-case-head-label">case ${escHtml(caseLabel(c))}</span>`
+    + (empty ? `<span class="sw-case-empty" title="This case has no actions — it does nothing">(empty) ⚠</span>` : "")
+    + `<span class="sw-case-head-rule"></span>`;
+  li.title = "Drop an action here to put it first in this case";
+  return li;
+}
+
+function _outsideLi(s, layout) {
+  const li = document.createElement("li");
+  li.className = "sw-outside";
+  li.dataset.switch = s;
+  const sw = layout[s];
+  _applyBlockStyle(li, sw.depth, sw.color);
+  li.dataset.blocks = _blockKeys(sw.chain).blocks;
+  li.textContent = `⤓ Drop here to move out of Switch ${sw.displayNo}`;
+  return li;
+}
+
+function _flashCase(s, k) {
+  if (_previewCollapsed.has(s)) { _toggleCollapsed(s); }
+  const head = actionsEl.querySelector(`.sw-case-head[data-switch="${s}"][data-case="${k}"]`);
+  const target = head || actionsEl.querySelector(`li[data-index="${s}"]`);
+  target?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  actionsEl.querySelectorAll(`[data-cases~="${s}:${k}"]`).forEach(el => {
+    el.classList.remove("sw-flash");
+    void el.offsetWidth; // restart the animation
+    el.classList.add("sw-flash");
+  });
+}
+
+function _toggleCollapsed(s) {
+  const scenarioId = _swCtx.scenarioId;
+  if (_previewCollapsed.has(s)) _previewCollapsed.delete(s); else _previewCollapsed.add(s);
+  _saveCollapsed(scenarioId, _previewCollapsed);
+  _applyCollapsed();
+}
+
+/** Hide every row inside a collapsed Switch's block. */
+function _applyCollapsed() {
+  actionsEl.querySelectorAll("[data-blocks]").forEach(el => {
+    const keys = (el.dataset.blocks || "").split(" ").filter(Boolean).map(Number);
+    el.classList.toggle("sw-hidden", keys.some(k => _previewCollapsed.has(k)));
+  });
+  actionsEl.querySelectorAll(".sw-toggle").forEach(t => {
+    const s = Number(t.dataset.switch);
+    const open = !_previewCollapsed.has(s);
+    t.textContent = open ? "▾" : "▸";
+    t.setAttribute("aria-expanded", String(open));
+  });
+}
+
+/** Chips on a block Switch row: one per case, plus where no match goes. */
+function _switchChipsHtml(a, i, layout) {
+  const e = layout[i];
+  const chips = (a.cases || []).map((c, k) => {
+    const color = `var(--sw-c${k % CASE_COLORS})`;
+    let where;
+    if (isBlockCase(c)) {
+      const cc = e.block?.cases?.[k];
+      where = c.empty || cc?.start == null ? "nothing"
+        : cc.start === cc.end ? layout[cc.start].displayNo
+        : `${layout[cc.start].displayNo}–${layout[cc.end].displayNo}`;
+    } else if (c.scenarioId === SWITCH_SELF) {
+      where = `jump${_switchStartSuffix(c, layout)}`;
+    } else {
+      where = `→ ${c.scenarioName || c.scenarioId}${_switchStartSuffix(c, layout)}`;
+    }
+    return `<span class="sw-chip" role="button" tabindex="0" data-switch="${i}" data-case="${k}" style="--sw-color:${color}">${escHtml(caseLabel(c))} ${escHtml(where)}</span>`;
+  });
+  if (!(a.cases || []).some(c => c.value === "__default__")) {
+    chips.push(`<span class="sw-chip sw-chip-else">else → ${escHtml(_contNo(e.block.continueIdx, layout))}</span>`);
+  }
+  return chips.join("");
+}
+
+function createActionListItem(a, i, scenarioId, view = null) {
   const li = document.createElement("li");
   li.classList.add("action", `action-${a.type}`);
   if (a.disabled) li.classList.add("action-disabled");
   li.dataset.index = i;
   li.draggable = true;
 
-  const value = _getActionDisplayValue(a);
+  const layout = view?.layout;
+  const e = layout?.[i];
+  const blocksOn = !!view?.blocksOn;
+  const no = e?.displayNo ?? String(i + 1);
+  const isBlockSwitch = !!e?.block;
+
+  // A block Switch lists its cases as chips below, so the line itself only names the variable.
+  const value = isBlockSwitch ? (a.switchVar || "?") : _getActionDisplayValue(a);
   const delayText = (a.delay && a.type !== "wait") ? ` (${a.delay}ms)` : "";
   const labelHtml = a.label
     ? `<span style="display:block;font-size:10px;color:var(--primary);opacity:0.8;font-style:italic;margin-top:1px;">${escHtml(a.label)}</span>`
     : "";
 
+  // Switch blocks: nesting, problems, where playback goes next.
+  let warnHtml = "", notesHtml = "", chipsHtml = "";
+  if (e) {
+    _applyBlockStyle(li, e.depth, e.color);
+    const keys = _blockKeys(e.chain);
+    if (keys.blocks) li.dataset.blocks = keys.blocks;
+    if (keys.cases) li.dataset.cases = keys.cases;
+    if (a.type === "switch") {
+      const { errors, warnings } = _switchIssues(view.actions, i, layout);
+      if (errors.length) li.classList.add("sw-invalid");
+      const msgs = [...errors, ...warnings];
+      if (msgs.length) warnHtml = `<span class="sw-warn" title="${escHtml(msgs.join("\n"))}">⚠</span>`;
+      if (isBlockSwitch) chipsHtml = _switchChipsHtml(a, i, layout);
+    }
+    if (e.role === "orphan") {
+      li.classList.add("sw-orphan");
+      warnHtml = `<span class="sw-warn" title="Inside the block of Switch ${escHtml(layout[e.parent.switchIdx].displayNo)} but in no case — it never runs">⚠</span>`;
+    }
+    if (e.blockLast.length) {
+      const inner = Math.max(...e.blockLast);
+      notesHtml += `<span class="sw-note">↳ then go to ${escHtml(_contNo(layout[inner].block.continueIdx, layout))}</span>`;
+    }
+    if (e.continueOf.length) {
+      notesHtml += `<span class="sw-note">⤴ continues after Switch ${e.continueOf.map(s => escHtml(layout[s].displayNo)).join(", ")}</span>`;
+    }
+  }
+
+  const toggleHtml = isBlockSwitch
+    ? `<span class="sw-toggle" role="button" tabindex="0" data-switch="${i}" aria-label="Collapse or expand the Switch block" aria-expanded="true">▾</span>`
+    : "";
+
   li.innerHTML = `
-    <span class="index">${i + 1}.</span>
+    <span class="index" title="#${i + 1}">${escHtml(blocksOn ? no : `${i + 1}.`)}</span>
+    ${toggleHtml}
     <span class="type">${getActionIcon(a.type)}${escHtml(a.type)}</span>
     <span class="value" title="${escHtml(value)}${escHtml(delayText)}">
-      ${escHtml(value)}${escHtml(delayText)}
-      ${labelHtml}
+      ${warnHtml}${escHtml(value)}${escHtml(delayText)}
+      ${labelHtml}${notesHtml}
     </span>
   `;
+
+  if (isBlockSwitch) {
+    const tog = li.querySelector(".sw-toggle");
+    const onToggle = (ev) => { ev.stopPropagation(); _toggleCollapsed(i); };
+    tog.addEventListener("click", onToggle);
+    tog.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); onToggle(ev); } });
+    // The chips are appended below the buttons; one delegated listener covers them.
+    const onChip = (ev) => {
+      const chip = ev.target.closest?.(".sw-chip[data-case]");
+      if (!chip || !li.contains(chip)) return;
+      if (ev.type === "keydown" && ev.key !== "Enter" && ev.key !== " ") return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      _flashCase(i, Number(chip.dataset.case));
+    };
+    li.addEventListener("click", onChip);
+    li.addEventListener("keydown", onChip);
+    li.addEventListener("mouseenter", () => {
+      actionsEl.querySelectorAll(`[data-blocks~="${i}"]`).forEach(el => el.classList.add("sw-hl"));
+    });
+    li.addEventListener("mouseleave", () => {
+      actionsEl.querySelectorAll(".sw-hl").forEach(el => el.classList.remove("sw-hl"));
+    });
+  }
 
   li.addEventListener("dragstart", (e) => {
     dragFromIndex = Number(li.dataset.index);
     li.classList.add("dragging");
+    actionsEl.classList.add("sw-dragging");
     e.dataTransfer.effectAllowed = "move";
   });
   li.addEventListener("dragend", () => {
     li.classList.remove("dragging");
+    actionsEl.classList.remove("sw-dragging");
     document.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
   });
 
   const btnRow = document.createElement("div");
   btnRow.className = "btn-row";
 
-  const actionLabel = a.label ? `"${a.label}"` : `${a.type} #${i + 1}`;
+  const actionLabel = a.label ? `"${a.label}"` : `${a.type} ${no}`;
 
   const toggleBtn = document.createElement("button");
   toggleBtn.textContent = a.disabled ? "Enable" : "Disable";
   toggleBtn.className = "secondary";
-  toggleBtn.setAttribute("aria-label", `${a.disabled ? "Enable" : "Disable"} action ${i + 1}: ${actionLabel}`);
+  toggleBtn.setAttribute("aria-label", `${a.disabled ? "Enable" : "Disable"} action ${no}: ${actionLabel}`);
   toggleBtn.addEventListener("click", () => {
     chrome.runtime.sendMessage(
       { type: "TOGGLE_ACTION_DISABLED", scenarioId, index: i },
@@ -2166,26 +2655,31 @@ function createActionListItem(a, i, scenarioId) {
   const editBtn = document.createElement("button");
   editBtn.textContent = "Edit";
   editBtn.className = "secondary";
-  editBtn.setAttribute("aria-label", `Edit action ${i + 1}: ${actionLabel}`);
+  editBtn.setAttribute("aria-label", `Edit action ${no}: ${actionLabel}`);
   editBtn.addEventListener("click", () => startEdit(i, a));
 
   const delBtn = document.createElement("button");
   delBtn.textContent = "Delete";
   delBtn.className = "danger";
-  delBtn.setAttribute("aria-label", `Delete action ${i + 1}: ${actionLabel}`);
+  delBtn.setAttribute("aria-label", `Delete action ${no}: ${actionLabel}`);
   delBtn.addEventListener("click", () => {
-    showConfirm("Delete this action?", () => {
+    // A block Switch's actions stay where they are and become regular actions.
+    const inBlock = isBlockSwitch ? e.block.end - i : 0;
+    const msg = inBlock > 0
+      ? `Delete this Switch? The ${inBlock} action${inBlock === 1 ? "" : "s"} in its block stay and become regular actions.`
+      : "Delete this action?";
+    showConfirm(msg, () => {
       chrome.runtime.sendMessage(
         { type: "REMOVE_ACTION", scenarioId, index: i },
         () => { previewActions(); updateUndoRedoState(); }
       );
-    }, { title: 'Delete Action', danger: true });
+    }, { title: isBlockSwitch ? 'Delete Switch' : 'Delete Action', danger: true });
   });
 
   const copyBtn = document.createElement("button");
   copyBtn.textContent = "Copy";
   copyBtn.className = "secondary";
-  copyBtn.setAttribute("aria-label", `Copy action ${i + 1}: ${actionLabel}`);
+  copyBtn.setAttribute("aria-label", `Copy action ${no}: ${actionLabel}`);
   copyBtn.addEventListener("click", () => {
     actionClipboard = JSON.parse(JSON.stringify(a));
     showToast("Action copied", "success");
@@ -2197,7 +2691,46 @@ function createActionListItem(a, i, scenarioId) {
   btnRow.appendChild(editBtn);
   btnRow.appendChild(delBtn);
   li.appendChild(btnRow);
+  if (chipsHtml) {
+    // Own full-width line: the value column is too narrow for several cases.
+    const chipsRow = document.createElement("div");
+    chipsRow.className = "sw-chips";
+    chipsRow.innerHTML = chipsHtml;
+    li.classList.add("has-chips");
+    li.appendChild(chipsRow);
+  }
   return li;
+}
+
+/** Render the action rows, case headers and "out of the block" drop zones. */
+function _renderActionRows(actions, scenarioId) {
+  const layout = _swCtx.layout;
+  const blocksOn = anyBlocks(actions);
+  _previewCollapsed = blocksOn ? _loadCollapsed(scenarioId) : new Set();
+  actionsEl.classList.toggle("has-blocks", blocksOn);
+  const widest = layout.reduce((m, e) => Math.max(m, e.displayNo.length), 2);
+  actionsEl.style.setProperty("--idx-w", `${Math.max(18, widest * 6 + 4)}px`);
+  const view = { layout, actions, blocksOn };
+
+  actions.forEach((a, i) => {
+    if (a == null) return;
+    const e = layout[i];
+    if (e?.caseStart) {
+      actionsEl.appendChild(_caseHeadLi(e.caseStart.switchIdx, e.caseStart.caseIdx, actions, layout, false));
+    }
+    actionsEl.appendChild(createActionListItem(a, i, scenarioId, view));
+    if (!blocksOn || !e) return;
+    // Blocks ending on this row, innermost first: their empty cases, then the drop zone.
+    const ending = [...e.blockLast];
+    if (e.block && e.block.end === i) ending.push(i);
+    ending.sort((x, y) => y - x).forEach((s) => {
+      layout[s].block.cases.forEach((cc) => {
+        if (cc.isBlock && cc.start == null) actionsEl.appendChild(_caseHeadLi(s, cc.caseIdx, actions, layout, true));
+      });
+      actionsEl.appendChild(_outsideLi(s, layout));
+    });
+  });
+  if (blocksOn) _applyCollapsed();
 }
 
 function previewActions() {
@@ -2217,15 +2750,15 @@ function previewActions() {
       actionsEl.innerHTML = "";
 
       if (!res?.actions?.length) {
+        _setSwitchContext(scenarioId, []);
         actionsEl.innerHTML = `<li class="empty">No actions recorded — use the Add Manual Action card above to add one</li>`;
         if (actionCount) actionCount.style.display = "none";
         updateUndoRedoState();
         return;
       }
 
-      res.actions.forEach((a, i) => {
-        if (a != null) actionsEl.appendChild(createActionListItem(a, i, scenarioId));
-      });
+      _setSwitchContext(scenarioId, res.actions);
+      _renderActionRows(res.actions, scenarioId);
 
       // Paste button — shown when clipboard has data
       if (actionClipboard) {
@@ -2309,7 +2842,9 @@ runListDisplay.addEventListener("drop", () => {
 });
 
 function getDragAfterElement(container, y) {
-  const items = [...container.querySelectorAll("li:not(.dragging)")];
+  // Rows hidden by a collapsed Switch have no box to measure.
+  const items = [...container.querySelectorAll("li:not(.dragging)")]
+    .filter(el => el.getClientRects().length > 0);
 
   return items.reduce(
     (closest, child) => {
@@ -2325,18 +2860,44 @@ function getDragAfterElement(container, y) {
   ).element;
 }
 
+/**
+ * Where the dragged row landed, from the visible row right above it — see
+ * planDrop in bg/switch-blocks.js for what each kind means.
+ */
+function _dropAnchor(dragging) {
+  let prev = dragging.previousElementSibling;
+  while (prev && (prev.getClientRects().length === 0 || prev.classList.contains("action-paste-li")
+    || prev.classList.contains("action-loading"))) {
+    prev = prev.previousElementSibling;
+  }
+  if (!prev) return { kind: "top" };
+  if (prev.classList.contains("sw-case-head")) {
+    return { kind: "caseHead", switchIdx: Number(prev.dataset.switch), caseIdx: Number(prev.dataset.case) };
+  }
+  if (prev.classList.contains("sw-outside")) return { kind: "outside", switchIdx: Number(prev.dataset.switch) };
+  const j = Number(prev.dataset.index);
+  if (!Number.isInteger(j)) return { kind: "top" };
+  if (_swCtx.layout[j]?.block && _previewCollapsed.has(j)) return { kind: "afterCollapsed", switchIdx: j };
+  return { kind: "after", index: j };
+}
+
 function updateActionOrderFromDOM() {
   const scenarioId = scenarioList.value || null;
+  const dragging = actionsEl.querySelector("li.dragging");
+  actionsEl.classList.remove("sw-dragging");
+  if (!dragging || dragFromIndex == null || _swCtx.scenarioId !== scenarioId) { previewActions(); return; }
 
-  const newOrder = [...actionsEl.children].map((li) =>
-    Number(li.dataset.index)
-  );
+  // A dragged Switch takes its block along, and where a row lands decides
+  // which case it joins — both worked out by planDrop.
+  const plan = planDrop(_swCtx.actions, dragFromIndex, _dropAnchor(dragging));
+  if (!plan) { previewActions(); return; }
 
   chrome.runtime.sendMessage(
     {
       type: "REORDER_ACTIONS",
       scenarioId,
-      newOrder,
+      newOrder: plan.newOrder,
+      move: plan.move,
     },
     () => {
       // Refresh preview to update STT immediately after reorder
@@ -2439,7 +3000,10 @@ manualActionType.onchange = () => {
   const switchWrapper = document.getElementById("switchWrapper");
   if (switchWrapper) {
     switchWrapper.style.display = type === "switch" ? "block" : "none";
-    if (type === "switch") populateSwitchScenarioSelect();
+    if (type === "switch") {
+      populateSwitchScenarioSelect();
+      _refreshSwitchContext(() => _refreshSwitchForm());
+    }
   }
 
   const uploadFileWrapper = document.getElementById("uploadFileWrapper");
@@ -2447,7 +3011,7 @@ manualActionType.onchange = () => {
 
   const childConditionWrapper = document.getElementById("childConditionWrapper");
   if (childConditionWrapper) {
-    childConditionWrapper.style.display = ["click", "input", "hover"].includes(type) ? "block" : "none";
+    childConditionWrapper.style.display = TYPES_CHILD_CONDITION.includes(type) ? "block" : "none";
   }
 
   // --- Value field ---
@@ -2565,7 +3129,8 @@ function extractVarNames(action) {
     if (typeof str !== 'string') return;
     for (const m of str.matchAll(VAR_RE)) names.add(m[1]);
   };
-  scan(action.selector);
+  selectorStrings(action).forEach(scan);
+  scan(action.attrName);
   scan(action.value);
   scan(action.url);
   scan(action.code);
@@ -2599,8 +3164,11 @@ function autoCreateMissingVariables(action) {
 // Types that don't require a selector field
 const TYPES_NO_SELECTOR_REQUIRED = new Set([
   "script", "navigate", "screenshot", "screenshot_full",
-  "readdom", "screenshot_tovar", "wait", "switch"
+  "screenshot_tovar", "wait", "switch"
 ]);
+
+// Types whose Selector can be a parent searched with a Child Condition.
+const TYPES_CHILD_CONDITION = ["click", "input", "hover", "readdom"];
 
 function validateActionForm(type, selector, delayVal) {
   if (!type) {
@@ -2626,6 +3194,17 @@ function validateActionForm(type, selector, delayVal) {
       };
     }
   }
+  if (type === "readdom") {
+    const varEl = document.getElementById("readdomVarName");
+    if (!normalizeVarName(varEl?.value)) {
+      return { valid: false, el: varEl, msg: "Variable name is required (e.g. orderId — no ${ } and no })" };
+    }
+    const from = document.getElementById("readdomReadFrom")?.value;
+    const attrEl = document.getElementById("readdomAttrName");
+    if (from === "attr" && !attrEl?.value?.trim()) {
+      return { valid: false, el: attrEl, msg: "Attribute name is required when reading an attribute" };
+    }
+  }
   if (type === "uploadFile") {
     const fp = document.getElementById("uploadFolderPath")?.value?.trim();
     const fns = (document.getElementById("uploadFileNames")?.value || "")
@@ -2642,6 +3221,8 @@ function buildActionFromForm(type, selector, value, delayVal) {
   if (selector) {
     action.selector = selector;
     action.selectors = currentPickedSelectors || { [selectorType?.value || 'css']: selector };
+    // Still the element that was picked → play it in the frame it was picked in.
+    if (currentPickedFrameId != null && _selectorIsPicked(selector)) action.frameId = currentPickedFrameId;
   }
 
   if (type === "input" && value)                              action.value = value;
@@ -2650,16 +3231,20 @@ function buildActionFromForm(type, selector, value, delayVal) {
   if ((type === "screenshot" || type === "screenshot_full") && value) action.value = value;
 
   if (type === "readdom") {
-    const varName = document.getElementById("readdomVarName")?.value?.trim();
+    // Saved without ${ } so `${name}` in later steps finds it.
+    const varName = normalizeVarName(document.getElementById("readdomVarName")?.value);
     if (!varName) { showToast("Variable name is required for Read DOM action", "error"); return null; }
     action.varName  = varName;
     action.readFrom = document.getElementById("readdomReadFrom")?.value || "text";
     const attrName  = document.getElementById("readdomAttrName")?.value?.trim();
-    if (action.readFrom === "attr" && attrName) action.attrName = attrName;
+    if (action.readFrom === "attr") {
+      if (!attrName) { showToast("Attribute name is required when reading an attribute", "error"); return null; }
+      action.attrName = attrName;
+    }
   }
 
   if (type === "screenshot_tovar") {
-    const varName = document.getElementById("screenshotTovarVarName")?.value?.trim();
+    const varName = normalizeVarName(document.getElementById("screenshotTovarVarName")?.value);
     if (!varName) { showToast("Variable name is required for Screenshot → Variable", "error"); return null; }
     action.varName = varName;
     action.target  = document.getElementById("screenshotTovarTarget")?.value || "page";
@@ -2669,7 +3254,7 @@ function buildActionFromForm(type, selector, value, delayVal) {
     }
   }
 
-  if (["click", "input", "hover"].includes(type)) {
+  if (TYPES_CHILD_CONDITION.includes(type)) {
     const ve  = document.getElementById("condChildValueEquals")?.value?.trim();
     const tc  = document.getElementById("condChildTextContains")?.value?.trim();
     const ic  = document.getElementById("condChildIdContains")?.value?.trim();
@@ -2713,6 +3298,11 @@ function buildActionFromForm(type, selector, value, delayVal) {
     if (!_switchCases.length) { showToast("Add at least one case to the Switch", "error"); return null; }
     action.switchVar = switchVar;
     action.cases     = _switchCases.map(c => ({ ...c }));
+    // Only a Switch with a block has somewhere to continue; left out when
+    // automatic, so an untouched old Switch saves exactly as it was.
+    if (_switchContinueAt != null && action.cases.some(isBlockCase)) action.continueAt = _switchContinueAt;
+    const { errors } = validateSwitch(_candidateActions({ ...action }), _switchSelfIdx());
+    if (errors.length) { showToast(errors[0], "error"); return null; }
   }
 
   if (delayVal) {
@@ -2790,6 +3380,7 @@ function startEdit(index, action) {
   }
 
   // Restore selectors if available
+  currentPickedFrameId = action.frameId ?? null;
   if (action.selectors) {
     currentPickedSelectors = action.selectors;
     displayPickedSelectors(action.selectors);
@@ -2921,8 +3512,12 @@ function startEdit(index, action) {
     const switchVarEl = document.getElementById("switchVar");
     if (switchVarEl) switchVarEl.value = action.switchVar || "";
     _switchCases = (action.cases || []).map(c => ({ ...c }));
+    const cont = parseInt(action.continueAt, 10);
+    _switchContinueAt = Number.isFinite(cont) ? cont : null;
     populateSwitchScenarioSelect();
     renderSwitchCaseList();
+    // The From / To lists need the scenario's actions and this Switch's index.
+    _refreshSwitchContext(() => _refreshSwitchForm());
     if (selectorSection) selectorSection.style.display = "none";
   } else {
     if (manualValueWrapper) manualValueWrapper.style.display = "none";
@@ -2933,16 +3528,18 @@ function startEdit(index, action) {
   // stashes it instead of discarding it.
   _seedManualValueMemory(action.type, manualValue.value);
 
-  // For wait: support old actions that stored duration in action.value
+  // For wait: support old actions that stored duration in action.value.
+  // A Switch without a delay opens without one, so saving it untouched
+  // gives back exactly the action that was stored.
   const delayForUI = action.type === "wait"
     ? String(action.delay || action.value || DEFAULT_DELAY_MS)
-    : (action.delay ? String(action.delay) : DEFAULT_DELAY_MS);
+    : (action.delay ? String(action.delay) : (action.type === "switch" ? "" : DEFAULT_DELAY_MS));
   setManualDelayUI(delayForUI);
 
   // Restore child condition fields
   const childCondWrap = document.getElementById("childConditionWrapper");
   if (childCondWrap) {
-    const supportsChildCondition = ["click", "input", "hover"].includes(action.type);
+    const supportsChildCondition = TYPES_CHILD_CONDITION.includes(action.type);
     childCondWrap.style.display = supportsChildCondition ? "block" : "none";
   }
   const condChildVE   = document.getElementById("condChildValueEquals");
@@ -2988,6 +3585,8 @@ function clearEditState() {
   addManualAction.textContent = "Add Action";
   cancelEdit.style.display = "none";
   currentPickedSelectors = null;
+  currentPickedFrameId = null;
+  _updateFrameNote();
   if (pickedSelectorsWrap) { pickedSelectorsWrap.style.display = "none"; }
   if (pickedSelectorsInfo) { pickedSelectorsInfo.innerHTML = ""; }
   if (selectorType) selectorType.value = "css";
@@ -3052,6 +3651,11 @@ function clearEditState() {
 
   // Reset switch fields
   _switchCases = [];
+  _switchContinueAt = null;
+  const switchValClear = document.getElementById("switchValidation");
+  if (switchValClear) { switchValClear.innerHTML = ""; switchValClear.style.display = "none"; }
+  const switchContRowClear = document.getElementById("switchContinueRow");
+  if (switchContRowClear) switchContRowClear.style.display = "none";
   const switchWrapperClear = document.getElementById("switchWrapper");
   if (switchWrapperClear) switchWrapperClear.style.display = "none";
   const switchVarClear = document.getElementById("switchVar");
@@ -3105,6 +3709,7 @@ function collectManualFormState() {
     selector:    manualSelector.value?.trim() || "",
     selectorType: document.getElementById("selectorType")?.value || "css",
     pickedSelectors: currentPickedSelectors || null,
+    pickedFrameId:   currentPickedFrameId,
     value:       manualValue.value || "",
     valueByType: { ..._valueByType },
     delay:       (() => {
@@ -3113,7 +3718,7 @@ function collectManualFormState() {
         ? (document.getElementById("manualDelay")?.value?.trim() || "")
         : (preset?.value || "");
     })(),
-    delayPreset: document.getElementById("manualDelayPreset")?.value || "500",
+    delayPreset: document.getElementById("manualDelayPreset")?.value ?? "500", // "" = No delay
     label:       document.getElementById("manualLabel")?.value?.trim() || "",
 
     // dragdrop
@@ -3147,6 +3752,7 @@ function collectManualFormState() {
     // switch
     switchVar:   document.getElementById("switchVar")?.value?.trim() || "",
     switchCases: _switchCases ? [..._switchCases] : [],
+    switchContinueAt: _switchContinueAt,
 
     uploadMode:       document.getElementById("uploadMode")?.value               || "input",
     uploadFolderPath: document.getElementById("uploadFolderPath")?.value?.trim() || "",
@@ -3201,6 +3807,7 @@ function applyManualFormState(state) {
   // switch
   set("switchVar", state.switchVar);
   _switchCases = state.switchCases ? state.switchCases.map(c => ({ ...c })) : [];
+  _switchContinueAt = Number.isFinite(state.switchContinueAt) ? state.switchContinueAt : null;
 
   // uploadFile — uploadFileName = legacy single-name field
   set("uploadMode",       state.uploadMode || "input");
@@ -3218,7 +3825,7 @@ function applyManualFormState(state) {
   setManualDelayUI(state.delay ?? state.actionDelay ?? DEFAULT_DELAY_MS);
   const presetEl = document.getElementById("manualDelayPreset");
   const preset   = state.delayPreset ?? state.actionDelayPreset;
-  if (presetEl && preset) presetEl.value = preset;
+  if (presetEl && preset != null) presetEl.value = preset;
 
   // Drives all wrapper visibility off the now fully-populated fields
   manualActionType.onchange?.();
@@ -3231,10 +3838,12 @@ function applyManualFormState(state) {
     currentPickedSelectors = state.pickedSelectors;
     displayPickedSelectors(currentPickedSelectors);
   }
+  currentPickedFrameId = state.pickedFrameId ?? null;
+  _updateFrameNote();
   const attrEl = document.getElementById("readdomAttrName");
   if (attrEl) attrEl.style.display = (state.readdomReadFrom === "attr") ? "block" : "none";
   if (type === "condition") updateConditionFieldsVisibility?.();
-  if (type === "switch") { populateSwitchScenarioSelect?.(); renderSwitchCaseList?.(); }
+  if (type === "switch") { populateSwitchScenarioSelect?.(); _refreshSwitchContext(() => _refreshSwitchForm()); }
   _setChildCondExpanded(state.childCondExpanded ?? _hasChildCondData());
   _updateChildCondBadge?.();
   _updateStepLabels?.();
@@ -3971,6 +4580,18 @@ if (exportFolderSelect) {
   };
 }
 
+/**
+ * Mark an export that uses Switch blocks with the version that wrote it. An
+ * older extension ignores `endAt` and would play every case of the block one
+ * after the other, so the file says what it needs.
+ */
+function _withMinVersion(data, scenarios) {
+  if (!scenarios.some(sc => anyBlocks(sc?.actions))) return data;
+  let version = "";
+  try { version = chrome.runtime.getManifest().version; } catch (_) {}
+  return version ? { ...data, minVersion: version } : data;
+}
+
 exportScenario.onclick = () => {
   const scenarioId = exportScenarioSelect?.value;
   if (!scenarioId) return;
@@ -3978,7 +4599,7 @@ exportScenario.onclick = () => {
   chrome.runtime.sendMessage({ type: "EXPORT_SCENARIO", scenarioId }, (res) => {
     if (!res?.scenario) { showToast("Failed to export scenario", "error"); return; }
 
-    const blob = new Blob([JSON.stringify(res.scenario, null, 2)], {
+    const blob = new Blob([JSON.stringify(_withMinVersion(res.scenario, [res.scenario]), null, 2)], {
       type: "application/json",
     });
     // Via _downloadBlob, which defers revokeObjectURL. Revoking on the line after
@@ -3998,7 +4619,7 @@ if (exportFolder) {
       const folderData = res?.folder;
       if (!folderData) { showToast("Failed to export folder", "error"); return; }
       const nameSafe = _safeFileName(folderData.name || 'folder').replace(/\s+/g, '-');
-      const blob = new Blob([JSON.stringify(folderData, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(_withMinVersion(folderData, Object.values(folderData.scenarios || {})), null, 2)], { type: 'application/json' });
       _downloadBlob(blob, `folder-${nameSafe}.json`);
       showToast(`Exported folder "${folderData.name}"`, "success");
     });
