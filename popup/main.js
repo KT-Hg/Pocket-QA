@@ -1886,6 +1886,16 @@ manualSelector?.addEventListener("input", () => {
   }
 });
 
+/** Forget the picked element (selectors + frame) without touching the selector box. */
+function _clearPickedSelectorsPanel() {
+  currentPickedSelectors = null;
+  currentPickedFrameId = null;
+  _updateFrameNote();
+  if (pickedSelectorsInfo) pickedSelectorsInfo.innerHTML = '';
+  if (pickedSelectorsWrap) pickedSelectorsWrap.style.display = 'none';
+  chrome.storage.local.remove(["lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId"]);
+}
+
 /* Switching the selector flavour swaps in the matching picked selector rather
    than leaving a stale one from the previous flavour in the box. */
 selectorType?.addEventListener('change', () => {
@@ -3448,9 +3458,16 @@ function buildActionFromForm(type, selector, value, delayVal) {
 
   if (selector) {
     action.selector = selector;
-    action.selectors = currentPickedSelectors || { [selectorType?.value || 'css']: selector };
-    // Still the element that was picked → play it in the frame it was picked in.
-    if (currentPickedFrameId != null && _selectorIsPicked(selector)) action.frameId = currentPickedFrameId;
+    if (_selectorIsPicked(selector)) {
+      action.selectors = currentPickedSelectors;
+      // Still the element that was picked → play it in the frame it was picked in.
+      if (currentPickedFrameId != null) action.frameId = currentPickedFrameId;
+    } else {
+      // Typed selector differs from the picked element's — playback prefers
+      // `selectors`, so it must describe the typed selector only.
+      if (currentPickedSelectors) _clearPickedSelectorsPanel();
+      action.selectors = { [selectorType?.value || 'css']: selector };
+    }
   }
 
   if (type === "input" && value)                              action.value = value;
