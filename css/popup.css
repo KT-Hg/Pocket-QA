@@ -55,6 +55,8 @@
   --sw-c2: #b45309;
   --sw-c3: #047857;
   --sw-c4: #e11d48;
+  /* Condition (If) blocks in the preview */
+  --sw-cond: #d97706;
 }
 
 [data-theme="dark"] {
@@ -100,6 +102,7 @@
   --sw-c2: #fbbf24;
   --sw-c3: #34d399;
   --sw-c4: #fb7185;
+  --sw-cond: #f59e0b;
   color-scheme: dark;
 }
 
@@ -466,6 +469,37 @@ button:disabled {
   min-width: 0;
   font-size: 10px;
 }
+/* Every action row is the same height: the value is two fixed lines — the value
+   itself and a sub line (label, Switch notes, case chips) that ellipsizes. */
+#actions li.action { box-sizing: border-box; height: 40px; }
+#actions .value { display: flex; flex-direction: column; justify-content: center; }
+.actions .value-main,
+.actions .value-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 14px;
+}
+.actions .value-sub { font-size: 9px; }
+.actions .value-sub > * + * { margin-left: 6px; }
+.actions .value-label { font-size: 10px; color: var(--primary); opacity: 0.8; font-style: italic; }
+/* Actions inside a Switch block: 75% of a normal row (30px vs 40px) so the
+   Switch and its cases stand out. Text shrinks less than the row — 75% of it
+   would be ~7.5px, too small to read. */
+#actions li.action.sw-in-block { height: 30px; padding-top: 2px; padding-bottom: 2px; gap: 5px; }
+#actions li.action.sw-in-block::before { font-size: 9px; }
+#actions li.action.sw-in-block .index,
+#actions li.action.sw-in-block .type { font-size: 9px; }
+#actions li.action.sw-in-block .value-main { font-size: 9px; line-height: 12px; }
+#actions li.action.sw-in-block .value-sub { font-size: 8px; line-height: 11px; }
+#actions li.action.sw-in-block .value-label { font-size: 8.5px; }
+#actions li.action.sw-in-block .sw-note { font-size: 8px; }
+#actions li.action.sw-in-block button {
+  height: 16px !important;
+  font-size: 8px !important;
+  padding: 0 5px !important;
+}
 
 /* fix type column to equal size */
 .actions .type {
@@ -643,7 +677,24 @@ button:disabled {
 .actions li { cursor: grab; }
 .actions li:active { cursor: grabbing; }
 .actions li.dragging { opacity: 0.5; transform: scale(0.98); }
-.actions li.drag-over { border-top: 3px solid var(--primary); margin-top: 8px; }
+/* Room below the last row while dragging, inside the list, so "move to the
+   end" has somewhere to drop — the list only had 3px under its last row. */
+#actions.sw-dragging { padding-bottom: 32px; }
+/* A line, not a border + margin: those moved every row below by 11px each time
+   the drop spot changed, which moved the spot again. */
+.actions li.drag-over { box-shadow: 0 -2px 0 var(--primary); }
+/* Nothing animates while dragging: rows measured mid-transition gave the drop
+   position a moving target. */
+#actions.sw-dragging li { transition: none; }
+#actions li.dragging { outline: 1px dashed var(--primary); outline-offset: -1px; }
+/* The "move out" zone / case header the dragged row would land under. */
+.actions.sw-dragging li.sw-outside.drop-target {
+  border-color: var(--primary);
+  border-style: solid;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.actions li.sw-case-head.drop-target { background: color-mix(in srgb, var(--sw-color) 12%, transparent); }
 
 /* === Variables List (Action Row Mirror) === */
 
@@ -947,6 +998,61 @@ button:disabled {
 }
 
 /* === Random Modal — Pick List === */
+/* Pick / Fallback value rows — order mark, value or ∅ Blank pill, ∅ toggle, × */
+.pv-mark {
+  flex: 0 0 14px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+}
+.pv-blank-pill {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px dashed var(--primary);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--primary);
+  font-size: 12px;
+}
+.pv-blank-pill[hidden] { display: none; }
+.pv-blank-pill span { color: var(--muted); font-style: italic; font-size: 11px; }
+.blank-pick-btn,
+.del-pick-btn {
+  /* Same box for ∅ and ×, glyph centred whatever its font metrics. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.blank-pick-btn {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.blank-pick-btn:hover { color: var(--primary); border-color: var(--primary); }
+.blank-pick-btn[aria-pressed="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.pv-add-row { display: flex; gap: 6px; margin-top: 5px; }
+.pv-add-row button { flex: 1; margin: 0; padding: 5px 0; font-size: 12px; }
+.pv-add-row .pv-add-blank { color: var(--primary); border-style: dashed; }
+.pv-hint { display: block; margin-top: 6px; font-size: 11px; color: var(--muted); line-height: 1.4; }
 .pick-value-row {
   display: flex;
   gap: 4px;
@@ -964,10 +1070,12 @@ button:disabled {
   flex-shrink: 0;
   width: 26px;
   height: 26px;
+  /* No margin: the global `button { margin-top: 6px }` pushed × below ∅. */
+  margin: 0;
   padding: 0;
   line-height: 1;
   font-size: 15px;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--muted);
@@ -1933,15 +2041,32 @@ textarea:focus-visible,
   border-color: var(--success-dark) !important;
 }
 
-/* === Switch-case row layout === */
-.sw-case-row-edit {
+/* === Switch form === */
+.sw-hint { display: block; margin: 3px 2px 0; font-size: 11px; color: var(--muted); }
+.sw-hint code { font-size: 10.5px; }
+.sw-section-head {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-  background: var(--secondary-bg);
-  border: 1px solid var(--primary);
+  align-items: baseline;
+  gap: 6px;
+  margin: 12px 2px 5px;
+}
+.sw-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.sw-section-sub { font-size: 10.5px; color: var(--muted); }
+.sw-case-list { display: flex; flex-direction: column; gap: 4px; }
+.sw-case-empty-list {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 8px;
+  border: 1px dashed var(--border);
   border-radius: 6px;
-  padding: 6px;
+  text-align: center;
 }
 .sw-case-row-view {
   display: flex;
@@ -1949,15 +2074,93 @@ textarea:focus-visible,
   align-items: center;
   background: var(--secondary-bg);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--sw-color, var(--border));
   border-radius: 6px;
   padding: 4px 6px;
 }
+.sw-case-row-view.is-editing { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.sw-case-no {
+  flex: 0 0 auto;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.sw-case-default { color: var(--muted) !important; font-style: italic; }
+.sw-case-editor {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.sw-case-editor.is-editing { border-style: solid; border-color: var(--primary); }
+.sw-editor-title { font-size: 12px; font-weight: 700; color: var(--text); }
+.sw-case-editor.is-editing .sw-editor-title { color: var(--primary); }
+.sw-field { display: flex; flex-direction: column; gap: 3px; margin: 0; }
+.sw-field-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+.sw-field input, .sw-field select { margin: 0; font-size: 12px; }
+.sw-seg { display: flex; gap: 4px; }
+/* position: relative keeps the hidden radio inside its label: it would
+   otherwise take the global `input { width: 100% }` from the nearest
+   positioned ancestor and run past the 480px popup, adding a sideways scroll. */
+.sw-seg label { position: relative; flex: 1; min-width: 0; margin: 0; cursor: pointer; }
+.sw-seg input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.sw-seg span {
+  display: block;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11.5px;
+  text-align: center;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sw-seg input:checked + span {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+.sw-seg input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 1px; }
+.sw-other-row { display: flex; gap: 5px; align-items: center; }
+.sw-other-row select { flex: 1; min-width: 0; }
+.sw-to { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.sw-editor-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.sw-editor-actions button { width: auto; margin: 0; padding: 5px 12px; font-size: 12px; }
+#switchAddCase { color: var(--primary); border-color: var(--primary); font-weight: 600; }
+.sw-continue { margin-top: 10px; }
+.cond-run-field { margin-top: 8px; }
+.sw-help { margin-top: 8px; font-size: 11px; color: var(--muted); }
+.sw-help summary { cursor: pointer; font-weight: 600; user-select: none; }
+.sw-help ul { margin: 5px 0 0; padding-left: 16px; line-height: 1.45; }
+.sw-help li { margin-bottom: 3px; }
+.sw-field .sw-range-row { margin-top: 0; }
 .sw-case-label {
   font-size: 12px;
   color: #e879f9;
   font-weight: 600;
-  min-width: 70px;
   white-space: nowrap;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sw-case-target {
   font-size: 11px;
@@ -1974,38 +2177,11 @@ textarea:focus-visible,
   padding: 2px 7px !important;
   font-size: 11px !important;
 }
-.sw-inline-row {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
 .sw-start-input {
   width: 52px !important;
   flex: 0 0 52px;
   margin: 0 !important;
   font-size: 12px !important;
-}
-.sw-inline-row-end {
-  display: flex;
-  gap: 5px;
-  justify-content: flex-end;
-}
-.sw-edit-input {
-  flex: 1;
-  margin: 0 !important;
-  font-size: 12px !important;
-}
-.sw-edit-btn {
-  width: auto !important;
-  margin: 0 !important;
-  padding: 2px 10px !important;
-  font-size: 11px !important;
-}
-.sw-edit-btn-cancel {
-  width: auto !important;
-  margin: 0 !important;
-  padding: 2px 8px !important;
-  font-size: 11px !important;
 }
 
 /* === Paste row in action/sequence list === */
@@ -5488,6 +5664,14 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
 .actions li.sw-case-head:hover { background: transparent; }
 .sw-case-head-rule { flex: 1 1 auto; border-top: 1px dashed var(--sw-color); opacity: 0.5; }
 .sw-case-empty { color: var(--warning-text); font-weight: 500; }
+.sw-case-toggle { color: var(--sw-color); }
+.actions li.sw-case-head.sw-case-head-click { cursor: pointer; user-select: none; }
+.actions li.sw-case-head-click:hover .sw-toggle { color: var(--text); background: var(--secondary-bg); }
+.actions li.sw-case-head-click:hover .sw-case-head-label { text-decoration: underline; }
+.sw-case-count { color: var(--muted); font-weight: 500; font-style: italic; }
+.sw-case-count:empty { display: none; }
+/* A collapsed Switch: the hidden count takes the case summary's place. */
+.actions li.sw-collapsed .sw-summary { display: none; }
 /* Only while dragging: the drop target that takes a row out of the block. */
 .actions li.sw-outside { display: none; }
 .actions.sw-dragging li.sw-outside {
@@ -5502,7 +5686,6 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   padding: 3px 6px;
 }
 .actions.sw-dragging li.sw-outside.sw-hidden { display: none !important; }
-.actions li.sw-hl { outline: 1px solid var(--sw-color, var(--primary)); outline-offset: -1px; }
 .actions li.sw-flash { animation: sw-flash 1.2s ease-out; }
 @keyframes sw-flash {
   0%, 50% { box-shadow: 0 0 0 2px var(--sw-color, var(--primary)); }
@@ -5514,43 +5697,42 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
 .sw-invalid .sw-warn { color: var(--danger); }
 .sw-toggle {
   flex: 0 0 auto;
-  width: 12px;
+  /* Same small arrow, larger hit area: padding grows the target and the
+     negative margin keeps the layout where the 12px glyph put it. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12px;
+  padding: 4px 5px;
+  margin: -4px -5px;
+  border-radius: 4px;
   font-size: 10px;
   color: var(--muted);
   cursor: pointer;
   user-select: none;
 }
-.sw-toggle:hover, .sw-toggle:focus-visible { color: var(--text); }
-.actions li.has-chips { flex-wrap: wrap; row-gap: 2px; }
-.sw-chips {
-  flex: 1 0 100%;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  padding-left: calc(var(--idx-w, 18px) + 18px);
-  white-space: normal;
-}
-.sw-chip {
+.sw-toggle:hover, .sw-toggle:focus-visible { color: var(--text); background: var(--secondary-bg); }
+/* Right after the word "switch", inside the type column. */
+.actions .type .sw-toggle { margin-left: -1px; }
+.actions .type.sw-type-toggle { cursor: pointer; user-select: none; }
+.actions .type.sw-type-toggle:hover .sw-toggle { color: var(--text); background: var(--secondary-bg); }
+.sw-hidden-count {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--secondary-bg);
+  color: var(--muted);
   font-size: 9px;
-  line-height: 14px;
-  padding: 0 5px;
-  border-radius: 7px;
-  border: 1px solid var(--sw-color, var(--border));
-  color: var(--sw-color, var(--muted));
-  cursor: pointer;
-  white-space: nowrap;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-style: italic;
+  line-height: 12px;
+  vertical-align: middle;
 }
-.sw-chip:hover, .sw-chip:focus-visible { background: var(--secondary-bg); }
-.sw-chip-else { cursor: default; color: var(--muted); border-color: var(--border); }
+.sw-hidden-count:empty { display: none; }
+.sw-summary { color: var(--muted); }
 .sw-note {
-  display: block;
   font-size: 9px;
   color: var(--muted);
   font-style: italic;
-  margin-top: 1px;
 }
 
 /* === Switch blocks — form === */

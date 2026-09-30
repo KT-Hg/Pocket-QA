@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { markSessionOpen, markSessionClosed } from './cdp-session.js';
-import { SELECTOR_KEYS } from './var-name.js';
+import { SELECTOR_KEYS, normalizeVarRef, listSpec, parseListSpec } from './var-name.js';
 
 /* ── Badge ─────────────────────────────────────────────────────────────────── */
 
@@ -154,14 +154,8 @@ function _getVarActiveValue(v) {
   if (v && typeof v === 'object' && 'activeType' in v) {
     const t = v.activeType || 's';
     if (t === 'r' && v.r) return `{random:${v.r.type}:${v.r.length}}`;
-    if (t === 'p') {
-      const vals = (v.p || []).filter(Boolean);
-      return vals.length ? `{pick:${vals.join('|')}}` : '';
-    }
-    if (t === 'f') {
-      const vals = (v.f || []).filter(Boolean);
-      return vals.length ? `{fallback:${vals.join('|')}}` : '';
-    }
+    if (t === 'p') return listSpec('pick', v.p);
+    if (t === 'f') return listSpec('fallback', v.f);
     return v.s || '';
   }
   return String(v || '');
@@ -186,9 +180,9 @@ export function resolveRandomVars(vars) {
       // {pick:val1|val2|val3} — randomly pick one value from the pipe-separated list.
       // In CSV runs, CSV column values override baseVars before resolveRandomVars is called,
       // so this branch only fires when the CSV file has no column matching this variable name.
-      const pm = typeof v === 'string' && v.match(/^\{pick:(.+)\}$/);
-      if (pm) {
-        const vals = pm[1].split('|').map(s => s.trim()).filter(Boolean);
+      // A Blank entry is an empty segment and can be picked like any other value.
+      const vals = parseListSpec('pick', v);
+      if (vals) {
         result[k] = vals.length ? vals[Math.floor(Math.random() * vals.length)] : '';
       } else {
         result[k] = v;
@@ -242,7 +236,10 @@ function _applyVarsToSelectors(sels, vars) {
 }
 
 export function interpolateAction(action, vars) {
-  if (!vars || !Object.keys(vars).length) return action;
+  if (!vars || !Object.keys(vars).length) {
+    // Still normalised, so a bare Switch name behaves exactly like `${name}` would.
+    return action.switchVar ? { ...action, switchVar: normalizeVarRef(action.switchVar) } : action;
+  }
   const a = { ...action };
   if (a.selector)      a.selector      = applyVars(a.selector, vars);
   // content.js prefers `selectors` over `selector`, and the form always sets it,
@@ -256,7 +253,8 @@ export function interpolateAction(action, vars) {
   // Code is escaped, not plain-substituted — see _applyVarsToCode.
   if (a.code)          a.code          = _applyVarsToCode(a.code, vars);
   if (a.expectedValue) a.expectedValue = applyVars(a.expectedValue, vars);
-  if (a.switchVar)     a.switchVar     = applyVars(a.switchVar, vars);
+  // A bare `role` is read as `${role}` — see normalizeVarRef.
+  if (a.switchVar)     a.switchVar     = applyVars(normalizeVarRef(a.switchVar), vars);
   if (a.fileName)               a.fileName   = applyVars(a.fileName,   vars);
   if (a.folderPath)             a.folderPath = applyVars(a.folderPath, vars);
   if (Array.isArray(a.fileNames)) a.fileNames = a.fileNames.map(n => applyVars(n, vars));
@@ -266,6 +264,7 @@ export function interpolateAction(action, vars) {
     if (a.conditions.textContains  != null) a.conditions.textContains  = applyVars(String(a.conditions.textContains),  vars);
     if (a.conditions.idContains    != null) a.conditions.idContains    = applyVars(String(a.conditions.idContains),    vars);
     if (a.conditions.classContains != null) a.conditions.classContains = applyVars(String(a.conditions.classContains), vars);
+    if (a.conditions.typeEquals    != null) a.conditions.typeEquals    = applyVars(String(a.conditions.typeEquals),    vars);
   }
   return a;
 }

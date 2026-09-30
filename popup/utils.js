@@ -1,4 +1,4 @@
-import { normalizeVarName, selectorStrings } from '../bg/var-name.js';
+import { normalizeVarName, normalizeVarRef, selectorStrings } from '../bg/var-name.js';
 /* === HTML Escape === */
 
 export function escHtml(s) {
@@ -278,11 +278,26 @@ export function debounce(fn, delay = 200) {
  * too, so a scenario that seeds one statically keeps that seed on export.
  */
 export function getUsedVarNames(actions) {
+  const used = getReadVarNames(actions);
+  for (const action of (actions || [])) {
+    if (action?.type === 'readdom' || action?.type === 'screenshot_tovar') {
+      const vn = normalizeVarName(action.varName);
+      if (vn) used.add(vn);
+    }
+  }
+  return used;
+}
+
+/**
+ * Variable names a scenario *reads* through `${…}` — getUsedVarNames without the
+ * names steps write. This is what a CSV run needs columns for.
+ */
+export function getReadVarNames(actions) {
   const used = new Set();
   const re   = /\$\{([^}]+)\}/g;
 
   const FIELDS   = [
-    'selector', 'value', 'url', 'code', 'expectedValue', 'switchVar',
+    'selector', 'value', 'url', 'code', 'expectedValue',
     'folderPath', 'fileName',
   ];
   const C_FIELDS = ['valueEquals', 'textContains', 'idContains', 'classContains', 'typeEquals'];
@@ -297,6 +312,8 @@ export function getUsedVarNames(actions) {
   for (const action of (actions || [])) {
     if (!action) continue;
     for (const f of FIELDS) scan(action[f]);
+    // A bare Switch name reads `${name}` at run time — see normalizeVarRef.
+    scan(normalizeVarRef(action.switchVar));
     // selectors.* / targetSelectors.* and attrName get variables substituted at
     // playback too (bg/utils.js interpolateAction).
     selectorStrings(action).forEach(scan);
@@ -304,10 +321,6 @@ export function getUsedVarNames(actions) {
     if (Array.isArray(action.fileNames)) action.fileNames.forEach(scan);
     if (action.conditions && typeof action.conditions === 'object') {
       for (const f of C_FIELDS) scan(action.conditions[f]);
-    }
-    if (action.type === 'readdom' || action.type === 'screenshot_tovar') {
-      const vn = normalizeVarName(action.varName);
-      if (vn) used.add(vn);
     }
   }
   return used;

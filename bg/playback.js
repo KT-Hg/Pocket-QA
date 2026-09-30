@@ -12,9 +12,9 @@ import { ssWrite, ssClear, csvResultWrite, csvResultClear } from './idb-screensh
 import { beginDbGuard, endDbGuard } from './dbguard.js';
 import {
   anyBlocks, getSwitchLayout, hasBlock, isBlockCase, caseRange, blockEnd, continueIndex,
-  validateSwitch, conditionSkipTarget, resumeSegments,
+  validateSwitch, conditionSkipTarget, conditionSkip, resumeSegments,
 } from './switch-blocks.js';
-import { normalizeVarName, selectorStrings } from './var-name.js';
+import { normalizeVarName, normalizeVarRef, selectorStrings } from './var-name.js';
 
 /* ── SW keep-alive ──────────────────────────────────────────────────────────── */
 
@@ -505,14 +505,12 @@ export async function playActionsOnTab(
           }, 10_000, action.frameId);
           const passed = !!condResult?.result;
           if (!passed) {
-            const rawSkip = parseInt(action.skipCount || action.conditionSkipCount || 1, 10);
-            const skip    = Math.max(1, isNaN(rawSkip) ? 1 : rawSkip);
-            // Guard against misconfigured skipCount=0 which would create an
-            // infinite loop (condition re-evaluates itself every iteration).
-            if (rawSkip === 0) console.warn('[PLAYBACK] Condition skipCount=0 would cause infinite loop; treating as 1');
+            // At least 1 — a stored skipCount of 0 reads as 1 — or 0 for a
+            // Condition emptied in the editor (`empty: true`), which skips nothing.
+            const skip = conditionSkip(action);
             // A Switch counts as one action together with its block, and a skip
             // landing inside a block goes on to that block's continueAt.
-            i = _layout ? conditionSkipTarget(actions, i, skip, _layout) - 1 : i + skip;
+            if (skip > 0) i = _layout ? conditionSkipTarget(actions, i, skip, _layout) - 1 : i + skip;
           }
           if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
           continue;
@@ -951,10 +949,10 @@ function collectRelevantKeys(actions) {
   const keys   = new Set();
   const VAR_RE = /\$\{([^}]+)\}/g;
   const FIELDS = [
-    'selector', 'value', 'url', 'code', 'expectedValue', 'switchVar',
+    'selector', 'value', 'url', 'code', 'expectedValue',
     'folderPath', 'fileName',
   ];
-  const C_FIELDS = ['valueEquals', 'textContains', 'idContains', 'classContains'];
+  const C_FIELDS = ['valueEquals', 'textContains', 'idContains', 'classContains', 'typeEquals'];
 
   const scan = (v) => {
     if (typeof v !== 'string') return;
@@ -964,6 +962,8 @@ function collectRelevantKeys(actions) {
 
   for (const a of actions) {
     for (const f of FIELDS) scan(a[f]);
+    // A bare Switch name reads `${name}` at run time — see normalizeVarRef.
+    scan(normalizeVarRef(a.switchVar));
     selectorStrings(a).forEach(scan);
     scan(a.attrName);
     if (Array.isArray(a.fileNames)) a.fileNames.forEach(scan);

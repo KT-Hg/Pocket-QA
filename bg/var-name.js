@@ -25,6 +25,24 @@ export function normalizeVarName(name) {
   return s;
 }
 
+/**
+ * The `${…}` reference a Switch reads its value from.
+ *
+ * The field is labelled as a variable name, so a bare `role` is a natural thing
+ * to type — but only `${role}` gets substituted, and a bare name was compared as
+ * the literal string "role", so every run fell through to the default case. A
+ * bare name is wrapped; anything already holding a `${…}` reference (including
+ * `${a}-${b}`) is left as written. Applied at save time and again at run time,
+ * like normalizeVarName, so already-saved Switches are fixed without a migration.
+ */
+export function normalizeVarRef(ref) {
+  if (ref == null) return '';
+  const s = String(ref).trim();
+  if (!s || s.includes('${')) return s;
+  const name = normalizeVarName(s);
+  return name ? '${' + name + '}' : s;
+}
+
 /** Keys of `selectors` / `targetSelectors` that hold a selector string. */
 export const SELECTOR_KEYS = ['css', 'xpath', 'fullXpath', 'id', 'name', 'testId', 'dataId', 'text'];
 
@@ -39,4 +57,34 @@ export function selectorStrings(action) {
     for (const k of SELECTOR_KEYS) if (typeof o[k] === 'string') out.push(o[k]);
   }
   return out;
+}
+
+/* ── Pick / Fallback lists ─────────────────────────────────────────────────
+ * A variable's config keeps its Pick / Fallback values as an array. `null` is
+ * an explicit Blank entry (the empty string); '' is a row nobody filled in and
+ * is dropped. In the `{pick:a||c}` / `{fallback:a||c}` spec a Blank is an
+ * empty segment — specs saved before Blank existed never have one, because
+ * their values were filtered on save.
+ */
+
+/** The list entries that count, with Blank as ''. */
+export function listEntries(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter(v => v === null || (typeof v === 'string' && v.trim() !== ''))
+    .map(v => (v === null ? '' : v));
+}
+
+/** `{pick:…}` / `{fallback:…}` for a config list, or '' when it has no entries. */
+export function listSpec(kind, arr) {
+  const vals = listEntries(arr);
+  // A lone Blank would give `{pick:}`, which no parser matches; `{pick:|}` reads the same.
+  return vals.length ? `{${kind}:${vals.join('|') || '|'}}` : '';
+}
+
+/** Values of a `{pick:…}` / `{fallback:…}` spec (Blank as ''), or null for anything else. */
+export function parseListSpec(kind, str) {
+  if (typeof str !== 'string') return null;
+  const m = str.match(kind === 'pick' ? /^\{pick:(.+)\}$/ : /^\{fallback:(.+)\}$/);
+  return m ? m[1].split('|').map(s => s.trim()) : null;
 }

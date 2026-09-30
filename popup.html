@@ -304,37 +304,79 @@
         <div id="conditionExpectedValueWrapper" style="margin-top: 6px;">
           <input id="conditionExpectedValue" placeholder="Expected value (for text/url checks)" />
         </div>
-        <input id="conditionSkipCount" type="number" min="1" value="1" placeholder="Actions to skip if false" style="margin-top: 6px;" />
-        <span class="helper-text">If condition is FALSE, skip next N actions</span>
+        <!-- skipCount is still what is saved; the list picks it by the last action to run -->
+        <input id="conditionSkipCount" type="hidden" value="1" />
+        <label class="sw-field cond-run-field" for="conditionRunTo">
+          <span class="sw-field-label">If true, run</span>
+          <select id="conditionRunTo"></select>
+        </label>
+        <span class="helper-text">If the condition is <b>false</b>, these actions are skipped. A Switch counts together with its block.</span>
       </div>
 
       <!-- SWITCH SETTINGS — shown for switch type -->
-      <div class="hidden-by-default" id="switchWrapper" style="margin-top:6px;">
+      <div class="hidden-by-default sw-form" id="switchWrapper" style="margin-top:6px;">
         <div class="step-label" id="switchStepLabel">Switch Variable</div>
-        <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
-          <label style="font-size:12px; color:var(--muted); white-space:nowrap; width:80px;">Variable</label>
-          <input id="switchVar" placeholder="${varName}  e.g. ${role}" style="flex:1; margin:0;" />
+        <input id="switchVar" placeholder="${role}" aria-label="Variable to switch on" style="margin:0;" />
+        <span class="sw-hint">Its value at run time picks the case, e.g. <code>${role}</code>.</span>
+
+        <div class="sw-section-head">
+          <span class="sw-section-title">Cases</span>
+          <span class="sw-section-sub">checked top to bottom · first match wins</span>
         </div>
-        <div id="switchCaseList" style="display:flex; flex-direction:column; gap:4px; margin-bottom:6px;"></div>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <input id="switchCaseValue" placeholder="Case value  (e.g. admin)" style="flex:1; margin:0; font-size:12px;" />
-          <select id="switchCaseScenario" style="flex:1.5; margin:0; font-size:12px;"></select>
-          <input id="switchCaseStart" class="sw-start-input" type="number" min="1" placeholder="#1" title="Start at action # (1 = first)" />
-          <input id="switchCaseEnd" class="sw-start-input" type="number" min="1" placeholder="…#" title="Last action to play (empty = to the end)" />
-          <button id="switchAddCase" class="secondary" style="width:auto; flex:0 0 auto; margin:0; padding:4px 8px; font-size:12px;">+ Add</button>
+        <div id="switchCaseList" class="sw-case-list"></div>
+
+        <!-- One editor for both a new case and the case being edited -->
+        <div id="switchCaseEditor" class="sw-case-editor">
+          <div class="sw-editor-title" id="switchCaseEditorTitle">+ New case</div>
+          <label class="sw-field" for="switchCaseValue">
+            <span class="sw-field-label">When value is</span>
+            <input id="switchCaseValue" placeholder="e.g. admin — empty = default" />
+          </label>
+          <div class="sw-field">
+            <span class="sw-field-label">Then</span>
+            <div class="sw-seg" role="radiogroup" aria-label="What this case does">
+              <label><input type="radio" name="switchCaseMode" value="self" checked /><span>↻ Run actions here</span></label>
+              <label><input type="radio" name="switchCaseMode" value="other" /><span>▶ Play another scenario</span></label>
+            </div>
+          </div>
+          <div id="switchCaseRangeRow" class="sw-field">
+            <span class="sw-field-label">Actions</span>
+            <div class="sw-range-row">
+              <select id="switchCaseFrom" aria-label="First action of the case"></select>
+              <span class="sw-to">to</span>
+              <select id="switchCaseTo" aria-label="Last action of the case"></select>
+            </div>
+          </div>
+          <div id="switchCaseOtherRow" class="sw-field" style="display:none;">
+            <span class="sw-field-label">Scenario</span>
+            <div class="sw-other-row">
+              <select id="switchCaseScenario" aria-label="Scenario to play"></select>
+              <span class="sw-to">#</span>
+              <input id="switchCaseStart" class="sw-start-input" type="number" min="1" placeholder="1" title="First action to play (empty = 1)" aria-label="First action to play" />
+              <span class="sw-to">to #</span>
+              <input id="switchCaseEnd" class="sw-start-input" type="number" min="1" placeholder="end" title="Last action to play (empty = to the end)" aria-label="Last action to play" />
+            </div>
+          </div>
+          <div class="sw-editor-actions">
+            <button id="switchCaseCancel" class="secondary" type="button" style="display:none;">Cancel</button>
+            <button id="switchAddCase" class="secondary" type="button">+ Add case</button>
+          </div>
         </div>
-        <div id="switchCaseRangeRow" class="sw-range-row" style="display:none;">
-          <label for="switchCaseFrom">From</label>
-          <select id="switchCaseFrom"></select>
-          <label for="switchCaseTo">to</label>
-          <select id="switchCaseTo"></select>
-        </div>
-        <div id="switchContinueRow" class="sw-range-row" style="display:none;">
-          <label for="switchContinueAt">Continue at</label>
+
+        <div id="switchContinueRow" class="sw-field sw-continue" style="display:none;">
+          <span class="sw-field-label">Afterwards, continue at</span>
           <select id="switchContinueAt"></select>
         </div>
         <div id="switchValidation" class="sw-validation" style="display:none;"></div>
-        <span class="helper-text">Leave case value empty to set as <strong>default</strong>. Cases are checked top-to-bottom; first match wins. <strong>↻ This scenario</strong>: pick <strong>From</strong> / <strong>to</strong> to give the case its own block of actions — only the matching case's actions run, then playback continues after the block. <strong>To the end</strong> keeps the old jump. For another scenario, <strong>#</strong> / <strong>…#</strong> = first / last action to play (empty = 1 / to the end). Put the Switch above the actions it should own (drag it there), then pick their range.</span>
+        <details class="sw-help">
+          <summary>How Switch works</summary>
+          <ul>
+            <li>Cases are checked top to bottom; the first whose value equals the variable runs. A case with an empty value is the <strong>default</strong> — it runs when nothing else matches.</li>
+            <li><strong>↻ Run actions here</strong> — the case owns a block of this scenario's actions (<strong>Actions</strong> from / to). Only the matching case's block runs, then playback continues after the Switch. Drag the Switch above those actions first, then pick them.</li>
+            <li><strong>To the end</strong> in the second list keeps the old jump: play from that action to the end of the scenario.</li>
+            <li><strong>▶ Play another scenario</strong> — <strong>#</strong> / <strong>to #</strong> are its first / last action (empty = from the start / to the end).</li>
+          </ul>
+        </details>
       </div>
 
       <!-- CHILD CONDITION (optional collapsible) — shown for click/input/hover -->
@@ -1314,14 +1356,22 @@
       <div id="rndPickSection" style="display:none">
         <label style="margin-bottom:6px">Values <span style="font-weight:400;color:var(--muted);font-size:11px">(one picked randomly · CSV column overrides)</span>:</label>
         <div id="pickValuesList"></div>
-        <button id="addPickValue" class="secondary" style="width:100%;margin-top:5px;font-size:12px;padding:5px 0">+ Add Value</button>
+        <div class="pv-add-row">
+          <button id="addPickValue" class="secondary" type="button">+ Add Value</button>
+          <button id="addPickBlank" class="secondary pv-add-blank" type="button" title="Add an entry that is the empty string">+ Add ∅ Blank</button>
+        </div>
+        <span class="pv-hint"><b>∅ Blank</b> = the empty string. It can be picked like any other value — e.g. to test a field left empty.</span>
       </div>
 
       <!-- Fallback List panel -->
       <div id="rndFallbackSection" style="display:none">
         <label style="margin-bottom:6px">Fallback order <span style="font-weight:400;color:var(--muted);font-size:11px">(tries A → B → C in Child Condition, stops on first match)</span>:</label>
         <div id="fallbackValuesList"></div>
-        <button id="addFallbackValue" class="secondary" style="width:100%;margin-top:5px;font-size:12px;padding:5px 0">+ Add Value</button>
+        <div class="pv-add-row">
+          <button id="addFallbackValue" class="secondary" type="button">+ Add Value</button>
+          <button id="addFallbackBlank" class="secondary pv-add-blank" type="button" title="Add an entry that matches an empty field">+ Add ∅ Blank</button>
+        </div>
+        <span class="pv-hint"><b>∅ Blank</b> matches a child whose field is <b>empty</b> — e.g. Value equals ∅ finds an input nobody typed in.</span>
       </div>
 
       <div class="row" style="margin-top: 12px;">

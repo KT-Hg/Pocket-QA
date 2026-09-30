@@ -1,16 +1,17 @@
 // Each variable stores a full config object across all 4 types so switching type never discards data.
 
 import { showToast, showConfirm, lockScroll, unlockScroll } from './utils.js';
+import { listEntries, listSpec, parseListSpec } from '../bg/var-name.js';
 
 /* ── Parsers ─────────────────────────────────────────────────────────────── */
 
-const PICK_RE     = /^\{pick:(.+)\}$/;
 const RANDOM_RE   = /^\{random:(\w+):(\d+)\}$/;
-const FALLBACK_RE = /^\{fallback:(.+)\}$/;
+
+// Config lists keep a Blank entry as null (see listEntries in bg/var-name.js).
+const _toConfigList = (vals) => vals && vals.map(v => (v === '' ? null : v));
 
 function _parsePick(val) {
-  const m = typeof val === 'string' && val.match(PICK_RE);
-  return m ? m[1].split('|').map(s => s.trim()).filter(Boolean) : null;
+  return _toConfigList(parseListSpec('pick', val));
 }
 
 function _parseRandom(val) {
@@ -19,8 +20,7 @@ function _parseRandom(val) {
 }
 
 function _parseFallback(val) {
-  const m = typeof val === 'string' && val.match(FALLBACK_RE);
-  return m ? m[1].split('|').map(s => s.trim()).filter(Boolean) : null;
+  return _toConfigList(parseListSpec('fallback', val));
 }
 
 /* ── Config model ────────────────────────────────────────────────────────── */
@@ -54,14 +54,8 @@ export function _migrateToConfig(val) {
 export function _getActiveValue(cfg) {
   const t = cfg.activeType || 's';
   if (t === 'r' && cfg.r) return `{random:${cfg.r.type}:${cfg.r.length}}`;
-  if (t === 'p') {
-    const vals = (cfg.p || []).filter(Boolean);
-    return vals.length ? `{pick:${vals.join('|')}}` : '';
-  }
-  if (t === 'f') {
-    const vals = (cfg.f || []).filter(Boolean);
-    return vals.length ? `{fallback:${vals.join('|')}}` : '';
-  }
+  if (t === 'p') return listSpec('pick', cfg.p);
+  if (t === 'f') return listSpec('fallback', cfg.f);
   return cfg.s || '';
 }
 
@@ -78,9 +72,16 @@ function _valueText(cfg) {
       ? 'YYYY-MM-DD_HH-MM-SS'
       : `${cfg.r?.type || 'alphanumeric'} · ${cfg.r?.length || '8'}`;
   }
-  if (t === 'p') return (cfg.p || []).filter(Boolean).join(' · ') || '—';
-  if (t === 'f') return (cfg.f || []).filter(Boolean).join(' → ') || '—';
+  if (t === 'p') return _listText(cfg.p, ' · ');
+  if (t === 'f') return _listText(cfg.f, ' → ');
   return cfg.s || '';
+}
+
+const BLANK_TEXT = '∅ blank';
+
+/** "a · ∅ blank · c" — a Blank is named, never shown as nothing. */
+function _listText(arr, sep) {
+  return listEntries(arr).map(v => (v === '' ? BLANK_TEXT : v)).join(sep) || '—';
 }
 
 /* ── DOM helpers ─────────────────────────────────────────────────────────── */
@@ -147,7 +148,7 @@ function _buildRow(key, valOrCfg) {
   if (t === 'p') {
     const sub = document.createElement('span');
     sub.className   = 'vr-sub';
-    const n = (cfg.p || []).filter(Boolean).length;
+    const n = listEntries(cfg.p).length;
     sub.textContent = `${n} option${n !== 1 ? 's' : ''} · random per run · CSV overrides`;
     valSpan.appendChild(sub);
   } else if (t === 'r') {
@@ -158,7 +159,7 @@ function _buildRow(key, valOrCfg) {
   } else if (t === 'f') {
     const sub = document.createElement('span');
     sub.className   = 'vr-sub';
-    const n = (cfg.f || []).filter(Boolean).length;
+    const n = listEntries(cfg.f).length;
     sub.textContent = `${n} values · tries A→B→C in Child Condition · sticky per run`;
     valSpan.appendChild(sub);
   }
@@ -226,7 +227,7 @@ function _refreshRow(li) {
     if (t === 'p') {
       const sub = document.createElement('span');
       sub.className   = 'vr-sub';
-      const n = (cfg.p || []).filter(Boolean).length;
+      const n = listEntries(cfg.p).length;
       sub.textContent = `${n} option${n !== 1 ? 's' : ''} · random per run · CSV overrides`;
       valSpan.appendChild(sub);
     } else if (t === 'r') {
@@ -237,7 +238,7 @@ function _refreshRow(li) {
     } else if (t === 'f') {
       const sub = document.createElement('span');
       sub.className   = 'vr-sub';
-      const n = (cfg.f || []).filter(Boolean).length;
+      const n = listEntries(cfg.f).length;
       sub.textContent = `${n} values · tries A→B→C in Child Condition · sticky per run`;
       valSpan.appendChild(sub);
     }
@@ -327,75 +328,96 @@ const _MODE_TO_TYPE = { static: 's', string: 'r', pick: 'p', fallback: 'f' };
 
 /* ── Pick / Fallback list helpers ────────────────────────────────────────── */
 
-function _addPickValueRow(value = '', doFocus = true) {
-  const list = document.getElementById('pickValuesList');
+// Each row is a value or a Blank (the empty string). A Blank row shows a
+// labelled pill instead of the input, so it never looks like a row someone
+// forgot to fill in — those are dropped on save, a Blank is kept.
+
+const _LIST_IDS = { pick: 'pickValuesList', fallback: 'fallbackValuesList' };
+
+/** Order marks: fallback rows are tried A → B → C, pick rows are unordered. */
+function _renumberList(kind) {
+  const list = document.getElementById(_LIST_IDS[kind]);
+  if (!list) return;
+  list.querySelectorAll('.pick-value-row').forEach((row, i) => {
+    const mark = row.querySelector('.pv-mark');
+    if (mark) mark.textContent = kind === 'fallback' ? String.fromCharCode(65 + (i % 26)) : '•';
+  });
+}
+
+function _setRowBlank(row, blank) {
+  row.classList.toggle('is-blank', blank);
+  row.dataset.blank = blank ? '1' : '';
+  const inp  = row.querySelector('input');
+  const btn  = row.querySelector('.blank-pick-btn');
+  inp.hidden = blank;
+  row.querySelector('.pv-blank-pill').hidden = !blank;
+  btn.setAttribute('aria-pressed', String(blank));
+  btn.title = blank ? 'Blank — click to type a value instead' : 'Make this entry Blank (empty value)';
+}
+
+function _addListValueRow(kind, value = '', doFocus = true) {
+  const list = document.getElementById(_LIST_IDS[kind]);
   if (!list) return;
 
   const row = document.createElement('div');
   row.className = 'pick-value-row';
 
+  const mark = document.createElement('span');
+  mark.className = 'pv-mark';
+  mark.setAttribute('aria-hidden', 'true');
+
   const inp = document.createElement('input');
   inp.type        = 'text';
   inp.placeholder = 'e.g., active';
-  inp.value       = value;
+  inp.value       = value ?? '';
+  inp.setAttribute('aria-label', 'Value');
+
+  const pill = document.createElement('span');
+  pill.className = 'pv-blank-pill';
+  pill.innerHTML = '<b>∅ Blank</b> <span>empty value</span>';
+  pill.hidden    = true;
+
+  const blankBtn = document.createElement('button');
+  blankBtn.className   = 'blank-pick-btn';
+  blankBtn.type        = 'button';
+  blankBtn.textContent = '∅';
+  blankBtn.addEventListener('click', () => {
+    const toBlank = row.dataset.blank !== '1';
+    _setRowBlank(row, toBlank);
+    if (!toBlank) inp.focus();
+  });
 
   const del = document.createElement('button');
   del.className   = 'del-pick-btn';
   del.type        = 'button';
   del.textContent = '×';
   del.title       = 'Remove value';
+  del.setAttribute('aria-label', 'Remove value');
   del.addEventListener('click', () => {
-    const rows = list.querySelectorAll('.pick-value-row');
-    if (rows.length > 1) row.remove();
+    if (list.querySelectorAll('.pick-value-row').length > 1) { row.remove(); _renumberList(kind); }
     else showToast('At least one value required', 'error');
   });
 
-  row.appendChild(inp);
-  row.appendChild(del);
+  row.append(mark, inp, pill, blankBtn, del);
   list.appendChild(row);
-  if (doFocus) inp.focus();
+  _setRowBlank(row, value === null);
+  _renumberList(kind);
+  if (doFocus) (value === null ? blankBtn : inp).focus();
 }
 
-function _getPickValues() {
-  const list = document.getElementById('pickValuesList');
+/** Entries in row order: trimmed values, null for a Blank; unfilled rows dropped. */
+function _getListValues(kind) {
+  const list = document.getElementById(_LIST_IDS[kind]);
   if (!list) return [];
-  return [...list.querySelectorAll('.pick-value-row input')]
-    .map(i => i.value.trim()).filter(Boolean);
+  return [...list.querySelectorAll('.pick-value-row')]
+    .map(row => (row.dataset.blank === '1' ? null : row.querySelector('input').value.trim()))
+    .filter(v => v === null || v !== '');
 }
 
-function _addFallbackValueRow(value = '', doFocus = true) {
-  const list = document.getElementById('fallbackValuesList');
-  if (!list) return;
-
-  const row = document.createElement('div');
-  row.className = 'pick-value-row';
-
-  const inp = document.createElement('input');
-  inp.type        = 'text';
-  inp.placeholder = 'e.g., active';
-  inp.value       = value;
-
-  const del = document.createElement('button');
-  del.className   = 'del-pick-btn';
-  del.type        = 'button';
-  del.textContent = '×';
-  del.addEventListener('click', () => {
-    if (list.querySelectorAll('.pick-value-row').length > 1) row.remove();
-    else showToast('At least one fallback value required', 'error');
-  });
-
-  row.appendChild(inp);
-  row.appendChild(del);
-  list.appendChild(row);
-  if (doFocus) inp.focus();
-}
-
-function _getFallbackValues() {
-  const list = document.getElementById('fallbackValuesList');
-  if (!list) return [];
-  return [...list.querySelectorAll('.pick-value-row input')]
-    .map(i => i.value.trim()).filter(Boolean);
-}
+const _addPickValueRow     = (value, doFocus) => _addListValueRow('pick', value, doFocus);
+const _addFallbackValueRow = (value, doFocus) => _addListValueRow('fallback', value, doFocus);
+const _getPickValues       = () => _getListValues('pick');
+const _getFallbackValues   = () => _getListValues('fallback');
 
 /* ── Length row visibility ───────────────────────────────────────────────── */
 
@@ -532,8 +554,10 @@ export function initVariables() {
 
   rndType?.addEventListener('change', () => _updateLengthRow(rndType.value));
 
-  document.getElementById('addPickValue')?.addEventListener('click',     () => _addPickValueRow());
-  document.getElementById('addFallbackValue')?.addEventListener('click', () => _addFallbackValueRow());
+  document.getElementById('addPickValue')?.addEventListener('click',     () => _addPickValueRow(''));
+  document.getElementById('addFallbackValue')?.addEventListener('click', () => _addFallbackValueRow(''));
+  document.getElementById('addPickBlank')?.addEventListener('click',     () => _addPickValueRow(null));
+  document.getElementById('addFallbackBlank')?.addEventListener('click', () => _addFallbackValueRow(null));
 
   confirmBtn?.addEventListener('click', () => {
     const name = varName?.value.trim();
@@ -551,9 +575,9 @@ export function initVariables() {
     const fallbackVals = _getFallbackValues();
 
     if (_rndMode === 'fallback') {
-      if (fallbackVals.length < 2) { showToast('Add at least 2 fallback values', 'error'); return; }
+      if (fallbackVals.length < 2) { showToast('Add at least 2 fallback values (a Blank counts)', 'error'); return; }
     } else if (_rndMode === 'pick') {
-      if (pickVals.length < 2) { showToast('Add at least 2 values to Pick list', 'error'); return; }
+      if (pickVals.length < 2) { showToast('Add at least 2 values to Pick list (a Blank counts)', 'error'); return; }
     }
 
     const cfg = {

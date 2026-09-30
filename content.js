@@ -308,12 +308,22 @@ const _FALLBACK_RE = /^\{fallback:(.+)\}$/;
 function _parseFallbackSpec(v) {
   if (typeof v !== 'string') return null;
   const m = v.match(_FALLBACK_RE);
-  return m ? m[1].split('|').map(s => s.trim()).filter(Boolean) : null;
+  // An empty segment is a Blank entry — kept, it matches an empty field.
+  return m ? m[1].split('|').map(s => s.trim()) : null;
+}
+
+// A Blank fallback entry for `field`: the child's field is empty.
+function _blankCheck(field, normalize) {
+  if (field === 'valueEquals')   return el => el.value !== undefined && String(el.value) === '';
+  if (field === 'textContains')  return el => normalize(el.textContent) === '';
+  if (field === 'idContains')    return el => !el.id;
+  if (field === 'classContains') return el => normalize(el.getAttribute('class')) === '';
+  return el => !el.getAttribute('type'); // typeEquals
 }
 
 // Core single-value child search.  Used by findElementByCondition for both the
 // direct path (no fallback) and each iteration of the fallback path.
-function _findElementSingle(root, conditions, normalize) {
+function _findElementSingle(root, conditions, normalize, blankField = null) {
   const { matchMode = 'any', valueEquals, textContains, idContains, classContains, typeEquals } = conditions;
   const checks = [];
   if (valueEquals  !== undefined && valueEquals  !== '') checks.push(el => el.value !== undefined && String(el.value) === String(valueEquals));
@@ -329,6 +339,7 @@ function _findElementSingle(root, conditions, normalize) {
   if (idContains    != null && idContains    !== '') { const n = normalize(idContains);    checks.push(el => normalize(el.id).includes(n)); }
   if (classContains != null && classContains !== '') { const n = normalize(classContains); checks.push(el => normalize(el.className).includes(n)); }
   if (typeEquals    != null && typeEquals    !== '') checks.push(el => el.type === typeEquals);
+  if (blankField) checks.push(_blankCheck(blankField, normalize));
   if (checks.length === 0) return null;
   const test = matchMode === 'all' ? el => checks.every(fn => fn(el)) : el => checks.some(fn => fn(el));
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
@@ -341,7 +352,8 @@ function _findElementSingle(root, conditions, normalize) {
  * Search a container's subtree for the first child element matching `conditions`.
  *
  * Supports {fallback:A|B|C} in condition string fields:
- *   Tries value A first; if no child matches, tries B, then C.
+ *   Tries value A first; if no child matches, tries B, then C. An empty value
+ *   (a Blank entry, `{fallback:A||C}`) matches a child whose field is empty.
  *   The first value that finds a match is returned along with which spec it came
  *   from (resolvedFallbacks), so the caller can persist it for sticky resolution.
  *
@@ -371,9 +383,12 @@ function findElementByCondition(root, conditions) {
   const originalSpec = conditions[fbField];
   for (const val of fbVals) {
     const resolved = { ...conditions, [fbField]: val };
-    const el = _findElementSingle(root, resolved, normalize);
+    const el = _findElementSingle(root, resolved, normalize, val === '' ? fbField : null);
     if (el) {
-      resolvedFallbacks[originalSpec] = val; // record which value succeeded
+      // Record which value succeeded. Not a Blank: stuck as '' it would reach the
+      // next condition as "no check" rather than "field is empty", so a Blank
+      // win is tried again from the top next time.
+      if (val !== '') resolvedFallbacks[originalSpec] = val;
       return { el, resolvedFallbacks };
     }
   }

@@ -1,6 +1,6 @@
 import { showToast, lockScroll, unlockScroll, trapFocus, escHtml, getUsedVarNames } from './utils.js';
-import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget } from '../bg/switch-blocks.js';
-import { normalizeVarName } from '../bg/var-name.js';
+import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../bg/switch-blocks.js';
+import { normalizeVarName, listSpec, parseListSpec } from '../bg/var-name.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -11,8 +11,8 @@ function _activeVal(v) {
   if (v && typeof v === 'object' && 'activeType' in v) {
     const t = v.activeType || 's';
     if (t === 'r' && v.r) return `{random:${v.r.type}:${v.r.length}}`;
-    if (t === 'p') { const vals = (v.p || []).filter(Boolean); return vals.length ? `{pick:${vals.join('|')}}` : ''; }
-    if (t === 'f') { const vals = (v.f || []).filter(Boolean); return vals.length ? `{fallback:${vals.join('|')}}` : ''; }
+    if (t === 'p') return listSpec('pick', v.p);
+    if (t === 'f') return listSpec('fallback', v.f);
     return v.s || '';
   }
   return '';
@@ -24,8 +24,7 @@ function parseRandomSpec(val) {
 }
 
 function parsePickSpec(val) {
-  const m = _activeVal(val).match(/^\{pick:(.+)\}$/);
-  return m ? m[1].split('|').map(s => s.trim()).filter(Boolean) : null;
+  return parseListSpec('pick', _activeVal(val));
 }
 
 function makeRandomFn(type, length) {
@@ -365,7 +364,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx) {
     const stepNum = baseIdx + i + 1;
 
     if (action.type === 'condition') {
-      const skipCount = Math.max(1, action.skipCount || 1);
+      const skipCount = conditionSkip(action); // 0 for an emptied Condition: empty body
       out.push(...condHeader(action, stepNum));
       // Same span playback skips: a Switch and its block count as one action.
       const bodyEnd = ctx.all ? conditionSkipTarget(ctx.all, abs, skipCount, ctx.layout) - baseIdx : i + 1 + skipCount;
@@ -499,12 +498,13 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('  };');
   out.push('');
   // _findChild supports {fallback:A|B|C} in condition fields — tries each value
-  // in order and returns the first matching child element.
+  // in order and returns the first matching child element. An empty segment is
+  // a Blank: it matches a child whose field is empty (see content.js).
   out.push('  const _findChild = (parent, cond) => {');
   out.push("    const _fbRe = /^\\{fallback:(.+)\\}$/;");
   out.push("    const _fbField = ['valueEquals','textContains','idContains','classContains','typeEquals'].find(f => cond[f] != null && _fbRe.test(String(cond[f])));");
-  out.push("    const _fbVals  = _fbField ? String(cond[_fbField]).match(_fbRe)[1].split('|').map(s=>s.trim()).filter(Boolean) : null;");
-  out.push("    const _tryFind = (c) => {");
+  out.push("    const _fbVals  = _fbField ? String(cond[_fbField]).match(_fbRe)[1].split('|').map(s=>s.trim()) : null;");
+  out.push("    const _tryFind = (c, blankField) => {");
   out.push("      const mode = c.matchMode || 'any';");
   out.push("      const norm = s => (s == null ? '' : String(s).trim().toLowerCase());");
   out.push('      const checks = [];');
@@ -513,6 +513,13 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push("      if (c.idContains    != null && c.idContains    !== '') { const n = norm(c.idContains);    checks.push(el => norm(el.id).includes(n)); }");
   out.push("      if (c.classContains != null && c.classContains !== '') { const n = norm(c.classContains); checks.push(el => norm(el.className).includes(n)); }");
   out.push("      if (c.typeEquals    != null && c.typeEquals    !== '') checks.push(el => el.type === c.typeEquals);");
+  out.push("      if (blankField) checks.push(el => {");
+  out.push("        if (blankField === 'valueEquals')   return el.value !== undefined && String(el.value) === '';");
+  out.push("        if (blankField === 'textContains')  return norm(el.textContent) === '';");
+  out.push("        if (blankField === 'idContains')    return !el.id;");
+  out.push("        if (blankField === 'classContains') return norm(el.getAttribute('class')) === '';");
+  out.push("        return !el.getAttribute('type');");
+  out.push("      });");
   out.push("      if (!checks.length) return null;");
   out.push("      const test = mode === 'all' ? el => checks.every(fn => fn(el)) : el => checks.some(fn => fn(el));");
   out.push('      const walker = document.createTreeWalker(parent, NodeFilter.SHOW_ELEMENT);');
@@ -521,7 +528,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('      return null;');
   out.push('    };');
   out.push("    if (_fbField && _fbVals) {");
-  out.push("      for (const _fv of _fbVals) { const el = _tryFind({...cond, [_fbField]: _fv}); if (el) return el; }");
+  out.push("      for (const _fv of _fbVals) { const el = _tryFind({...cond, [_fbField]: _fv}, _fv === '' ? _fbField : null); if (el) return el; }");
   out.push("      return null;");
   out.push("    }");
   out.push('    return _tryFind(cond);');
@@ -795,12 +802,12 @@ function _renderModal(scenarioName, result, variables) {
         preview = previewRandom(spec.type, spec.length);
       } else if (isPick) {
         icon = '⚄'; badgeLabel = `Pick (${pick.length})`; badgeCls = 'rand';
-        preview = pick.join(' | ');
+        preview = pick.map(v => (v === '' ? '∅ blank' : v)).join(' | ');
         if (preview.length > 40) preview = preview.slice(0, 40) + '…';
       } else if (fbMatch) {
-        const fbVals = fbMatch[1].split('|').map(s => s.trim()).filter(Boolean);
+        const fbVals = fbMatch[1].split('|').map(s => s.trim());
         icon = '⛓'; badgeLabel = `Fallback (${fbVals.length})`; badgeCls = 'rand';
-        preview = fbVals.join(' → ');
+        preview = fbVals.map(v => (v === '' ? '∅ blank' : v)).join(' → ');
         if (preview.length > 40) preview = preview.slice(0, 40) + '…';
       } else {
         icon = '🔤'; badgeLabel = 'Static'; badgeCls = 'static';
@@ -969,11 +976,11 @@ function _actionDesc(a) {
     case 'script':    return 'custom JS code';
     case 'condition': return a.conditionType || 'condition';
     case 'switch':    return `→ ${(a.scenario || a.value || '')}`.slice(0, 40);
-    case 'readdom':   return `${sel} → \${${a.varName || 'var'}}`;
+    case 'readdom':   return `${sel} → \${${normalizeVarName(a.varName) || 'var'}}`;
     case 'screenshot':
     case 'screenshot_full':    return 'viewport';
     case 'screenshot_element': return sel || 'element';
-    case 'screenshot_tovar':   return `→ \${${a.varName || 'screenshot'}}`;
+    case 'screenshot_tovar':   return `→ \${${normalizeVarName(a.varName) || 'screenshot'}}`;
     case 'input': {
       const v = a.value ? ` = "${String(a.value).slice(0, 15)}"` : '';
       return `${sel}${v}`;

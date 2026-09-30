@@ -1,14 +1,14 @@
 import { showToast, lockScroll, unlockScroll, trapFocus, escHtml, getUsedVarNames } from './utils.js';
-import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget } from '../bg/switch-blocks.js';
-import { normalizeVarName } from '../bg/var-name.js';
+import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../bg/switch-blocks.js';
+import { normalizeVarName, listSpec, parseListSpec } from '../bg/var-name.js';
 
 function _activeVal(v) {
   if (typeof v === 'string') return v;
   if (v && typeof v === 'object' && 'activeType' in v) {
     const t = v.activeType || 's';
     if (t === 'r' && v.r) return `{random:${v.r.type}:${v.r.length}}`;
-    if (t === 'p') { const vals = (v.p || []).filter(Boolean); return vals.length ? `{pick:${vals.join('|')}}` : ''; }
-    if (t === 'f') { const vals = (v.f || []).filter(Boolean); return vals.length ? `{fallback:${vals.join('|')}}` : ''; }
+    if (t === 'p') return listSpec('pick', v.p);
+    if (t === 'f') return listSpec('fallback', v.f);
     return v.s || '';
   }
   return '';
@@ -20,8 +20,7 @@ function parseRandomSpec(val) {
 }
 
 function parsePickSpec(val) {
-  const m = _activeVal(val).match(/^\{pick:(.+)\}$/);
-  return m ? m[1].split('|').map(s => s.trim()).filter(Boolean) : null;
+  return parseListSpec('pick', _activeVal(val));
 }
 
 function previewRandom(type, length) {
@@ -297,21 +296,32 @@ function _findChildHelperPy() {
     '    """First descendant of `parent` matching `cond`.',
     '',
     '    A field may hold a {fallback:A|B|C} spec — Fallback variables only expand',
-    '    into one at run time — and each candidate is then tried in order.',
+    '    into one at run time — and each candidate is then tried in order. An',
+    '    empty candidate is a Blank: it matches a child whose field is empty.',
     '    """',
     '    fb_field, fb_values = None, None',
     '    for _f in ("valueEquals", "textContains", "idContains", "classContains", "typeEquals"):',
     '        _m = _FALLBACK_RE.match(str(cond.get(_f, "")))',
     '        if _m:',
     '            fb_field = _f',
-    '            fb_values = [v.strip() for v in _m.group(1).split("|") if v.strip()]',
+    '            fb_values = [v.strip() for v in _m.group(1).split("|")]',
     '            break',
     '',
     '    def norm(s):',
     '        return "" if s is None else str(s).strip().lower()',
     '',
-    '    def try_find(c):',
+    '    def is_blank(el, field):',
+    '        if field == "valueEquals":',
+    '            return (el.get_attribute("value") or "") == ""',
+    '        if field == "textContains":',
+    '            return norm(el.text) == ""',
+    '        attr = {"idContains": "id", "classContains": "class"}.get(field, "type")',
+    '        return norm(el.get_attribute(attr)) == ""',
+    '',
+    '    def try_find(c, blank_field=None):',
     '        checks = []',
+    '        if blank_field:',
+    '            checks.append(lambda el, f=blank_field: is_blank(el, f))',
     '        if c.get("valueEquals"):',
     '            checks.append(lambda el, v=str(c["valueEquals"]): (el.get_attribute("value") or "") == v)',
     '        if c.get("textContains"):',
@@ -330,9 +340,9 @@ function _findChildHelperPy() {
     '                return el',
     '        return None',
     '',
-    '    if fb_field and fb_values:',
+    '    if fb_field and fb_values is not None:',
     '        for fv in fb_values:',
-    '            el = try_find({**cond, fb_field: fv})',
+    '            el = try_find({**cond, fb_field: fv}, fb_field if fv == "" else None)',
     '            if el is not None:',
     '                return el',
     '        return None',
@@ -554,7 +564,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
     const stepNum = baseIdx + i + 1;
 
     if (action.type === 'condition') {
-      const skipCount = Math.max(1, action.skipCount || 1);
+      const skipCount = conditionSkip(action); // 0 for an emptied Condition: empty body
       const lbl  = action.label ? ` — ${action.label}` : '';
       const sel  = getBestSelInfo(action);
       const selPy = selToPy(sel);
@@ -965,12 +975,12 @@ function _renderModal(scenarioName, result, variables) {
         preview = previewRandom(spec.type, spec.length);
       } else if (isPick) {
         icon = '⚄'; badgeLabel = `Pick (${pick.length})`; badgeCls = 'rand';
-        preview = pick.join(' | ');
+        preview = pick.map(v => (v === '' ? '∅ blank' : v)).join(' | ');
         if (preview.length > 40) preview = preview.slice(0, 40) + '…';
       } else if (fbMatch) {
-        const fbVals = fbMatch[1].split('|').map(s => s.trim()).filter(Boolean);
+        const fbVals = fbMatch[1].split('|').map(s => s.trim());
         icon = '⛓'; badgeLabel = `Fallback (${fbVals.length})`; badgeCls = 'rand';
-        preview = fbVals.join(' → ');
+        preview = fbVals.map(v => (v === '' ? '∅ blank' : v)).join(' → ');
         if (preview.length > 40) preview = preview.slice(0, 40) + '…';
       } else {
         icon = '🔤'; badgeLabel = 'Static'; badgeCls = 'static';
@@ -1115,11 +1125,11 @@ function _actionDesc(a) {
     case 'script':    return 'custom JS code';
     case 'condition': return a.conditionType || 'condition';
     case 'switch':    return `→ ${(a.scenario || a.value || '')}`.slice(0, 40);
-    case 'readdom':   return `${sel} → \${${a.varName || 'var'}}`;
+    case 'readdom':   return `${sel} → \${${normalizeVarName(a.varName) || 'var'}}`;
     case 'screenshot':
     case 'screenshot_full':    return 'viewport';
     case 'screenshot_element': return sel || 'element';
-    case 'screenshot_tovar':   return `→ \${${a.varName || 'screenshot'}}`;
+    case 'screenshot_tovar':   return `→ \${${normalizeVarName(a.varName) || 'screenshot'}}`;
     case 'input': {
       const v = a.value ? ` = "${String(a.value).slice(0, 15)}"` : '';
       return `${sel}${v}`;

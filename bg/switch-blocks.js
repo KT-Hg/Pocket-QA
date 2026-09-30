@@ -275,9 +275,7 @@ export function conditionSkipTarget(actions, i, skipCount, layout = null) {
   const list = Array.isArray(actions) ? actions : [];
   const lay = layout || getSwitchLayout(list);
   let pos = i + 1;
-  for (let k = 0; k < skipCount && pos < list.length; k++) {
-    pos = hasBlock(list[pos]) ? Math.max(pos + 1, continueIndex(list, pos)) : pos + 1;
-  }
+  for (let k = 0; k < skipCount && pos < list.length; k++) pos = _unitNext(list, pos);
   // Leaving the Condition's own case counts too: landing in a sibling case of
   // the same Switch moves on to that Switch's continueAt.
   const own = new Set((lay[i]?.chain || []).map((c) => `${c.switchIdx}:${c.caseIdx}`));
@@ -289,6 +287,156 @@ export function conditionSkipTarget(actions, i, skipCount, layout = null) {
     pos = next;
   }
   return pos;
+}
+
+/* ── Condition ranges ──────────────────────────────────────────────────────────
+ * A Condition skips its next `skipCount` actions when false, so those are the
+ * actions it guards — the ones that run only when it is true. They are stored
+ * as a count, not a range: the preview draws them as the Condition's block, and
+ * remove / reorder rewrite `skipCount` so the block keeps the same actions.
+ * Numbering stays flat.
+ *
+ * `skipCount` cannot be 0 (older code reads 0 as 1), so a Condition whose last
+ * guarded action was dragged out or deleted is marked `{ empty: true }` — like
+ * an emptied Switch case — and guards nothing: a false result skips nothing.
+ */
+
+/** Where the unit starting at `pos` ends + 1: a block Switch with its block is one unit. */
+function _unitNext(list, pos) {
+  return hasBlock(list[pos]) ? Math.max(pos + 1, continueIndex(list, pos)) : pos + 1;
+}
+
+/** Actions a false Condition skips: `skipCount`, at least 1 — or 0 for an emptied one. */
+export function conditionSkip(action) {
+  if (action?.empty === true) return 0;
+  const n = parseInt(action?.skipCount || action?.conditionSkipCount || 1, 10);
+  return Math.max(1, Number.isFinite(n) ? n : 1);
+}
+
+/** 0-based index of the last action in the case (or scenario) action `i` lives in. */
+function _ownEnd(list, lay, i) {
+  const inner = lay[i]?.chain?.[lay[i].chain.length - 1];
+  return Math.min(inner ? inner.end : list.length - 1, list.length - 1);
+}
+
+/**
+ * Last index covered by 1, 2, 3 … units after Condition `i`, up to the end of
+ * its own case: `ends[k - 1]` is where a `skipCount` of k stops. The form offers
+ * these as "if true, run … through".
+ */
+export function conditionChoices(actions, i, layout = null) {
+  const list = Array.isArray(actions) ? actions : [];
+  const lay = layout || getSwitchLayout(list);
+  const own = _ownEnd(list, lay, i);
+  const ends = [];
+  for (let pos = i + 1; pos <= own;) {
+    const next = _unitNext(list, pos);
+    ends.push(Math.min(next - 1, own));
+    pos = next;
+  }
+  return ends;
+}
+
+/**
+ * The actions Condition `i` guards, as playback skips them (conditionSkipTarget),
+ * cut at the end of the Condition's own case.
+ *
+ * Returns { start, end, skip, units }: `end < start` when nothing follows.
+ *   short  fewer than `skip` units follow — the skip runs off the end
+ *   cut    the skip reaches past the end of the Condition's case, where playback
+ *          moves on to that Switch's continueAt instead
+ */
+export function conditionRange(actions, i, layout = null) {
+  const list = Array.isArray(actions) ? actions : [];
+  const lay = layout || getSwitchLayout(list);
+  const skip = conditionSkip(list[i]);
+  let pos = i + 1, units = 0;
+  while (units < skip && pos < list.length) { pos = _unitNext(list, pos); units++; }
+  const own = _ownEnd(list, lay, i);
+  const rawEnd = Math.min(pos - 1, list.length - 1);
+  return {
+    start: i + 1,
+    end: Math.min(rawEnd, own),
+    skip,
+    units,
+    short: units < skip && own === list.length - 1,
+    cut: rawEnd > own || (units < skip && own < list.length - 1),
+  };
+}
+
+/**
+ * Per action: `conds` — the Conditions guarding it, outermost first — and, on a
+ * Condition, its `range` (conditionRange). Ranges that overlap without nesting
+ * (an inner Condition reaching past its outer one) are both listed; `past` on
+ * the inner range names the outer Condition it overruns.
+ */
+export function getConditionLayout(actions, layout = null) {
+  const list = Array.isArray(actions) ? actions : [];
+  const lay = layout || getSwitchLayout(list);
+  const out = list.map(() => ({ conds: [], range: null }));
+  list.forEach((a, i) => {
+    if (a?.type !== 'condition') return;
+    const r = conditionRange(list, i, lay);
+    out[i].range = r;
+    for (let j = r.start; j <= r.end; j++) out[j].conds.push(i);
+  });
+  out.forEach((e, i) => {
+    if (!e.range) return;
+    const over = e.conds.find((c) => out[c].range.end < e.range.end);
+    if (over != null) e.range.past = over;
+  });
+  return out;
+}
+
+/** True when any action in the list is a Condition guarding at least one action. */
+export function anyConditions(actions) {
+  const list = Array.isArray(actions) ? actions : [];
+  return list.some((a, i) => a?.type === 'condition' && i < list.length - 1);
+}
+
+/** Units from `from` up to `to` (inclusive, 0-based). */
+function _countUnits(list, from, to) {
+  let n = 0;
+  for (let pos = from; pos <= to && pos < list.length; pos = _unitNext(list, pos)) n++;
+  return n;
+}
+
+/**
+ * Rewrite `skipCount` so every Condition touched by an edit guards the same
+ * actions afterwards. `newPos(old)` → new index or null (removed). With a
+ * dragged `unit` (Set of old indices), the unit leaves every Condition it was in
+ * and joins those in `joins` (Set of old Condition indices). Conditions the edit
+ * did not touch keep their `skipCount`, even an odd one (short / cut).
+ */
+function _refitConditions(oldList, newList, newPos, { removed = null, unit = null, joins = null } = {}) {
+  const lay = getSwitchLayout(oldList);
+  const out = [...newList];
+  oldList.forEach((a, c) => {
+    if (a?.type !== 'condition') return;
+    const cNew = newPos(c);
+    if (cNew == null || unit?.has(c)) return;
+    const r = conditionRange(oldList, c, lay);
+    const members = new Set();
+    for (let j = r.start; j <= r.end; j++) members.add(j);
+    let touched = removed != null && members.has(removed);
+    if (unit) {
+      for (const j of unit) if (members.delete(j)) touched = true;
+      if (joins?.has(c)) { for (const j of unit) members.add(j); touched = true; }
+    }
+    if (!touched) return;
+    const ps = [...members].map(newPos).filter((p) => p != null);
+    if (!ps.length) {
+      // Its last guarded action left: the Condition now guards nothing.
+      if (a.empty !== true) out[cNew] = { ...out[cNew], empty: true };
+      return;
+    }
+    const want = _countUnits(newList, cNew + 1, Math.max(...ps));
+    if (want < 1 || want === conditionSkip(a)) return;
+    const next = { ...out[cNew], skipCount: want };
+    delete next.empty;
+    out[cNew] = next;
+  });
+  return out;
 }
 
 /**
@@ -323,13 +471,14 @@ export function resumeSegments(actions, fromIndex, layout = null) {
  *     a case left with nothing becomes `{ empty: true }`;
  *   - old-style `startAt` and an explicit `continueAt` follow their action; when
  *     that action is the one removed they point at the next one (`retargeted`).
- * Cases that target another scenario are left alone.
+ * Cases that target another scenario are left alone. A Condition that guarded
+ * the removed action guards one action less (see _refitConditions).
  */
 export function remapAfterRemove(actions, removedIdx) {
   const list = Array.isArray(actions) ? actions : [];
   const r1 = removedIdx + 1;
   const shiftRef = (n) => (n > r1 ? n - 1 : n);
-  return list.filter((_, i) => i !== removedIdx).map((a) => {
+  const next = list.filter((_, i) => i !== removedIdx).map((a) => {
     if (a?.type !== 'switch' || !Array.isArray(a.cases)) return a;
     let touched = false;
     const cases = a.cases.map((c) => {
@@ -362,6 +511,8 @@ export function remapAfterRemove(actions, removedIdx) {
     if (ca != null && ca >= r1) out.continueAt = shiftRef(ca);
     return out;
   });
+  const newPos = (j) => (j === removedIdx ? null : j > removedIdx ? j - 1 : j);
+  return _refitConditions(list, next, newPos, { removed: removedIdx });
 }
 
 /**
@@ -374,6 +525,10 @@ export function remapAfterRemove(actions, removedIdx) {
  * ({ switchIdx, caseIdx } in old indices; caseIdx null = in the block but in no
  * case; null target = top level). Each case's new range is the span of its
  * members; old-style `startAt` and an explicit `continueAt` follow their action.
+ *
+ * Conditions likewise keep the actions they guard: the moved unit leaves the
+ * Conditions it was in and joins `move.joins` (old Condition indices), and
+ * `skipCount` is rewritten to match.
  */
 export function remapAfterReorder(actions, newOrder, move = null) {
   const list = Array.isArray(actions) ? actions : [];
@@ -412,7 +567,7 @@ export function remapAfterReorder(actions, newOrder, move = null) {
     return o >= 0 && o < list.length ? newPos[o] + 1 : n1;
   };
 
-  return newOrder.map((o) => {
+  const next = newOrder.map((o) => {
     const a = list[o];
     if (a?.type !== 'switch' || !Array.isArray(a.cases)) return a;
     let changed = false;
@@ -448,6 +603,10 @@ export function remapAfterReorder(actions, newOrder, move = null) {
     if (ca != null) out.continueAt = caNew;
     return out;
   });
+  // Without a move nothing says who left or joined: Conditions keep their count.
+  if (!move || !Array.isArray(move.items) || !move.items.length) return next;
+  const joins = new Set((Array.isArray(move.joins) ? move.joins : []).filter((j) => Number.isInteger(j)));
+  return _refitConditions(list, next, (j) => newPos[j], { unit: new Set(move.items), joins });
 }
 
 /**
@@ -461,6 +620,12 @@ export function remapAfterReorder(actions, newOrder, move = null) {
  *   { kind: 'afterCollapsed', switchIdx }        after a collapsed block Switch: after its block
  *   { kind: 'caseHead', switchIdx, caseIdx }     on a case header: start of that case
  *   { kind: 'outside', switchIdx }               on the "out of the block" zone: after the block
+ *   { kind: 'afterCollapsedCond', condIdx }      after a collapsed Condition: after what it guards
+ *   { kind: 'outsideCond', condIdx }             on the "out of the If" zone: after what it guards
+ *
+ * A Condition drags the actions it guards along. The dropped unit joins every
+ * Condition guarding the row it lands after (and, dropped right after an
+ * expanded Condition, that Condition itself) — `move.joins`.
  *
  * Returns { newOrder, move, actions } or null when nothing changes.
  */
@@ -468,7 +633,10 @@ export function planDrop(actions, dragged, anchor) {
   const list = Array.isArray(actions) ? actions : [];
   if (!(dragged >= 0 && dragged < list.length) || !anchor) return null;
   const lay = getSwitchLayout(list);
-  const unitEnd = hasBlock(list[dragged]) ? (lay[dragged].block?.end ?? dragged) : dragged;
+  const cl = getConditionLayout(list, lay);
+  const unitEnd = hasBlock(list[dragged]) ? (lay[dragged].block?.end ?? dragged)
+    : cl[dragged].range ? Math.max(dragged, cl[dragged].range.end)
+    : dragged;
   const unit = [];
   for (let j = dragged; j <= unitEnd; j++) unit.push(j);
   const inUnit = (j) => j >= dragged && j <= unitEnd;
@@ -478,8 +646,9 @@ export function planDrop(actions, dragged, anchor) {
     return inner ? { switchIdx: inner.switchIdx, caseIdx: inner.caseIdx } : null;
   };
   const afterBlock = (s) => (lay[s].block ? lay[s].block.end + 1 : s + 1);
+  const guarding = (j) => cl[j].conds;
 
-  let insertBefore, target;
+  let insertBefore, target, joins = [];
   switch (anchor.kind) {
     case 'top':
       insertBefore = 0; target = null; break;
@@ -487,6 +656,7 @@ export function planDrop(actions, dragged, anchor) {
       const j = anchor.index;
       if (!(j >= 0 && j < list.length) || inUnit(j)) return null;
       const b = lay[j].block;
+      joins = guarding(j);
       if (b) {
         const first = b.cases.filter((c) => c.start != null).sort((x, y) => x.start - y.start)[0]
           || b.cases.find((c) => c.isBlock);
@@ -497,13 +667,23 @@ export function planDrop(actions, dragged, anchor) {
         }
       }
       insertBefore = j + 1; target = lay[j].parent;
+      // Right after an expanded Condition: the first action it guards.
+      if (cl[j].range) joins = [...joins, j];
       break;
     }
     case 'afterCollapsed':
     case 'outside': {
       const s = anchor.switchIdx;
       if (!lay[s]?.block || inUnit(s)) return null;
-      insertBefore = afterBlock(s); target = parentOf(s);
+      insertBefore = afterBlock(s); target = parentOf(s); joins = guarding(s);
+      break;
+    }
+    case 'afterCollapsedCond':
+    case 'outsideCond': {
+      const c = anchor.condIdx;
+      const r = cl[c]?.range;
+      if (!r || inUnit(c)) return null;
+      insertBefore = Math.max(c + 1, r.end + 1); target = parentOf(c); joins = guarding(c);
       break;
     }
     case 'caseHead': {
@@ -512,6 +692,7 @@ export function planDrop(actions, dragged, anchor) {
       if (!cc || inUnit(s)) return null;
       insertBefore = cc.start != null ? cc.start : afterBlock(s);
       target = { switchIdx: s, caseIdx: anchor.caseIdx };
+      joins = guarding(s);
       break;
     }
     default:
@@ -524,7 +705,7 @@ export function planDrop(actions, dragged, anchor) {
   let at = rest.findIndex((j) => j >= insertBefore);
   if (at < 0) at = rest.length;
   const newOrder = [...rest.slice(0, at), ...unit, ...rest.slice(at)];
-  const move = { items: unit, target };
+  const move = { items: unit, target, joins: joins.filter((c) => !inUnit(c)) };
   const next = remapAfterReorder(list, newOrder, move);
   const same = newOrder.every((o, p) => o === p) && JSON.stringify(next) === JSON.stringify(list);
   if (same) return null;
