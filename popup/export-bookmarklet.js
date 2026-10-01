@@ -1,6 +1,7 @@
 import { showToast, lockScroll, unlockScroll, trapFocus, escHtml, getUsedVarNames } from './utils.js';
 import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../bg/switch-blocks.js';
-import { normalizeVarName, listSpec, parseListSpec } from '../bg/var-name.js';
+import { normalizeVarName, listSpec, parseListSpec, writtenVarNames } from '../bg/var-name.js';
+import { patternVarNames, patternRegexSource } from '../bg/text-pattern.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -313,8 +314,13 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
     }
 
     case 'readdom': {
-      const varName = _sanitizeVarName(normalizeVarName(action.varName) || 'domVar');
-      out.push(`// Step ${stepNum}: readdom → "${varName}"${lbl}`);
+      // Extract: each ${name} of the pattern takes its part of the text, and
+      // "Save to var" (optional then) keeps the whole text — bg/text-pattern.js.
+      const slots   = action.pattern ? patternVarNames(action.pattern) : [];
+      const vn      = normalizeVarName(action.varName);
+      const varName = vn ? _sanitizeVarName(vn) : (slots.length ? null : 'domVar');
+      const targets = [varName, ...slots.map(_sanitizeVarName)].filter(Boolean);
+      out.push(`// Step ${stepNum}: readdom → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
         out.push(`const ${v}_p = await getEl(${valueToJS(sel)}, ${elTimeout});`);
         out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
@@ -323,7 +329,16 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
         out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       }
       // _readVal mirrors what the extension reads for each "Read from" choice.
-      out.push(`${varName} = _readVal(${v}, ${JSON.stringify(action.readFrom || 'text')}, ${valueToJS(action.attrName || '')});`);
+      const readExpr = `_readVal(${v}, ${JSON.stringify(action.readFrom || 'text')}, ${valueToJS(action.attrName || '')})`;
+      if (!slots.length) {
+        out.push(`${varName} = ${readExpr};`);
+      } else {
+        out.push(`const ${v}_t = ${readExpr};`);
+        if (varName) out.push(`${varName} = ${v}_t;`);
+        out.push(`const ${v}_m = new RegExp(${JSON.stringify(patternRegexSource(action.pattern))}, ${JSON.stringify(action.matchCase ? '' : 'i')}).exec(${v}_t);`);
+        out.push(`if (!${v}_m) throw new Error(${JSON.stringify(`Read DOM (step ${stepNum}): text does not match ${String(action.pattern).trim()}: `)} + ${v}_t);`);
+        slots.forEach((n, k) => out.push(`${_sanitizeVarName(n)} = ${v}_m[${k + 1}].trim();`));
+      }
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
     }
@@ -416,8 +431,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   // itself is skipped: without a declaration a later `${shot}` is a ReferenceError
   // that takes down the whole run.
   for (const a of enabled) {
-    const vn = (a.type === 'readdom' || a.type === 'screenshot_tovar') ? normalizeVarName(a.varName) : null;
-    if (vn) writtenVars.add(_sanitizeVarName(vn));
+    for (const vn of writtenVarNames(a)) writtenVars.add(_sanitizeVarName(vn));
   }
 
   // Two different variable names can sanitize to the same identifier
@@ -633,8 +647,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     ...Object.keys(staticVars), ...Object.keys(randomSpecs), ...Object.keys(pickSpecs),
   ]);
   for (const a of enabled) {
-    const vn = (a.type === 'readdom' || a.type === 'screenshot_tovar') ? normalizeVarName(a.varName) : null;
-    if (vn) knownNames.add(vn);
+    for (const vn of writtenVarNames(a)) knownNames.add(vn);
   }
   for (const name of getUsedVarNames(enabled)) {
     if (!knownNames.has(name)) {
@@ -976,7 +989,9 @@ function _actionDesc(a) {
     case 'script':    return 'custom JS code';
     case 'condition': return a.conditionType || 'condition';
     case 'switch':    return `→ ${(a.scenario || a.value || '')}`.slice(0, 40);
-    case 'readdom':   return `${sel} → \${${normalizeVarName(a.varName) || 'var'}}`;
+    case 'readdom':   return a.pattern
+      ? `${sel} → ${String(a.pattern).trim()}`
+      : `${sel} → \${${normalizeVarName(a.varName) || 'var'}}`;
     case 'screenshot':
     case 'screenshot_full':    return 'viewport';
     case 'screenshot_element': return sel || 'element';

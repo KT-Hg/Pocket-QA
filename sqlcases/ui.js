@@ -25,6 +25,7 @@ import { buildAllFixtures, fixturesToCsv, valueSlots, verifyFor } from './datage
 import { parse } from './parser.js';
 import * as valuebook from './valuebook.js';
 import { mountDiagram, keyTag } from './diagram.js';
+import '../popup/calm-focus.js';
 
 const THEME_KEY = 'popupTheme';
 const STATE_KEY = 'sqlCasesState';

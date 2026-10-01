@@ -14,7 +14,8 @@ import {
   anyBlocks, getSwitchLayout, hasBlock, isBlockCase, caseRange, blockEnd, continueIndex,
   validateSwitch, conditionSkipTarget, conditionSkip, resumeSegments,
 } from './switch-blocks.js';
-import { normalizeVarName, normalizeVarRef, selectorStrings } from './var-name.js';
+import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from './var-name.js';
+import { extractWithPattern, patternMismatch } from './text-pattern.js';
 
 /* ── SW keep-alive ──────────────────────────────────────────────────────────── */
 
@@ -480,15 +481,28 @@ export async function playActionsOnTab(
           const rdVar    = normalizeVarName(action.varName);
           const rdResult = await tabMsg(tabId, { type: 'PLAY_ACTION', action }, Math.max(10_000, (action.timeout || 0) + 2_000), action.frameId);
           _stickFallbacks(rdResult);
-          if (rdResult?.value !== undefined && !rdResult?.failed) {
-            if (rdVar) resolvedVars[rdVar] = rdResult.value;
-          } else if (rdResult?.failed) {
-            const next = await fail(i, action, rdResult.error || null);
+          let rdFailed = !!rdResult?.failed;
+          let rdError  = rdResult?.error || null;
+          if (rdResult?.value !== undefined && !rdFailed) {
+            // Extract pattern: each ${name} takes its part of the text (bg/text-pattern.js).
+            const parts = action.pattern
+              ? extractWithPattern(rdResult.value, action.pattern, { matchCase: !!action.matchCase })
+              : {};
+            if (parts) {
+              if (rdVar) resolvedVars[rdVar] = rdResult.value;
+              Object.assign(resolvedVars, parts);
+            } else {
+              rdFailed = true;
+              rdError  = patternMismatch(rdResult.value, action.pattern);
+            }
+          }
+          if (rdFailed) {
+            const next = await fail(i, action, rdError);
             if (next === FAIL_RETRY) { i--; continue; }
             if (next === FAIL_STOP) break;
-            // Skipped: in a looped run the variable would otherwise still hold the
-            // previous iteration's value and later steps would use it silently.
-            if (rdVar) resolvedVars[rdVar] = '';
+            // Skipped: in a looped run the variables would otherwise still hold the
+            // previous iteration's values and later steps would use them silently.
+            for (const n of writtenVarNames(action)) resolvedVars[n] = '';
           }
           if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
           continue;
@@ -971,10 +985,7 @@ function collectRelevantKeys(actions) {
       for (const f of C_FIELDS) scan(a.conditions[f]);
     }
     // readdom and screenshot_tovar produce variables that are also "relevant".
-    if (a.type === 'readdom' || a.type === 'screenshot_tovar') {
-      const vn = normalizeVarName(a.varName);
-      if (vn) keys.add(vn);
-    }
+    for (const vn of writtenVarNames(a)) keys.add(vn);
   }
   return keys;
 }

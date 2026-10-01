@@ -274,9 +274,15 @@ body {
 
 @keyframes sc-pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
 
-/* === Keyboard focus === */
-.tbtn:focus-visible,.s-btn:focus-visible,.ctx-tbtn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible {
+/* === Keyboard focus ===
+   Text fields and the dropdown show focus with their border alone: a ring
+   around them as well read as the field staying highlighted. */
+.tbtn:focus-visible,.s-btn:focus-visible,.ctx-tbtn:focus-visible,button:focus-visible,
+input:is([type="checkbox"],[type="range"],[type="color"]):focus-visible {
   outline:2px solid var(--accent-kbd);outline-offset:2px;
+}
+.rp-input-num:focus,.rp-input-text:focus,.rp-select:focus {
+  outline:none;border-color:color-mix(in srgb, var(--accent-kbd) 60%, var(--border));
 }
 
 /* === Confirm Modal === */

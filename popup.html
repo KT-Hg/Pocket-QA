@@ -135,8 +135,8 @@
         <button id="stopRecord" class="secondary">■ Stop</button>
       </div>
       <div class="row" style="margin-top: 6px; gap: 4px;">
-        <button id="undoAction" class="secondary" disabled style="flex: 0 0 auto; width: auto; padding: 6px 12px; font-size: 14px;" title="Undo">↩</button>
-        <button id="redoAction" class="secondary" disabled style="flex: 0 0 auto; width: auto; padding: 6px 12px; font-size: 14px;" title="Redo">↪</button>
+        <button id="undoAction" class="secondary" disabled style="flex: 0 0 auto; width: auto; padding: 3.5px 12px; font-size: 14px;" title="Undo">↩</button>
+        <button id="redoAction" class="secondary" disabled style="flex: 0 0 auto; width: auto; padding: 3.5px 12px; font-size: 14px;" title="Redo">↪</button>
         <button id="preview" class="secondary" style="flex: 1; font-size: 12px;">Preview Actions <span id="actionCount" class="count-badge" style="display:none;"></span></button>
       </div>
       <ul id="actions" class="actions"></ul>
@@ -200,23 +200,46 @@
         </div>
       </div>
 
-      <!-- READ DOM SETTINGS — shown for readdom type -->
-      <div class="hidden-by-default" id="readdomWrapper" style="margin-top:6px;">
+      <!-- READ DOM SETTINGS — shown for readdom type. data-mode (whole | part)
+           shows the fields of the chosen Save mode; see _updateReaddomForm. -->
+      <div class="hidden-by-default" id="readdomWrapper" data-mode="whole" style="margin-top:6px;">
         <div class="step-label" id="readdomStepLabel">Read DOM Settings</div>
-        <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
-          <label style="font-size:12px; color:var(--muted); white-space:nowrap;">Save to var</label>
-          <input id="readdomVarName" placeholder="varName" style="flex:1; margin:0;" />
-        </div>
-        <span class="helper-text" style="display:block; margin:-2px 0 6px;">Then use it as <code>${varName}</code> in later steps.</span>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <label style="font-size:12px; color:var(--muted); white-space:nowrap;">Read from</label>
-          <select id="readdomReadFrom" style="flex:1; margin:0;">
-            <option value="text">Text content</option>
-            <option value="visible">Visible text</option>
-            <option value="value">Input value</option>
-            <option value="attr">Attribute</option>
-          </select>
-          <input id="readdomAttrName" placeholder="attr name" style="width:90px; margin:0; display:none;" />
+        <div class="form-grid">
+          <label class="form-label" for="readdomReadFrom">Read from</label>
+          <div class="form-inline">
+            <select id="readdomReadFrom">
+              <option value="text">Text content</option>
+              <option value="visible">Visible text</option>
+              <option value="value">Input value</option>
+              <option value="attr">Attribute</option>
+            </select>
+            <input id="readdomAttrName" placeholder="attr name" aria-label="Attribute name" style="display:none;" />
+          </div>
+
+          <span class="form-label" id="readdomModeLabel">Save</span>
+          <div class="sw-seg" role="radiogroup" aria-labelledby="readdomModeLabel">
+            <label><input type="radio" name="readdomMode" value="whole" checked /><span>Whole text</span></label>
+            <label><input type="radio" name="readdomMode" value="part" /><span>Part of the text</span></label>
+          </div>
+
+          <label class="form-label rd-whole" for="readdomVarName">Variable</label>
+          <div class="rd-whole">
+            <input id="readdomVarName" placeholder="e.g. orderId" spellcheck="false" autocomplete="off" />
+            <span class="form-hint" id="readdomVarHint">Use it as <code>${name}</code> in later steps.</span>
+          </div>
+
+          <label class="form-label rd-part" for="readdomPattern">Pattern</label>
+          <div class="rd-part">
+            <input id="readdomPattern" placeholder="e.g. Order #${orderId} ·" spellcheck="false" autocomplete="off" />
+            <span class="form-hint">Copy the text as it reads and put <code>${name}</code> on the part to keep — each one becomes a variable.</span>
+            <label class="form-check"><input type="checkbox" id="readdomMatchCase" /> Match case</label>
+          </div>
+
+          <label class="form-label rd-part" for="readdomTryText">Try on</label>
+          <div class="rd-part">
+            <input id="readdomTryText" placeholder="paste the element's text" spellcheck="false" autocomplete="off" />
+            <div id="readdomTryResult" class="readdom-try-result" aria-live="polite"></div>
+          </div>
         </div>
       </div>
 
@@ -284,33 +307,49 @@
       <!-- CONDITION SETTINGS — shown for condition type -->
       <div class="hidden-by-default" id="conditionWrapper">
         <div class="step-label" id="conditionStepLabel">Condition</div>
-        <div class="row" style="margin-top: 6px; gap: 6px;">
-          <select id="conditionType" style="flex: 1; margin: 0;">
-            <option value="elementExists">Element Exists</option>
-            <option value="elementNotExists">Element Not Exists</option>
-            <option value="elementVisible">Element Visible</option>
-            <option value="elementHidden">Element Hidden</option>
-            <option value="textContains">Text Contains</option>
-            <option value="textEquals">Text Equals</option>
-            <option value="valueEquals">Value Equals</option>
-            <option value="valueContains">Value Contains</option>
-            <option value="urlContains">URL Contains</option>
-            <option value="urlEquals">URL Equals</option>
-            <option value="hasClass">Has Class</option>
-            <option value="hasAttribute">Has Attribute</option>
-          </select>
-          <button id="conditionHelpBtn" class="secondary" style="width: auto; flex: 0 0 auto; margin: 0; padding: 6px 10px; font-size: 13px; font-weight: 700;" title="Condition types guide">?</button>
+        <div class="form-grid">
+          <label class="form-label" for="conditionType">If</label>
+          <div class="form-inline">
+            <select id="conditionType">
+              <optgroup label="Element">
+                <option value="elementExists">Element exists</option>
+                <option value="elementNotExists">Element does not exist</option>
+                <option value="elementVisible">Element is visible</option>
+                <option value="elementHidden">Element is hidden</option>
+              </optgroup>
+              <optgroup label="Text &amp; value">
+                <option value="textContains">Text contains</option>
+                <option value="textEquals">Text equals</option>
+                <option value="valueContains">Value contains</option>
+                <option value="valueEquals">Value equals</option>
+              </optgroup>
+              <optgroup label="Page URL">
+                <option value="urlContains">URL contains</option>
+                <option value="urlEquals">URL equals</option>
+              </optgroup>
+              <optgroup label="Class &amp; attribute">
+                <option value="hasClass">Has class</option>
+                <option value="hasAttribute">Has attribute</option>
+              </optgroup>
+            </select>
+            <button id="conditionHelpBtn" class="card-help-btn" type="button" title="Condition types guide" aria-label="Condition types guide">?</button>
+          </div>
+
+          <!-- display: contents — the label and field are grid cells hidden together -->
+          <div id="conditionExpectedValueWrapper">
+            <label class="form-label" id="conditionExpectedLabel" for="conditionExpectedValue">Value</label>
+            <input id="conditionExpectedValue" placeholder="value to compare" spellcheck="false" autocomplete="off" />
+          </div>
+
+          <label class="form-label" for="conditionRunTo">Then run</label>
+          <div>
+            <select id="conditionRunTo"></select>
+            <ol id="conditionGuarded" class="cond-guarded" aria-label="Actions this Condition guards"></ol>
+            <span class="form-hint" id="conditionRunHint">If the condition is false, these are skipped.</span>
+          </div>
         </div>
-        <div id="conditionExpectedValueWrapper" style="margin-top: 6px;">
-          <input id="conditionExpectedValue" placeholder="Expected value (for text/url checks)" />
-        </div>
-        <!-- skipCount is still what is saved; the list picks it by the last action to run -->
+        <!-- skipCount is still what is saved; "Then run" picks it by unit -->
         <input id="conditionSkipCount" type="hidden" value="1" />
-        <label class="sw-field cond-run-field" for="conditionRunTo">
-          <span class="sw-field-label">If true, run</span>
-          <select id="conditionRunTo"></select>
-        </label>
-        <span class="helper-text">If the condition is <b>false</b>, these actions are skipped. A Switch counts together with its block.</span>
       </div>
 
       <!-- SWITCH SETTINGS — shown for switch type -->
@@ -486,7 +525,7 @@
         <button class="card-help-btn" data-card="save" title="Save scenario guide">?</button>
       </div>
       <input id="scenarioName" placeholder="Scenario name *" class="required-field" />
-      <span class="helper-text">Required field for saving your scenario</span>
+      <span class="helper-text"><b>New</b> with a name creates the scenario now and saves every edit into it; with no name it starts an unsaved draft.</span>
       <div class="row equalize">
         <select id="scenarioFolder">
           <option value="">No Folder</option>
@@ -628,7 +667,18 @@
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <h3 style="margin:0;">Variables</h3>
-        <button class="card-help-btn" data-card="variables" title="Variables guide">?</button>
+        <div class="var-head-tools">
+          <select id="variableSort" class="var-sort-select" title="Sort variables" aria-label="Sort variables">
+            <option value="custom">Custom (drag)</option>
+            <option value="createdDesc">Newest</option>
+            <option value="createdAsc">Oldest</option>
+            <option value="updatedDesc">Recently edited</option>
+            <option value="nameAsc">Name A→Z</option>
+            <option value="nameDesc">Name Z→A</option>
+            <option value="type">Type</option>
+          </select>
+          <button class="card-help-btn" data-card="variables" title="Variables guide">?</button>
+        </div>
       </div>
       <ul class="var-list" id="variablesTableBody"></ul>
       <button id="addVariableRow">+ Add Row</button>

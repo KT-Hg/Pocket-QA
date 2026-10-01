@@ -6,13 +6,14 @@ import { escHtml, getActionIcon, showToast, showConfirm, showAlert, showPrompt,
          getDragAfterElement } from './utils.js';
 import { updateRangeFill } from './settings.js';
 import { startConnectionCheck, setCsvDoneBar, clearCsvDoneBar, openPbPanel } from './connection.js';
-import { addVariableRow } from './variables.js';
+import { addVariableRow, newVariableConfig } from './variables.js';
 import {
   getSwitchLayout, validateSwitch, validateExternalCase, hasBlock, isBlockCase,
   caseRange, caseLabel, continueIndex, planDrop, anyBlocks, SWITCH_SELF, CASE_COLORS,
   getConditionLayout, anyConditions, conditionChoices, conditionSkip,
 } from '../bg/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings } from '../bg/var-name.js';
+import { patternError, patternVarNames, extractWithPattern } from '../bg/text-pattern.js';
 import { TABLE_COPIES } from '../dbtools/features.js';
 
 /* === Init Main === */
@@ -269,12 +270,12 @@ const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">▶ Start Recording</span><span class="ch-title">Bắt đầu ghi</span></div><p class="ch-desc">Nhấn để bắt đầu ghi trên tab hiện tại. Extension tự động ghi nhận: <b>click chuột</b>, <b>nhập liệu</b> (input/textarea/select), và <b>điều hướng trang</b> (navigate). Badge trên icon extension chuyển sang đỏ <b>REC</b> khi đang ghi.</p><p class="ch-desc" style="margin-top:4px;">⚠️ Ghi nhận theo thời gian thực — mỗi lần nhấn phím hoặc click đều được lưu ngay. Có thể dùng Undo ↩ để bỏ action vừa ghi nếu nhấn nhầm.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">■ Stop</span><span class="ch-title">Dừng ghi</span></div><p class="ch-desc">Kết thúc phiên ghi. Toàn bộ action được chuyển vào danh sách bên dưới (và giữ nguyên cho đến khi bạn nhấn <b>New</b> hoặc tải một scenario khác).</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">↩ Undo &nbsp;↪ Redo</span><span class="ch-title">Hoàn tác / làm lại</span></div><p class="ch-desc">Hoàn tác hoặc làm lại thao tác thêm/xóa/sửa action trong danh sách. Hỗ trợ tới <b>50 bước</b> undo. Lưu ý: undo stack bị xóa khi nhấn <b>New</b> hoặc tải scenario mới.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Preview Actions</span><span class="ch-title">Xem & chỉnh sửa danh sách</span></div><p class="ch-desc">Mở rộng danh sách action đã ghi. Trong preview bạn có thể:<br>• <b>Kéo thả</b> để đổi thứ tự<br>• <b>✎</b> để sửa action (selector, value, delay, label)<br>• <b>⊘</b> để tạm tắt một action mà không xóa<br>• <b>🗑</b> để xóa action<br>• Badge số lượng hiển thị tổng số action hiện có.</p></div>`,
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Preview Actions</span><span class="ch-title">Xem & chỉnh sửa danh sách</span></div><p class="ch-desc">Mở rộng danh sách action đã ghi. Trong preview bạn có thể:<br>• <b>Kéo thả</b> để đổi thứ tự<br>• <b>✎</b> để sửa action (selector, value, delay, label)<br>• <b>⊘</b> để tạm tắt một action mà không xóa — tắt/bật một <b>Switch</b> hay <b>Condition</b> thì các action bên trong nó cũng tắt/bật theo, sau đó vẫn bật/tắt riêng từng action được<br>• <b>🗑</b> để xóa action<br>• Badge số lượng hiển thị tổng số action hiện có.</p></div>`,
     en: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">▶ Start Recording</span><span class="ch-title">Start recording</span></div><p class="ch-desc">Click to start recording on the current tab. The extension automatically captures: <b>mouse clicks</b>, <b>keyboard input</b> (input/textarea/select), and <b>page navigation</b>. The extension badge turns red <b>REC</b> while recording.</p><p class="ch-desc" style="margin-top:4px;">⚠️ Recorded in real time — every keypress and click is saved immediately. Use Undo ↩ to remove any accidental actions.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">■ Stop</span><span class="ch-title">Stop recording</span></div><p class="ch-desc">End the recording session. All actions are moved to the list below and kept until you click <b>New</b> or load a different scenario.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">↩ Undo &nbsp;↪ Redo</span><span class="ch-title">Undo / Redo</span></div><p class="ch-desc">Undo or redo add/remove/edit operations on the action list. Supports up to <b>50 undo steps</b>. The stack is cleared when you click <b>New</b> or load a new scenario.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Preview Actions</span><span class="ch-title">View & edit action list</span></div><p class="ch-desc">Expand the recorded action list. In preview you can:<br>• <b>Drag & drop</b> to reorder<br>• <b>✎</b> to edit an action (selector, value, delay, label)<br>• <b>⊘</b> to temporarily disable an action without deleting<br>• <b>🗑</b> to delete an action<br>• The count badge shows the total number of actions.</p></div>`
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Preview Actions</span><span class="ch-title">View & edit action list</span></div><p class="ch-desc">Expand the recorded action list. In preview you can:<br>• <b>Drag & drop</b> to reorder<br>• <b>✎</b> to edit an action (selector, value, delay, label)<br>• <b>⊘</b> to temporarily disable an action without deleting — disabling or enabling a <b>Switch</b> or <b>Condition</b> does the same to the actions under it, and each can still be switched on its own afterwards<br>• <b>🗑</b> to delete an action<br>• The count badge shows the total number of actions.</p></div>`
   },
   addManual: {
     title: { vi: 'Hướng dẫn Add Manual Action', en: 'Add Manual Action Guide' },
@@ -296,9 +297,10 @@ const CARD_HELP_DATA = {
         • <b>Navigate</b> — điều hướng đến URL. Extension chờ trang tải xong (<code>status: complete</code>) trước khi tiếp tục action kế tiếp.<br>
         • <b>Wait (ms)</b> — dừng chờ một khoảng thời gian cố định (tính bằng ms). Không cần selector.<br>
         • <b>Run JS</b> — chạy đoạn code JavaScript tùy ý qua CDP (bỏ qua CSP của trang). Ví dụ: <code>window.scrollTo(0, 500)</code>.<br>
-        • <b>Condition (If)</b> — kiểm tra điều kiện; nếu <b>FALSE</b> thì bỏ qua các action nó bảo vệ. Chọn chúng ở ô <b>If true, run</b> (đến action nào; một Switch tính chung với block của nó). Trong danh sách, các action này hiện thụt vào dưới Condition, viền màu hổ phách, thu gọn được bằng <b>▾</b>; xoá hay kéo thả action vào/ra thì vùng If tự chỉnh theo. Nhấn nút <b>?</b> bên cạnh dropdown để xem hướng dẫn chi tiết.<br>
+        • <b>Condition (If)</b> — kiểm tra điều kiện; nếu <b>FALSE</b> thì bỏ qua các action nó bảo vệ. Chọn số action ở ô <b>Then run</b> — các action đó hiện ngay bên dưới (một Switch tính chung với block của nó). Trong danh sách, các action này hiện thụt vào dưới Condition, viền màu hổ phách, thu gọn được bằng <b>▾</b>; xoá hay kéo thả action vào/ra thì vùng If tự chỉnh theo. Nhấn nút <b>?</b> bên cạnh dropdown để xem hướng dẫn chi tiết.<br>
         • <b>Switch (Variable → Scenario)</b> — rẽ nhánh dựa trên giá trị biến. Mỗi case: giá trị → scenario khác, hoặc <b>↻ This scenario</b>. Với ↻, chọn <b>From</b>/<b>to</b> để case có <b>khối action riêng</b>: chỉ các action của case khớp được chạy, rồi chạy tiếp sau khối (<b>Continue at</b>, mặc định ngay sau khối); không case nào khớp thì bỏ qua cả khối. Trong preview, action trong khối đánh số <code>Switch.case.thứ tự</code> (ví dụ <code>1.2.1</code>); kéo action vào/ra khối để đổi case. <b>To the end</b> giữ kiểu nhảy cũ.<br>
         • <b>Read DOM → Variable</b> — đọc element và lưu vào biến để dùng ở action sau. <b>Text content</b> = textContent (như cũ, gồm cả chữ ẩn); <b>Visible text</b> = chữ đang hiển thị (gộp khoảng trắng; &lt;select&gt; → option đang chọn); <b>Input value</b> = giá trị ô nhập (select nhiều lựa chọn → nối bằng <code>, </code>; contenteditable → chữ); <b>Attribute</b> = thuộc tính (bắt buộc nhập tên). Tên biến nhập <b>không</b> có <code>\${ }</code>, ví dụ <code>orderId</code>, rồi dùng <code>\${orderId}</code> ở bước sau. Dùng được Child Condition; element chọn bằng 🎯 trong iframe được đọc trong đúng iframe đó.<br>
+        &nbsp;&nbsp;<b>Save</b>: <b>Whole text</b> lưu toàn bộ chữ vào một biến; <b>Part of the text</b> chỉ lấy một phần — viết lại chữ như trên trang trong ô <b>Pattern</b>, đặt <code>\${tên}</code> vào phần cần lấy, mỗi <code>\${tên}</code> thành một biến. Với chữ <i>abc154 155</i>: <code>abc\${value}</code> → 154 155 · <code>abc\${value} 155</code> → 154 · <code>\${value} 155</code> → abc154 · <code>abc\${a} \${b}</code> → a = 154, b = 155. Mẫu được tìm ở bất kỳ đâu trong chữ; <code>\${…}</code> ở đầu/cuối mẫu lấy tới đầu/cuối chữ; dấu cách khớp mọi khoảng trắng; không phân biệt hoa/thường trừ khi tick <b>Match case</b>. Chữ không khớp thì bước bị lỗi. Gõ thử vào ô <b>Try on</b> để xem kết quả trước khi chạy.<br>
         • <b>Screenshot (Visible)</b> — chụp phần nhìn thấy của trang (viewport).<br>
         • <b>Screenshot (Full Page)</b> — chụp toàn bộ trang bằng cách cuộn và ghép nhiều ảnh lại.<br>
         • <b>Screenshot (Element)</b> — chụp một element cụ thể theo selector.<br>
@@ -340,9 +342,10 @@ const CARD_HELP_DATA = {
         • <b>Navigate</b> — go to a URL. Waits for <code>status: complete</code> before continuing.<br>
         • <b>Wait (ms)</b> — pause for a fixed number of milliseconds. No selector needed.<br>
         • <b>Run JS</b> — execute arbitrary JavaScript via CDP (bypasses page CSP). E.g. <code>window.scrollTo(0, 500)</code>.<br>
-        • <b>Condition (If)</b> — evaluate a condition; if <b>FALSE</b>, skip the actions it guards. Pick them in <b>If true, run</b> (through which action; a Switch counts together with its block). In the list they show indented under the Condition with an amber edge and collapse with <b>▾</b>; deleting or dragging actions in or out keeps the If's range in step. Click <b>?</b> next to the dropdown for condition types.<br>
+        • <b>Condition (If)</b> — evaluate a condition; if <b>FALSE</b>, skip the actions it guards. Pick how many in <b>Then run</b> — the actions show right below it (a Switch counts together with its block). In the list they show indented under the Condition with an amber edge and collapse with <b>▾</b>; deleting or dragging actions in or out keeps the If's range in step. Click <b>?</b> next to the dropdown for condition types.<br>
         • <b>Switch (Variable → Scenario)</b> — branch on a variable's value. Each case: value → another scenario, or <b>↻ This scenario</b>. With ↻, pick <b>From</b>/<b>to</b> to give the case its <b>own block of actions</b>: only the matching case's actions run, then playback continues after the block (<b>Continue at</b>, by default right after it); when no case matches the whole block is skipped. In the preview, block actions are numbered <code>switch.case.step</code> (e.g. <code>1.2.1</code>); drag actions into or out of a block to change their case. <b>To the end</b> keeps the old jump.<br>
         • <b>Read DOM → Variable</b> — read an element and store it in a variable for later steps. <b>Text content</b> = textContent (as before, hidden text included); <b>Visible text</b> = what is shown (whitespace collapsed; &lt;select&gt; → chosen option); <b>Input value</b> = the field's value (multi-select → joined with <code>, </code>; contenteditable → its text); <b>Attribute</b> = an attribute (name required). Type the variable name <b>without</b> <code>\${ }</code>, e.g. <code>orderId</code>, then use <code>\${orderId}</code> later. Works with Child Condition; an element picked with 🎯 inside an iframe is read in that iframe.<br>
+        &nbsp;&nbsp;<b>Save</b>: <b>Whole text</b> stores all of it in one variable; <b>Part of the text</b> keeps only part — write the text as it reads in <b>Pattern</b>, with <code>\${name}</code> on the part to keep; each <code>\${name}</code> becomes a variable. On <i>abc154 155</i>: <code>abc\${value}</code> → 154 155 · <code>abc\${value} 155</code> → 154 · <code>\${value} 155</code> → abc154 · <code>abc\${a} \${b}</code> → a = 154, b = 155. The pattern may sit anywhere in the text; a <code>\${…}</code> at its start/end runs to the text's start/end; a space matches any whitespace; letters match in either case unless <b>Match case</b> is ticked. Text that does not match fails the step. Type a sample into <b>Try on</b> to see the result before running.<br>
         • <b>Screenshot (Visible)</b> — capture the visible viewport.<br>
         • <b>Screenshot (Full Page)</b> — capture the entire page by scrolling and stitching tiles.<br>
         • <b>Screenshot (Element)</b> — capture a specific element by its selector.<br>
@@ -372,12 +375,12 @@ const CARD_HELP_DATA = {
     vi: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Scenario Name</span><span class="ch-title">Tên scenario</span></div><p class="ch-desc">Nhập tên để lưu scenario. Tên là <b>bắt buộc</b> — ô sẽ hiển thị viền đỏ nếu để trống khi nhấn Save. Tên có thể chứa ký tự đặc biệt, khoảng trắng, tiếng Việt. Hai scenario khác thư mục có thể cùng tên.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Folder</span><span class="ch-title">Thư mục</span></div><p class="ch-desc">Chọn thư mục để phân loại scenario. Nhấn <b>+ Folder</b> để tạo thư mục mới ngay từ đây (sẽ đồng bộ với danh sách trong Manage Folders). Chọn <i>"No Folder"</i> nếu không cần phân loại.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">New</span><span class="ch-title">Tạo scenario mới</span></div><p class="ch-desc">Xóa toàn bộ action đang có và reset về trạng thái trống để bắt đầu scenario mới. Sẽ có hộp xác nhận trước khi xóa. <b>Không xóa scenario đã lưu</b> — chỉ xóa buffer đang làm việc.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">New</span><span class="ch-title">Tạo scenario mới</span></div><p class="ch-desc"><b>Có nhập tên</b>: tạo ngay một scenario rỗng với tên đó (trong thư mục đang chọn) và chọn sẵn nó ở Manage Scenarios — mọi action ghi lại, thêm hay sửa sau đó <b>tự lưu vào scenario này</b>, không cần bấm Save. Nếu thư mục đã có scenario cùng tên thì sẽ hỏi trước.<br><br><b>Để trống tên</b>: như trước — xoá buffer đang làm việc (có hỏi xác nhận) để bắt đầu một bản nháp chưa lưu, rồi đặt tên và bấm <b>Save Scenario</b> khi xong. <b>Không xóa scenario đã lưu.</b></p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Save Scenario</span><span class="ch-title">Lưu</span></div><p class="ch-desc">Lưu toàn bộ action hiện tại vào storage với tên đã nhập. Nếu đã có scenario cùng tên trong cùng thư mục, sẽ hỏi xác nhận <b>ghi đè</b>. Sau khi lưu, tên scenario tiếp tục hiển thị để tiện lưu lại nhiều lần khi chỉnh sửa.</p></div>`,
     en: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Scenario Name</span><span class="ch-title">Scenario name</span></div><p class="ch-desc">Enter a name to save the scenario. Name is <b>required</b> — the field shows a red border if empty when you click Save. Names can include special characters, spaces, and non-ASCII text. Two scenarios in different folders can share the same name.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Folder</span><span class="ch-title">Folder</span></div><p class="ch-desc">Select a folder to organize the scenario. Click <b>+ Folder</b> to create a new folder directly from here (it will sync with the Manage Folders list). Choose <i>"No Folder"</i> if no classification is needed.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">New</span><span class="ch-title">New scenario</span></div><p class="ch-desc">Clear all current actions and reset to a blank state for a new scenario. A confirmation dialog appears first. <b>Does not delete saved scenarios</b> — only clears the current working buffer.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">New</span><span class="ch-title">New scenario</span></div><p class="ch-desc"><b>With a name typed</b>: creates an empty scenario by that name (in the selected folder) right away and selects it in Manage Scenarios — everything recorded, added or edited after that <b>saves into it</b>, no Save needed. A name already used in that folder asks first.<br><br><b>With no name</b>: as before — clears the working buffer (after a confirmation) for an unsaved draft; name it and click <b>Save Scenario</b> when done. <b>Saved scenarios are never deleted.</b></p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Save Scenario</span><span class="ch-title">Save</span></div><p class="ch-desc">Save all current actions to storage under the entered name. If a scenario with the same name exists in the same folder, you will be asked to confirm <b>overwrite</b>. After saving, the name remains displayed for convenient re-saving after edits.</p></div>`
   },
   manage: {
@@ -526,7 +529,10 @@ const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">P · Pick</span><span class="ch-title">Bốc ngẫu nhiên trong danh sách</span></div><p class="ch-desc">Liệt kê vài giá trị, mỗi lần chạy bốc ngẫu nhiên <b>một</b> giá trị. Dùng để rải dữ liệu qua nhiều trường hợp hợp lệ (chi nhánh, hạng khách hàng…).<br><br>⚠ Trong <b>CSV Data-Driven Run</b>, nếu file CSV có cột trùng tên biến thì <b>cột CSV thắng</b> — việc bốc ngẫu nhiên chỉ xảy ra khi CSV không có cột đó.<br><br><b>∅ Blank</b> — nút <b>∅</b> ở mỗi dòng (hoặc <b>+ Add ∅ Blank</b>) biến dòng đó thành <b>giá trị rỗng</b>, được bốc như mọi giá trị khác. Dòng Blank hiện nhãn <b>∅ Blank</b> nét đứt; ô bỏ trống mà không bấm ∅ thì bị bỏ qua khi lưu.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">F · Fallback</span><span class="ch-title">Thử lần lượt A → B → C</span></div><p class="ch-desc">Khác hẳn 3 loại trên: đây <b>không</b> phải một giá trị, mà là một thứ tự thử. Chỉ có tác dụng khi đặt vào ô của <b>Child Condition</b> (value equals / text contains / id contains / class contains / type).<br><br>
         Extension tìm phần tử con khớp giá trị <b>A</b>; không thấy thì thử <b>B</b>, rồi <b>C</b> — dừng ở giá trị đầu tiên tìm được. Giá trị thắng cuộc được <b>dùng lại cho mọi action còn lại</b> trong cùng lần chạy, không dò lại từ đầu. Hợp với trang mà cùng một nút có thể mang nhãn khác nhau tuỳ trạng thái.<br><br><b>∅ Blank</b> trong danh sách khớp phần tử con có trường đó <b>rỗng</b> — vd. value equals ∅ tìm ô input chưa nhập. Khi Blank thắng, lần sau vẫn thử lại từ đầu.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">⋮⋮ Sắp xếp</span><span class="ch-title">Kéo thả để đổi thứ tự</span></div><p class="ch-desc">Nắm một dòng (chỗ <b>⋮⋮</b> hay bất kỳ đâu ngoài nút) rồi kéo lên/xuống để đổi vị trí. Thả ra là <b>tự lưu</b>; thả ra ngoài khung Variables hoặc bấm <kbd>Esc</kbd> thì dòng quay về chỗ cũ. Thứ tự này cũng là thứ tự biến hiện trong Export Code.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">⋮⋮ Sắp xếp</span><span class="ch-title">Kéo thả hoặc chọn kiểu sắp xếp</span></div><p class="ch-desc"><b>Kéo thả:</b> nắm một dòng (chỗ <b>⋮⋮</b> hay bất kỳ đâu ngoài nút) rồi kéo lên/xuống. Thả ra là <b>tự lưu</b>; thả ra ngoài khung Variables hoặc bấm <kbd>Esc</kbd> thì dòng quay về chỗ cũ.<br><br>
+        <b>Ô Sort</b> cạnh nút <b>?</b>: <b>Custom</b> (thứ tự kéo thả) · <b>Newest</b> / <b>Oldest</b> (theo ngày tạo) · <b>Recently edited</b> · <b>Name A→Z</b> / <b>Z→A</b> (số so như số: <code>var2</code> trước <code>var10</code>) · <b>Type</b> (S → R → P → F, cùng loại thì theo tên). Lựa chọn được nhớ lại; biến mới thêm tự vào đúng chỗ.<br><br>
+        Thứ tự Custom luôn được <b>giữ riêng</b>: chọn kiểu khác rồi quay về Custom vẫn thấy thứ tự cũ. Kéo một dòng khi đang sort thì danh sách chuyển về Custom, lấy thứ tự đang thấy làm thứ tự mới.<br><br>
+        Rê chuột lên <b>tên biến</b> để xem ngày tạo / ngày sửa. Biến tạo trước khi có tính năng sort không có ngày, nên được coi là <b>cũ nhất</b>. Export Code liệt kê biến theo đúng thứ tự đang hiển thị.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">💡 Lưu ý</span><span class="ch-title">Đổi loại không mất dữ liệu</span></div><p class="ch-desc">Mỗi biến giữ cấu hình của <b>cả 4 loại</b> cùng lúc, nên chuyển S → R → P rồi quay lại S vẫn thấy giá trị cũ còn nguyên. Loại đang chọn mới là loại được dùng khi chạy.</p></div>`,
     en: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">\${name}</span><span class="ch-title">Where variables work</span></div><p class="ch-desc">Write <code>\${name}</code> in a <b>selector</b>, <b>value</b>, <b>URL</b> or <b>JS code</b> field and the extension substitutes the value from this table at run time. A name that is not in the table is <b>left as the literal</b> <code>\${name}</code> rather than becoming an empty string, so a typo shows up on the page instead of quietly filling in nothing.<br><br>This table is <b>shared across the whole extension</b>, not stored per scenario, and <b>saves itself</b> as you edit — there is no Save button.</p></div>
@@ -538,7 +544,10 @@ const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">P · Pick</span><span class="ch-title">One at random from a list</span></div><p class="ch-desc">List a few values and each run picks <b>one</b> at random. Useful for spreading runs across valid cases (branches, customer tiers…).<br><br>⚠ In a <b>CSV Data-Driven Run</b>, a CSV column with the same name <b>wins</b> — the random pick only happens when the CSV has no such column.<br><br><b>∅ Blank</b> — the <b>∅</b> button on a row (or <b>+ Add ∅ Blank</b>) makes that entry the <b>empty string</b>, picked like any other value. A Blank row shows a dashed <b>∅ Blank</b> label; a row left empty without ∅ is dropped on save.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">F · Fallback</span><span class="ch-title">Try A → B → C in order</span></div><p class="ch-desc">Unlike the three above this is <b>not</b> a value, it is an order to try. It only does anything inside a <b>Child Condition</b> field (value equals / text contains / id contains / class contains / type).<br><br>
         The extension looks for a child matching <b>A</b>; if none is found it tries <b>B</b>, then <b>C</b>, stopping at the first that matches. The winning value is then <b>reused for the rest of that run</b> instead of being resolved again from scratch. Useful when the same control carries different labels depending on state.<br><br>A <b>∅ Blank</b> entry matches a child whose field is <b>empty</b> — e.g. value equals ∅ finds an input nobody typed in. A Blank win is tried again from the top next time.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">⋮⋮ Reorder</span><span class="ch-title">Drag to change the order</span></div><p class="ch-desc">Grab a row (by <b>⋮⋮</b> or anywhere off its buttons) and drag it up or down. Letting go <b>saves the order</b>; letting go outside the Variables card or pressing <kbd>Esc</kbd> puts the row back. Export Code lists variables in this order too.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">⋮⋮ Order</span><span class="ch-title">Drag, or pick a sort</span></div><p class="ch-desc"><b>Drag:</b> grab a row (by <b>⋮⋮</b> or anywhere off its buttons) and drag it up or down. Letting go <b>saves the order</b>; letting go outside the Variables card or pressing <kbd>Esc</kbd> puts the row back.<br><br>
+        <b>Sort box</b> beside <b>?</b>: <b>Custom</b> (your drag order) · <b>Newest</b> / <b>Oldest</b> (by creation date) · <b>Recently edited</b> · <b>Name A→Z</b> / <b>Z→A</b> (numbers compare as numbers: <code>var2</code> before <code>var10</code>) · <b>Type</b> (S → R → P → F, then by name). The choice is remembered, and new variables land in their sorted place.<br><br>
+        The Custom order is <b>kept aside</b>: pick another sort and come back to Custom to find it intact. Dragging a row while sorted switches to Custom, keeping the order on screen.<br><br>
+        Hover a <b>variable name</b> to see when it was created / last edited. Variables made before sorting existed have no date and count as the <b>oldest</b>. Export Code lists variables in the order shown.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">💡 Note</span><span class="ch-title">Switching type keeps your data</span></div><p class="ch-desc">Each variable holds the configuration of <b>all four types</b> at once, so going S → R → P and back to S finds the old value still there. Only the selected type is used at run time.</p></div>`
   },
   exportCode: {
@@ -963,6 +972,17 @@ const conditionSkipCount = document.getElementById("conditionSkipCount");
 // Condition types that don't need selector or expected value
 const CONDITION_NO_SELECTOR = ["urlContains", "urlEquals"];
 const CONDITION_NO_EXPECTED_VALUE = ["elementExists", "elementNotExists", "elementVisible", "elementHidden"];
+// Label and example for the value each condition type compares against.
+const CONDITION_VALUE_HINTS = {
+  textContains:  ["Text",      "text it contains"],
+  textEquals:    ["Text",      "the exact text"],
+  valueContains: ["Value",     "part of the field's value"],
+  valueEquals:   ["Value",     "the field's exact value"],
+  urlContains:   ["URL",       "part of the URL, e.g. /checkout"],
+  urlEquals:     ["URL",       "the full URL"],
+  hasClass:      ["Class",     "class name, e.g. active"],
+  hasAttribute:  ["Attribute", "attribute name, e.g. disabled"],
+};
 
 /* === Default delay (ms) for all new actions === */
 const DEFAULT_DELAY_MS = "500";
@@ -1041,10 +1061,15 @@ function updateConditionFieldsVisibility() {
     pickedSelectorsWrap.style.display = "none";
   }
 
-  // Hide expected value for existence/visibility conditions
+  // Hide expected value for existence/visibility conditions; "" keeps the
+  // wrapper's display: contents, which lays its label and field out in the grid.
   if (conditionExpectedValueWrapper) {
-    conditionExpectedValueWrapper.style.display = CONDITION_NO_EXPECTED_VALUE.includes(ct) ? "none" : "block";
+    conditionExpectedValueWrapper.style.display = CONDITION_NO_EXPECTED_VALUE.includes(ct) ? "none" : "";
   }
+  const [valueLabel, valueExample] = CONDITION_VALUE_HINTS[ct] || ["Value", "value to compare"];
+  const expectedLabel = document.getElementById("conditionExpectedLabel");
+  if (expectedLabel) expectedLabel.textContent = valueLabel;
+  if (conditionExpectedValue) conditionExpectedValue.placeholder = `${valueExample} — \${var} works`;
 
   _updateStepLabels();
 }
@@ -1059,6 +1084,64 @@ document.getElementById("readdomReadFrom")?.addEventListener("change", function(
   const attrNameEl = document.getElementById("readdomAttrName");
   if (attrNameEl) attrNameEl.style.display = this.value === "attr" ? "block" : "none";
 });
+
+/** Read DOM's Save mode: the whole text into one variable, or parts of it through a pattern. */
+const _readdomMode = () =>
+  document.querySelector('input[name="readdomMode"]:checked')?.value === "part" ? "part" : "whole";
+
+function _setReaddomMode(mode) {
+  const radio = document.querySelector(`input[name="readdomMode"][value="${mode === "part" ? "part" : "whole"}"]`);
+  if (radio) radio.checked = true;
+}
+
+const _varRef = (name) => "$" + "{" + name + "}";
+
+/** Read DOM: shows the chosen Save mode's fields, its hints, and the live Try on result. */
+function _updateReaddomForm() {
+  const mode = _readdomMode();
+  const wrap = document.getElementById("readdomWrapper");
+  if (wrap) wrap.dataset.mode = mode;
+
+  // The hint names the variable the way later steps will write it.
+  const hintCode = document.querySelector("#readdomVarHint code");
+  if (hintCode) hintCode.textContent = _varRef(normalizeVarName(document.getElementById("readdomVarName")?.value) || "name");
+
+  const out = document.getElementById("readdomTryResult");
+  if (!out) return;
+  out.className = "readdom-try-result";
+  out.textContent = "";
+  if (mode !== "part") return;
+
+  const tryEl = document.getElementById("readdomTryText");
+  // The picked element's text, when the picker kept it, is the natural sample.
+  if (tryEl && !tryEl.value && currentPickedSelectors?.text) tryEl.value = currentPickedSelectors.text;
+  const pattern = document.getElementById("readdomPattern")?.value?.trim() || "";
+  if (!pattern) return;
+  const err = patternError(pattern);
+  if (err) { out.classList.add("is-error"); out.textContent = err; return; }
+  const sample = tryEl?.value || "";
+  if (!sample.trim()) {
+    out.textContent = `Saves ${patternVarNames(pattern).map(_varRef).join(", ")} — paste the element's text above to check.`;
+    return;
+  }
+  const got = extractWithPattern(sample, pattern, { matchCase: !!document.getElementById("readdomMatchCase")?.checked });
+  if (!got) { out.classList.add("is-error"); out.textContent = "No match — the step would fail on this text."; return; }
+  out.classList.add("is-ok");
+  out.append("→ ");
+  Object.entries(got).forEach(([name, val], k) => {
+    if (k) out.append(" · ");
+    const code = document.createElement("code");
+    code.textContent = name;
+    const b = document.createElement("b");
+    b.textContent = val === "" ? "(empty)" : val;
+    out.append(code, " = ", b);
+  });
+}
+document.querySelectorAll('input[name="readdomMode"]').forEach(r => r.addEventListener("change", _updateReaddomForm));
+["readdomVarName", "readdomPattern", "readdomTryText"].forEach(id => {
+  document.getElementById(id)?.addEventListener("input", _updateReaddomForm);
+});
+document.getElementById("readdomMatchCase")?.addEventListener("change", _updateReaddomForm);
 
 // For screenshot_tovar: show selector section only when target = element
 document.getElementById("screenshotTovarTarget")?.addEventListener("change", function() {
@@ -2381,8 +2464,10 @@ function _getActionDisplayValue(a) {
   }
   if (a.type === "readdom") {
     const from = a.readFrom === "attr" ? `attr:${a.attrName || "?"}` : (a.readFrom || "text");
-    const vn = normalizeVarName(a.varName) || a.varName || "?";
-    return `${a.selector || "(no selector)"} → ${from} → $\{${vn}}`;
+    const vn = normalizeVarName(a.varName) || a.varName;
+    // With an Extract pattern, the pattern shows which ${name}s the step fills.
+    const to = [vn && `$\{${vn}}`, a.pattern && String(a.pattern).trim()].filter(Boolean).join(" · ") || "${?}";
+    return `${a.selector || "(no selector)"} → ${from} → ${to}`;
   }
   return value;
 }
@@ -2480,9 +2565,10 @@ function _conditionIssues(i, layout) {
 }
 
 /**
- * "If true, run" list in the Condition form: one option per possible skipCount,
- * named by the last action it reaches. The hidden #conditionSkipCount keeps the
- * number that is saved, so drafts and older code paths read it as before.
+ * "Then run" in the Condition form: one option per possible skipCount, counted
+ * in actions, with the actions it guards listed below (_renderConditionGuarded).
+ * The hidden #conditionSkipCount keeps the number that is saved, so drafts and
+ * older code paths read it as before.
  */
 function _renderConditionRunTo() {
   const sel = document.getElementById("conditionRunTo");
@@ -2496,32 +2582,64 @@ function _renderConditionRunTo() {
   if (self < list.length) list[self] = cand; else list.push(cand);
   const layout = getSwitchLayout(list);
   const ends = conditionChoices(list, self, layout);
-  const name = (idx) => {
-    const a = list[idx];
-    return `${_noOf(idx, layout)} ${a.type} ${a.label || _getActionDisplayValue(a) || ""}`.trim().slice(0, 50);
-  };
-  let html = `<option value="0">Nothing — guard no action</option>`;
+  // Counted in actions; a Switch's block is in its unit, so counts can jump.
+  let html = `<option value="0">No actions — guards nothing</option>`;
   ends.forEach((end, k) => {
     const count = end - self;
-    // A unit that is a block Switch is named by the Switch, not its last action.
-    const start = k === 0 ? self + 1 : ends[k - 1] + 1;
-    const last = start < end && list[start]?.type === "switch" ? `${name(start)} + its block` : name(end);
-    const txt = k === 0 && count === 1
-      ? `Only the next action — ${last}`
-      : `Through ${last}  (${count} actions)`;
-    html += `<option value="${k + 1}">${escHtml(txt)}</option>`;
+    html += `<option value="${k + 1}">${count === 1 ? "Only the next action" : `The next ${count} actions`}</option>`;
   });
   if (!ends.length) {
-    html += `<option value="1">The next action (add actions after this Condition)</option>`;
+    html += `<option value="1">The next action</option>`;
   } else if (cur > ends.length) {
-    html += `<option value="${cur}">${cur} actions — more than follow in its case (saved)</option>`;
+    html += `<option value="${cur}">${cur} actions — more than follow (saved)</option>`;
   }
   sel.innerHTML = html;
   sel.value = String(cur);
   if (!sel.value) { sel.value = "1"; conditionSkipCount.value = "1"; }
+  _renderConditionGuarded(list, layout, self, ends, parseInt(sel.value, 10) || 0);
+}
+
+/** The actions "Then run" guards, one row per unit (a Switch stands for its block). */
+function _renderConditionGuarded(list, layout, self, ends, units) {
+  const ol   = document.getElementById("conditionGuarded");
+  const hint = document.getElementById("conditionRunHint");
+  if (!ol) return;
+  ol.textContent = "";
+  if (hint) {
+    hint.textContent = units === 0 ? "Nothing is guarded — this Condition has no effect."
+      : !ends.length ? "No action follows yet — the next one added after this Condition is guarded."
+      : "If the condition is false, these are skipped.";
+  }
+  const MAX_ROWS = 6;
+  const shown = Math.min(units, ends.length);
+  for (let k = 0; k < shown; k++) {
+    const li = document.createElement("li");
+    if (k === MAX_ROWS) {
+      li.className = "cg-more";
+      li.textContent = `+ ${ends[shown - 1] - ends[k - 1]} more`;
+      ol.appendChild(li);
+      break;
+    }
+    const start = k === 0 ? self + 1 : ends[k - 1] + 1;
+    const a = list[start] || {};
+    const inBlock = ends[k] - start;
+    const no = document.createElement("span");
+    no.className = "cg-no";
+    no.textContent = _noOf(start, layout);
+    const type = document.createElement("span");
+    type.className = "cg-type";
+    type.textContent = `${getActionIcon(a.type)} ${a.type || ""}`.trim();
+    const val = document.createElement("span");
+    val.className = "cg-val";
+    val.textContent = (a.label || _getActionDisplayValue(a) || "") + (inBlock > 0 ? `  + ${inBlock} in its block` : "");
+    val.title = val.textContent;
+    li.append(no, type, val);
+    ol.appendChild(li);
+  }
 }
 document.getElementById("conditionRunTo")?.addEventListener("change", (e) => {
   if (conditionSkipCount) conditionSkipCount.value = e.target.value;
+  _renderConditionRunTo();
   debouncedSaveDraft?.();
 });
 
@@ -2823,13 +2941,26 @@ function createActionListItem(a, i, scenarioId, view = null) {
   const actionLabel = a.label ? `"${a.label}"` : `${a.type} ${no}`;
 
   const toggleBtn = document.createElement("button");
-  toggleBtn.textContent = a.disabled ? "Enable" : "Disable";
+  const toggleVerb = a.disabled ? "Enable" : "Disable";
+  toggleBtn.textContent = toggleVerb;
   toggleBtn.className = "secondary";
-  toggleBtn.setAttribute("aria-label", `${a.disabled ? "Enable" : "Disable"} action ${no}: ${actionLabel}`);
+  // A block Switch / Condition switches the actions under it too (toggleDisabled
+  // in bg/switch-blocks.js); each of those can still be switched on its own.
+  const nested = isBlockSwitch ? Math.max(0, e.block.end - i)
+    : isCondBlock ? condRange.end - condRange.start + 1 : 0;
+  const nestedText = nested ? ` and the ${nested} action${nested === 1 ? "" : "s"} under it` : "";
+  toggleBtn.setAttribute("aria-label", `${toggleVerb} action ${no}: ${actionLabel}${nestedText}`);
+  if (nested) toggleBtn.title = `${toggleVerb} this ${a.type === "switch" ? "Switch" : "Condition"}${nestedText} — each can still be switched on its own`;
   toggleBtn.addEventListener("click", () => {
     chrome.runtime.sendMessage(
       { type: "TOGGLE_ACTION_DISABLED", scenarioId, index: i },
-      () => { previewActions(); updateUndoRedoState(); }
+      (res) => {
+        previewActions(); updateUndoRedoState();
+        if (res?.success && res.children > 0) {
+          const n = res.children;
+          showToast(`${res.disabled ? "Disabled" : "Enabled"} ${actionLabel} and the ${n} action${n === 1 ? "" : "s"} under it`, "info");
+        }
+      }
     );
   });
 
@@ -3360,9 +3491,9 @@ function autoCreateMissingVariables(action) {
     const newVars = [...needed].filter(n => !(n in existing));
     if (!newVars.length) return;
     const merged = { ...existing };
-    newVars.forEach(n => { merged[n] = ''; });
+    newVars.forEach(n => { merged[n] = newVariableConfig(); });
     chrome.runtime.sendMessage({ type: 'SAVE_VARIABLES', variables: merged }, () => {
-      newVars.forEach(n => addVariableRow(n, ''));
+      newVars.forEach(n => addVariableRow(n, merged[n]));
       showToast(`Auto-created variables: ${newVars.join(', ')}`, 'success');
     });
   });
@@ -3402,9 +3533,15 @@ function validateActionForm(type, selector, delayVal) {
     }
   }
   if (type === "readdom") {
-    const varEl = document.getElementById("readdomVarName");
-    if (!normalizeVarName(varEl?.value)) {
-      return { valid: false, el: varEl, msg: "Variable name is required (e.g. orderId — no ${ } and no })" };
+    if (_readdomMode() === "part") {
+      const patEl  = document.getElementById("readdomPattern");
+      const patErr = patternError(patEl?.value);
+      if (patErr) return { valid: false, el: patEl, msg: `Pattern: ${patErr}` };
+    } else {
+      const varEl = document.getElementById("readdomVarName");
+      if (!normalizeVarName(varEl?.value)) {
+        return { valid: false, el: varEl, msg: "Variable name is required (e.g. orderId — no ${ } and no })" };
+      }
     }
     const from = document.getElementById("readdomReadFrom")?.value;
     const attrEl = document.getElementById("readdomAttrName");
@@ -3445,10 +3582,18 @@ function buildActionFromForm(type, selector, value, delayVal) {
   if ((type === "screenshot" || type === "screenshot_full") && value) action.value = value;
 
   if (type === "readdom") {
-    // Saved without ${ } so `${name}` in later steps finds it.
-    const varName = normalizeVarName(document.getElementById("readdomVarName")?.value);
-    if (!varName) { showToast("Variable name is required for Read DOM action", "error"); return null; }
-    action.varName  = varName;
+    if (_readdomMode() === "part") {
+      // Each ${name} of the pattern is a variable — bg/text-pattern.js.
+      const pattern = document.getElementById("readdomPattern")?.value?.trim() || "";
+      if (patternError(pattern)) { showToast("A pattern with ${name} is required for Part of the text", "error"); return null; }
+      action.pattern = pattern;
+      if (document.getElementById("readdomMatchCase")?.checked) action.matchCase = true;
+    } else {
+      // Saved without ${ } so `${name}` in later steps finds it.
+      const varName = normalizeVarName(document.getElementById("readdomVarName")?.value);
+      if (!varName) { showToast("Variable name is required for Read DOM action", "error"); return null; }
+      action.varName = varName;
+    }
     action.readFrom = document.getElementById("readdomReadFrom")?.value || "text";
     const attrName  = document.getElementById("readdomAttrName")?.value?.trim();
     if (action.readFrom === "attr") {
@@ -3705,6 +3850,12 @@ function startEdit(index, action) {
       readdomAttrName.value = action.attrName || "";
       readdomAttrName.style.display = action.readFrom === "attr" ? "block" : "none";
     }
+    const readdomPattern = document.getElementById("readdomPattern");
+    if (readdomPattern) readdomPattern.value = action.pattern || "";
+    const readdomMatchCase = document.getElementById("readdomMatchCase");
+    if (readdomMatchCase) readdomMatchCase.checked = !!action.matchCase;
+    _setReaddomMode(action.pattern ? "part" : "whole");
+    _updateReaddomForm();
   } else if (action.type === "condition") {
     if (manualValueWrapper) manualValueWrapper.style.display = "none";
     if (manualDelayWrapper) manualDelayWrapper.style.display = "block";
@@ -3826,7 +3977,7 @@ function clearEditState() {
   if (conditionType) conditionType.value = "elementExists";
   if (conditionExpectedValue) conditionExpectedValue.value = "";
   if (conditionSkipCount) conditionSkipCount.value = "1";
-  if (conditionExpectedValueWrapper) conditionExpectedValueWrapper.style.display = "block";
+  if (conditionExpectedValueWrapper) conditionExpectedValueWrapper.style.display = "none";
 
   // Reset dragdrop fields
   const dragdropWrapperEl = document.getElementById("dragdropWrapper");
@@ -3850,6 +4001,14 @@ function clearEditState() {
   if (readdomReadFrom) readdomReadFrom.value = "text";
   const readdomAttrName = document.getElementById("readdomAttrName");
   if (readdomAttrName) { readdomAttrName.value = ""; readdomAttrName.style.display = "none"; }
+  const readdomPattern = document.getElementById("readdomPattern");
+  if (readdomPattern) readdomPattern.value = "";
+  const readdomMatchCase = document.getElementById("readdomMatchCase");
+  if (readdomMatchCase) readdomMatchCase.checked = false;
+  const readdomTryText = document.getElementById("readdomTryText");
+  if (readdomTryText) readdomTryText.value = "";
+  _setReaddomMode("whole");
+  _updateReaddomForm();
 
   // Reset screenshot_tovar fields
   const ssTovarWrapClear = document.getElementById("screenshotTovarWrapper");
@@ -3963,6 +4122,10 @@ function collectManualFormState() {
     readdomVarName:  document.getElementById("readdomVarName")?.value?.trim() || "",
     readdomReadFrom: document.getElementById("readdomReadFrom")?.value || "text",
     readdomAttrName: document.getElementById("readdomAttrName")?.value?.trim() || "",
+    readdomMode:      _readdomMode(),
+    readdomPattern:   document.getElementById("readdomPattern")?.value || "",
+    readdomMatchCase: !!document.getElementById("readdomMatchCase")?.checked,
+    readdomTryText:   document.getElementById("readdomTryText")?.value || "",
 
     // screenshot_tovar
     screenshotTovarVarName: document.getElementById("screenshotTovarVarName")?.value?.trim() || "",
@@ -4018,6 +4181,11 @@ function applyManualFormState(state) {
   set("readdomVarName",  state.readdomVarName);
   set("readdomReadFrom", state.readdomReadFrom || "text");
   set("readdomAttrName", state.readdomAttrName);
+  set("readdomPattern",  state.readdomPattern);
+  set("readdomTryText",  state.readdomTryText);
+  const matchCaseEl = document.getElementById("readdomMatchCase");
+  if (matchCaseEl) matchCaseEl.checked = !!state.readdomMatchCase;
+  _setReaddomMode(state.readdomMode || (state.readdomPattern ? "part" : "whole"));
 
   // screenshot_tovar
   set("screenshotTovarVarName", state.screenshotTovarVarName);
@@ -4062,6 +4230,7 @@ function applyManualFormState(state) {
   _updateFrameNote();
   const attrEl = document.getElementById("readdomAttrName");
   if (attrEl) attrEl.style.display = (state.readdomReadFrom === "attr") ? "block" : "none";
+  _updateReaddomForm();
   if (type === "condition") updateConditionFieldsVisibility?.();
   if (type === "switch") { populateSwitchScenarioSelect?.(); _refreshSwitchContext(() => _refreshSwitchForm()); }
   if (type === "condition") _refreshSwitchContext(() => _renderConditionRunTo());
@@ -4132,6 +4301,7 @@ const debouncedSaveDraft = debounce(saveDraft, 600);
   "condChildValueEquals", "condChildTextContains", "condChildIdContains",
   "condChildClassContains", "condChildType",
   "readdomVarName", "readdomReadFrom", "readdomAttrName",
+  "readdomPattern", "readdomMatchCase", "readdomTryText",
   "screenshotTovarVarName", "screenshotTovarTarget",
   "switchVar",
   "uploadMode", "uploadFolderPath", "uploadFileNames",
@@ -4144,6 +4314,7 @@ const debouncedSaveDraft = debounce(saveDraft, 600);
 });
 document.getElementById("condChildMatchAny")?.addEventListener("change", debouncedSaveDraft);
 document.getElementById("condChildMatchAll")?.addEventListener("change", debouncedSaveDraft);
+document.querySelectorAll('input[name="readdomMode"]').forEach(r => r.addEventListener("change", debouncedSaveDraft));
 
 /* === SAVE === */
 
@@ -4174,8 +4345,12 @@ saveFlow.addEventListener('click', () => {
   });
 });
 
-// New scenario: clear current recording/actions buffer so manual adds start a fresh scenario
+// New: with a name typed, the scenario is created now and selected, so what is
+// recorded or added next saves straight into it. Without a name it clears the
+// working buffer for an unsaved draft, as before.
 newFlow.addEventListener('click', () => {
+  const name = scenarioName.value.trim();
+  if (name) { _createNamedScenario(name); return; }
   showConfirm("Create new empty scenario buffer? This will clear current unsaved actions.", () => {
     chrome.runtime.sendMessage({ type: "START_NEW_SCENARIO" }, () => {
     manualSelector.value = "";
@@ -4194,6 +4369,30 @@ newFlow.addEventListener('click', () => {
     });
   }, { title: 'New Scenario', okLabel: 'Continue' });
 });
+
+function _createNamedScenario(name) {
+  const folderId = scenarioFolder.value || null;
+  const create = () => chrome.runtime.sendMessage({ type: "CREATE_SCENARIO", name, folderId }, (res) => {
+    if (!res?.success || !res.id) { showToast("Failed to create scenario", "error"); return; }
+    if (editing) { clearEditState(); chrome.storage.local.remove("manualFormDraft"); }
+    scenarioName.value = "";
+    scenarioName.classList.remove("required-error");
+    // A search or folder filter in Manage Scenarios could hide the new one,
+    // and only a listed scenario can be the selected one.
+    const term = (scenarioSearch?.value || "").trim().toLowerCase();
+    if (term && !name.toLowerCase().includes(term)) scenarioSearch.value = "";
+    if (filterFolder?.value && filterFolder.value !== (folderId || "__none__")) filterFolder.value = "";
+    // loadScenarios selects whatever lastSelectedScenario names.
+    chrome.storage.local.set({ lastSelectedScenario: res.id }, () => loadScenarios());
+    showToast(`Created "${name}" — what you add or edit now saves into it`, "success");
+  });
+  const taken = Object.values(scenariosCache).some(s => s.name === name && (s.folderId || null) === folderId);
+  if (taken) {
+    showConfirm(`A scenario named "${name}" is already in this folder. Create another one with the same name?`, create, { title: 'New Scenario', okLabel: 'Create' });
+  } else {
+    create();
+  }
+}
 
 /* === LOAD SCENARIOS === */
 

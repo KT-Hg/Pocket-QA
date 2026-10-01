@@ -1,6 +1,7 @@
 import { showToast, lockScroll, unlockScroll, trapFocus, escHtml, getUsedVarNames } from './utils.js';
 import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../bg/switch-blocks.js';
-import { normalizeVarName, listSpec, parseListSpec } from '../bg/var-name.js';
+import { normalizeVarName, listSpec, parseListSpec, writtenVarNames } from '../bg/var-name.js';
+import { patternVarNames, patternRegexSource } from '../bg/text-pattern.js';
 
 function _activeVal(v) {
   if (typeof v === 'string') return v;
@@ -475,8 +476,13 @@ function actionLines(action, stepNum, stepDelay, elTimeout) {
     }
 
     case 'readdom': {
-      const varName = safeVarName(normalizeVarName(action.varName) || 'dom_var');
-      out.push(`# Step ${stepNum}: read DOM → "${varName}"${lbl}`);
+      // Extract: each ${name} of the pattern takes its part of the text, and
+      // "Save to var" (optional then) keeps the whole text — bg/text-pattern.js.
+      const slots   = action.pattern ? patternVarNames(action.pattern) : [];
+      const vn      = normalizeVarName(action.varName);
+      const varName = vn ? safeVarName(vn) : (slots.length ? null : 'dom_var');
+      const targets = [varName, ...slots.map(safeVarName)].filter(Boolean);
+      out.push(`# Step ${stepNum}: read DOM → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
         out.push(..._buildChildCondPy(action.conditions, elVar, tout, selPy, stepNum));
       } else {
@@ -484,7 +490,19 @@ function actionLines(action, stepNum, stepDelay, elTimeout) {
       }
       // _read_val runs the extension's own reader in the page, so "Text content"
       // (textContent) and "Visible text" (innerText) match playback exactly.
-      out.push(`${varName} = _read_val(${elVar}, ${JSON.stringify(action.readFrom || 'text')}, ${valueToPy(action.attrName || '')})`);
+      const readExpr = `_read_val(${elVar}, ${JSON.stringify(action.readFrom || 'text')}, ${valueToPy(action.attrName || '')})`;
+      if (!slots.length) {
+        out.push(`${varName} = ${readExpr}`);
+      } else {
+        // The regex source only uses syntax JS and Python's re read alike, and a
+        // JSON string is a valid Python string literal.
+        out.push(`${elVar}_t = ${readExpr}`);
+        if (varName) out.push(`${varName} = ${elVar}_t`);
+        out.push(`${elVar}_m = re.search(${JSON.stringify(patternRegexSource(action.pattern))}, ${elVar}_t${action.matchCase ? '' : ', re.I'})`);
+        out.push(`if not ${elVar}_m:`);
+        out.push(`    raise Exception(${JSON.stringify(`Read DOM (step ${stepNum}): text does not match ${String(action.pattern).trim()}: `)} + ${elVar}_t)`);
+        slots.forEach((n, k) => out.push(`${safeVarName(n)} = ${elVar}_m.group(${k + 1}).strip()`));
+      }
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
     }
@@ -628,8 +646,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   // the flow, so a run where its branch never executes leaves a later reference
   // with nothing bound (NameError).
   for (const a of enabled) {
-    const vn = (a.type === 'readdom' || a.type === 'screenshot_tovar') ? normalizeVarName(a.varName) : null;
-    if (vn) writtenVars.add(safeVarName(vn));
+    for (const vn of writtenVarNames(a)) writtenVars.add(safeVarName(vn));
   }
 
   // Two different names can sanitize to the same Python identifier, which
@@ -664,6 +681,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const needsActionChains = enabled.some(a => ['hover', 'dragdrop'].includes(a.type));
   const needsCondition    = enabled.some(a => a.type === 'condition');
   const needsChildCond    = enabled.some(a => a.conditions && typeof a.conditions === 'object');
+  const needsExtract      = enabled.some(a => a.type === 'readdom' && patternVarNames(a.pattern).length);
   const needsJsEscape     = enabled.some(a => a.type === 'script' && scriptUsesVars(a));
 
   const out = [];
@@ -671,7 +689,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   // ── Imports ──
   out.push('import time');
   if (needsRandom)   { out.push('import random'); out.push('import string'); }
-  if (needsChildCond) out.push('import re');
+  if (needsChildCond || needsExtract) out.push('import re');
   if (needsDatetime)  out.push('from datetime import datetime');
   out.push('from selenium import webdriver');
   out.push('from selenium.webdriver.common.by import By');
@@ -795,8 +813,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     ...Object.keys(staticVars), ...Object.keys(randomSpecs), ...Object.keys(pickSpecs),
   ]);
   for (const a of enabled) {
-    const vn = (a.type === 'readdom' || a.type === 'screenshot_tovar') ? normalizeVarName(a.varName) : null;
-    if (vn) knownNames.add(vn);
+    for (const vn of writtenVarNames(a)) knownNames.add(vn);
   }
   for (const name of getUsedVarNames(enabled)) {
     if (!knownNames.has(name)) {
@@ -1125,7 +1142,9 @@ function _actionDesc(a) {
     case 'script':    return 'custom JS code';
     case 'condition': return a.conditionType || 'condition';
     case 'switch':    return `→ ${(a.scenario || a.value || '')}`.slice(0, 40);
-    case 'readdom':   return `${sel} → \${${normalizeVarName(a.varName) || 'var'}}`;
+    case 'readdom':   return a.pattern
+      ? `${sel} → ${String(a.pattern).trim()}`
+      : `${sel} → \${${normalizeVarName(a.varName) || 'var'}}`;
     case 'screenshot':
     case 'screenshot_full':    return 'viewport';
     case 'screenshot_element': return sel || 'element';

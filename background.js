@@ -19,7 +19,7 @@ import {
   startPlayback, startPlaybackFromCheckpoint, startSequence, startCsvPlayback,
   refuseIfRecording, refuseRecordingIfPlaying,
 } from './bg/playback.js';
-import { remapAfterRemove, remapAfterReorder } from './bg/switch-blocks.js';
+import { remapAfterRemove, remapAfterReorder, toggleDisabled } from './bg/switch-blocks.js';
 import {
   takeFullPageScreenshot, takeElementScreenshot, compareScreenshots, downloadDataUrl,
   openCropUI, buildScreenshotFilename, getPendingCrop, reportCaptureResult,
@@ -602,20 +602,25 @@ function handleMessage(request, sender, sendResponse) {
   }
 
   if (type === "TOGGLE_ACTION_DISABLED") {
+    // A Switch or Condition takes the actions under it along (toggleDisabled);
+    // `children` tells the popup how many followed.
     if (request.scenarioId) {
+      let result = null;
       mutateScenarioActions(request.scenarioId, (a) => {
         if (request.index < 0 || request.index >= a.length) throw new Error("out of range");
-        const next = [...a];
-        next[request.index] = { ...next[request.index], disabled: !next[request.index].disabled };
-        return next;
-      }).then(() => sendResponse({ success: true }))
+        result = toggleDisabled(a, request.index);
+        return result.actions;
+      }).then(() => sendResponse({ success: true, disabled: result.disabled, children: result.children }))
         .catch(() => sendResponse({ success: false }));
       return true;
     }
     if (request.index < 0 || request.index >= state.currentActions.length) { sendResponse({ success: false }); return; }
     pushUndo("current", [...state.currentActions]);
-    state.currentActions[request.index].disabled = !state.currentActions[request.index].disabled;
-    sendResponse({ success: true });
+    // New action objects, so the undo snapshot above keeps the old states; the
+    // array itself is updated in place for everything else holding it.
+    const result = toggleDisabled(state.currentActions, request.index);
+    state.currentActions.splice(0, state.currentActions.length, ...result.actions);
+    sendResponse({ success: true, disabled: result.disabled, children: result.children });
     return;
   }
 
@@ -673,6 +678,21 @@ function handleMessage(request, sender, sendResponse) {
       state.currentActions = [];
       getStack("current").undo = [];
       getStack("current").redo = [];
+      await setScenarios(scenarios);
+      sendResponse({ success: true, id });
+    });
+    return true;
+  }
+
+  // An empty scenario made up front by "New" with a name typed: the popup
+  // selects it, so what is recorded or added next saves straight into it.
+  if (type === "CREATE_SCENARIO") {
+    const name = String(request.name || "").trim();
+    if (!name) { sendResponse({ success: false }); return; }
+    getScenarios().then(async (scenarios) => {
+      const id = generateId();
+      const now = Date.now();
+      scenarios[id] = { name, actions: [], folderId: request.folderId || null, createdAt: now, updatedAt: now };
       await setScenarios(scenarios);
       sendResponse({ success: true, id });
     });
@@ -978,7 +998,7 @@ function handleMessage(request, sender, sendResponse) {
 
   /* --- Variables --- */
   if (type === "GET_VARIABLES") {
-    getVariableTable().then(({ variables, order }) => sendResponse({ variables, order }));
+    getVariableTable().then(({ variables, order, sort }) => sendResponse({ variables, order, sort }));
     return true;
   }
 

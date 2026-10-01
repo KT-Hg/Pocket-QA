@@ -388,6 +388,37 @@ export function getConditionLayout(actions, layout = null) {
   return out;
 }
 
+/**
+ * 0-based inclusive range of the actions nested under action `i` — a block
+ * Switch's block, or what a Condition guards — or null when nothing is.
+ * Nested Switches and Conditions fall inside the range, since both are
+ * contiguous.
+ */
+export function childRange(actions, i, layout = null) {
+  const list = Array.isArray(actions) ? actions : [];
+  const a = list[i];
+  let end = i;
+  if (hasBlock(a)) end = blockEnd(list, i);
+  else if (a?.type === 'condition' && conditionSkip(a) > 0) end = conditionRange(list, i, layout).end;
+  return end > i ? { start: i + 1, end } : null;
+}
+
+/**
+ * The list after action `i` is switched on or off: the actions nested under it
+ * (childRange) take the same state, so a disabled Switch or Condition does not
+ * leave its block running on its own. Each can still be toggled by itself
+ * afterwards. Returns { actions, disabled, children }.
+ */
+export function toggleDisabled(actions, i) {
+  const list = Array.isArray(actions) ? actions : [];
+  if (!list[i]) return { actions: list, disabled: false, children: 0 };
+  const disabled = !list[i].disabled;
+  const r = childRange(list, i);
+  const last = r ? r.end : i;
+  const next = list.map((a, k) => (k >= i && k <= last && a ? { ...a, disabled } : a));
+  return { actions: next, disabled, children: last - i };
+}
+
 /** True when any action in the list is a Condition guarding at least one action. */
 export function anyConditions(actions) {
   const list = Array.isArray(actions) ? actions : [];

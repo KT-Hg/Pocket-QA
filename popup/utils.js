@@ -1,4 +1,4 @@
-import { normalizeVarName, normalizeVarRef, selectorStrings } from '../bg/var-name.js';
+import { normalizeVarRef, selectorStrings, writtenVarNames } from '../bg/var-name.js';
 /* === HTML Escape === */
 
 export function escHtml(s) {
@@ -317,10 +317,7 @@ export function getDragAfterElement(container, y) {
 export function getUsedVarNames(actions) {
   const used = getReadVarNames(actions);
   for (const action of (actions || [])) {
-    if (action?.type === 'readdom' || action?.type === 'screenshot_tovar') {
-      const vn = normalizeVarName(action.varName);
-      if (vn) used.add(vn);
-    }
+    for (const vn of writtenVarNames(action)) used.add(vn);
   }
   return used;
 }

@@ -2,6 +2,7 @@
 
 import { showToast, showConfirm, lockScroll, unlockScroll, getDragAfterElement } from './utils.js';
 import { listEntries, listSpec, parseListSpec } from '../bg/var-name.js';
+import { normalizeVariableSort, orderNames, variableComparator } from '../bg/var-order.js';
 
 /* ── Parsers ─────────────────────────────────────────────────────────────── */
 
@@ -27,6 +28,17 @@ function _parseFallback(val) {
 
 function _defaultConfig() {
   return { activeType: 's', s: '', r: { type: 'alphanumeric', length: '8' }, p: ['', ''], f: ['', ''] };
+}
+
+/** An empty Static variable created now, dated for the Newest / Oldest sorts. */
+export function newVariableConfig() {
+  const now = Date.now();
+  return { ..._defaultConfig(), createdAt: now, updatedAt: now };
+}
+
+/** A config without its dates, to tell whether a save changed anything. */
+function _configBody(cfg) {
+  return JSON.stringify({ ...cfg, createdAt: undefined, updatedAt: undefined });
 }
 
 export function _migrateToConfig(val) {
@@ -108,6 +120,64 @@ function _autoSave() {
   chrome.runtime.sendMessage({ type: 'SAVE_VARIABLES', ..._readTable() });
 }
 
+/* ── Sort ────────────────────────────────────────────────────────────────── */
+
+// The sort picked above the table, and the custom (drag) order it is laid
+// over — kept while another sort is shown, so switching back finds it intact.
+let _sortMode    = 'custom';
+let _customOrder = [];
+
+function _rowConfig(li) {
+  try { return JSON.parse(li.dataset.config || '{}'); } catch { return _defaultConfig(); }
+}
+
+/** The custom order: the rows themselves while it is shown, else the kept one with new names last. */
+function _customNames() {
+  const names = _rows().map(li => li.dataset.key?.trim()).filter(Boolean);
+  return orderNames(names, _sortMode === 'custom' ? names : _customOrder);
+}
+
+/** Lays the rows out the way the current sort shows them, over `custom`. */
+function _layoutRows(custom = _customNames()) {
+  const ul = getListEl();
+  if (!ul) return;
+  const rank = new Map(custom.map((n, i) => [n, i]));
+  const rows = _rows();
+  const sorted = rows
+    .map((li, i) => {
+      const name = li.dataset.key?.trim() || '';
+      return { li, name, value: _rowConfig(li), index: rank.has(name) ? rank.get(name) : custom.length + i };
+    })
+    .sort(variableComparator(_sortMode))
+    .map(e => e.li);
+  // Moving a row drops focus from its buttons, so leave the rows alone unless the order changed.
+  if (sorted.some((li, i) => li !== rows[i])) ul.append(...sorted);
+  _reindexRows();
+}
+
+function _syncSortSelect() {
+  const sel = document.getElementById('variableSort');
+  if (sel) sel.value = _sortMode;
+}
+
+function _setSortMode(mode) {
+  const custom = _customNames(); // read before the mode changes where it comes from
+  _sortMode    = normalizeVariableSort(mode);
+  _customOrder = custom;
+  _syncSortSelect();
+  _layoutRows(custom);
+  chrome.storage.local.set({ variableSort: _sortMode });
+}
+
+/** A row dragged while a sort is shown: the order on screen becomes the custom order. */
+function _adoptShownOrder() {
+  _sortMode    = 'custom';
+  _customOrder = [];
+  _syncSortSelect();
+  chrome.storage.local.set({ variableSort: 'custom' });
+  showToast('Sort set to Custom — the order on screen is kept', 'info');
+}
+
 /* ── Drag to reorder ─────────────────────────────────────────────────────── */
 
 // The row being dragged, and every row in the order it had when the drag
@@ -135,7 +205,10 @@ function _onDragEnd(li) {
   _dragRow = _dragFrom = null;
   if (!from) return;
   if (!_dragDropped) getListEl()?.append(...from);
-  else if (_rows().some((r, i) => r !== from[i])) _autoSave();
+  else if (_rows().some((r, i) => r !== from[i])) {
+    if (_sortMode !== 'custom') _adoptShownOrder();
+    _autoSave();
+  }
   _reindexRows();
 }
 
@@ -168,6 +241,16 @@ function _initDragArea() {
 
 /* ── Row rendering ───────────────────────────────────────────────────────── */
 
+const _fmtDate = (ts) => new Date(ts).toLocaleString();
+
+/** The name, and when it was created / last edited — what the date sorts go by. */
+function _keyTitle(key, cfg) {
+  const lines = [key];
+  if (cfg.createdAt) lines.push(`Created: ${_fmtDate(cfg.createdAt)}`);
+  if (cfg.updatedAt && cfg.updatedAt !== cfg.createdAt) lines.push(`Edited: ${_fmtDate(cfg.updatedAt)}`);
+  return lines.join('\n');
+}
+
 function _buildRow(key, valOrCfg) {
   const cfg = _migrateToConfig(valOrCfg);
   const t   = cfg.activeType || 's';
@@ -194,7 +277,7 @@ function _buildRow(key, valOrCfg) {
 
   const keySpan = document.createElement('span');
   keySpan.className   = 'vr-key';
-  keySpan.title       = key;
+  keySpan.title       = _keyTitle(key, cfg);
   keySpan.textContent = key || '—';
 
   const arrSpan = document.createElement('span');
@@ -279,7 +362,7 @@ function _refreshRow(li) {
 
   const key     = li.dataset.key || '';
   const keySpan = li.querySelector('.vr-key');
-  if (keySpan) { keySpan.textContent = key || '—'; keySpan.title = key; }
+  if (keySpan) { keySpan.textContent = key || '—'; keySpan.title = _keyTitle(key, cfg); }
 
   const valSpan = li.querySelector('.vr-val');
   if (valSpan) {
@@ -309,6 +392,11 @@ function _refreshRow(li) {
 /* ── Public API ──────────────────────────────────────────────────────────── */
 
 export function addVariableRow(key = '', value = '') {
+  _insertRow(key, value);
+  if (_sortMode !== 'custom') _layoutRows();
+}
+
+function _insertRow(key, value) {
   const ul = getListEl();
   if (!ul) return;
 
@@ -344,24 +432,18 @@ export function findEmptyRow() {
 }
 
 /**
- * { variables, order } in row order. The order travels as its own list: an
- * object cannot hold it — chrome.storage sorts the keys, and JS puts
- * number-like names ("1", "2") first whatever the order they were added in.
+ * { variables, order } — `order` is the custom order, whatever sort is shown.
+ * It travels as its own list: an object cannot hold it — chrome.storage sorts
+ * the keys, and JS puts number-like names ("1", "2") first whatever the order
+ * they were added in.
  */
 function _readTable() {
   const variables = {};
-  const order     = [];
   _rows().forEach(li => {
     const key = li.dataset.key?.trim();
-    if (!key) return;
-    if (!Object.hasOwn(variables, key)) order.push(key);
-    try {
-      variables[key] = JSON.parse(li.dataset.config || '{}');
-    } catch {
-      variables[key] = _defaultConfig();
-    }
+    if (key) variables[key] = _rowConfig(li);
   });
-  return { variables, order };
+  return { variables, order: _customNames() };
 }
 
 export function getVariablesFromTable() {
@@ -380,9 +462,12 @@ export function loadVariables() {
     ul.appendChild(empty);
 
     const vars  = res?.variables || {};
-    const order = Array.isArray(res?.order) ? res.order : Object.keys(vars);
-    order.forEach(k => { if (Object.hasOwn(vars, k)) addVariableRow(k, vars[k]); });
-    _reindexRows();
+    const order = orderNames(Object.keys(vars), res?.order);
+    order.forEach(k => _insertRow(k, vars[k]));
+    _sortMode    = normalizeVariableSort(res?.sort);
+    _customOrder = order;
+    _syncSortSelect();
+    _layoutRows();
   });
 }
 
@@ -625,6 +710,8 @@ export function initVariables() {
   rndType?.addEventListener('change', () => _updateLengthRow(rndType.value));
 
   _initDragArea();
+  // A mouse pick lets go of focus by itself — popup/calm-focus.js.
+  document.getElementById('variableSort')?.addEventListener('change', (e) => _setSortMode(e.target.value));
 
   document.getElementById('addPickValue')?.addEventListener('click',     () => _addPickValueRow(''));
   document.getElementById('addFallbackValue')?.addEventListener('click', () => _addFallbackValueRow(''));
@@ -660,15 +747,25 @@ export function initVariables() {
       f: fallbackVals.length ? fallbackVals : ['', ''],
     };
 
+    const now = Date.now();
     if (_editingRow) {
+      const oldKey = _editingRow.dataset.key || '';
+      const prev   = _migrateToConfig(_rowConfig(_editingRow));
+      if (prev.createdAt) cfg.createdAt = prev.createdAt;
+      // Saving without a change is not an edit, for the Recently edited sort.
+      if (name !== oldKey || _configBody(prev) !== _configBody(cfg)) cfg.updatedAt = now;
+      else if (prev.updatedAt) cfg.updatedAt = prev.updatedAt;
+      // A renamed variable keeps its place in the custom order.
+      if (name !== oldKey) _customOrder = _customOrder.map(n => (n === oldKey ? name : n));
       _editingRow.dataset.key    = name;
       _editingRow.dataset.config = JSON.stringify(cfg);
       _refreshRow(_editingRow);
-      _reindexRows();
+      _layoutRows();
       _closeModal();
       _autoSave();
       showToast(`"${name}" saved`, 'success');
     } else {
+      cfg.createdAt = cfg.updatedAt = now;
       addVariableRow(name, cfg);
       _closeModal();
       _autoSave();

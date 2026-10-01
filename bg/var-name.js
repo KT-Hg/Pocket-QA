@@ -3,6 +3,8 @@
  * chrome.* — so both sides and `node --test` can import it.
  */
 
+import { patternVarNames } from './text-pattern.js';
+
 /**
  * The name a Read DOM / Screenshot → Variable step writes to.
  *
@@ -80,6 +82,21 @@ export function listSpec(kind, arr) {
   const vals = listEntries(arr);
   // A lone Blank would give `{pick:}`, which no parser matches; `{pick:|}` reads the same.
   return vals.length ? `{${kind}:${vals.join('|') || '|'}}` : '';
+}
+
+/**
+ * Variables a step writes: a Read DOM / Screenshot → Variable target, and each
+ * ${name} of a Read DOM Extract pattern (bg/text-pattern.js).
+ */
+export function writtenVarNames(action) {
+  const out = [];
+  if (action?.type !== 'readdom' && action?.type !== 'screenshot_tovar') return out;
+  const vn = normalizeVarName(action.varName);
+  if (vn) out.push(vn);
+  if (action.type === 'readdom' && action.pattern) {
+    for (const n of patternVarNames(action.pattern)) if (!out.includes(n)) out.push(n);
+  }
+  return out;
 }
 
 /** Values of a `{pick:…}` / `{fallback:…}` spec (Blank as ''), or null for anything else. */

@@ -1,4 +1,5 @@
 import { sendAlertNotification } from './utils.js';
+import { orderVariableNames, sortVariableNames, normalizeVariableSort } from './var-order.js';
 
 /* === Storage health notifications ═══════════════════════════════════════════
  * A failed write means the scenario the user just recorded was NOT saved, and a
@@ -79,34 +80,23 @@ export function setFolders(folders) {
 
 /* === Variables ===
  * chrome.storage hands an object back with its keys sorted, so the order the
- * user arranged the Variables table in is kept beside it, in `variableOrder`.
+ * user dragged the Variables table into is kept beside it, in `variableOrder`,
+ * and the sort picked above the table in `variableSort` (bg/var-order.js).
  */
 
 /**
- * Variable names in table order: the saved order, then any name it does not
- * list yet (saved by an older build, or by a writer that sent no order).
+ * { variables, order, sort } — `order` is the custom (drag) order, and the
+ * object is built in the order the table shows, so exports list it that way.
  */
-export function orderVariableNames(variables, order) {
-  const names = Object.keys(variables || {});
-  const known = new Set(names);
-  const out = [];
-  const seen = new Set();
-  for (const k of Array.isArray(order) ? order : []) {
-    if (known.has(k) && !seen.has(k)) { seen.add(k); out.push(k); }
-  }
-  for (const k of names) if (!seen.has(k)) out.push(k);
-  return out;
-}
-
-/** { variables, order } — the object built in table order, and the order itself. */
 export function getVariableTable() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['variables', 'variableOrder'], (res) => {
+    chrome.storage.local.get(['variables', 'variableOrder', 'variableSort'], (res) => {
       const stored = res.variables || {};
       const order  = orderVariableNames(stored, res.variableOrder);
+      const sort   = normalizeVariableSort(res.variableSort);
       const variables = {};
-      for (const k of order) variables[k] = stored[k];
-      resolve({ variables, order });
+      for (const k of sortVariableNames(stored, order, sort)) variables[k] = stored[k];
+      resolve({ variables, order, sort });
     });
   });
 }

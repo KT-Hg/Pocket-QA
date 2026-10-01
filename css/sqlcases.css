@@ -194,10 +194,16 @@ button { font-family: inherit; font-size: 13px; cursor: pointer; color: var(--te
   background: var(--card);
   color: var(--text);
 }
+/* The border alone shows focus: the ring that came with it read as the field
+   staying highlighted. Checkboxes have no border to tint, so keyboard focus
+   keeps a ring there. */
 select:focus, input:focus, textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+}
+input:is([type="checkbox"], [type="radio"]):focus-visible {
   outline: 2px solid var(--primary-soft);
   outline-offset: 1px;
-  border-color: var(--primary);
 }
 
 /* Segmented control — density, and anything else with two exclusive states. */
