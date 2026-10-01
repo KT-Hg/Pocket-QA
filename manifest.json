@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Pocket QA",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "Record & Playback web workflows with variables, CSV data runs, screenshots, file uploads, drag-drop, and JS scripting",
 
   "permissions": [
