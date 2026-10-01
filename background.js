@@ -10,7 +10,7 @@
 import { state, persistRecordingState, restoreRecordingState, restoreCsvState, clearCsvState } from './bg/state.js';
 import {
   getScenarios, setScenarios, getFolders, setFolders,
-  getVariables, generateId, getStack, pushUndo, mutateScenarioActions,
+  getVariableTable, setVariables, generateId, getStack, pushUndo, mutateScenarioActions,
 } from './bg/storage.js';
 import {
   updateBadge, sendAlertNotification, sendCaptureNotification, sendScheduleNotification,
@@ -978,12 +978,12 @@ function handleMessage(request, sender, sendResponse) {
 
   /* --- Variables --- */
   if (type === "GET_VARIABLES") {
-    getVariables().then((variables) => sendResponse({ variables }));
+    getVariableTable().then(({ variables, order }) => sendResponse({ variables, order }));
     return true;
   }
 
   if (type === "SAVE_VARIABLES") {
-    chrome.storage.local.set({ variables: request.variables }, () => {
+    setVariables(request.variables || {}, request.order).then(() => {
       sendResponse({ success: true });
     });
     return true;

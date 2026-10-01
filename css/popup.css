@@ -743,9 +743,10 @@ button:disabled {
   border: 1px solid transparent;
   border-left-width: 3px;
   position: relative;
-  cursor: default;
+  cursor: grab;
   transition: background 0.1s;
 }
+.var-list .var-row:active { cursor: grabbing; }
 .var-list .var-row:last-child { margin-bottom: 0; }
 
 .var-list .var-row::before {
@@ -760,6 +761,13 @@ button:disabled {
 }
 .var-list .var-row:hover::before { opacity: 0.5; }
 .var-list .var-row:hover { background: var(--secondary-bg); }
+/* Drag to reorder — mirrors the action list. */
+.var-list .var-row.dragging {
+  opacity: 0.5;
+  outline: 1px dashed var(--primary);
+  outline-offset: -1px;
+}
+.var-list .var-row.dragging::before { opacity: 1; color: var(--primary); }
 
 /* Type-specific border + gradient */
 .var-list .var-row.t-s {

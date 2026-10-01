@@ -77,11 +77,55 @@ export function setFolders(folders) {
   });
 }
 
-/* === Variables === */
+/* === Variables ===
+ * chrome.storage hands an object back with its keys sorted, so the order the
+ * user arranged the Variables table in is kept beside it, in `variableOrder`.
+ */
+
+/**
+ * Variable names in table order: the saved order, then any name it does not
+ * list yet (saved by an older build, or by a writer that sent no order).
+ */
+export function orderVariableNames(variables, order) {
+  const names = Object.keys(variables || {});
+  const known = new Set(names);
+  const out = [];
+  const seen = new Set();
+  for (const k of Array.isArray(order) ? order : []) {
+    if (known.has(k) && !seen.has(k)) { seen.add(k); out.push(k); }
+  }
+  for (const k of names) if (!seen.has(k)) out.push(k);
+  return out;
+}
+
+/** { variables, order } — the object built in table order, and the order itself. */
+export function getVariableTable() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['variables', 'variableOrder'], (res) => {
+      const stored = res.variables || {};
+      const order  = orderVariableNames(stored, res.variableOrder);
+      const variables = {};
+      for (const k of order) variables[k] = stored[k];
+      resolve({ variables, order });
+    });
+  });
+}
 
 export function getVariables() {
+  return getVariableTable().then(t => t.variables);
+}
+
+/** Saves the table; without an order, names keep their saved place and new ones go last. */
+export function setVariables(variables, order) {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['variables'], (res) => resolve(res.variables || {}));
+    const write = (prevOrder) => {
+      chrome.storage.local.set(
+        { variables, variableOrder: orderVariableNames(variables, order || prevOrder) },
+        resolve,
+      );
+    };
+    if (Array.isArray(order)) write(order);
+    else chrome.storage.local.get(['variableOrder'], (res) => write(res.variableOrder));
   });
 }
 

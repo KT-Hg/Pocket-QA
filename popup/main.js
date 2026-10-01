@@ -2,7 +2,8 @@
 // document ready and UI state stays local rather than module-level.
 import { escHtml, getActionIcon, showToast, showConfirm, showAlert, showPrompt,
          lockScroll, unlockScroll, validateNumberInput,
-         safeSendTabMessage, isEligibleTab, debounce, getReadVarNames } from './utils.js';
+         safeSendTabMessage, isEligibleTab, debounce, getReadVarNames,
+         getDragAfterElement } from './utils.js';
 import { updateRangeFill } from './settings.js';
 import { startConnectionCheck, setCsvDoneBar, clearCsvDoneBar, openPbPanel } from './connection.js';
 import { addVariableRow } from './variables.js';
@@ -525,6 +526,7 @@ const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">P · Pick</span><span class="ch-title">Bốc ngẫu nhiên trong danh sách</span></div><p class="ch-desc">Liệt kê vài giá trị, mỗi lần chạy bốc ngẫu nhiên <b>một</b> giá trị. Dùng để rải dữ liệu qua nhiều trường hợp hợp lệ (chi nhánh, hạng khách hàng…).<br><br>⚠ Trong <b>CSV Data-Driven Run</b>, nếu file CSV có cột trùng tên biến thì <b>cột CSV thắng</b> — việc bốc ngẫu nhiên chỉ xảy ra khi CSV không có cột đó.<br><br><b>∅ Blank</b> — nút <b>∅</b> ở mỗi dòng (hoặc <b>+ Add ∅ Blank</b>) biến dòng đó thành <b>giá trị rỗng</b>, được bốc như mọi giá trị khác. Dòng Blank hiện nhãn <b>∅ Blank</b> nét đứt; ô bỏ trống mà không bấm ∅ thì bị bỏ qua khi lưu.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">F · Fallback</span><span class="ch-title">Thử lần lượt A → B → C</span></div><p class="ch-desc">Khác hẳn 3 loại trên: đây <b>không</b> phải một giá trị, mà là một thứ tự thử. Chỉ có tác dụng khi đặt vào ô của <b>Child Condition</b> (value equals / text contains / id contains / class contains / type).<br><br>
         Extension tìm phần tử con khớp giá trị <b>A</b>; không thấy thì thử <b>B</b>, rồi <b>C</b> — dừng ở giá trị đầu tiên tìm được. Giá trị thắng cuộc được <b>dùng lại cho mọi action còn lại</b> trong cùng lần chạy, không dò lại từ đầu. Hợp với trang mà cùng một nút có thể mang nhãn khác nhau tuỳ trạng thái.<br><br><b>∅ Blank</b> trong danh sách khớp phần tử con có trường đó <b>rỗng</b> — vd. value equals ∅ tìm ô input chưa nhập. Khi Blank thắng, lần sau vẫn thử lại từ đầu.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">⋮⋮ Sắp xếp</span><span class="ch-title">Kéo thả để đổi thứ tự</span></div><p class="ch-desc">Nắm một dòng (chỗ <b>⋮⋮</b> hay bất kỳ đâu ngoài nút) rồi kéo lên/xuống để đổi vị trí. Thả ra là <b>tự lưu</b>; thả ra ngoài khung Variables hoặc bấm <kbd>Esc</kbd> thì dòng quay về chỗ cũ. Thứ tự này cũng là thứ tự biến hiện trong Export Code.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">💡 Lưu ý</span><span class="ch-title">Đổi loại không mất dữ liệu</span></div><p class="ch-desc">Mỗi biến giữ cấu hình của <b>cả 4 loại</b> cùng lúc, nên chuyển S → R → P rồi quay lại S vẫn thấy giá trị cũ còn nguyên. Loại đang chọn mới là loại được dùng khi chạy.</p></div>`,
     en: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">\${name}</span><span class="ch-title">Where variables work</span></div><p class="ch-desc">Write <code>\${name}</code> in a <b>selector</b>, <b>value</b>, <b>URL</b> or <b>JS code</b> field and the extension substitutes the value from this table at run time. A name that is not in the table is <b>left as the literal</b> <code>\${name}</code> rather than becoming an empty string, so a typo shows up on the page instead of quietly filling in nothing.<br><br>This table is <b>shared across the whole extension</b>, not stored per scenario, and <b>saves itself</b> as you edit — there is no Save button.</p></div>
@@ -536,6 +538,7 @@ const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">P · Pick</span><span class="ch-title">One at random from a list</span></div><p class="ch-desc">List a few values and each run picks <b>one</b> at random. Useful for spreading runs across valid cases (branches, customer tiers…).<br><br>⚠ In a <b>CSV Data-Driven Run</b>, a CSV column with the same name <b>wins</b> — the random pick only happens when the CSV has no such column.<br><br><b>∅ Blank</b> — the <b>∅</b> button on a row (or <b>+ Add ∅ Blank</b>) makes that entry the <b>empty string</b>, picked like any other value. A Blank row shows a dashed <b>∅ Blank</b> label; a row left empty without ∅ is dropped on save.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">F · Fallback</span><span class="ch-title">Try A → B → C in order</span></div><p class="ch-desc">Unlike the three above this is <b>not</b> a value, it is an order to try. It only does anything inside a <b>Child Condition</b> field (value equals / text contains / id contains / class contains / type).<br><br>
         The extension looks for a child matching <b>A</b>; if none is found it tries <b>B</b>, then <b>C</b>, stopping at the first that matches. The winning value is then <b>reused for the rest of that run</b> instead of being resolved again from scratch. Useful when the same control carries different labels depending on state.<br><br>A <b>∅ Blank</b> entry matches a child whose field is <b>empty</b> — e.g. value equals ∅ finds an input nobody typed in. A Blank win is tried again from the top next time.</p></div>
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">⋮⋮ Reorder</span><span class="ch-title">Drag to change the order</span></div><p class="ch-desc">Grab a row (by <b>⋮⋮</b> or anywhere off its buttons) and drag it up or down. Letting go <b>saves the order</b>; letting go outside the Variables card or pressing <kbd>Esc</kbd> puts the row back. Export Code lists variables in this order too.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">💡 Note</span><span class="ch-title">Switching type keeps your data</span></div><p class="ch-desc">Each variable holds the configuration of <b>all four types</b> at once, so going S → R → P and back to S finds the old value still there. Only the selected type is used at run time.</p></div>`
   },
   exportCode: {
@@ -3054,40 +3057,6 @@ runListDisplay.addEventListener("drop", () => {
   runList = newOrder.map(i => runList[i]);
   updateRunListDisplay();
 });
-
-function getDragAfterElement(container, y) {
-  // Rows hidden by a collapsed Switch have no box to measure.
-  const items = [...container.querySelectorAll("li:not(.dragging)")]
-    .filter(el => el.getClientRects().length > 0);
-  // Measure every row as if the dragged one were not in the list. The dragged
-  // row sits where the last dragover put it, so the rows after it are pushed
-  // down by its height; judged on those shifted boxes, a 40px row passing 30px
-  // rows kept crossing the midpoint back and forth and the list jittered.
-  const dragged = container.querySelector("li.dragging");
-  const dBox = dragged ? dragged.getBoundingClientRect() : null;
-  // Over the dragged row itself: it stays where it is. Otherwise a short row
-  // right below it (a "move out of …" zone) counted as passed and the row
-  // jumped past it the moment the drag began.
-  if (dBox && y >= dBox.top && y <= dBox.bottom) return dragged.nextElementSibling;
-  const shift = dBox ? dBox.height : 0;
-  const draggedTop = dBox ? dBox.top : Infinity;
-  // The pointer is moved into the same "row removed" coordinates as the rows.
-  const yv = dBox && y > dBox.bottom ? y - shift : y;
-
-  return items.reduce(
-    (closest, child) => {
-      const box = child.getBoundingClientRect();
-      const top = box.top > draggedTop ? box.top - shift : box.top;
-      const offset = yv - top - box.height / 2;
-
-      if (offset < 0 && offset > closest.offset) {
-        return { offset, element: child };
-      }
-      return closest;
-    },
-    { offset: Number.NEGATIVE_INFINITY }
-  ).element;
-}
 
 /**
  * Where the dragged row landed, from the visible row right above it — see

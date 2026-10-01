@@ -262,6 +262,43 @@ export function debounce(fn, delay = 200) {
   };
 }
 
+/* === Drag & Drop === */
+
+/** The row the dragged `li.dragging` should be inserted before at pointer y, or undefined for the end. */
+export function getDragAfterElement(container, y) {
+  // Rows hidden by a collapsed Switch have no box to measure.
+  const items = [...container.querySelectorAll("li:not(.dragging)")]
+    .filter(el => el.getClientRects().length > 0);
+  // Measure every row as if the dragged one were not in the list. The dragged
+  // row sits where the last dragover put it, so the rows after it are pushed
+  // down by its height; judged on those shifted boxes, a 40px row passing 30px
+  // rows kept crossing the midpoint back and forth and the list jittered.
+  const dragged = container.querySelector("li.dragging");
+  const dBox = dragged ? dragged.getBoundingClientRect() : null;
+  // Over the dragged row itself: it stays where it is. Otherwise a short row
+  // right below it (a "move out of …" zone) counted as passed and the row
+  // jumped past it the moment the drag began.
+  if (dBox && y >= dBox.top && y <= dBox.bottom) return dragged.nextElementSibling;
+  const shift = dBox ? dBox.height : 0;
+  const draggedTop = dBox ? dBox.top : Infinity;
+  // The pointer is moved into the same "row removed" coordinates as the rows.
+  const yv = dBox && y > dBox.bottom ? y - shift : y;
+
+  return items.reduce(
+    (closest, child) => {
+      const box = child.getBoundingClientRect();
+      const top = box.top > draggedTop ? box.top - shift : box.top;
+      const offset = yv - top - box.height / 2;
+
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: child };
+      }
+      return closest;
+    },
+    { offset: Number.NEGATIVE_INFINITY }
+  ).element;
+}
+
 /* === Variable Usage Scanning === */
 
 /**

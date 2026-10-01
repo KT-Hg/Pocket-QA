@@ -1,6 +1,6 @@
 // Each variable stores a full config object across all 4 types so switching type never discards data.
 
-import { showToast, showConfirm, lockScroll, unlockScroll } from './utils.js';
+import { showToast, showConfirm, lockScroll, unlockScroll, getDragAfterElement } from './utils.js';
 import { listEntries, listSpec, parseListSpec } from '../bg/var-name.js';
 
 /* ── Parsers ─────────────────────────────────────────────────────────────── */
@@ -105,7 +105,65 @@ function _reindexRows() {
 /* ── Auto-save ───────────────────────────────────────────────────────────── */
 
 function _autoSave() {
-  chrome.runtime.sendMessage({ type: 'SAVE_VARIABLES', variables: getVariablesFromTable() });
+  chrome.runtime.sendMessage({ type: 'SAVE_VARIABLES', ..._readTable() });
+}
+
+/* ── Drag to reorder ─────────────────────────────────────────────────────── */
+
+// The row being dragged, and every row in the order it had when the drag
+// began — put back when the row is let go outside the Variables card or the
+// drag is cancelled with Esc, since no drop fires then.
+let _dragRow     = null;
+let _dragFrom    = null;
+let _dragDropped = false;
+
+function _rows() {
+  return [...(getListEl()?.querySelectorAll('li.var-row') || [])];
+}
+
+function _onDragStart(li, e) {
+  _dragRow     = li;
+  _dragFrom    = _rows();
+  _dragDropped = false;
+  li.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function _onDragEnd(li) {
+  li.classList.remove('dragging');
+  const from = _dragFrom;
+  _dragRow = _dragFrom = null;
+  if (!from) return;
+  if (!_dragDropped) getListEl()?.append(...from);
+  else if (_rows().some((r, i) => r !== from[i])) _autoSave();
+  _reindexRows();
+}
+
+/** The whole card is the drop area, so a row can be let go just above or below the list. */
+function _initDragArea() {
+  const ul   = getListEl();
+  const area = ul?.closest('.card') || ul;
+  if (!area) return;
+  area.addEventListener('dragover', (e) => {
+    if (!_dragRow) return; // a file or text dragged in from elsewhere
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const after = getDragAfterElement(ul, e.clientY);
+    // Move only when the spot changes: every move re-lays the list out.
+    if (after == null) {
+      if (ul.lastElementChild === _dragRow) return;
+      ul.appendChild(_dragRow);
+    } else {
+      if (_dragRow.nextElementSibling === after) return;
+      ul.insertBefore(_dragRow, after);
+    }
+    _reindexRows();
+  });
+  area.addEventListener('drop', (e) => {
+    if (!_dragRow) return;
+    e.preventDefault();
+    _dragDropped = true;
+  });
 }
 
 /* ── Row rendering ───────────────────────────────────────────────────────── */
@@ -118,6 +176,9 @@ function _buildRow(key, valOrCfg) {
   li.className      = `var-row t-${t}`;
   li.dataset.key    = key;
   li.dataset.config = JSON.stringify(cfg);
+  li.draggable      = true;
+  li.addEventListener('dragstart', (e) => _onDragStart(li, e));
+  li.addEventListener('dragend',   () => _onDragEnd(li));
 
   const idxSpan = document.createElement('span');
   idxSpan.className = 'vr-idx';
@@ -282,21 +343,29 @@ export function findEmptyRow() {
   return null;
 }
 
-export function getVariablesFromTable() {
-  const ul     = getListEl();
-  const result = {};
-  if (!ul) return result;
-  ul.querySelectorAll('li.var-row').forEach(li => {
+/**
+ * { variables, order } in row order. The order travels as its own list: an
+ * object cannot hold it — chrome.storage sorts the keys, and JS puts
+ * number-like names ("1", "2") first whatever the order they were added in.
+ */
+function _readTable() {
+  const variables = {};
+  const order     = [];
+  _rows().forEach(li => {
     const key = li.dataset.key?.trim();
-    if (key) {
-      try {
-        result[key] = JSON.parse(li.dataset.config || '{}');
-      } catch {
-        result[key] = _defaultConfig();
-      }
+    if (!key) return;
+    if (!Object.hasOwn(variables, key)) order.push(key);
+    try {
+      variables[key] = JSON.parse(li.dataset.config || '{}');
+    } catch {
+      variables[key] = _defaultConfig();
     }
   });
-  return result;
+  return { variables, order };
+}
+
+export function getVariablesFromTable() {
+  return _readTable().variables;
 }
 
 export function loadVariables() {
@@ -310,8 +379,9 @@ export function loadVariables() {
     empty.textContent = 'No variables yet — click + Add Row';
     ul.appendChild(empty);
 
-    const vars = res?.variables || {};
-    Object.entries(vars).forEach(([k, v]) => addVariableRow(k, v));
+    const vars  = res?.variables || {};
+    const order = Array.isArray(res?.order) ? res.order : Object.keys(vars);
+    order.forEach(k => { if (Object.hasOwn(vars, k)) addVariableRow(k, vars[k]); });
     _reindexRows();
   });
 }
@@ -553,6 +623,8 @@ export function initVariables() {
   });
 
   rndType?.addEventListener('change', () => _updateLengthRow(rndType.value));
+
+  _initDragArea();
 
   document.getElementById('addPickValue')?.addEventListener('click',     () => _addPickValueRow(''));
   document.getElementById('addFallbackValue')?.addEventListener('click', () => _addFallbackValueRow(''));
