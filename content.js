@@ -1115,6 +1115,10 @@ function _extMarkOverlay(el) { el.setAttribute(_EXT_OVERLAY_ATTR, '1'); return e
      panel — free-positioned, caller drives top/left and display. Content-owning
              surfaces (highlight tooltip, note bubble).
 
+   A bar with `dodge` lets the pointer through to the page (only its buttons
+   catch it) and moves to the opposite edge when the pointer stays under it, so
+   it never hides page content the user has to reach (element picker).
+
    Content slots, in render order:
      lead → label → detail → trail → hint → cancel button → extra buttons → content
 ─────────────────────────────────────────────────────────────────────────── */
@@ -1142,6 +1146,58 @@ const _EXT_VARIANTS = {
   ],
 };
 
+// A dodging bar's edge and the drop shadow that points away from that edge.
+const _EXT_BAR_EDGES = {
+  top:    { top: '0',    bottom: 'auto', border: 'borderBottom', shadow: _EXT_BAR_SHADOW },
+  bottom: { top: 'auto', bottom: '0',    border: 'borderTop',    shadow: '0 -2px 8px rgba(0,0,0,0.35)' },
+};
+// How long the pointer must stay under a dodging bar before it moves. Long
+// enough to cross the bar's padding on the way to its Cancel button, short
+// enough to feel like the bar simply gets out of the way.
+const _EXT_DODGE_DELAY_MS = 200;
+
+// Moves a `dodge` bar between the top and bottom edges. The pointer is "under"
+// the bar when it is inside the bar's strip but not on one of its buttons: the
+// surface lets events through, so the target is then a page element. Resting
+// there moves the bar to the other edge; reaching a button or leaving the strip
+// first keeps it where it is.
+function _extDodger(el) {
+  // `all:initial` puts pointer-events back to auto on every text span, so each
+  // one is switched off along with the surface. Buttons keep catching clicks.
+  [el, ...el.querySelectorAll('span')].forEach((n) => { n.style.pointerEvents = 'none'; });
+  let edge = 'top';
+  let timer = null;
+  const dock = (to) => {
+    const from = _EXT_BAR_EDGES[edge];
+    const next = _EXT_BAR_EDGES[to];
+    el.style.top    = next.top;
+    el.style.bottom = next.bottom;
+    el.style[from.border + 'Width'] = '0';
+    el.style[next.border + 'Width'] = '1px';
+    el.style[next.border + 'Style'] = 'solid';
+    el.style.boxShadow = next.shadow;
+    edge = to;
+  };
+  const onMove = (e) => {
+    const r = el.getBoundingClientRect();
+    const under = e.clientY >= r.top && e.clientY < r.bottom && !el.contains(e.target);
+    if (!under) { clearTimeout(timer); timer = null; return; }
+    if (timer != null) return;
+    timer = setTimeout(() => {
+      timer = null;
+      dock(edge === 'top' ? 'bottom' : 'top');
+    }, _EXT_DODGE_DELAY_MS);
+  };
+  return {
+    start() { document.addEventListener('mousemove', onMove, true); },
+    stop() {
+      document.removeEventListener('mousemove', onMove, true);
+      clearTimeout(timer);
+      timer = null;
+    },
+  };
+}
+
 // Topmost-first ESC dismissal. Every overlay that declares `onCancel` registers
 // here, so one key handler serves all of them and the most recently opened wins
 // — no overlay hand-rolls its own Escape branch.
@@ -1167,6 +1223,7 @@ function _extOverlay({
   buttons  = [],             // [{ key, label, tone:'danger', onClick }]
   content  = [],             // panel children
   extra    = [],             // footprint-level overrides (position, animation)
+  dodge    = false,          // bar only: see the template notes above
 } = {}) {
   const el = _extMarkOverlay(document.createElement('div'));
   if (id) el.id = id;
@@ -1225,18 +1282,21 @@ function _extOverlay({
    ...buttons.map((s) => btns[s.key || s.label]), ...content]
     .forEach((node) => { if (node) el.appendChild(node); });
 
+  const dodger = dodge && variant === 'bar' ? _extDodger(el) : null;
+
   const handle = {
     el,
     buttons: btns,
     setLabel(text)  { if (labelEl)  labelEl.textContent  = text; },
     setDetail(text) { if (detailEl) detailEl.textContent = text; },
-    mount(parent = document.documentElement) { parent.appendChild(el); return handle; },
+    mount(parent = document.documentElement) { parent.appendChild(el); dodger?.start(); return handle; },
     // Idempotent: overlays tear down from several entry points (button, ESC,
     // timer expiry, a second capture starting) and any of them may run twice.
     destroy() {
       const i = _extEscStack.indexOf(handle);
       if (i !== -1) _extEscStack.splice(i, 1);
       unregisterTheme();
+      dodger?.stop();
       el.remove();
     },
     cancel() { handle.destroy(); onCancel?.(); },
@@ -1257,6 +1317,8 @@ function showPickerBar() {
   _pickerBar = _extOverlay({
     id: '__picker_bar',
     variant: 'bar',
+    // Headers and nav sit right under a top bar; the user must still reach them.
+    dodge: true,
     label: '🎯 Click an element to select it',
     onCancel: () => {
       pickerMode = false;
