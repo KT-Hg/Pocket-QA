@@ -4,7 +4,7 @@
  *
  *   node tools/verify.mjs                 static checks, unit + golden tests, selftests
  *   node tools/verify.mjs --eslint        … plus ESLint against tools/eslint-baseline.json
- *   node tools/verify.mjs --smoke         … plus tools/smoke.mjs (needs Playwright, see that file)
+ *   node tools/verify.mjs --smoke         … plus tools/smoke.mjs (Playwright), or tools/smoke-cdp.mjs without it
  *   node tools/verify.mjs --all           everything
  *   node tools/verify.mjs --eslint --update-baseline   rewrite the ESLint baseline
  *
@@ -107,8 +107,11 @@ if (ALL || args.has('--eslint')) {
 
 if (ALL || args.has('--smoke')) {
   step('smoke (Chromium + extension)', () => {
-    const r = run(process.execPath, ['tools/smoke.mjs']);
-    return { ok: r.status === 0, detail: tail(r.out, 1), output: r.status ? tail(r.out, 40) : '' };
+    let r = run(process.execPath, ['tools/smoke.mjs']);
+    let how = 'Playwright';
+    // smoke.mjs exits 2 when Playwright is not installed: the same checks over plain CDP.
+    if (r.status === 2) { r = run(process.execPath, ['tools/smoke-cdp.mjs']); how = 'CDP'; }
+    return { ok: r.status === 0, detail: `${how}: ${tail(r.out, 1)}`, output: r.status ? tail(r.out, 40) : '' };
   });
 }
 

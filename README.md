@@ -1029,7 +1029,8 @@ Naming:
 ### Development checks
 
 The extension has no build step and no dependencies; the checks below need only Node (Playwright and ESLint are
-fetched or pointed at, never added to the repo). Bugs and limits seen but not fixed yet are listed in
+fetched or pointed at, never added to the repo; without Playwright, the browser checks run over plain CDP in Edge or
+Chromium). Bugs and limits seen but not fixed yet are listed in
 [`docs/known-issues.md`](docs/known-issues.md).
 
 ```bash
@@ -1042,6 +1043,7 @@ node tools/verify.mjs --all      # … + ESLint vs baseline + smoke run in a rea
 | `tools/check-imports.mjs` | Every `import` resolves and every imported name is exported; manifest paths, `<script>`/`<link>` in the pages, `getURL('…')` and `files: ['…']` exist; every module an Adminer page imports is in `web_accessible_resources`. |
 | `tests/*.test.mjs` | Unit tests, plus four characterization tests. `golden.test.mjs`: the pure modules, the CSV result files and both code exporters must return exactly what is stored in `tests/golden/` (rewrite with `node tests/golden/update.mjs`). `router.test.mjs`: background.js driven through 140 steps against an in-memory `chrome` (`tests/helpers/chrome-fake.mjs`) must reproduce `tests/golden/router.json` — answers, chrome.* calls, storage and state (rewrite with `node tests/router.test.mjs --update`). `playback.test.mjs`: every action type through its success and failure paths (prompt retry / skip / stop / no answer), Condition skips, Switch jumps, nested scenarios and blocks, and the single / resume / sequence / CSV entry points → `tests/golden/playback.json`. `capture.test.mjs`: visible, full page, scroll, segment, element and window capture with zoom, tiling past 4 000 px, cancels and the capture messages → `tests/golden/capture.json`; frames and canvases are described rather than drawn (`tests/helpers/bg-fakes.mjs`), so the transcript shows every tile and where it was stitched. Both rewrite with `--update`. Rewrite only for an intended change, in its own commit. |
 | `tools/smoke.mjs` | Loads the unpacked extension in Chromium: the service worker starts and answers, the five pages load without errors and follow the shared theme key, `content.js` answers PING, the DB tools modules load on an Adminer-looking page. `--shots <dir>` saves light/dark screenshots of every popup tab (as if opened on an activated http page) and of the other pages, for a before/after comparison. Needs Playwright: `NODE_PATH` to an install, or `PLAYWRIGHT_CORE` = a `playwright-core` directory; `CHROMIUM_PATH` picks the browser (branded Chrome ignores `--load-extension`; Edge and Chromium accept it). |
+| `tools/smoke-cdp.mjs` | The same checks as `smoke.mjs` (and `--shots`, with animations stopped so two runs give identical images) without Playwright: it drives the browser over the DevTools protocol with Node's own WebSocket (Node 22+, `tools/lib/cdp-browser.mjs`). It also checks the popup on an activated page: the status bar says Active and the Now Playing bar opens its panel. `CHROMIUM_PATH` picks the browser, else the usual Edge / Chromium install; downloads stay in a temporary profile. `verify --smoke` runs it when Playwright is missing. |
 | `tools/eslint.config.mjs` | `npx --yes eslint@9.39.5 -c tools/eslint.config.mjs .` — a change may not raise any rule's count above `tools/eslint-baseline.json`. |
 
 ### Key Technical Constraints (WHY knowledge)
