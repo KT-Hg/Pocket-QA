@@ -375,6 +375,20 @@ export function populateSwitchScenarioSelect() {
   _syncAddRowMode();
 }
 
+/**
+ * The scenarios have (re)loaded. A list filled before they arrived — a draft
+ * restored as the popup opens — is still empty, so fill it now. An Always
+ * Switch's case is the scenario its list shows: that list is refilled every time.
+ * A filled list on a variable is left alone, so a scenario picked for the case
+ * being added stays picked.
+ */
+export function refreshSwitchScenarioSelect() {
+  const sel = document.getElementById("switchCaseScenario");
+  if (!sel) return;
+  const emptyButLoaded = !sel.options.length && Object.keys(ui.scenariosCache || {}).length > 0;
+  if (switchMode() === "always" || emptyButLoaded) populateSwitchScenarioSelect();
+}
+
 /** Re-render everything in the Switch form that depends on the cases. */
 export function refreshSwitchForm() {
   renderSwitchCaseList();

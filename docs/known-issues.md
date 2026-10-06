@@ -15,9 +15,6 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   (`popup/connection.js`) đọc `state.currentTabId` / `state.activatedTabs` của `popup/state.js`, nhưng không ai gán
   hai giá trị đó; interval của nó cũng không bao giờ bị xoá (dù callback không làm gì). Cần quyết định: bật health
   check (tab có thể bị đánh dấu "Lost") hay xoá hẳn.
-- **Switch theo biến: ô Scenario trống khi mở lại popup trên bản nháp.** Nếu bản nháp được khôi phục trước khi
-  danh sách scenario nạp xong, danh sách Scenario trong trình soạn case trống cho tới khi đổi loại action. Chế độ
-  **Always** đã xử lý (`loadScenarios` điền lại danh sách khi form đang ở Always).
 
 ## Giới hạn của tính năng
 

@@ -4,9 +4,8 @@
 
 import { renderCsvScenarioSelect, renderExportCodeSelect } from '../csv/csv-run.js';
 import { filterFolder, scenarioList, scenarioSearch, scenarioSort, sequenceScenarioList } from '../dom.js';
-import { switchMode } from '../record/form-fields.js';
 import { previewActions } from '../record/preview.js';
-import { populateSwitchScenarioSelect } from '../record/switch-case-builder.js';
+import { refreshSwitchScenarioSelect } from '../record/switch-case-builder.js';
 import { renderScheduleScenarioSelect } from '../run/schedule.js';
 import { ui } from '../ui-state.js';
 import { debounce } from '../utils.js';
@@ -189,9 +188,8 @@ export function loadScenarios() {
     renderScheduleScenarioSelect();
     renderCsvScenarioSelect();
     renderExportCodeSelect();
-    // An Always Switch's case is the scenario its list shows: a form restored
-    // before the scenarios arrived shows it now.
-    if (switchMode() === "always") populateSwitchScenarioSelect();
+    // A Switch form restored before the scenarios arrived lists them now.
+    refreshSwitchScenarioSelect();
 
     // Restore scenario selection if stopped recording via hotkey while popup was closed
     chrome.storage.local.get(["pendingRecordScenarioId"], (stored) => {
