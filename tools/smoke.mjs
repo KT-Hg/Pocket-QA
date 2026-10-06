@@ -27,12 +27,12 @@
  * Usage: node tools/smoke.mjs [--headed] [--shots <dir>]
  */
 
-import { createServer } from 'node:http';
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
+import { startServer } from './lib/smoke-pages.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -59,24 +59,6 @@ const failures = [];
 const fail = (msg) => { failures.push(msg); console.log(`  ✖ ${msg}`); };
 const ok = (msg) => console.log(`  ✔ ${msg}`);
 
-const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>smoke</title></head>
-<body><h1 id="title">Smoke page</h1><input id="name"><button id="go">Go</button>
-<select id="pick"><option>a</option><option>b</option></select></body></html>`;
-const ADMINER_PAGE = `<!doctype html><html><head><meta charset="utf-8"><meta name="generator" content="Adminer 4.8.1">
-<title>Adminer</title></head><body><div id="menu"></div><div id="content"><p>not a real Adminer page</p></div>
-<form><input type="hidden" name="token" value="x"></form></body></html>`;
-
-function startServer() {
-  return new Promise((res) => {
-    const server = createServer((req, reply) => {
-      reply.setHeader('content-type', 'text/html; charset=utf-8');
-      reply.end(req.url.startsWith('/adminer') ? ADMINER_PAGE : TEST_PAGE);
-    });
-    // A fixed port when screenshotting: the Highlight tab shows the page's host.
-    server.listen(SHOTS ? 47321 : 0, '127.0.0.1', () => res(server));
-  });
-}
-
 /** Collect errors of one page until `watch.stop()`. */
 function watch(page, label) {
   const errors = [];
@@ -93,7 +75,8 @@ function watch(page, label) {
 async function main() {
   const pw = await loadPlaywright();
   const userData = mkdtempSync(join(tmpdir(), 'pqa-smoke-'));
-  const server = await startServer();
+  // A fixed port when screenshotting: the Highlight tab shows the page's host.
+  const server = await startServer(SHOTS ? 47321 : 0);
   const base = `http://127.0.0.1:${server.address().port}`;
   const context = await pw.chromium.launchPersistentContext(userData, {
     headless: !HEADED,
