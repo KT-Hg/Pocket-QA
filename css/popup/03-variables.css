@@ -455,6 +455,10 @@
 
 /* === Variable suggestions — popup/ui/var-suggest.js === */
 .var-suggest {
+  /* Chip colours per kind: the .vt-i badge hues, darkened to read on a light surface */
+  --vs-r: #b45309;
+  --vs-p: #2563eb;
+  --vs-f: #0f766e;
   position: fixed;
   z-index: 10000;
   margin: 0;
@@ -468,6 +472,11 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
   font-size: 12px;
 }
+[data-theme="dark"] .var-suggest {
+  --vs-r: #f59e0b;
+  --vs-p: #60a5fa;
+  --vs-f: #2dd4bf;
+}
 .var-suggest li {
   display: flex;
   align-items: center;
@@ -475,6 +484,9 @@
   padding: 4px 8px;
   cursor: pointer;
 }
+.var-suggest li.k-r { --vs-c: var(--vs-r); }
+.var-suggest li.k-p { --vs-c: var(--vs-p); }
+.var-suggest li.k-f { --vs-c: var(--vs-f); }
 .var-suggest li.is-active,
 .var-suggest li:hover { background: var(--secondary-bg); }
 .var-suggest .vs-name {
@@ -484,12 +496,53 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* The value side: chips for Pick / Fallback / Random, a muted line otherwise */
 .var-suggest .vs-detail {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
   margin-left: auto;
-  max-width: 55%;
+  max-width: 62%;
+  min-width: 0;
   color: var(--muted);
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
+}
+.var-suggest .vs-text {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+}
+.var-suggest .vs-detail.is-empty .vs-text,
+.var-suggest li.k-w .vs-text,
+.var-suggest li.k-c .vs-text { font-style: italic; opacity: 0.85; }
+.var-suggest .vs-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 96px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--vs-c, var(--muted));
+  background: color-mix(in srgb, var(--vs-c, var(--muted)) 15%, transparent);
+}
+.var-suggest .vs-chip.is-blank { font-style: italic; font-weight: 500; }
+.var-suggest .vs-sep {
+  flex-shrink: 0;
+  font-size: 10px;
+  opacity: 0.7;
+}
+.var-suggest .vs-more {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 14px;
 }

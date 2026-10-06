@@ -8,6 +8,9 @@
  *                field is focused or typed in, and writes the bare name.
  * getEntries() gives [{ name, kind, detail }] (or a promise of it); it is asked
  * each time the field gets focus. shared/var-suggest.js decides what fits.
+ * `detail` is what the row shows on its right: `{ chips, more, chain }` (a
+ * Data tab value as varValueDetail reads it) or `{ text }`, and `spec` for the
+ * row's tooltip.
  *
  * One list serves every field. It sits under the field, or above it when there
  * is more room there, and closes on blur, Escape or a choice. ↑ / ↓ move,
@@ -29,6 +32,8 @@ const MIN_HEIGHT = 80;
 // Badge per kind: the Variables tab's S / R / P / F, a step that writes the
 // variable (#), a column of the loaded CSV (C).
 const BADGE = { s: 'S', r: 'R', p: 'P', f: 'F', w: '#', c: 'C' };
+// A Blank Pick / Fallback entry, named as the Variables tab names it.
+const BLANK_TEXT = '∅ blank';
 
 let list = null;    // the <ul>, made on first use
 let cur = null;     // the open list: { st, token, matches, active }
@@ -93,24 +98,44 @@ function _mark() {
   else el.removeAttribute('aria-activedescendant');
 }
 
+function _span(className, text) {
+  const s = document.createElement('span');
+  s.className = className;
+  s.textContent = text;
+  return s;
+}
+
+/** The right side of a row: a chip per value (arrows between Fallback values), or a line of text. */
+function _detail({ chips, more, chain, text } = {}) {
+  const box = _span('vs-detail', '');
+  if (!chips) {
+    // Only a Static value is ever empty; a step or a CSV column always says what it is.
+    box.append(_span('vs-text', text || 'empty'));
+    box.classList.toggle('is-empty', !text);
+    return box;
+  }
+  chips.forEach((c, k) => {
+    if (k && chain) box.append(_span('vs-sep', '→'));
+    const chip = _span('vs-chip', c === '' ? BLANK_TEXT : c);
+    chip.classList.toggle('is-blank', c === '');
+    box.append(chip);
+  });
+  if (more) box.append(_span('vs-more', `+${more}`));
+  return box;
+}
+
 function _render() {
   const ul = _list();
   ul.replaceChildren(...cur.matches.map((m, k) => {
     const li = document.createElement('li');
     li.id = `${LIST_ID}-${k}`;
     li.dataset.k = String(k);
+    li.className = `k-${m.kind}`;
     li.setAttribute('role', 'option');
-    const badge = document.createElement('span');
-    badge.className = `vt-i ${m.kind}`;
-    badge.textContent = BADGE[m.kind] || '?';
+    if (m.detail?.spec) li.title = m.detail.spec;
+    const badge = _span(`vt-i ${m.kind}`, BADGE[m.kind] || '?');
     badge.setAttribute('aria-hidden', 'true');
-    const name = document.createElement('span');
-    name.className = 'vs-name';
-    name.textContent = m.name;
-    const detail = document.createElement('span');
-    detail.className = 'vs-detail';
-    detail.textContent = m.detail || '';
-    li.append(badge, name, detail);
+    li.append(badge, _span('vs-name', m.name), _detail(m.detail));
     return li;
   }));
   ul.hidden = false;
