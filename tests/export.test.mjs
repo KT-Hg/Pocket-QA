@@ -104,3 +104,18 @@ test('Read DOM Extract: each ${name} is read out of the text, in both exports', 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('Random: the length is capped at 512 in both exports and the preview, as a run caps it', async () => {
+  const { parseRandomSpec, MAX_RANDOM_LENGTH } = await import('../shared/var-spec.js');
+  assert.equal(MAX_RANDOM_LENGTH, 512);
+  assert.deepEqual(parseRandomSpec('{random:alpha:9999}'), { type: 'alpha', length: 512 });
+  assert.deepEqual(parseRandomSpec('{random:numeric:512}'), { type: 'numeric', length: 512 });
+  const steps = [{ type: 'input', selector: '#o', selectors: { css: '#o' }, value: '${big} ${small}' }];
+  const v = { big: '{random:alpha:9999}', small: '{random:numeric:12}' };
+  const js = generateBookmarklet('rand', steps, v).code;
+  assert.match(js, /_gen_big = \(\) => Array\.from\(\{length:512\}/);
+  assert.match(js, /_gen_small = \(\) => Array\.from\(\{length:12\}/);
+  const py = generateSeleniumPy('rand', steps, v).code;
+  assert.match(py, /^big = ''\.join\(random\.choices\(string\.ascii_letters, k=512\)\)$/m);
+  assert.match(py, /^small = ''\.join\(random\.choices\(string\.digits, k=12\)\)$/m);
+});

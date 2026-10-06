@@ -6,10 +6,7 @@
 
 import { formatStamp } from '../shared/time-format.js';
 import { SELECTOR_KEYS, normalizeVarRef, parseListSpec } from '../shared/var-name.js';
-import { RANDOM_CHARSETS, activeValueText } from '../shared/var-spec.js';
-
-// {random:<charset>:<length>} makes at most this many characters.
-const MAX_RANDOM_LENGTH = 512;
+import { MAX_RANDOM_LENGTH, RANDOM_CHARSETS, activeValueText } from '../shared/var-spec.js';
 
 /* ── Variable Interpolation ─────────────────────────────────────────────────── */
 

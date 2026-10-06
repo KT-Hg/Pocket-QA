@@ -51,10 +51,17 @@ export function activeValueText(v) {
   return String(v || '');
 }
 
-/** `{ type, length }` (length a number) when the active value is a Random spec, else null. */
+// {random:<charset>:<length>} makes at most this many characters: in a run
+// (resolveRandomVars, bg/interpolate.js) and in exported code alike.
+export const MAX_RANDOM_LENGTH = 512;
+
+/**
+ * `{ type, length }` when the active value is a Random spec, else null. `length` is
+ * a number, capped at MAX_RANDOM_LENGTH as a run caps it.
+ */
 export function parseRandomSpec(val) {
   const m = activeValue(val).match(/^\{random:(\w+):(\d+)\}$/);
-  return m ? { type: m[1], length: parseInt(m[2]) } : null;
+  return m ? { type: m[1], length: Math.min(parseInt(m[2]), MAX_RANDOM_LENGTH) } : null;
 }
 
 /** The Pick values when the active value is a Pick spec, else null. */
