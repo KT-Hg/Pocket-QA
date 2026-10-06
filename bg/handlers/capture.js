@@ -6,7 +6,7 @@
  * onMessage listener returns: `true` while sendResponse is still to come.
  */
 
-import { state } from '../state.js';
+import { idleSegmentCapture, state } from '../state.js';
 import { updateBadge } from '../badge.js';
 import { takeFullPageScreenshot, compareScreenshots, downloadDataUrl, openCropUI, buildScreenshotFilename, getPendingCrop, reportCaptureResult } from '../screenshot.js';
 import { ignoreLastError } from '../last-error.js';
@@ -152,7 +152,7 @@ export const captureHandlers = {
   /* --- Segment capture: stop & capture --- */
   CAPTURE_SEGMENT(request, sender, sendResponse) {
     const { tabId, dir, crop, origZoom, fromHotkey } = state.segmentCapture;
-    state.segmentCapture = { active: false, tabId: null, dir: null, crop: false, fromHotkey: false };
+    state.segmentCapture = idleSegmentCapture();
     // Restore the user's zoom once the capture settles (success or error).
     const restoreZoom = () => { if (origZoom != null && tabId != null) chrome.tabs.setZoom(tabId, origZoom, ignoreLastError); };
     readCaptureSettings(({ saveMode, prefix }) => {
@@ -178,7 +178,7 @@ export const captureHandlers = {
   CANCEL_SEGMENT_CAPTURE(request, sender, sendResponse) {
     const { tabId, origZoom } = state.segmentCapture;
     if (origZoom != null && tabId != null) chrome.tabs.setZoom(tabId, origZoom, ignoreLastError);
-    state.segmentCapture = { active: false, tabId: null, dir: null };
+    state.segmentCapture = idleSegmentCapture();
     sendResponse({ ok: true });
     return;
   },

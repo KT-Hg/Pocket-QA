@@ -4,9 +4,6 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 
 ## Bug có từ trước (thấy trong đợt refactor)
 
-- **Segment capture reset hai kiểu khác nhau.** `CANCEL_SEGMENT_CAPTURE` và `CAPTURE_SEGMENT` đặt lại
-  `state.segmentCapture` thành hai shape khác nhau (`{active,tabId,dir}` và `{active,tabId,dir,crop,fromHotkey}`).
-  Hiện vô hại vì lần bắt đầu kế tiếp ghi đè toàn bộ object, nhưng nên thống nhất.
 - **Health check kết nối 2 giây của popup không bao giờ chạy.** `checkContentScriptConnection`
   (`popup/connection.js`) đọc `state.currentTabId` / `state.activatedTabs` của `popup/state.js`, nhưng không ai gán
   hai giá trị đó; interval của nó cũng không bao giờ bị xoá (dù callback không làm gì). Cần quyết định: bật health

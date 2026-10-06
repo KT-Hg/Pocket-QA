@@ -7,6 +7,12 @@
  * session-storage quota on large CSV files.
  */
 
+/**
+ * No segment capture in progress. One shape for start-up, after a capture and after
+ * a cancel; beginSegmentSession (handlers/capture.js) fills the same fields.
+ */
+export const idleSegmentCapture = () => ({ active: false, tabId: null, dir: null, crop: false, origZoom: null, fromHotkey: false });
+
 export const state = {
   recording: false,
   recordingTabId: null,
@@ -48,7 +54,7 @@ export const state = {
     // which clears `active` and drops the partial row.
     stopAfterRow: false,
   },
-  segmentCapture: { active: false, tabId: null, dir: null, fromHotkey: false },
+  segmentCapture: idleSegmentCapture(),
 };
 
 /* === CSV Playback State Persistence ===
