@@ -15,9 +15,6 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   (`popup/connection.js`) đọc `state.currentTabId` / `state.activatedTabs` của `popup/state.js`, nhưng không ai gán
   hai giá trị đó; interval của nó cũng không bao giờ bị xoá (dù callback không làm gì). Cần quyết định: bật health
   check (tab có thể bị đánh dấu "Lost") hay xoá hẳn.
-- **`captureTab` không thử lại khi chạm giới hạn tần suất.** `bg/screenshot/capture-tab.js` chỉ thử lại khi lỗi có
-  chữ "rate", nhưng lỗi thật của Chrome là "This request exceeds the MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND
-  quota." — hai lần chụp visible trong cùng một giây làm lần sau báo "Capture failed".
 - **Service worker không có `CSS`.** Dropdown hoặc Upload File chỉ có `selectors.id` (không có `selectors.css`,
   không có `selector`) gọi `CSS.escape` trong service worker và lỗi "CSS is not defined"
   (`bg/playback/steps/dropdown.js`, `upload.js`).

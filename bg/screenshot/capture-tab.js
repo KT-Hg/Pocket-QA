@@ -6,6 +6,9 @@
 // captureVisibleTab allows about one call a second; a rate-limited call is tried
 // once more after just over that.
 const RATE_LIMIT_RETRY_MS = 1100;
+// Chrome says "This request exceeds the MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND
+// quota." — no "rate" in it; "rate" is kept for any other wording.
+const RATE_LIMIT_ERROR = /MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND|rate/i;
 // Between the discarded first frame and the one kept (see captureTabDouble).
 const DOUBLE_CAPTURE_GAP_MS = 80;
 
@@ -26,7 +29,7 @@ function captureTab(windowId = null, _retried = false) {
     chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
       if (chrome.runtime.lastError) {
         const msg = chrome.runtime.lastError.message || '';
-        if (!_retried && /rate/i.test(msg)) {
+        if (!_retried && RATE_LIMIT_ERROR.test(msg)) {
           setTimeout(() => resolve(captureTab(windowId, true)), RATE_LIMIT_RETRY_MS);
         } else {
           resolve(null);
