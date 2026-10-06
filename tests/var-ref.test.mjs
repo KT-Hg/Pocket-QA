@@ -68,7 +68,8 @@ test('Pick can resolve to a Blank', () => {
 });
 
 test('Fallback Blank matches a child whose field is empty', () => {
-  const src = readFileSync(new URL('../content.js', import.meta.url), 'utf8');
+  // A Windows checkout with core.autocrlf has CRLF line ends; the search below is for LF.
+  const src = readFileSync(new URL('../content.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const start = src.indexOf('// Detects {fallback:A|B|C}');
   const end = src.indexOf('return { el: null, resolvedFallbacks };\n}', start) + 42;
   assert.ok(start > 0 && end > start, 'fallback block not found in content.js');
