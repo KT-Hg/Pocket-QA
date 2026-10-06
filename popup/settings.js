@@ -1,5 +1,5 @@
 import { showToast } from './utils.js';
-import { computeLockState, evaluateRemoteConfig } from '../bg/update-lock.js';
+import { computeLockState, evaluateRemoteConfig } from '../shared/update-lock.js';
 
 const DEFAULT_HOTKEYS = {
   startRecord:       'Alt+R',
@@ -31,7 +31,7 @@ export function updateRangeFill(slider) {
  * Shows a real example rather than the abstract template: the capture-type tag is
  * the whole point of the checkbox, and "_full" reads clearer than "{type}".
  */
-export function updateScreenshotNameHint() {
+function updateScreenshotNameHint() {
   const hint = document.getElementById('screenshotNameHint');
   if (!hint) return;
   const prefix  = document.getElementById('screenshotPrefix')?.value?.trim() || 'screenshot';
@@ -41,7 +41,7 @@ export function updateScreenshotNameHint() {
     : `Format: ${prefix}_2026-01-31_09-45-00.png`;
 }
 
-export function loadScreenshotSettings() {
+function loadScreenshotSettings() {
   chrome.storage.local.get(['screenshotCountdownEnabled', 'screenshotCountdownSeconds'], (res) => {
     const cb  = document.getElementById('screenshotCountdownEnabled');
     const sel = document.getElementById('screenshotCountdownSeconds');
@@ -89,7 +89,7 @@ export function loadScreenshotSettings() {
 }
 
 // Modifier-only keypresses (e.g. just Alt) return '' — no non-modifier key is pushed.
-export function formatKeyEvent(e) {
+function formatKeyEvent(e) {
   const parts = [];
   if (e.ctrlKey)  parts.push('Ctrl');
   if (e.altKey)   parts.push('Alt');
@@ -116,7 +116,7 @@ const HOTKEY_LABEL_IDS = {
   screenshotElement: 'hotkeyScreenshotElement',
 };
 
-export function loadHotkeySettings() {
+function loadHotkeySettings() {
   chrome.storage.sync.get(['hotkeys'], (res) => {
     const h = { ...DEFAULT_HOTKEYS, ...(res.hotkeys || {}) };
     // Guarded lookups: a renamed or removed element used to throw straight out of
@@ -128,7 +128,7 @@ export function loadHotkeySettings() {
   });
 }
 
-export function cancelHotkeyCapture() {
+function cancelHotkeyCapture() {
   if (!capturingHotkey) return;
   capturingHotkey.btn.textContent = 'Set';
   capturingHotkey.btn.classList.remove('capturing');
@@ -136,7 +136,7 @@ export function cancelHotkeyCapture() {
 }
 
 /**
- * Notification categories, mirroring NOTIFY_KEY / NOTIFY_DEFAULT in bg/utils.js.
+ * Notification categories, mirroring NOTIFY_KEY / NOTIFY_DEFAULT in bg/notify.js.
  *
  * The defaults must stay in sync with that file: an absent key is not simply
  * "off" — errors, captures and scheduled runs default to on, so the checkbox has
@@ -158,7 +158,7 @@ const NOTIFY_TOGGLES = {
  * attach a fresh listener each time. Ten tab switches meant one click writing
  * chrome.storage.sync eleven times, against a hard quota of 120 writes/minute.
  */
-export function loadNotificationSetting() {
+function loadNotificationSetting() {
   const keys = Object.keys(NOTIFY_TOGGLES);
   chrome.storage.sync.get(keys, (res) => {
     for (const key of keys) {
@@ -175,7 +175,7 @@ function formatWhen(ts) {
   return new Date(ts).toLocaleString();
 }
 
-export function loadUpdateInfo() {
+function loadUpdateInfo() {
   const cur = document.getElementById('updateInfoCurrent');
   if (!cur) return;
   cur.textContent = chrome.runtime.getManifest().version;
@@ -206,20 +206,15 @@ export function loadUpdateInfo() {
 
     if (rowEl) rowEl.hidden = !lock.pending;
     if (deadlineEl && lock.pending) {
-      deadlineEl.textContent = lock.critical
-        ? 'none — critical update'
-        : lock.locked
-          ? 'passed — features locked'
-          : `${formatWhen(lock.deadline)} (${lock.daysLeft} day${lock.daysLeft === 1 ? '' : 's'} left)`;
+      if (lock.critical) deadlineEl.textContent = 'none — critical update';
+      else if (lock.locked) deadlineEl.textContent = 'passed — features locked';
+      else deadlineEl.textContent = `${formatWhen(lock.deadline)} (${lock.daysLeft} day${lock.daysLeft === 1 ? '' : 's'} left)`;
     }
     if (noteEl) {
-      noteEl.textContent = lock.critical
-        ? (hard.message || 'A critical update is required.')
-        : lock.locked
-          ? 'Recording, playback and screenshots are locked until the update is installed.'
-          : lock.pending
-            ? 'Recording, playback and screenshots lock if the update is not installed by the deadline.'
-            : 'Checked automatically once a day.';
+      if (lock.critical) noteEl.textContent = hard.message || 'A critical update is required.';
+      else if (lock.locked) noteEl.textContent = 'Recording, playback and screenshots are locked until the update is installed.';
+      else if (lock.pending) noteEl.textContent = 'Recording, playback and screenshots lock if the update is not installed by the deadline.';
+      else noteEl.textContent = 'Checked automatically once a day.';
     }
   });
 }
@@ -284,7 +279,8 @@ export function initSettings() {
       const btn = document.getElementById('saveScreenshotSettings');
       if (btn) {
         btn.textContent = 'Saved';
-        setTimeout(() => { btn.textContent = 'Save Settings'; }, 1500);
+        const SAVED_LABEL_MS = 1500;
+        setTimeout(() => { btn.textContent = 'Save Settings'; }, SAVED_LABEL_MS);
       }
     });
   });
@@ -333,7 +329,7 @@ export function initSettings() {
   /* --- Notification category toggles ---
    * Bound here, exactly once. reloadSettings() only refreshes values.
    * Written explicitly even when the value equals the default, so the stored key
-   * always exists once touched — bg/utils.js distinguishes "absent" (use default)
+   * always exists once touched — bg/notify.js distinguishes "absent" (use default)
    * from "false" (user turned it off). */
   for (const key of Object.keys(NOTIFY_TOGGLES)) {
     document.getElementById(key)?.addEventListener('change', (e) => {

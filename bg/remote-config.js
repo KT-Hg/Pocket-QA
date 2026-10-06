@@ -15,10 +15,8 @@
  * or stale must never lock anyone: the whole point of the switch is to protect
  * users, and a hosting outage that bricked every install would do the opposite.
  * The last good config is cached so a brief outage doesn't drop an active lock,
- * but bounded by the staleness window in evaluateRemoteConfig().
+ * but bounded by the staleness window in evaluateRemoteConfig() (shared/update-lock.js).
  */
-
-import { evaluateRemoteConfig } from './update-lock.js';
 
 const CONFIG_URL = 'https://kt-hg.github.io/Pocket-QA/update-config.json';
 
@@ -76,14 +74,8 @@ export async function fetchRemoteConfig() {
   }
 }
 
-export function getCachedConfig() {
+function getCachedConfig() {
   return new Promise((resolve) => {
     chrome.storage.local.get(['remoteConfig'], (res) => resolve(res?.remoteConfig || null));
   });
-}
-
-/** Convenience wrapper: is the running build below a hard-locked floor right now? */
-export async function getHardLock() {
-  const config = await getCachedConfig();
-  return evaluateRemoteConfig(config, chrome.runtime.getManifest().version);
 }

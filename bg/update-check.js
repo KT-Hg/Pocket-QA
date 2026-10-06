@@ -24,11 +24,10 @@
  *   autoApplyTries       installs a critical update.
  */
 
-import { computeLockState, evaluateRemoteConfig, compareVersions, LOCK_MESSAGE, DAY_MS } from './update-lock.js';
+import { computeLockState, evaluateRemoteConfig, compareVersions, LOCK_MESSAGE, DAY_MS } from '../shared/update-lock.js';
 import { fetchRemoteConfig } from './remote-config.js';
-import { sendAlertNotification } from './utils.js';
-
-export { compareVersions };
+import { sendAlertNotification } from './notify.js';
+import { ignoreLastError } from './last-error.js';
 
 export const UPDATE_ALARM = "updateCheckDaily";
 
@@ -192,7 +191,7 @@ function verdict() {
 }
 
 /** Re-read from storage and return the current verdict. */
-export async function refreshLockState() {
+async function refreshLockState() {
   _anchorsPromise = loadAnchors();
   await _anchorsPromise;
   return verdict();
@@ -298,6 +297,8 @@ async function remindBeforeDeadline() {
 /* === Notification for blocked actions === */
 
 let _lastLockNotice = 0;
+// At most one "locked" notification in this long (a held hotkey would repeat it).
+const LOCK_NOTICE_INTERVAL_MS = 10_000;
 
 /**
  * Tell the user why nothing happened. The popup shows a toast when it is open;
@@ -306,7 +307,7 @@ let _lastLockNotice = 0;
  */
 export function notifyLocked(message = LOCK_MESSAGE) {
   chrome.runtime.sendMessage({ type: 'UPDATE_LOCK_BLOCKED', message }).catch(() => {});
-  if (Date.now() - _lastLockNotice < 10_000) return;
+  if (Date.now() - _lastLockNotice < LOCK_NOTICE_INTERVAL_MS) return;
   _lastLockNotice = Date.now();
   try {
     chrome.notifications.create({
@@ -315,7 +316,7 @@ export function notifyLocked(message = LOCK_MESSAGE) {
       title: 'Pocket QA — update required',
       message,
       priority: 2,
-    }, () => { void chrome.runtime.lastError; });
+    }, ignoreLastError);
   } catch (_) { /* notifications unavailable — the toast still fires */ }
 }
 
@@ -328,7 +329,7 @@ export function notifyLocked(message = LOCK_MESSAGE) {
  * its old 7-day period forever.
  */
 export function ensureUpdateAlarm() {
-  chrome.alarms.clear(LEGACY_ALARM, () => { void chrome.runtime.lastError; });
+  chrome.alarms.clear(LEGACY_ALARM, ignoreLastError);
   chrome.alarms.get(UPDATE_ALARM, (alarm) => {
     if (!alarm || alarm.periodInMinutes !== CHECK_PERIOD_MINUTES) {
       chrome.alarms.create(UPDATE_ALARM, { periodInMinutes: CHECK_PERIOD_MINUTES });

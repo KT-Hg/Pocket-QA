@@ -101,13 +101,18 @@ export function removeSnapshotRows(ids) {
 }
 
 /** Service worker: answer the content scripts' requests. Call once at startup. */
+/** The storage call a snapshot message asks for. */
+function runOp(msg) {
+  if (msg.op === 'put') return direct.put(msg.id, msg.data);
+  if (msg.op === 'get') return direct.get(msg.id);
+  if (msg.op === 'remove') return direct.remove([].concat(msg.ids || []));
+  return Promise.reject(new Error(`unknown op: ${msg.op}`));
+}
+
 export function serveSnapshots() {
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg || msg.type !== MESSAGE) return undefined;
-    const op = msg.op === 'put' ? direct.put(msg.id, msg.data)
-      : msg.op === 'get' ? direct.get(msg.id)
-      : msg.op === 'remove' ? direct.remove([].concat(msg.ids || []))
-      : Promise.reject(new Error(`unknown op: ${msg.op}`));
+    const op = runOp(msg);
     op.then(
       (value) => sendResponse({ ok: true, value }),
       (err) => sendResponse({ ok: false, error: String((err && err.message) || err) }),

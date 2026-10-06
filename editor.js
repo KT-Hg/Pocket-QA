@@ -7,13 +7,13 @@
  */
 /* === Confirm Modal === */
 
-// Mirrors trapFocus() in popup/utils.js — the editor is a standalone page and
+// Mirrors trapFocus() in popup/ui/focus.js — the editor is a standalone page and
 // does not import the popup modules, so the behaviour is restated here.
-const CM_FOCUSABLE_SEL = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE_SEL = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-function cmTrapFocus(modalEl) {
+function trapFocus(modalEl) {
   const prevActive = document.activeElement;
-  const getFocusable = () => Array.from(modalEl.querySelectorAll(CM_FOCUSABLE_SEL))
+  const getFocusable = () => Array.from(modalEl.querySelectorAll(FOCUSABLE_SEL))
     .filter(el => el.offsetParent !== null || el === document.activeElement);
 
   const focusable = getFocusable();
@@ -38,7 +38,7 @@ function cmTrapFocus(modalEl) {
   return () => {
     modalEl.removeEventListener('keydown', handler);
     if (prevActive && typeof prevActive.focus === 'function') {
-      try { prevActive.focus(); } catch (_) {}
+      try { prevActive.focus(); } catch (_) { /* opener left the page: nothing to return focus to */ }
     }
   };
 }
@@ -55,7 +55,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   modal.classList.add('show');
   modal.setAttribute('aria-hidden', 'false');
 
-  const releaseFocus = cmTrapFocus(modal);
+  const releaseFocus = trapFocus(modal);
   const close = () => {
     // Blur before hiding — leaving focus inside an aria-hidden subtree is what
     // makes screen readers announce nothing at all afterwards.
@@ -150,7 +150,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   }
 
   /** Format a shortcut object → display string, e.g. "Ctrl+Z" */
-  function fmtSC(sc) {
+  function formatShortcut(sc) {
     if (!sc || !sc.key) return '—';
     const parts = [];
     if (sc.ctrl) parts.push('Ctrl');
@@ -161,7 +161,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   }
 
   /** Match a keyboard event against a shortcut definition */
-  function matchSC(e, sc) {
+  function matchesShortcut(e, sc) {
     if (!sc || !sc.key) return false;
     const ctrl = !!(e.ctrlKey || e.metaKey);
     const keyMatch = e.key.length === 1
@@ -193,7 +193,8 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     // then close — the capture itself is gone and cannot be recovered.
     document.body.textContent = "This capture is no longer available. Take the screenshot again.";
     document.body.style.cssText = "display:flex;align-items:center;justify-content:center;height:100vh;font:14px system-ui;color:#888";
-    setTimeout(() => window.close(), 4000);
+    const READ_THEN_CLOSE_MS = 4000; // long enough to read the line above
+    setTimeout(() => window.close(), READ_THEN_CLOSE_MS);
     return;
   }
   const { dataUrl, downloadPath, saveAs } = res.crop;
@@ -226,9 +227,10 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   let zoomLevel = 1.0;
   const MIN_ZOOM = 1.0, MAX_ZOOM = 50; // 5000% max zoom
 
-  function es()      { return fitScale * zoomLevel; }
-  function zoomedW() { return Math.round(workCanvas.width  * es()); }
-  function zoomedH() { return Math.round(workCanvas.height * es()); }
+  // Screen pixels per image pixel: the fit-to-view scale times the zoom.
+  function effectiveScale() { return fitScale * zoomLevel; }
+  function zoomedW() { return Math.round(workCanvas.width  * effectiveScale()); }
+  function zoomedH() { return Math.round(workCanvas.height * effectiveScale()); }
 
   function applyCanvasSize() {
     const zW = zoomedW(), zH = zoomedH();
@@ -243,19 +245,15 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
 
   function toWork(cx, cy) {
     return {
-      x: clamp(Math.round(cx / es()), 0, workCanvas.width),
-      y: clamp(Math.round(cy / es()), 0, workCanvas.height),
+      x: clamp(Math.round(cx / effectiveScale()), 0, workCanvas.width),
+      y: clamp(Math.round(cy / effectiveScale()), 0, workCanvas.height),
     };
   }
-  function toCanv(wx, wy) { return { cx: wx * es(), cy: wy * es() }; }
+  function toCanv(wx, wy) { return { cx: wx * effectiveScale(), cy: wy * effectiveScale() }; }
 
   function canvasPos(e) {
     const r = cvs.getBoundingClientRect();
     return { cx: clamp(e.clientX-r.left, 0, zoomedW()), cy: clamp(e.clientY-r.top, 0, zoomedH()) };
-  }
-  function rawCanvasPos(e) {
-    const r = cvs.getBoundingClientRect();
-    return { cx: e.clientX - r.left, cy: e.clientY - r.top };
   }
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
@@ -297,7 +295,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     const r = cvs.getBoundingClientRect();
     const vr0 = viewport.getBoundingClientRect();
     // Work-space point under the anchor, plus where that anchor sits inside the viewport box.
-    const wx = (clientX - r.left) / es(), wy = (clientY - r.top) / es();
+    const wx = (clientX - r.left) / effectiveScale(), wy = (clientY - r.top) / effectiveScale();
     const offX = clientX - vr0.left, offY = clientY - vr0.top;
     zoomLevel = newZ;
     applyCanvasSize(); render(); updateZoomUI();
@@ -307,8 +305,8 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     const vr = viewport.getBoundingClientRect(), r2 = cvs.getBoundingClientRect();
     const originX = r2.left - vr.left + viewport.scrollLeft;
     const originY = r2.top  - vr.top  + viewport.scrollTop;
-    viewport.scrollLeft = originX + wx * es() - offX;
-    viewport.scrollTop  = originY + wy * es() - offY;
+    viewport.scrollLeft = originX + wx * effectiveScale() - offX;
+    viewport.scrollTop  = originY + wy * effectiveScale() - offY;
   }
 
   function resetZoom() {
@@ -336,10 +334,11 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   }
 
   /* === 7. Shape drawing === */
+  // eslint-disable-next-line max-params -- the drawing state of one preview frame, in the order the tools pass it
   function drawShapePreview(tCtx, tool, p1c, p2c, fpts, opts = {}) {
     const sw  = opts.strokeWidth ?? strokeWidth;
     const col = opts.color       ?? drawColor;
-    const lw  = Math.max(1, sw * es());
+    const lw  = Math.max(1, sw * effectiveScale());
     tCtx.save();
     tCtx.strokeStyle = col; tCtx.fillStyle = col;
     tCtx.lineWidth = lw; tCtx.lineCap = "round"; tCtx.lineJoin = "round";
@@ -347,8 +346,8 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     if (tool === "draw") {
       if (fpts.length < 2) { tCtx.restore(); return; }
       tCtx.beginPath();
-      tCtx.moveTo(fpts[0].x * es(), fpts[0].y * es());
-      for (let i = 1; i < fpts.length; i++) tCtx.lineTo(fpts[i].x * es(), fpts[i].y * es());
+      tCtx.moveTo(fpts[0].x * effectiveScale(), fpts[0].y * effectiveScale());
+      for (let i = 1; i < fpts.length; i++) tCtx.lineTo(fpts[i].x * effectiveScale(), fpts[i].y * effectiveScale());
       tCtx.stroke();
     } else if (tool === "rect") {
       const rx = Math.min(p1c.cx,p2c.cx), ry = Math.min(p1c.cy,p2c.cy);
@@ -395,6 +394,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     return drew;
   }
 
+  // eslint-disable-next-line max-params -- a context, two end points and a line width, as the canvas calls take them
   function drawArrow(tCtx, x1, y1, x2, y2, lw) {
     const dist=Math.hypot(x2-x1,y2-y1);
     if (dist<2) return;
@@ -437,7 +437,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
 
   function showTextInput(cx, cy) {
     textPosW = toWork(cx, cy);
-    const fDisp = Math.round(strokeWidth * 7 * es());
+    const fDisp = Math.round(strokeWidth * 7 * effectiveScale());
     textInput.style.display  = "block";
     textInput.style.left     = cx + "px";
     textInput.style.top      = (cy - fDisp - 4) + "px";
@@ -464,9 +464,10 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     e.stopPropagation();
   });
   textInput.addEventListener("blur", () => {
+    const BLUR_COMMIT_DELAY_MS = 150; // a click that reopens the input comes first
     setTimeout(() => {
       if (textInput.style.display !== "block") commitText();
-    }, 150);
+    }, BLUR_COMMIT_DELAY_MS);
   });
 
   /* === 9. Crop overlay === */
@@ -782,6 +783,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   /* === 12b. Pending shape helpers === */
 
   /** Returns the shortest distance from point (px, py) to line segment (ax,ay)–(bx,by). */
+  // eslint-disable-next-line max-params -- a point and a segment, as the six coordinates the formula uses
   function distToSegment(px,py,ax,ay,bx,by) {
     const dx=bx-ax, dy=by-ay, len2=dx*dx+dy*dy;
     if(len2===0) return Math.hypot(px-ax,py-ay);
@@ -802,7 +804,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
       const p1c=toCanv(ps.p1w.x,ps.p1w.y), p2c=toCanv(ps.p2w.x,ps.p2w.y), r=HHIT_P/2;
       if(Math.hypot(cx-p1c.cx,cy-p1c.cy)<r) return "p1";
       if(Math.hypot(cx-p2c.cx,cy-p2c.cy)<r) return "p2";
-      const hitR=Math.max(8, ps.strokeWidth*es()/2+4);
+      const hitR=Math.max(8, ps.strokeWidth*effectiveScale()/2+4);
       if(distToSegment(cx,cy,p1c.cx,p1c.cy,p2c.cx,p2c.cy)<hitR) return "move";
       return null;
     }
@@ -1108,7 +1110,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
 
   function renderRow(d) {
     const sc  = shortcuts[d.id];
-    const fmt = sc?.key ? fmtSC(sc) : null;
+    const fmt = sc?.key ? formatShortcut(sc) : null;
 
     if (!scEditMode) {
       const cls = fmt ? "sc-key" : "sc-key none";
@@ -1120,7 +1122,10 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
 
     // Edit mode
     const isCapturing = capturingId === d.id;
-    const capCls = isCapturing ? "sc-capture active" : (fmt ? "sc-capture" : "sc-capture none");
+    let capCls;
+    if (isCapturing) capCls = "sc-capture active";
+    else if (fmt) capCls = "sc-capture";
+    else capCls = "sc-capture none";
     const capTxt = isCapturing ? "Press key…" : (fmt || "— click to set");
     const conflictHtml = (isCapturing && conflictLabel)
       ? `<div class="sc-conflict">Cleared conflict: ${conflictLabel}</div>` : "";
@@ -1142,7 +1147,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
       const btn = document.getElementById(id);
       if (!btn) return;
       const toolKey = id.replace("tool","").toLowerCase();
-      const sc = fmtSC(shortcuts[id]) || "none";
+      const sc = formatShortcut(shortcuts[id]) || "none";
       btn.dataset.tip = `${TOOL_LABELS[toolKey]||toolKey} (${sc})`;
     });
     const map = {
@@ -1156,7 +1161,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
       const btn = document.getElementById(btnId);
       if (!btn) return;
       const base = (btn.dataset.tip || btn.title || "").split(" (")[0];
-      const sc = fmtSC(shortcuts[scId]) || "none";
+      const sc = formatShortcut(shortcuts[scId]) || "none";
       if (btn.dataset.tip !== undefined) btn.dataset.tip = `${base} (${sc})`;
       else btn.title = `${base} (${sc})`;
     });
@@ -1217,16 +1222,16 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     }
 
     /* === Ctrl combos (always check, even mid-drag for undo) === */
-    if (matchSC(e, shortcuts.undo))      { e.preventDefault(); undo(); return; }
-    if (matchSC(e, shortcuts.redo))      { e.preventDefault(); redo(); return; }
-    if (matchSC(e, shortcuts.saveFull))  { e.preventDefault(); if (cropSel) document.getElementById("btnSaveCrop").click(); else document.getElementById("btnSaveFull").click(); return; }
-    if (matchSC(e, shortcuts.zoomIn))    { e.preventDefault(); const vr=viewport.getBoundingClientRect(); zoomAt(vr.left+vr.width/2,vr.top+vr.height/2,1.25); return; }
-    if (matchSC(e, shortcuts.zoomOut))   { e.preventDefault(); const vr=viewport.getBoundingClientRect(); zoomAt(vr.left+vr.width/2,vr.top+vr.height/2,1/1.25); return; }
-    if (matchSC(e, shortcuts.zoomReset)) { e.preventDefault(); resetZoom(); return; }
-    if (matchSC(e, shortcuts.selectAll)) { e.preventDefault(); selectAllCrop(); return; }
-    if (matchSC(e, shortcuts.copyClip))  { e.preventDefault(); copyToClipboard(); return; }
-    if (matchSC(e, shortcuts.help))      { e.preventDefault(); toggleHelp(); return; }
-    if (matchSC(e, shortcuts.saveCrop) && cropSel) { e.preventDefault(); document.getElementById("btnSaveCrop").click(); return; }
+    if (matchesShortcut(e, shortcuts.undo))      { e.preventDefault(); undo(); return; }
+    if (matchesShortcut(e, shortcuts.redo))      { e.preventDefault(); redo(); return; }
+    if (matchesShortcut(e, shortcuts.saveFull))  { e.preventDefault(); if (cropSel) document.getElementById("btnSaveCrop").click(); else document.getElementById("btnSaveFull").click(); return; }
+    if (matchesShortcut(e, shortcuts.zoomIn))    { e.preventDefault(); const vr=viewport.getBoundingClientRect(); zoomAt(vr.left+vr.width/2,vr.top+vr.height/2,1.25); return; }
+    if (matchesShortcut(e, shortcuts.zoomOut))   { e.preventDefault(); const vr=viewport.getBoundingClientRect(); zoomAt(vr.left+vr.width/2,vr.top+vr.height/2,1/1.25); return; }
+    if (matchesShortcut(e, shortcuts.zoomReset)) { e.preventDefault(); resetZoom(); return; }
+    if (matchesShortcut(e, shortcuts.selectAll)) { e.preventDefault(); selectAllCrop(); return; }
+    if (matchesShortcut(e, shortcuts.copyClip))  { e.preventDefault(); copyToClipboard(); return; }
+    if (matchesShortcut(e, shortcuts.help))      { e.preventDefault(); toggleHelp(); return; }
+    if (matchesShortcut(e, shortcuts.saveCrop) && cropSel) { e.preventDefault(); document.getElementById("btnSaveCrop").click(); return; }
 
     // Skip bare-key shortcuts during active drag or when modifier held
     if (e.ctrlKey||e.metaKey||e.altKey) return;
@@ -1236,17 +1241,17 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     }
 
     /* === Tool / transform shortcuts === */
-    if (matchSC(e, shortcuts.toolCrop))    { setTool("crop"); return; }
-    if (matchSC(e, shortcuts.toolDraw))    { setTool("draw"); return; }
-    if (matchSC(e, shortcuts.toolRect))    { setTool("rect"); return; }
-    if (matchSC(e, shortcuts.toolEllipse)) { setTool("ellipse"); return; }
-    if (matchSC(e, shortcuts.toolArrow))   { setTool("arrow"); return; }
-    if (matchSC(e, shortcuts.toolText))    { setTool("text"); return; }
-    if (matchSC(e, shortcuts.toolBlur))    { setTool("blur"); return; }
-    if (matchSC(e, shortcuts.rotateL))     { rotateWork(-90); return; }
-    if (matchSC(e, shortcuts.rotateR))     { rotateWork(90); return; }
-    if (matchSC(e, shortcuts.flipH))       { flipWork(true); return; }
-    if (matchSC(e, shortcuts.flipV))       { flipWork(false); return; }
+    if (matchesShortcut(e, shortcuts.toolCrop))    { setTool("crop"); return; }
+    if (matchesShortcut(e, shortcuts.toolDraw))    { setTool("draw"); return; }
+    if (matchesShortcut(e, shortcuts.toolRect))    { setTool("rect"); return; }
+    if (matchesShortcut(e, shortcuts.toolEllipse)) { setTool("ellipse"); return; }
+    if (matchesShortcut(e, shortcuts.toolArrow))   { setTool("arrow"); return; }
+    if (matchesShortcut(e, shortcuts.toolText))    { setTool("text"); return; }
+    if (matchesShortcut(e, shortcuts.toolBlur))    { setTool("blur"); return; }
+    if (matchesShortcut(e, shortcuts.rotateL))     { rotateWork(-90); return; }
+    if (matchesShortcut(e, shortcuts.rotateR))     { rotateWork(90); return; }
+    if (matchesShortcut(e, shortcuts.flipH))       { flipWork(true); return; }
+    if (matchesShortcut(e, shortcuts.flipV))       { flipWork(false); return; }
 
     if (e.key==="Escape") confirmCloseIfDirty();
   });
@@ -1275,21 +1280,22 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
 
     chrome.runtime.sendMessage(
       { type: "SAVE_CROPPED", dataUrl: canvas.toDataURL("image/png"), downloadPath, saveAs },
-      (res) => {
+      (reply) => {
         if (chrome.runtime.lastError) {
           restore();
           showSaveToast("Save failed — " + chrome.runtime.lastError.message, true);
           return;
         }
-        if (res?.success) {
+        if (reply?.success) {
           showSaveToast(okLabel);
-          setTimeout(() => window.close(), 1200);
+          const SAVED_THEN_CLOSE_MS = 1200; // the toast is seen, then the editor goes
+          setTimeout(() => window.close(), SAVED_THEN_CLOSE_MS);
           return;
         }
         restore();
         // "Cancelled" is the user's own choice, so it is stated plainly rather
         // than dressed up as an error.
-        showSaveToast(res?.error === "Cancelled" ? "Save cancelled" : ("Save failed — " + (res?.error || "unknown")), true);
+        showSaveToast(reply?.error === "Cancelled" ? "Save cancelled" : ("Save failed — " + (reply?.error || "unknown")), true);
       },
     );
   }
@@ -1344,7 +1350,8 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
       const blob = await new Promise(resolve => srcCanvas.toBlob(resolve, "image/png"));
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       selInfo.textContent = "✓ Copied to clipboard!";
-      setTimeout(() => { selInfo.textContent = cropSel ? `Selected: ${cropSel.w} × ${cropSel.h} px` : TOOL_HINTS[currentTool]; }, 1500);
+      const COPIED_NOTE_MS = 1500;
+      setTimeout(() => { selInfo.textContent = cropSel ? `Selected: ${cropSel.w} × ${cropSel.h} px` : TOOL_HINTS[currentTool]; }, COPIED_NOTE_MS);
     } catch (err) {
       selInfo.textContent = "✕ Copy failed — " + err.message;
     }
@@ -1360,11 +1367,11 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   // popup and the in-page overlays used "popupTheme", so the editor was a third,
   // isolated theme: opening the crop editor from a dark popup produced a white
   // window, and toggling it here changed nothing anywhere else.
-  const THEME_KEY = "popupTheme";
+  const THEME_KEY = "popupTheme"; // = shared/storage-keys.js; a classic script cannot import it
   // Absent means light — matching popup/theme.js, which treats only the literal
   // "dark" as dark. The old default here was the opposite way round.
-  chrome.storage.local.get([THEME_KEY], res => {
-    applyTheme(res[THEME_KEY] === "dark");
+  chrome.storage.local.get([THEME_KEY], stored => {
+    applyTheme(stored[THEME_KEY] === "dark");
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes[THEME_KEY]) return;
@@ -1588,10 +1595,15 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     workCtx.shadowBlur  = 3;
 
     const tw = workCtx.measureText(text).width;
-    let x, y;
     const row = stampPos[0], col = stampPos[1];
-    x = col === "l" ? pad : col === "c" ? (W - tw) / 2 : W - tw - pad;
-    y = row === "t" ? pad + fontSize : row === "m" ? (H + fontSize) / 2 : H - pad;
+    // Left / centre / right, top / middle / bottom.
+    let x, y;
+    if (col === "l") x = pad;
+    else if (col === "c") x = (W - tw) / 2;
+    else x = W - tw - pad;
+    if (row === "t") y = pad + fontSize;
+    else if (row === "m") y = (H + fontSize) / 2;
+    else y = H - pad;
 
     // Dark background pill
     workCtx.globalAlpha = opacity * 0.55;

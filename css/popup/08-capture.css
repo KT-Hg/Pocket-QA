@@ -1,0 +1,194 @@
+/* === Capture Tab — Version A (pill tabs + grouped rows) === */
+.capture-tab-nav {
+  display: flex;
+  gap: 3px;
+  padding: 8px 0 6px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.capture-tab-btn {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  margin: 0;
+  width: auto;
+  transition: all 0.12s;
+}
+
+.capture-tab-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  transform: none;
+}
+
+.capture-tab-btn.active {
+  background: var(--primary-fill);
+  border-color: var(--primary-fill);
+  color: #fff;
+}
+
+.capture-tab-btn.active:hover:not(:disabled) {
+  background: var(--primary-fill-hover);
+  border-color: var(--primary-fill-hover);
+  /* The inactive hover above (same specificity, declared first) sets --primary
+     text; on an active pill that is blue on blue. */
+  color: #fff;
+  transform: none;
+}
+
+.capture-group-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 0;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.capture-group-row:last-child {
+  border-bottom: none;
+}
+
+.capture-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.capture-btn-row {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.cap-save-btn {
+  flex: 1;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 5px;
+  border: 1.5px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--primary);
+  cursor: pointer;
+  margin: 0;
+  white-space: nowrap;
+  text-align: center;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.cap-save-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: var(--primary);
+  transform: none;
+}
+
+.cap-edit-btn {
+  flex: 1;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 5px;
+  border: 1.5px dashed color-mix(in srgb, var(--secondary) 40%, transparent);
+  background: color-mix(in srgb, var(--secondary) 8%, transparent);
+  color: var(--secondary);
+  cursor: pointer;
+  margin: 0;
+  white-space: nowrap;
+  text-align: center;
+  transition: background 0.12s, border-color 0.12s, border-style 0.12s;
+}
+
+.cap-edit-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--secondary) 14%, transparent);
+  border-color: var(--secondary);
+  border-style: solid;
+  transform: none;
+}
+
+.capture-tools-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 8px 0 0;
+  border-top: 2px solid var(--border);
+  margin-top: 4px;
+}
+
+.btn-img-editor {
+  font-size: 11px;
+  margin: 0;
+  padding: 5px 12px;
+  /* Secondary, like the Image Diff button it sits beside. */
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background 0.15s;
+  text-align: center;
+}
+.btn-img-editor:hover {
+  background: var(--secondary-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Image Editor drop zone */
+.img-editor-drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 22px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--secondary-bg);
+  margin-bottom: 10px;
+}
+.img-editor-drop-zone:hover,
+.img-editor-drop-zone.drag-over {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+.img-editor-dz-icon { font-size: 28px; margin-bottom: 7px; }
+.img-editor-dz-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.img-editor-dz-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.img-editor-dz-sub kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--secondary-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-family: monospace;
+}
+
+
+.settings-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 12px 0 6px;
+}
+
+.settings-section-title:first-child {
+  margin-top: 0;
+}
+

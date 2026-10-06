@@ -5,7 +5,18 @@
   <meta charset="UTF-8" />
   <title>Pocket QA</title>
 
-  <link rel="stylesheet" href="css/popup.css" />
+  <link rel="stylesheet" href="css/popup/01-base.css" />
+  <link rel="stylesheet" href="css/popup/02-action-list.css" />
+  <link rel="stylesheet" href="css/popup/03-variables.css" />
+  <link rel="stylesheet" href="css/popup/04-lists-cards-forms.css" />
+  <link rel="stylesheet" href="css/popup/05-shell.css" />
+  <link rel="stylesheet" href="css/popup/06-modals-toast.css" />
+  <link rel="stylesheet" href="css/popup/07-switch-loop-csv.css" />
+  <link rel="stylesheet" href="css/popup/08-capture.css" />
+  <link rel="stylesheet" href="css/popup/09-header-update-playback.css" />
+  <link rel="stylesheet" href="css/popup/10-motion-export-lock.css" />
+  <link rel="stylesheet" href="css/popup/11-highlight.css" />
+  <link rel="stylesheet" href="css/popup/12-switch-blocks.css" />
 </head>
 
 <body>
@@ -154,7 +165,7 @@
           <option value="click">Click</option>
           <option value="input">Input</option>
           <option value="hover">Hover</option>
-          <option value="dropdown">Open Dropdown</option>
+          <option value="dropdown">Dropdown (open / choose item)</option>
           <option value="dragdrop">Drag &amp; Drop</option>
         </optgroup>
         <optgroup label="Navigation &amp; Code">
@@ -200,8 +211,33 @@
         </div>
       </div>
 
+      <!-- DROPDOWN — shown for dropdown type: open it only, or choose item #.
+           data-mode ("" | index) shows the item fields; see updateDropdownForm. -->
+      <div class="hidden-by-default" id="dropdownWrapper" data-mode="" style="margin-top:6px;">
+        <div class="step-label" id="dropdownStepLabel">Dropdown Item</div>
+        <div class="form-grid">
+          <label class="form-label" for="dropdownPickMode">Then</label>
+          <select id="dropdownPickMode">
+            <option value="">Only open it</option>
+            <option value="index">Choose item #</option>
+          </select>
+
+          <label class="form-label dd-pick" for="dropdownPickIndex">Item #</label>
+          <div class="dd-pick">
+            <input id="dropdownPickIndex" placeholder="e.g. 2, -1, random, ${row}" spellcheck="false" autocomplete="off" />
+            <span class="form-hint">Counts from 1 as the list shows it, a "-- Select --" line included. <code>-1</code> = last, <code>random</code> = any enabled item.</span>
+          </div>
+
+          <label class="form-label dd-pick" for="dropdownItemSelector">Items</label>
+          <div class="dd-pick">
+            <input id="dropdownItemSelector" placeholder="optional, e.g. .menu li" spellcheck="false" autocomplete="off" />
+            <span class="form-hint">A <code>&lt;select&gt;</code> needs nothing here. Any other dropdown is opened, then the item clicked; its items are found by <code>role="option"</code> unless you give their CSS selector.</span>
+          </div>
+        </div>
+      </div>
+
       <!-- READ DOM SETTINGS — shown for readdom type. data-mode (whole | part)
-           shows the fields of the chosen Save mode; see _updateReaddomForm. -->
+           shows the fields of the chosen Save mode; see updateReaddomForm. -->
       <div class="hidden-by-default" id="readdomWrapper" data-mode="whole" style="margin-top:6px;">
         <div class="step-label" id="readdomStepLabel">Read DOM Settings</div>
         <div class="form-grid">
@@ -353,25 +389,30 @@
       </div>
 
       <!-- SWITCH SETTINGS — shown for switch type -->
-      <div class="hidden-by-default sw-form" id="switchWrapper" style="margin-top:6px;">
+      <div class="hidden-by-default sw-form" id="switchWrapper" data-mode="var" style="margin-top:6px;">
         <div class="step-label" id="switchStepLabel">Switch Variable</div>
-        <input id="switchVar" placeholder="${role}" aria-label="Variable to switch on" style="margin:0;" />
-        <span class="sw-hint">Its value at run time picks the case, e.g. <code>${role}</code>.</span>
+        <div class="sw-seg sw-mode" role="radiogroup" aria-label="Switch on">
+          <label><input type="radio" name="switchMode" value="var" checked /><span>On a variable</span></label>
+          <label><input type="radio" name="switchMode" value="always" /><span>Always</span></label>
+        </div>
+        <input id="switchVar" class="sw-var-only" placeholder="${role}" aria-label="Variable to switch on" style="margin:0;" />
+        <span class="sw-hint sw-var-only">Its value at run time picks the case, e.g. <code>${role}</code>.</span>
+        <span class="sw-hint sw-always-only">Plays this scenario every time — no variable needed — then carries on with the rest of this one.</span>
 
-        <div class="sw-section-head">
+        <div class="sw-section-head sw-var-only">
           <span class="sw-section-title">Cases</span>
           <span class="sw-section-sub">checked top to bottom · first match wins</span>
         </div>
-        <div id="switchCaseList" class="sw-case-list"></div>
+        <div id="switchCaseList" class="sw-case-list sw-var-only"></div>
 
         <!-- One editor for both a new case and the case being edited -->
         <div id="switchCaseEditor" class="sw-case-editor">
-          <div class="sw-editor-title" id="switchCaseEditorTitle">+ New case</div>
-          <label class="sw-field" for="switchCaseValue">
+          <div class="sw-editor-title sw-var-only" id="switchCaseEditorTitle">+ New case</div>
+          <label class="sw-field sw-var-only" for="switchCaseValue">
             <span class="sw-field-label">When value is</span>
             <input id="switchCaseValue" placeholder="e.g. admin — empty = default" />
           </label>
-          <div class="sw-field">
+          <div class="sw-field sw-var-only">
             <span class="sw-field-label">Then</span>
             <div class="sw-seg" role="radiogroup" aria-label="What this case does">
               <label><input type="radio" name="switchCaseMode" value="self" checked /><span>↻ Run actions here</span></label>
@@ -396,7 +437,7 @@
               <input id="switchCaseEnd" class="sw-start-input" type="number" min="1" placeholder="end" title="Last action to play (empty = to the end)" aria-label="Last action to play" />
             </div>
           </div>
-          <div class="sw-editor-actions">
+          <div class="sw-editor-actions sw-var-only">
             <button id="switchCaseCancel" class="secondary" type="button" style="display:none;">Cancel</button>
             <button id="switchAddCase" class="secondary" type="button">+ Add case</button>
           </div>
@@ -414,6 +455,7 @@
             <li><strong>↻ Run actions here</strong> — the case owns a block of this scenario's actions (<strong>Actions</strong> from / to). Only the matching case's block runs, then playback continues after the Switch. Drag the Switch above those actions first, then pick them.</li>
             <li><strong>To the end</strong> in the second list keeps the old jump: play from that action to the end of the scenario.</li>
             <li><strong>▶ Play another scenario</strong> — <strong>#</strong> / <strong>to #</strong> are its first / last action (empty = from the start / to the end).</li>
+            <li><strong>Always</strong> — no variable and no cases: the chosen scenario plays every time (from <strong>#</strong> to <strong>to #</strong>), then the rest of this scenario runs.</li>
           </ul>
         </details>
       </div>
@@ -1276,7 +1318,7 @@
       <button id="saveScreenshotSettings" class="success" style="margin-top: 8px;">Save Settings</button>
     </div>
 
-    <!-- Notifications card — one toggle per category in bg/utils.js (NOTIFY_KEY). -->
+    <!-- Notifications card — one toggle per category in bg/notify.js (NOTIFY_KEY). -->
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <h3 style="margin:0;">Notifications</h3>

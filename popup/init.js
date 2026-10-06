@@ -20,7 +20,7 @@ import { initImageEditor } from './image-editor.js';
 import { initHighlight } from './highlight.js';
 import { TABLE_COPIES } from '../dbtools/features.js';
 import { initUpdateBanner } from './update-banner.js';
-import './calm-focus.js';
+import '../shared/ui/calm-focus.js';
 
 /**
  * Keep a spacer div below the sticky header the same height as the header.

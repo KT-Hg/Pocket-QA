@@ -184,15 +184,6 @@ export function readEditForm(doc = document, form = null) {
   return { ok: true, form: target, values, functions, unreadable, flags };
 }
 
-/**
- * An `?edit=` page with no `where[...]` in its URL is the insert form, and an
- * insert has no "before" to record.
- */
-export function isInsertForm(href) {
-  const info = parseAdminerUrl(href);
-  return info.page === 'edit' && !Object.keys(info.where).length;
-}
-
 /* === Key discovery ═══════════════════════════════════════════════════════ */
 
 /**

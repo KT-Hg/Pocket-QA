@@ -12,7 +12,7 @@
  */
 
 /** Words that may never be treated as a bare identifier by the parser. */
-export const KEYWORDS = new Set([
+const KEYWORDS = new Set([
   'SELECT', 'FROM', 'WHERE', 'GROUP', 'BY', 'HAVING', 'ORDER', 'LIMIT', 'OFFSET',
   'FETCH', 'FIRST', 'NEXT', 'ROWS', 'ONLY', 'TOP', 'DISTINCT', 'ALL', 'AS',
   'JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL', 'OUTER', 'CROSS', 'NATURAL', 'ON', 'USING',

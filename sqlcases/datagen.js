@@ -157,7 +157,9 @@ export function inferSchema(model) {
     (join.keys || []).forEach(k => {
       const parse = (raw) => {
         const dot = raw.lastIndexOf('.');
-        const tbl = dot > 0 ? byLabel.get(raw.slice(0, dot).toLowerCase()) : (tables.length === 1 ? tables[0] : null);
+        let tbl;
+        if (dot > 0) tbl = byLabel.get(raw.slice(0, dot).toLowerCase());
+        else tbl = tables.length === 1 ? tables[0] : null;
         if (!tbl) return null;
         const name = dot > 0 ? raw.slice(dot + 1) : raw;
         // A join key can name a column no SELECT/WHERE ever spelled under this
@@ -198,7 +200,7 @@ export function inferSchema(model) {
 // ---------------------------------------------------------------------------
 
 /** Turn an SQL literal into the bare value a person would type into a form. */
-export function plainValue(valueSql) {
+function plainValue(valueSql) {
   if (valueSql === null || valueSql === undefined) return '';
   const s = String(valueSql);
   if (s === 'NULL') return 'NULL';
@@ -212,6 +214,12 @@ function idFor(caseIndex, tableIndex, rowIndex) {
   return (tableIndex + 1) * 100000 + (caseIndex + 1) * 10 + rowIndex;
 }
 
+/** The schema table a column belongs to: by its qualifier, or the only table there is. */
+function ownerTable(schema, column) {
+  if (column.table) return schema.byLabel.get(column.table.toLowerCase());
+  return schema.tables.length === 1 ? schema.tables[0] : null;
+}
+
 /**
  * Conditions that constrain a given table, as concrete column values.
  * Only WHERE and ON predicates apply — HAVING filters groups, not rows.
@@ -220,9 +228,7 @@ function baseValuesFor(entry, model, schema) {
   const out = new Map();
   const apply = (cond) => {
     if (!cond.column) return;
-    const owner = cond.column.table
-      ? schema.byLabel.get(cond.column.table.toLowerCase())
-      : (schema.tables.length === 1 ? schema.tables[0] : null);
+    const owner = ownerTable(schema, cond.column);
     if (owner !== entry) return;
     const r = resolve(cond, true);
     if (r.kind === 'value' && r.valueSql !== null) out.set(cond.column.name.toLowerCase(), r.valueSql);
@@ -246,7 +252,7 @@ function fillerFor(col, rowIndex, entry) {
 }
 
 /** The generated filler, before any value-book override is applied. */
-export function autoFillerFor(col, rowIndex = 0) {
+function autoFillerFor(col, rowIndex = 0) {
   if (col.fk) return null;
   switch (col.type) {
     case 'integer': return String(100 + rowIndex);
@@ -295,7 +301,7 @@ function countTarget(spec, schema) {
  * @param {number} caseIndex — position in the case list, for stable ids
  * @returns {{caseId: string, tables: Array, requirements: Array}|null}
  */
-export function buildFixture(model, schema, testCase, caseIndex) {
+function buildFixture(model, schema, testCase, caseIndex) {
   if (!schema.tables.length) return null;
 
   const spec = testCase.spec || {};
@@ -322,9 +328,7 @@ export function buildFixture(model, schema, testCase, caseIndex) {
     if (agg) { counts.set(agg.entry, agg.n); return; }
 
     if (!s.column) { requirements.push({ text: `${s.columnRaw} = ${s.valueSql}` }); return; }
-    const entry = s.column.table
-      ? schema.byLabel.get(s.column.table.toLowerCase())
-      : (schema.tables.length === 1 ? schema.tables[0] : null);
+    const entry = ownerTable(schema, s.column);
     if (!entry) { requirements.push({ text: `${s.columnRaw} = ${s.valueSql}` }); return; }
     overrides.set(`${entry.label}|${s.column.name.toLowerCase()}`, s.valueSql);
   });
@@ -453,17 +457,18 @@ function paramTypeHints(model) {
 }
 
 /** One editable entry, resolved against whatever the book currently holds. */
-function makeSlot(kind, key, label, name, type, autoSql, uses) {
+function makeSlot({ kind, key, label, name, type, autoSql, uses }) {
   const raw = rawOverride(key);
   const parsed = valueFor(key, type);
+  const autoPlain = autoSql === null || autoSql === undefined ? '' : plainValue(autoSql);
   return {
     kind, key, label, name, type,
     autoSql,
-    autoPlain: autoSql === null || autoSql === undefined ? '' : plainValue(autoSql),
+    autoPlain,
     raw,
     overridden: !!raw,
     valueSql: parsed ? parsed.sql : (autoSql ?? null),
-    valuePlain: parsed ? plainValue(parsed.sql) : (autoSql === null || autoSql === undefined ? '' : plainValue(autoSql)),
+    valuePlain: parsed ? plainValue(parsed.sql) : autoPlain,
     valid: parsed ? parsed.valid : true,
     uses
   };
@@ -493,7 +498,7 @@ export function valueSlots(model, schema, fixtures) {
     const type = hints.get(label) || 'unknown';
     const uses = (model.conditions || []).concat(model.havingConditions || [], model.joinConditions || [])
       .filter(c => String(c.sql).includes(p.name)).length;
-    return makeSlot('param', paramKey(p.name, p.ordinal), label, label, type, null, uses);
+    return makeSlot({ kind: 'param', key: paramKey(p.name, p.ordinal), label, name: label, type, autoSql: null, uses });
   });
 
   const tables = (schema?.tables || []).map(entry => {
@@ -511,8 +516,10 @@ export function valueSlots(model, schema, fixtures) {
             if (cell && !cell.focus && cell.sql === fillerFor(col, i, entry)) uses++;
           });
         });
-        return makeSlot('column', columnKey(entry.name, col.name), `${entry.name}.${col.name}`,
-          col.name, col.type, autoFillerFor(col, 0), uses);
+        return makeSlot({
+          kind: 'column', key: columnKey(entry.name, col.name), label: `${entry.name}.${col.name}`,
+          name: col.name, type: col.type, autoSql: autoFillerFor(col, 0), uses,
+        });
       });
     return { name: entry.name, label: entry.label, alias: entry.alias, slots };
   }).filter(tb => tb.slots.length);

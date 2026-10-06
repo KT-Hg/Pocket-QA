@@ -16,6 +16,8 @@
  * reuses the normal watermark + naming + save/crop path.
  */
 
+import { THEME_KEY } from './shared/storage-keys.js';
+
 const statusEl = document.getElementById('status');
 const actionEl = document.getElementById('action');
 const modeEl   = document.getElementById('mode');
@@ -46,8 +48,8 @@ function setState(text, buttonLabel, onClick, tone = '') {
 
 /* ── Theme ──────────────────────────────────────────────────────────────────── */
 
-chrome.storage.local.get(['popupTheme'], (res) => {
-  document.documentElement.setAttribute('data-theme', res?.popupTheme === 'dark' ? 'dark' : 'light');
+chrome.storage.local.get([THEME_KEY], (res) => {
+  document.documentElement.setAttribute('data-theme', res?.[THEME_KEY] === 'dark' ? 'dark' : 'light');
 });
 
 /* ── Permission state ───────────────────────────────────────────────────────── */
@@ -104,16 +106,21 @@ function chooseWindow() {
  * element, and a desktop stream that has not warmed up yet presents nothing at
  * all — so an unbounded wait here hangs the capture instead of retrying it.
  */
+// Without requestVideoFrameCallback: two animation frames and this much more.
+const FRAME_FALLBACK_MS = 60;
+// The longest a frame is waited for.
+const FRAME_WAIT_CEILING_MS = 250;
+
 function nextFrame(video) {
   return new Promise((resolve) => {
     if (!video.requestVideoFrameCallback) {
-      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 60)));
+      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, FRAME_FALLBACK_MS)));
       return;
     }
     let settled = false;
     const done = () => { if (!settled) { settled = true; resolve(); } };
     video.requestVideoFrameCallback(done);
-    setTimeout(done, 250);
+    setTimeout(done, FRAME_WAIT_CEILING_MS);
   });
 }
 
@@ -342,14 +349,14 @@ async function openFloatingCounter() {
 
 /** Close the floating box, tolerating one the user already dismissed. */
 function closeFloater(pip) {
-  try { pip?.close(); } catch (_) {}
+  try { pip?.close(); } catch (_) { /* already closed by the user */ }
 }
 
 function setBadge(text) {
   try {
     chrome.action.setBadgeText({ text });
     if (text) chrome.action.setBadgeBackgroundColor({ color: BADGE_COLOR });
-  } catch (_) {}
+  } catch (_) { /* the badge is cosmetic; never fail a capture over it */ }
 }
 
 /**
@@ -375,11 +382,12 @@ function runCountdown(seconds, pip) {
       setBadge(String(left));
     };
     paint();
+    const COUNTDOWN_TICK_MS = 1000;
     const timer = setInterval(() => {
       left -= 1;
       if (left <= 0) { finish(); return; }
       paint();
-    }, 1000);
+    }, COUNTDOWN_TICK_MS);
     const finish = () => { clearInterval(timer); _wake = null; resolve(); };
     // A cancel during the count ends the wait immediately; the caller checks the
     // flag straight afterwards and throws.
@@ -517,7 +525,8 @@ async function startCapture() {
       // that toolbar time to repaint before the frame is taken.
       closeFloater(pip);
       releaseBadge();
-      await new Promise((r) => setTimeout(r, 300));
+      const TOOLBAR_REPAINT_MS = 300;
+      await new Promise((r) => setTimeout(r, TOOLBAR_REPAINT_MS));
     } : null);
   } catch (e) {
     closeFloater(pip);
@@ -537,7 +546,8 @@ async function startCapture() {
   await deliver(dataUrl);
   // Backstop only, for a worker that died between taking the image and closing
   // this window. The normal path is closed from the worker within a moment.
-  setTimeout(() => window.close(), 30_000);
+  const BACKSTOP_CLOSE_MS = 30_000;
+  setTimeout(() => window.close(), BACKSTOP_CLOSE_MS);
 }
 
 /* ── Window size ────────────────────────────────────────────────────────────────

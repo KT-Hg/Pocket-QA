@@ -1,4 +1,5 @@
 import { showToast } from './utils.js';
+import { ignoreLastError } from '../bg/last-error.js';
 
 export function initImageEditor() {
   const openBtn   = document.getElementById('openImageEditor');
@@ -44,9 +45,7 @@ export function initImageEditor() {
     fileToDataUrl(file)
       .then(dataUrl => {
         closeModal();
-        chrome.runtime.sendMessage({ type: 'OPEN_IMAGE_EDITOR', dataUrl, sourceFileName }, () => {
-          void chrome.runtime.lastError;
-        });
+        chrome.runtime.sendMessage({ type: 'OPEN_IMAGE_EDITOR', dataUrl, sourceFileName }, ignoreLastError);
         window.close();
       })
       .catch(() => {

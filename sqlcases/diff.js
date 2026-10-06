@@ -174,7 +174,7 @@ function serialize(tree, idOf) {
  *
  * @returns {{added, removed, changed, unchanged, shapeChanged}}
  */
-export function diffConditionSet(oldConds, oldTree, newConds, newTree) {
+function diffConditionSet(oldConds, oldTree, newConds, newTree) {
   const { pairs, unmatchedOld, unmatchedNew } = matchConditions(oldConds || [], newConds || []);
   const changed = [], unchanged = [];
   const newIdByOldId = new Map();
@@ -229,7 +229,7 @@ export function writeKey(c) { return `WCOL:${c.name}`; }
  * technique modules (to tag a case's `clause`) and by the case filter in
  * ui.js, so both sides of "what clause is this case about" agree.
  */
-export function clauseFromSource(source) {
+function clauseFromSource(source) {
   if (!source) return 'OTHER';
   if (source === 'WHERE') return 'WHERE';
   if (source === 'HAVING') return 'HAVING';
@@ -359,11 +359,17 @@ function diffSelectList(oldAst, newAst) {
     (a, b) => a.sql === b.sql && a.alias === b.alias);
 }
 
+/** What a write puts in a column, as SQL: every inserted value, or the one it sets. */
+function writtenSql(kind, c) {
+  if (kind === 'insert') return (c.values || []).map(v => v.sql).join(', ');
+  return c.value ? c.value.sql : '';
+}
+
 function writeItems(writes) {
   if (!writes) return [];
   return writes.columns.map(c => ({
     name: c.name,
-    sql: writes.kind === 'insert' ? (c.values || []).map(v => v.sql).join(', ') : (c.value ? c.value.sql : '')
+    sql: writtenSql(writes.kind, c)
   }));
 }
 

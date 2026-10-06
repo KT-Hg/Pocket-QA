@@ -56,6 +56,7 @@ function outcomeFor(kind, matches) {
  * Generate EP cases for one condition.
  * @returns {Array} cases
  */
+// eslint-disable-next-line complexity, max-lines-per-function -- one case per condition shape, read top to bottom
 function partitionsFor(cond, kind) {
   const col = columnLabel(cond);
   const type = cond.dataType.type;
@@ -265,10 +266,6 @@ function boundariesFor(cond, kind) {
   if (cond.columnToColumn) return cases;
 
   const ordered = isOrdered(type);
-
-  const add = (title, data, matches, extra = {}) => cases.push(makeCase('BVA', cond, {
-    title, data, expected: outcomeFor(kind, matches), priority: 'High', ...extra
-  }));
 
   const addVal = (title, valueSql, matches, extra = {}) => cases.push(makeCase('BVA', cond, {
     title,

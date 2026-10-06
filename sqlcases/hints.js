@@ -20,7 +20,7 @@ import { t } from './i18n.js';
  * Work out what `cond` needs in order to evaluate to `wantTrue`.
  *
  * @param {object} cond — a condition record from analyze()
- * @param {boolean} wantTrue — TRUE, or FALSE (never UNKNOWN; see unknownize)
+ * @param {boolean} wantTrue — TRUE, or FALSE (never UNKNOWN)
  * @returns {{col: string, column: object|null, valueSql: string|null,
  *            kind: 'value'|'subquery'|'opaque', messageKey?: string, params?: object}}
  *   `kind: 'value'` means valueSql is usable as a data value. `'subquery'` means
@@ -28,6 +28,7 @@ import { t } from './i18n.js';
  *   `'opaque'` means the predicate is one this tool does not model well enough
  *   to pin a value on — the caller should fall back to describing it.
  */
+// eslint-disable-next-line complexity -- one case per predicate shape; split up, the cases lose their common frame
 export function resolve(cond, wantTrue) {
   const col = columnLabel(cond);
   const type = cond.dataType.type;
@@ -130,15 +131,4 @@ export function satisfy(cond) {
 /** A value that makes `cond` evaluate FALSE (not UNKNOWN). */
 export function violate(cond) {
   return describe(resolve(cond, false));
-}
-
-/**
- * A value that makes `cond` evaluate UNKNOWN rather than FALSE — only possible
- * where a NULL operand can reach the comparison. IS NULL never returns UNKNOWN.
- */
-export function unknownize(cond) {
-  if (cond.kind === 'null-check') return null;
-  const col = columnLabel(cond);
-  if (!cond.column) return null;
-  return `${col} = NULL`;
 }

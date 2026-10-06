@@ -32,7 +32,7 @@
  * Every driver Adminer can be logged in with. Order matters only in that the
  * first one present wins; a URL never carries two.
  */
-export const DRIVER_KEYS = [
+const DRIVER_KEYS = [
   'server', 'sqlite', 'sqlite2', 'pgsql', 'oracle', 'mssql',
   'mongo', 'elastic', 'firebird', 'clickhouse', 'simpledb',
 ];

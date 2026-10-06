@@ -1,7 +1,7 @@
 /**
  * dbtools.css — the test-session manager page.
  *
- * Token names match popup.css and sqlcases.css so the shared `popupTheme`
+ * Token names match css/popup/ and sqlcases.css so the shared `popupTheme`
  * storage key still means the same thing on all three surfaces; a user who set
  * the extension to dark does not get one page in light.
  *

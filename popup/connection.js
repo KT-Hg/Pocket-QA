@@ -8,10 +8,13 @@
  *  - Throttle the poll rate: 150 ms while active, 2 000 ms when idle.
  */
 
-import { safeSendTabMessage, isEligibleTab } from './utils.js';
+import { CONTENT_SCRIPT_FILES } from './utils.js';
 import { state } from './state.js';
 
 const MAX_CONNECTION_RETRIES = 5;
+// How often the tab's content script is checked, and the status line refreshed.
+const CONNECTION_CHECK_MS = 2000;
+const STATUS_REFRESH_MS = 2000;
 
 let _lastActiveState = false;
 let statusInterval = null;
@@ -21,7 +24,7 @@ let statusInterval = null;
  * On failure, re-injects content.js up to MAX_CONNECTION_RETRIES times before
  * marking the tab as disconnected and removing it from activatedTabs.
  */
-export function checkContentScriptConnection() {
+function checkContentScriptConnection() {
   const connectionStatus = document.getElementById('connectionStatus');
   const activateTab = document.getElementById('activateTab');
   const deactivateTab = document.getElementById('deactivateTab');
@@ -53,7 +56,7 @@ export function checkContentScriptConnection() {
         }
         chrome.scripting.executeScript({
           target: { tabId: state.currentTabId },
-          files: ['content.js']
+          files: CONTENT_SCRIPT_FILES
         }).catch(() => {});
       }
     } else {
@@ -71,7 +74,7 @@ export function startConnectionCheck() {
   if (state.connectionCheckInterval) clearInterval(state.connectionCheckInterval);
   state.connectionRetryCount = 0;
   checkContentScriptConnection();
-  state.connectionCheckInterval = setInterval(checkContentScriptConnection, 2000);
+  state.connectionCheckInterval = setInterval(checkContentScriptConnection, CONNECTION_CHECK_MS);
 }
 
 let _panelOpen = false;
@@ -173,16 +176,11 @@ function _scheduleNextPoll(isActive) {
  * status dot, text badge, "Now Playing" bar, detail panel, and progress bar.
  * Called on a recurring interval managed by `_scheduleNextPoll`.
  */
-export function updateStatusIndicator() {
+function updateStatusIndicator() {
   const statusDot = document.getElementById('statusDot');
   const statusIndicator = document.getElementById('statusIndicator');
   const statusText = document.getElementById('statusText');
-  const connectionStatus = document.getElementById('connectionStatus');
   const scenarioList = document.getElementById('scenarioList');
-  const nowPlayingBar = document.getElementById('nowPlayingBar');
-  const nowPlayingIcon = document.getElementById('nowPlayingIcon');
-  const nowPlayingName = document.getElementById('nowPlayingName');
-  const nowPlayingStep = document.getElementById('nowPlayingStep');
 
   chrome.runtime.sendMessage({ type: 'GET_EXTENSION_STATUS' }, (status) => {
     if (chrome.runtime.lastError || !status) {
@@ -322,7 +320,7 @@ export function openPbPanel() { _setPanelOpen(true); }
 const _statusIndicator = document.getElementById('statusIndicator');
 if (_statusIndicator) {
   updateStatusIndicator();
-  statusInterval = setInterval(updateStatusIndicator, 2000);
+  statusInterval = setInterval(updateStatusIndicator, STATUS_REFRESH_MS);
 }
 
 document.getElementById('nowPlayingBar')?.addEventListener('click', () => {

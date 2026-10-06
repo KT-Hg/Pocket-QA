@@ -137,7 +137,7 @@ function classify(c) {
 }
 
 /** The rationale sentence(s) for one generated case. */
-export function explainCase(c) {
+function explainCase(c) {
   const key = classify(c);
   const params = { col: c.target, cond: c.condition, group: c.group, technique: t('tech.code.' + c.technique) };
   return t(key ? `rationale.${key}` : 'rationale.generic', params);

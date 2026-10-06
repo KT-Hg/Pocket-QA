@@ -15,7 +15,7 @@ import { t } from './i18n.js';
  * than text: the step is written into every boundary case title, so it has to
  * resolve in whichever language is active when generation runs.
  */
-export const STEPS = {
+const STEPS = {
   integer:  { delta: 1,    label: 'val.step.one' },
   decimal:  { delta: 0.01, label: 'val.step.hundredth' },
   date:     { delta: 1,    label: 'val.step.day' },
@@ -32,7 +32,7 @@ export function isOrdered(type) {
   return ['integer', 'decimal', 'date', 'datetime', 'time'].includes(type);
 }
 
-export function stepLabel(type) {
+function stepLabel(type) {
   return t((STEPS[type] || STEPS.unknown).label);
 }
 
@@ -210,11 +210,11 @@ export function likeExamples(pattern) {
     return { match: t('val.likeMatch'), noMatch: t('val.likeNoMatch'), anchored: null };
   }
   const match = pattern.replace(/%/g, 'xyz').replace(/_/g, 'a');
-  const anchored =
-    pattern.startsWith('%') && pattern.endsWith('%') ? 'contains'
-    : pattern.endsWith('%') ? 'prefix'
-    : pattern.startsWith('%') ? 'suffix'
-    : 'exact';
+  let anchored;
+  if (pattern.startsWith('%') && pattern.endsWith('%')) anchored = 'contains';
+  else if (pattern.endsWith('%')) anchored = 'prefix';
+  else if (pattern.startsWith('%')) anchored = 'suffix';
+  else anchored = 'exact';
   const core = pattern.replace(/[%_]/g, '');
   const noMatch = core ? `zzz${core.slice(0, Math.max(1, core.length - 1))}zzz`.replace(core, 'QQQ') || 'no-match-value' : 'no-match-value';
   return { match, noMatch: core ? t('val.valueWithout', { core }) : noMatch, anchored, core };
@@ -242,14 +242,6 @@ export function accentVariant(s) {
     if (mark) return s.slice(0, i) + mark + s.slice(i + 1);
   }
   return null;
-}
-
-/** Quote a raw JS value the way it would appear in SQL. */
-export function quote(v) {
-  if (v === null || v === undefined) return 'NULL';
-  if (typeof v === 'number') return String(v);
-  if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
-  return `'${String(v).replace(/'/g, "''")}'`;
 }
 
 /** Human label for a column reference, falling back to the raw predicate SQL. */

@@ -11,6 +11,7 @@
 
 import { showToast, safeSendTabMessage, isEligibleTab } from './utils.js';
 import { updateRangeFill } from './settings.js';
+import { ignoreLastError } from '../bg/last-error.js';
 
 /* === Screenshot Capture === */
 
@@ -39,14 +40,14 @@ function takeScreenshotWithCrop(msgType, crop = false) {
           //
           // The background owns the countdown now: it draws the pill in the page
           // when the page can draw one and counts down on the toolbar badge when
-          // it cannot, then takes the shot itself. See _runCountdown in
+          // it cannot, then takes the shot itself. See runCountdown in
           // bg/screenshot.js.
           chrome.runtime.sendMessage({
             type: msgType,
             tabId,
             crop: !!crop,
             countdown: res.screenshotCountdownSeconds || 3,
-          }, () => { void chrome.runtime.lastError; });
+          }, ignoreLastError);
           window.close();
           return;
         }
@@ -119,7 +120,7 @@ function startElemShotPick(crop) {
 function openWindowCapture(crop) {
   chrome.runtime.sendMessage(
     { type: 'OPEN_WINDOW_CAPTURE', crop: !!crop },
-    () => { void chrome.runtime.lastError; },
+    ignoreLastError,
   );
   window.close();
 }
@@ -168,8 +169,8 @@ function initDiff() {
       stats.textContent = `Diff: ${res.changed.toLocaleString()} px (${res.pct}% of total area)`;
       preview.src = res.diffUrl;
       dlBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = res.diffUrl; a.download = `diff_${Date.now()}.png`; a.click();
+        const link = document.createElement('a');
+        link.href = res.diffUrl; link.download = `diff_${Date.now()}.png`; link.click();
       };
     } catch (e) {
       showToast(e.message, 'error');

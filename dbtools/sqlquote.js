@@ -19,8 +19,6 @@
  * it does in the page and is covered by dbtools/selftest.mjs.
  */
 
-export const ENGINES = ['mysql', 'pgsql', 'mssql', 'sqlite', 'oracle'];
-
 /** Adminer's driver name → the quoting family to use. */
 export function engineOf(driver) {
   const d = String(driver || '').toLowerCase();
@@ -109,14 +107,6 @@ export function buildDelete(table, where, engine = 'mysql', schema = '', limit =
   // guard for a table with no key — see undo.js.
   if (limit && (engine === 'mysql' || engine === 'sqlite')) sql += ` LIMIT ${limit}`;
   return sql;
-}
-
-export function buildSelect(columns, table, where, engine = 'mysql', schema = '') {
-  const cols = columns && columns.length
-    ? columns.map((c) => quoteIdent(c, engine)).join(', ')
-    : '*';
-  const cond = whereClause(where, engine);
-  return `SELECT ${cols} FROM ${quoteTable(table, engine, schema)}` + (cond ? ` WHERE ${cond}` : '');
 }
 
 /** Statement terminator: what the SQL page needs between statements. */

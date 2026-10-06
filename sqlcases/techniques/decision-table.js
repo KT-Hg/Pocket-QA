@@ -19,7 +19,7 @@ import { t } from '../i18n.js';
 import { caseSourceFromConditions, caseSourceFromCondition, caseSourceFromCaseExpr } from '../diff.js';
 
 /** Evaluate a condition tree under a truth assignment (two-valued). */
-export function evalTree(tree, values) {
+function evalTree(tree, values) {
   if (!tree) return true;
   switch (tree.node) {
     case 'leaf': return !!values[tree.id];
@@ -181,9 +181,13 @@ function tableFor(conds, tree, label, kind, options) {
 
   const useFull = conds.length <= (options.mode === 'full' ? 16 : maxFull);
   const usePairwise = !useFull && conds.length <= (options.mode === 'pairwise' ? 12 : maxPairwise);
+  let technique, modeKey;
+  if (useFull) { technique = 'Decision Table'; modeKey = 'dt.modeFull'; }
+  else if (usePairwise) { technique = 'Pairwise'; modeKey = 'dt.modePairwise'; }
+  else { technique = 'MC/DC'; modeKey = 'dt.modeMcdc'; }
 
   const base = {
-    technique: useFull ? 'Decision Table' : usePairwise ? 'Pairwise' : 'MC/DC',
+    technique,
     group: `${label} · ${t('dt.group')}`,
     target: label,
     condition: legend,
@@ -266,7 +270,7 @@ function tableFor(conds, tree, label, kind, options) {
     conditionCount: conds.length,
     ruleCount: rules.length,
     fullTableSize: conds.length <= 20 ? (1 << conds.length) : null,
-    mode: t(useFull ? 'dt.modeFull' : usePairwise ? 'dt.modePairwise' : 'dt.modeMcdc'),
+    mode: t(modeKey),
     conditionCoverage: conds.length ? Math.round(100 * conds.filter(c => seenTrue.has(c.id) && seenFalse.has(c.id)).length / conds.length) : 100,
     decisionCoverage: outcomes.size === 2 ? 100 : 50,
     maskedConditions: masked.map(c => c.id),

@@ -1,0 +1,595 @@
+[
+  {
+    "name": "TEST 01 — Click & Input (Screen 1)",
+    "actions": [
+      {
+        "type": "script",
+        "code": "showScreen(1, document.querySelectorAll('nav button')[0])",
+        "label": "Go to Screen 1"
+      },
+      {
+        "type": "wait",
+        "value": "300",
+        "label": "Wait for screen transition"
+      },
+      {
+        "type": "input",
+        "selector": "#inputName",
+        "selectors": { "css": "#inputName", "id": "inputName", "xpath": "//*[@id=\"inputName\"]" },
+        "value": "John Doe",
+        "label": "Fill: Full name"
+      },
+      {
+        "type": "input",
+        "selector": "#inputEmail",
+        "selectors": { "css": "#inputEmail", "id": "inputEmail", "xpath": "//*[@id=\"inputEmail\"]" },
+        "value": "john@example.com",
+        "label": "Fill: Email"
+      },
+      {
+        "type": "input",
+        "selector": "#inputPassword",
+        "selectors": { "css": "#inputPassword", "id": "inputPassword", "xpath": "//*[@id=\"inputPassword\"]" },
+        "value": "Passw0rd!",
+        "label": "Fill: Password"
+      },
+      {
+        "type": "input",
+        "selector": "#inputPhone",
+        "selectors": { "css": "#inputPhone", "id": "inputPhone", "xpath": "//*[@id=\"inputPhone\"]" },
+        "value": "+1 555 123 4567",
+        "label": "Fill: Phone"
+      },
+      {
+        "type": "input",
+        "selector": "#inputMessage",
+        "selectors": { "css": "#inputMessage", "id": "inputMessage", "xpath": "//*[@id=\"inputMessage\"]" },
+        "value": "Hello from automation!",
+        "label": "Fill: Message textarea"
+      },
+      {
+        "type": "input",
+        "selector": "#selectCountry",
+        "selectors": { "css": "#selectCountry", "id": "selectCountry", "xpath": "//*[@id=\"selectCountry\"]" },
+        "value": "vn",
+        "label": "Select: Country → Vietnam"
+      },
+      {
+        "type": "input",
+        "selector": "#selectPriority",
+        "selectors": { "css": "#selectPriority", "id": "selectPriority", "xpath": "//*[@id=\"selectPriority\"]" },
+        "value": "high",
+        "label": "Select: Priority → High"
+      },
+      {
+        "type": "click",
+        "selector": "#chkTerms",
+        "selectors": { "css": "#chkTerms", "id": "chkTerms", "xpath": "//*[@id=\"chkTerms\"]" },
+        "label": "Check: Accept terms"
+      },
+      {
+        "type": "click",
+        "selector": "#chkRemember",
+        "selectors": { "css": "#chkRemember", "id": "chkRemember", "xpath": "//*[@id=\"chkRemember\"]" },
+        "label": "Check: Remember me"
+      },
+      {
+        "type": "click",
+        "selector": "input[name=\"role\"][value=\"viewer\"]",
+        "selectors": { "css": "input[name=\"role\"][value=\"viewer\"]" },
+        "label": "Radio: Select Viewer role"
+      },
+      {
+        "type": "click",
+        "selector": "#btnLoad",
+        "selectors": { "css": "#btnLoad", "id": "btnLoad", "xpath": "//*[@id=\"btnLoad\"]" },
+        "label": "Click: Load Sample"
+      },
+      {
+        "type": "wait",
+        "value": "400",
+        "label": "Wait after load"
+      },
+      {
+        "type": "click",
+        "selector": "#btnSubmit",
+        "selectors": { "css": "#btnSubmit", "id": "btnSubmit", "xpath": "//*[@id=\"btnSubmit\"]" },
+        "label": "Click: Submit Form"
+      },
+      {
+        "type": "wait",
+        "value": "500",
+        "label": "Wait for form status"
+      },
+      {
+        "type": "click",
+        "selector": "#btnReset",
+        "selectors": { "css": "#btnReset", "id": "btnReset", "xpath": "//*[@id=\"btnReset\"]" },
+        "label": "Click: Reset"
+      }
+    ]
+  },
+
+  {
+    "name": "TEST 02 — Hover (Screen 1)",
+    "actions": [
+      {
+        "type": "script",
+        "code": "showScreen(1, document.querySelectorAll('nav button')[0])",
+        "label": "Go to Screen 1"
+      },
+      {
+        "type": "wait",
+        "value": "300"
+      },
+      {
+        "type": "hover",
+        "selector": "#hoverA",
+        "selectors": { "css": "#hoverA", "id": "hoverA", "xpath": "//*[@id=\"hoverA\"]" },
+        "label": "Hover: Box A"
+      },
+      {
+        "type": "wait",
+        "value": "600"
+      },
+      {
+        "type": "hover",
+        "selector": "#hoverB",
+        "selectors": { "css": "#hoverB", "id": "hoverB", "xpath": "//*[@id=\"hoverB\"]" },
+        "label": "Hover: Box B"
+      },
+      {
+        "type": "wait",
+        "value": "600"
+      },
+      {
+        "type": "hover",
+        "selector": "#hoverC",
+        "selectors": { "css": "#hoverC", "id": "hoverC", "xpath": "//*[@id=\"hoverC\"]" },
+        "label": "Hover: Box C"
+      },
+      {
+        "type": "wait",
+        "value": "600"
+      }
+    ]
+  },
+
+  {
+    "name": "TEST 03 — Run JS & Read DOM (Screen 2)",
+    "actions": [
+      {
+        "type": "script",
+        "code": "showScreen(2, document.querySelectorAll('nav button')[1])",
+        "label": "Go to Screen 2"
+      },
+      {
+        "type": "wait",
+        "value": "300"
+      },
+      {
+        "type": "click",
+        "selector": "#btnInc",
+        "selectors": { "css": "#btnInc", "id": "btnInc", "xpath": "//*[@id=\"btnInc\"]" },
+        "label": "Click: Increment counter"
+      },
+      {
+        "type": "click",
+        "selector": "#btnInc",
+        "selectors": { "css": "#btnInc", "id": "btnInc", "xpath": "//*[@id=\"btnInc\"]" },
+        "label": "Click: Increment counter"
+      },
+      {
+        "type": "click",
+        "selector": "#btnInc",
+        "selectors": { "css": "#btnInc", "id": "btnInc", "xpath": "//*[@id=\"btnInc\"]" },
+        "label": "Click: Increment counter (total = 3)"
+      },
+      {
+        "type": "readdom",
+        "selector": "#counter",
+        "selectors": { "css": "#counter", "id": "counter", "xpath": "//*[@id=\"counter\"]" },
+        "readFrom": "text",
+        "varName": "counterValue",
+        "label": "Read DOM: counter → ${counterValue}"
+      },
+      {
+        "type": "script",
+        "code": "document.getElementById('jsOutput').textContent = 'Counter read by readdom: ' + document.getElementById('counter').textContent",
+        "label": "Run JS: write to output panel"
+      },
+      {
+        "type": "readdom",
+        "selector": "#domPrice",
+        "selectors": { "css": "#domPrice", "id": "domPrice", "xpath": "//*[@id=\"domPrice\"]" },
+        "readFrom": "text",
+        "varName": "price",
+        "label": "Read DOM: price → ${price}"
+      },
+      {
+        "type": "readdom",
+        "selector": "#domStock",
+        "selectors": { "css": "#domStock", "id": "domStock", "xpath": "//*[@id=\"domStock\"]" },
+        "readFrom": "text",
+        "varName": "stock",
+        "label": "Read DOM: stock → ${stock}"
+      },
+      {
+        "type": "readdom",
+        "selector": "#domRating",
+        "selectors": { "css": "#domRating", "id": "domRating", "xpath": "//*[@id=\"domRating\"]" },
+        "readFrom": "text",
+        "varName": "rating",
+        "label": "Read DOM: rating → ${rating}"
+      },
+      {
+        "type": "script",
+        "code": "document.getElementById('jsOutput').textContent += '\\nPrice: ' + document.getElementById('domPrice').textContent + ' | Stock: ' + document.getElementById('domStock').textContent + ' | Rating: ' + document.getElementById('domRating').textContent",
+        "label": "Run JS: display read values"
+      },
+      {
+        "type": "click",
+        "selector": "#btnDec",
+        "selectors": { "css": "#btnDec", "id": "btnDec", "xpath": "//*[@id=\"btnDec\"]" },
+        "label": "Click: Decrement"
+      },
+      {
+        "type": "click",
+        "selector": "#btnReset2",
+        "selectors": { "css": "#btnReset2", "id": "btnReset2", "xpath": "//*[@id=\"btnReset2\"]" },
+        "label": "Click: Reset counter"
+      }
+    ]
+  },
+
+  {
+    "name": "TEST 04 — Condition (if) (Screen 2)",
+    "actions": [
+      {
+        "type": "script",
+        "code": "showScreen(2, document.querySelectorAll('nav button')[1])",
+        "label": "Go to Screen 2"
+      },
+      {
+        "type": "wait",
+        "value": "300"
+      },
+      {
+        "type": "click",
+        "selector": "#btnHide",
+        "selectors": { "css": "#btnHide", "id": "btnHide", "xpath": "//*[@id=\"btnHide\"]" },
+        "label": "Click: Hide element"
+      },
+      {
+        "type": "wait",
+        "value": "300"
+      },
+      {
+        "type": "condition",
+        "selector": "#conditionEl",
+        "selectors": { "css": "#conditionEl", "id": "conditionEl" },
+        "conditionType": "elementHidden",
+        "conditionSkipCount": 2,
+        "label": "IF elementHidden #conditionEl → skip 2 (increment + wait)"
+      },
+      {
+        "type": "click",
+        "selector": "#btnInc",
+        "selectors": { "css": "#btnInc", "id": "btnInc" },
+        "label": "[SKIPPED] Increment — should be skipped"
+      },
+      {
+        "type": "wait",
+        "value": "500",
+        "label": "[SKIPPED] Wait — should be skipped"
+      },
+      {
+        "type": "click",
+        "selector": "#btnShow",
+        "selectors": { "css": "#btnShow", "id": "btnShow", "xpath": "//*[@id=\"btnShow\"]" },
+        "label": "Click: Show element"
+      },
+      {
+        "type": "wait",
+        "value": "300"
+      },
+      {
+        "type": "condition",
+        "selector": "#conditionEl",
+        "selectors": { "css": "#conditionEl", "id": "conditionEl" },
+        "conditionType": "elementVisible",
+        "conditionSkipCount": 1,
+        "label": "IF elementVisible #conditionEl → skip 1 (hide action)"
+      },
+      {
+        "type": "click",
+        "selector": "#btnHide",
+        "selectors": { "css": "#btnHide", "id": "btnHide" },
+        "label": "[SKIPPED] Hide — should be skipped because element IS visible"
+      },
+      {
+        "type": "condition",
+        "selector": "#condText",
+        "selectors": { "css": "#condText", "id": "condText" },
+        "conditionType": "textContains",
+        "expectedValue": "Condition target",
+        "conditionSkipCount": 1,
+        "label": "IF #condText contains 'Condition target' → skip 1"
+      },
+      {
+        "type": "click",
+        "selector": "#btnInc",
+        "selectors": { "css": "#btnInc", "id": "btnInc" },
+        "label": "[SKIPPED] Increment — skipped because text matched"
+      },
+      {
+        "type": "condition",
+        "conditionType": "urlContains",
+        "expectedValue": "test-page",
+        "conditionSkipCount": 1,
+        "label": "IF URL contains 'test-page' → skip 1"
+      },
+      {
+        "type": "click",
+        "selector": "#btnInc",
+        "selectors": { "css": "#btnInc", "id": "btnInc" },
+        "label": "[SKIPPED] Increment — skipped because URL matched"
+      }
+    ]
+  },
+
+  {
+    "name": "TEST 05 — Drag & Drop (Screen 2)",
+    "actions": [
+      {
+        "type": "script",
+        "code": "showScreen(2, document.querySelectorAll('nav button')[1])",
+        "label": "Go to Screen 2"
+      },
+      {
+        "type": "wait",
+        "value": "400"
+      },
+      {
+        "type": "dragdrop",
+        "selector": "li.drag-item[data-id=\"1\"]",
+        "selectors": { "css": "li.drag-item[data-id=\"1\"]" },
+        "targetSelector": "li.drag-item[data-id=\"3\"]",
+        "targetSelectors": { "css": "li.drag-item[data-id=\"3\"]" },
+        "label": "Drag: Item Alpha → onto Item Gamma"
+      },
+      {
+        "type": "wait",
+        "value": "500"
+      },
+      {
+        "type": "dragdrop",
+        "selector": "li.drag-item[data-id=\"4\"]",
+        "selectors": { "css": "li.drag-item[data-id=\"4\"]" },
+        "targetSelector": "li.drag-item[data-id=\"2\"]",
+        "targetSelectors": { "css": "li.drag-item[data-id=\"2\"]" },
+        "label": "Drag: Item Delta → onto Item Beta"
+      }
+    ]
+  },
+
+  {
+    "name": "TEST 06 — Loading State Condition (Screen 2)",
+    "actions": [
+      {
+        "type": "script",
+        "code": "showScreen(2, document.querySelectorAll('nav button')[1])",
+        "label": "Go to Screen 2"
+      },
+      {
+        "type": "wait",
+        "value": "300"
+      },
+      {
+        "type": "click",
+        "selector": "button.btn-ghost",
+        "selectors": { "css": "#screen2 .section:last-child .btn-ghost", "text": "Reset", "textTag": "button" },
+        "label": "Click: Reset loading state"
+      },
+      {
+        "type": "wait",
+        "value": "300"
+      },
+      {
+        "type": "click",
+        "selector": "button.btn-primary",
+        "selectors": { "css": "#screen2 button.btn-primary:last-of-type", "text": "Simulate Load (1.5s)", "textTag": "button" },
+        "label": "Click: Simulate Load (1.5s)"
+      },
+      {
+        "type": "condition",
+        "selector": "#loadingSpinner",
+        "selectors": { "css": "#loadingSpinner", "id": "loadingSpinner" },
+        "conditionType": "elementVisible",
+        "conditionSkipCount": 1,
+        "label": "IF spinner visible → skip 1 (wait for it to disappear)"
+      },
+      {
+        "type": "wait",
+        "value": "300",
+        "label": "[SKIPPED] Short wait — skipped because spinner is showing"
+      },
+      {
+        "type": "condition",
+        "selector": ".spinner",
+        "selectors": { "css": ".spinner" },
+        "conditionType": "elementNotExists",
+        "conditionSkipCount": 0,
+        "timeout": 4000,
+        "label": "Wait up to 4s: spinner gone (elementNotExists — skip 0 = only gate)",
+        "disabled": true
+      },
+      {
+        "type": "wait",
+        "value": "2000",
+        "label": "Wait 2s for load to complete"
+      },
+      {
+        "type": "readdom",
+        "selector": "#loadedValue",
+        "selectors": { "css": "#loadedValue", "id": "loadedValue" },
+        "readFrom": "text",
+        "varName": "loadedResult",
+        "label": "Read DOM: loaded result → ${loadedResult}"
+      },
+      {
+        "type": "condition",
+        "selector": "#loadedContent",
+        "selectors": { "css": "#loadedContent", "id": "loadedContent" },
+        "conditionType": "elementVisible",
+        "conditionSkipCount": 0,
+        "label": "Assert: #loadedContent is visible (skip 0 = no-op assert)"
+      }
+    ]
+  },
+
+  {
+    "name": "TEST 07 — Screenshots (Screen 3)",
+    "actions": [
+      {
+        "type": "script",
+        "code": "showScreen(3, document.querySelectorAll('nav button')[2])",
+        "label": "Go to Screen 3"
+      },
+      {
+        "type": "wait",
+        "value": "500"
+      },
+      {
+        "type": "screenshot",
+        "label": "Screenshot: Visible viewport"
+      },
+      {
+        "type": "wait",
+        "value": "800"
+      },
+      {
+        "type": "screenshot_full",
+        "label": "Screenshot: Full page"
+      },
+      {
+        "type": "wait",
+        "value": "1000"
+      },
+      {
+        "type": "screenshot_element",
+        "selector": "#card-red",
+        "selectors": { "css": "#card-red", "id": "card-red" },
+        "label": "Screenshot Element: #card-red"
+      },
+      {
+        "type": "wait",
+        "value": "500"
+      },
+      {
+        "type": "screenshot_element",
+        "selector": "#card-green",
+        "selectors": { "css": "#card-green", "id": "card-green" },
+        "label": "Screenshot Element: #card-green"
+      },
+      {
+        "type": "wait",
+        "value": "500"
+      },
+      {
+        "type": "screenshot_element",
+        "selector": "#card-blue",
+        "selectors": { "css": "#card-blue", "id": "card-blue" },
+        "label": "Screenshot Element: #card-blue"
+      },
+      {
+        "type": "wait",
+        "value": "500"
+      },
+      {
+        "type": "screenshot_element",
+        "selector": "#card-gold",
+        "selectors": { "css": "#card-gold", "id": "card-gold" },
+        "label": "Screenshot Element: #card-gold"
+      }
+    ]
+  },
+
+  {
+    "name": "TEST 08 — CSV Variable Form Fill (dùng với test-data.csv)",
+    "actions": [
+      {
+        "type": "script",
+        "code": "showScreen(1, document.querySelectorAll('nav button')[0])",
+        "label": "Go to Screen 1"
+      },
+      {
+        "type": "wait",
+        "value": "300"
+      },
+      {
+        "type": "input",
+        "selector": "#inputName",
+        "selectors": { "css": "#inputName", "id": "inputName" },
+        "value": "${name}",
+        "label": "Fill: name → ${name}"
+      },
+      {
+        "type": "input",
+        "selector": "#inputEmail",
+        "selectors": { "css": "#inputEmail", "id": "inputEmail" },
+        "value": "${email}",
+        "label": "Fill: email → ${email}"
+      },
+      {
+        "type": "input",
+        "selector": "#selectCountry",
+        "selectors": { "css": "#selectCountry", "id": "selectCountry" },
+        "value": "${country}",
+        "label": "Select: country → ${country}"
+      },
+      {
+        "type": "input",
+        "selector": "#inputMessage",
+        "selectors": { "css": "#inputMessage", "id": "inputMessage" },
+        "value": "${message}",
+        "label": "Fill: message → ${message}"
+      },
+      {
+        "type": "click",
+        "selector": "#btnSubmit",
+        "selectors": { "css": "#btnSubmit", "id": "btnSubmit" },
+        "label": "Click: Submit"
+      },
+      {
+        "type": "wait",
+        "value": "400"
+      },
+      {
+        "type": "script",
+        "code": "showScreen(3, document.querySelectorAll('nav button')[2]); document.getElementById('csvVarDisplay').textContent = '${name} | ${email} | ${country}'",
+        "label": "Go to Screen 3 + inject vars into display"
+      },
+      {
+        "type": "wait",
+        "value": "400"
+      },
+      {
+        "type": "screenshot_tovar",
+        "target": "element",
+        "selector": "#csvVarDisplay",
+        "selectors": { "css": "#csvVarDisplay", "id": "csvVarDisplay" },
+        "varName": "screenshot",
+        "label": "Screenshot Element → ${screenshot}"
+      },
+      {
+        "type": "readdom",
+        "selector": "#formStatus",
+        "selectors": { "css": "#formStatus", "id": "formStatus" },
+        "readFrom": "text",
+        "varName": "formResult",
+        "label": "Read DOM: form status → ${formResult}"
+      }
+    ]
+  }
+]

@@ -105,7 +105,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 | `click` | Mouse click on target element |
 | `input` | Set value + fire input/change/blur events |
 | `hover` | mouseover/mouseenter/mousemove events |
-| `dropdown` | Trusted click via CDP — for native dropdowns that ignore a synthetic JS click. Selector only, no value. |
+| `dropdown` | Trusted click via CDP — for native dropdowns that ignore a synthetic JS click. With **Choose item #** (`pick: { by: "index", index, itemSelector? }`) it also chooses item *i*: counted from 1 as the list shows it (a placeholder line included), `-1` = last, `random` = any enabled item, `${var}` allowed. A `<select>` gets its option set by the page; any other dropdown is opened, then the item is clicked once the list shows it — found through `aria-controls` / `role="option"`, or by the **Items** CSS selector. |
 | `dragdrop` | HTML5 drag from source selector to target selector |
 
 `click`, `input`, `hover` support **Child Condition**: the selector targets a parent container, and a matching child is found by value, text, id, class, or input type.
@@ -121,7 +121,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 | Type | Description |
 |---|---|
 | `condition` | 12-type DOM/URL check → skip next N actions if false |
-| `switch` | Variable value → run a matching scenario, jump within this one, or run only the matching case's **block** of actions |
+| `switch` | Variable value → run a matching scenario, jump within this one, or run only the matching case's **block** of actions. **Always** mode: no variable — the chosen scenario (optionally a `#`–`#` range of it) plays every time, then this scenario carries on; stored as `switchVar: ""` with one `__default__` case (`isAlwaysSwitch`), so playback and older versions need nothing new |
 
 **Condition types:** `elementExists`, `elementNotExists`, `elementVisible`, `elementHidden`, `textContains`, `textEquals`, `valueEquals`, `valueContains`, `urlContains`, `urlEquals`, `hasClass`, `hasAttribute`
 
@@ -144,7 +144,7 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
   order in the case list (a case with no actions in the block still takes its number); nested Switches add levels
   (`2.1.2.1.1`); an action inside a block but in no case shows `1.?` with ⚠; disabled actions keep their number.
   The tooltip shows the absolute `#N`.
-- **Playback** (`bg/playback.js` + `bg/switch-blocks.js`): the matched case plays its range, then `continueAt`;
+- **Playback** (`bg/playback/steps/switch.js` + `shared/switch-blocks.js`): the matched case plays its range, then `continueAt`;
   no match → skip the block, no error; a disabled block Switch skips its block; a Condition's `skipCount` counts a
   Switch and its block as one action, and a skip landing inside a block goes to its `continueAt`; resuming after
   a reload inside a case finishes that case, then continues after the block. A broken block (range before the
@@ -158,7 +158,8 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
 - **Export:** the bookmarklet and Selenium exports skip a block Switch *with its whole block* (otherwise every case
   would run), and say so in the warnings. A scenario or folder export that uses blocks carries `minVersion` — the
   version that wrote it; older versions ignore `endAt` and would play every case one after the other.
-- Tests: `node --test tests/` (Node 18+, no npm install).
+- Tests: `node --test "tests/*.test.mjs"` (Node 21+, no npm install). Newer Node reads the arguments as globs, so
+  passing the bare directory (`tests/`) fails instead of running the files in it.
 
 ### Data, Screenshot & File
 | Type | Description |
@@ -573,7 +574,9 @@ Priority (highest → lowest):
   3. chrome.storage.local  — global persistent variables
 ```
 
-**Token syntax:** `${varName}` — applied to: selector (every flavour in `selectors`, drag-drop target too), value, URL, JS code, expected value, switchVar, folderPath, fileNames, Child Condition fields, Read DOM attribute name
+**Token syntax:** `${varName}` — applied to: selector (every flavour in `selectors`, drag-drop target too), value, URL, JS code, expected value, switchVar, folderPath, fileNames, Child Condition fields, Read DOM attribute name, Dropdown item # and items selector
+
+**Suggestions while typing:** in the Add Action card, typing `${` (or Ctrl+Space) in any of those fields opens a list of names — the Data tab's variables (with their type and current value), the ones earlier steps of the scenario write (Read DOM, Screenshot → Variable; for an edited step, only the steps above it) and the loaded CSV's columns. ↑ / ↓ move, Enter / Tab insert `${name}`, Escape closes; the keys do their usual thing whenever the list is closed. Name-only fields (Switch Variable, Read DOM and Screenshot → Variable names) list the names on focus and take the bare name. `shared/var-suggest.js` (what fits) + `popup/ui/var-suggest.js` (the list) + `popup/record/var-suggestions.js` (fields and sources).
 
 **Variable types:**
 
@@ -648,6 +651,29 @@ All hotkeys are configurable in the **Settings** tab and synced via `chrome.stor
 
 `content.js` is injected into **all frames**; recorded actions carry the originating `frameId` so playback targets the right frame.
 
+The popup's Record & Play and Data tabs start in `popup/main.js`, whose `initMain()` runs the parts in a fixed
+order: `popup/record/` (recording, the action form, the preview, the Switch builder), `popup/scenarios/` (list,
+save, folders, rename / delete, import / export, backup), `popup/run/` (playback, run list, schedules),
+`popup/csv/` (the data-driven run and its result files), `popup/help/`, and the shared `popup/dom.js` (elements
+looked up once) and `popup/ui-state.js` (state several of those parts write).
+
+In the service worker, `background.js` only starts things up and wires listeners. Messages go through
+`bg/router.js` (update-lock guard, screenshot passthrough, playback-while-recording guard) to one handler per
+message type in `bg/handlers/` (recording, actions, scenarios, folders, data-io, variables, playback, csv,
+schedules, capture, picker, update, dbtools). Scheduled runs are `bg/schedule-alarms.js`; "is anything
+running" is `bg/run-state.js`. Capture is `bg/screenshot.js` (the public functions and the capture-message
+listener) over `bg/screenshot/`: one file per capture kind (`visible`, `full-page`, `element`, `window`) and
+per concern (queue, cancel, page scripts, watermark, diff, file names, download, crop, countdown, settings).
+Playback is `bg/playback.js` (the loop over the actions and the single / resume / sequence / CSV entry points)
+with one step per action type in `bg/playback/steps/`, the keep-alive in `bg/playback/keepalive.js` and the
+failed-action prompt in `bg/playback/failure-prompt.js`. Shared by all of them: `bg/badge.js`, `bg/notify.js`
+(notification categories), `bg/interpolate.js` (variables into actions), `bg/tabs.js` (active tab, wait for
+load, message with timeout) and `bg/cdp/` (debugger sessions; dropdown, script and upload through CDP).
+
+`shared/*.js` holds the pure modules (no `chrome.*`) that both sides use and the Node tests import directly:
+variable names (`var-name`), variable ordering (`var-order`), Read DOM patterns (`text-pattern`), Switch block
+and Condition range math (`switch-blocks`), and the update-lock deadline (`update-lock`).
+
 `sqlcases.html` + `sqlcases/*.js` sit outside that pipeline: the SQL Test Case Designer is a self-contained
 page that never messages the service worker or touches a tab. It is opened from the Data tab and uses
 `chrome.storage.local` only to remember the last query, the technique toggles and the shared theme.
@@ -657,11 +683,12 @@ page that never messages the service worker or touches a tab. It is opened from 
 ```
 dbtools/boot.js            registered for all http(s) pages; two DOM lookups, then
                            dynamically imports the rest only on an Adminer page
-dbtools/content-main.js    capture (edit form, SQL page), panel, rollback driver
+dbtools/content-main.js    boots the panel; capture-*.js, rollback-commands.js, snapshot-commands.js,
+                           playback-guard.js, page-state.js beside it
 dbtools/adapters/adminer.js  every assumption about Adminer's HTML, in one file
 dbtools/{params,sqlquote,undo,sqlcapture}.js   pure logic, shared with the Node selftest
 dbtools/{session,executor,rollback,panel,i18n}.js
-dbtools.html + dbtools/manager.js              the review-and-roll-back page
+dbtools.html + dbtools/manager.js              the review-and-roll-back page (parts in dbtools/manager/)
 ```
 
 The service worker's only involvement is opening that page. Rollback is driven from the Adminer tab, because a
@@ -910,7 +937,7 @@ Unpacked/dev installs cannot be checked — `requestUpdateCheck()` throws there,
 
 Once the store has a newer version, the user has a grace period to install it; after that, anything that *starts* a capture, a recording or a playback run is refused until the update is applied. Read-only actions, `STOP_*`, export and backup stay available so a locked install can still be stopped and emptied.
 
-The deadline (`bg/update-lock.js`) is the later of:
+The deadline (`shared/update-lock.js`) is the later of:
 
 * `lastUpdateAt + 30 days` — 30 days since this install last changed version, and
 * `updateAvailableSince + 7 days` — a floor, so someone who sat on the newest build for months is not locked the instant a release ships.
@@ -922,7 +949,7 @@ The last 5 days before the deadline show a non-dismissible countdown banner.
 | `updateAvailableSince` | First sighting of the pending update; also the "is an update pending" flag. Kept outside `updateStatus`, which is overwritten on every check — one offline check would otherwise reset the grace clock. |
 | `lastUpdateAt` | When this install last changed version; written by `onInstalled`, so applying an update lifts the lock immediately. |
 
-Enforcement lives in the service worker (`LOCKED_MESSAGE_TYPES` in `background.js` and the guard in `bg/screenshot.js`), because hotkeys and scheduled runs never pass through the popup. The popup's greyed-out buttons and click guard are UX only. A dev install never sets `updateAvailableSince`, so it can never lock itself.
+Enforcement lives in the service worker (`LOCKED_MESSAGE_TYPES` in `bg/router.js` and the guards in `bg/screenshot.js` and `bg/screenshot/window.js`), because hotkeys and scheduled runs never pass through the popup. The popup's greyed-out buttons and click guard are UX only. A dev install never sets `updateAvailableSince`, so it can never lock itself.
 
 ### Critical releases
 
@@ -982,17 +1009,45 @@ All source files follow a uniform comment policy enforced across the codebase:
 
 | Rule | Standard |
 |---|---|
-| **Language** | English only in all comments, JSDoc, and non-bilingual strings. Exception: the `{ vi, en }` bilingual data objects in `popup/main.js` help content. |
+| **Language** | English only in all comments, JSDoc, and non-bilingual strings. Exception: the `{ vi, en }` bilingual help content in `popup/help/*.js`. |
 | **Content** | Comments explain **WHY** — business rules, edge cases, workarounds, performance constraints, API limits, magic numbers. Never restate what the code already says. |
 | **JSDoc** | Required for all exported functions and non-trivial module-level functions (`@param`, `@returns`). |
 | **No audit refs** | No `// Fix #N`, `P0-E fix`, or `XSS-NEW-N` codes — replaced with descriptive context. |
 | **No dead code** | Commented-out code is deleted; use git history instead. |
 
+Naming:
+
+| What | Convention |
+|---|---|
+| Files | kebab-case (`full-page.js`, `failure-prompt.js`). |
+| Functions | camelCase, starting with a verb (`takeElementScreenshot`, `resetZoomTo100`). |
+| Constants | UPPER_SNAKE, named for what the value means: `NAV_TIMEOUT_MS`, `DETACH_SETTLE_MS` — two equal numbers that mean different things are two constants. |
+| Private | In an ES module, private means not exported — exported names carry no `_`. A leading `_` on a module-internal name is optional. In the classic scripts, where everything shares one scope, the `_hl*`, `_ext*`, `_rd*` prefixes of `content.js` act as namespaces and stay. |
+| Abbreviations | Not for anything used beyond a few lines (`effectiveScale`, not `es`; `nameBytes`, not `nb`). |
+
+### Development checks
+
+The extension has no build step and no dependencies; the checks below need only Node (Playwright and ESLint are
+fetched or pointed at, never added to the repo). Bugs and limits seen but not fixed yet are listed in
+[`docs/known-issues.md`](docs/known-issues.md).
+
+```bash
+node tools/verify.mjs            # check-imports + node --check + tests + both selftests
+node tools/verify.mjs --all      # … + ESLint vs baseline + smoke run in a real browser
+```
+
+| Tool | What it proves |
+|---|---|
+| `tools/check-imports.mjs` | Every `import` resolves and every imported name is exported; manifest paths, `<script>`/`<link>` in the pages, `getURL('…')` and `files: ['…']` exist; every module an Adminer page imports is in `web_accessible_resources`. |
+| `tests/*.test.mjs` | Unit tests, plus four characterization tests. `golden.test.mjs`: the pure modules, the CSV result files and both code exporters must return exactly what is stored in `tests/golden/` (rewrite with `node tests/golden/update.mjs`). `router.test.mjs`: background.js driven through 140 steps against an in-memory `chrome` (`tests/helpers/chrome-fake.mjs`) must reproduce `tests/golden/router.json` — answers, chrome.* calls, storage and state (rewrite with `node tests/router.test.mjs --update`). `playback.test.mjs`: every action type through its success and failure paths (prompt retry / skip / stop / no answer), Condition skips, Switch jumps, nested scenarios and blocks, and the single / resume / sequence / CSV entry points → `tests/golden/playback.json`. `capture.test.mjs`: visible, full page, scroll, segment, element and window capture with zoom, tiling past 4 000 px, cancels and the capture messages → `tests/golden/capture.json`; frames and canvases are described rather than drawn (`tests/helpers/bg-fakes.mjs`), so the transcript shows every tile and where it was stitched. Both rewrite with `--update`. Rewrite only for an intended change, in its own commit. |
+| `tools/smoke.mjs` | Loads the unpacked extension in Chromium: the service worker starts and answers, the five pages load without errors and follow the shared theme key, `content.js` answers PING, the DB tools modules load on an Adminer-looking page. `--shots <dir>` saves light/dark screenshots of every popup tab (as if opened on an activated http page) and of the other pages, for a before/after comparison. Needs Playwright: `NODE_PATH` to an install, or `PLAYWRIGHT_CORE` = a `playwright-core` directory; `CHROMIUM_PATH` picks the browser (branded Chrome ignores `--load-extension`; Edge and Chromium accept it). |
+| `tools/eslint.config.mjs` | `npx --yes eslint@9.39.5 -c tools/eslint.config.mjs .` — a change may not raise any rule's count above `tools/eslint-baseline.json`. |
+
 ### Key Technical Constraints (WHY knowledge)
 
 These non-obvious system constraints are documented in source comments and should not be removed:
 
-- **CDP session serialization** — All CDP captures for the same tab are serialized through `_queueScreenshot` to prevent "Another debugger is already attached" errors from concurrent attach calls.
+- **CDP session serialization** — All CDP captures for the same tab are serialized through `queueScreenshot` to prevent "Another debugger is already attached" errors from concurrent attach calls.
 - **`captureTabDouble` 80ms delay** — Discarding the first frame and waiting ~80ms lets the compositor finish before the stable second frame is captured.
 - **4000px CDP clip limit** — `Page.captureScreenshot` silently corrupts output beyond 4000px per dimension. Full-page captures tile in 4000px bands.
 - **Tile-via-CSS-transform** — Full-page stitching uses CSS transforms to position content (not `window.scroll`), avoiding fixed/sticky element repositioning artifacts.

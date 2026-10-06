@@ -1,0 +1,399 @@
+/* === Preview Actions === */
+
+.actions {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-size: 10px;
+}
+
+.actions li {
+  padding: 5px 6px 5px 10px;
+  margin-bottom: 3px;
+  border-radius: 5px;
+  background: var(--list-bg);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  cursor: grab;
+  transition: all 0.15s ease;
+  position: relative;
+  border-left-width: 3px;
+}
+
+.actions li:hover {
+  background: var(--secondary-bg);
+}
+
+.actions li::before {
+  content: '⋮⋮';
+  position: absolute;
+  left: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.actions li:hover::before {
+  opacity: 0.5;
+}
+
+.actions .index {
+  color: var(--muted);
+  width: 18px;
+  min-width: 18px;
+  flex: 0 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.actions .type {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.actions .value {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 10px;
+}
+/* Every action row is the same height: the value is two fixed lines — the value
+   itself and a sub line (label, Switch notes, case chips) that ellipsizes. */
+#actions li.action { box-sizing: border-box; height: 40px; }
+#actions .value { display: flex; flex-direction: column; justify-content: center; }
+.actions .value-main,
+.actions .value-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 14px;
+}
+.actions .value-sub { font-size: 9px; }
+.actions .value-sub > * + * { margin-left: 6px; }
+.actions .value-label { font-size: 10px; color: var(--primary); opacity: 0.8; font-style: italic; }
+/* Actions inside a Switch block: 75% of a normal row (30px vs 40px) so the
+   Switch and its cases stand out. Text shrinks less than the row — 75% of it
+   would be ~7.5px, too small to read. */
+#actions li.action.sw-in-block { height: 30px; padding-top: 2px; padding-bottom: 2px; gap: 5px; }
+#actions li.action.sw-in-block::before { font-size: 9px; }
+#actions li.action.sw-in-block .index,
+#actions li.action.sw-in-block .type { font-size: 9px; }
+#actions li.action.sw-in-block .value-main { font-size: 9px; line-height: 12px; }
+#actions li.action.sw-in-block .value-sub { font-size: 8px; line-height: 11px; }
+#actions li.action.sw-in-block .value-label { font-size: 8.5px; }
+#actions li.action.sw-in-block .sw-note { font-size: 8px; }
+#actions li.action.sw-in-block button {
+  height: 16px !important;
+  font-size: 8px !important;
+  padding: 0 5px !important;
+}
+
+/* fix type column to equal size */
+.actions .type {
+  flex: 0 0 70px;
+  min-width: 70px;
+  max-width: 70px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 110px fits "screenshot_element" (the longest action type, 18 chars) without truncation.
+   Sequence/Schedule lists use the 70px default because .type shows shorter scenario names. */
+#actions .type {
+  flex: 0 0 110px;
+  min-width: 110px;
+  max-width: 110px;
+}
+
+/* Buttons inside list rows */
+.actions .btn-row {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.actions li button {
+  width: auto !important;
+  font-size: 9px !important;
+  height: 20px !important;
+  padding: 1px 6px !important;
+  margin-top: 0 !important;
+  border-radius: 3px !important;
+}
+
+.action-click {
+  border-left: 4px solid var(--primary);
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, transparent 100%);
+}
+.action-click .type { color: #60a5fa; }
+
+.action-input {
+  border-left: 4px solid var(--success);
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%);
+}
+.action-input .type { color: #34d399; }
+
+.action-navigate {
+  border-left: 4px solid #f59e0b;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%);
+}
+.action-navigate .type { color: #fbbf24; }
+
+.action-script {
+  border-left: 4px solid var(--secondary);
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.08) 0%, transparent 100%);
+}
+.action-script .type { color: #a78bfa; }
+
+.action-hover {
+  border-left: 4px solid #c084fc;
+  background: linear-gradient(90deg, rgba(192, 132, 252, 0.08) 0%, transparent 100%);
+}
+.action-hover .type { color: #c084fc; }
+
+.action-wait {
+  border-left: 4px solid #94a3b8;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.06) 0%, transparent 100%);
+}
+.action-wait .type { color: #94a3b8; }
+
+.action-dragdrop {
+  border-left: 4px solid #fb923c;
+  background: linear-gradient(90deg, rgba(251, 146, 60, 0.08) 0%, transparent 100%);
+}
+.action-dragdrop .type { color: #fb923c; }
+
+.action-readdom {
+  border-left: 4px solid #2dd4bf;
+  background: linear-gradient(90deg, rgba(45, 212, 191, 0.08) 0%, transparent 100%);
+}
+.action-readdom .type { color: #2dd4bf; }
+
+.action-screenshot {
+  border-left: 4px solid #06b6d4;
+  background: linear-gradient(90deg, rgba(6, 182, 212, 0.08) 0%, transparent 100%);
+}
+.action-screenshot .type { color: #22d3ee; }
+
+.action-screenshot_full {
+  border-left: 4px solid #0891b2;
+  background: linear-gradient(90deg, rgba(8, 145, 178, 0.12) 0%, transparent 100%);
+}
+.action-screenshot_full .type { color: #38bdf8; }
+
+.action-screenshot_element {
+  border-left: 4px solid #0ea5e9;
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.08) 0%, transparent 100%);
+}
+.action-screenshot_element .type { color: #7dd3fc; }
+
+.action-screenshot_tovar {
+  border-left: 4px solid #818cf8;
+  background: linear-gradient(90deg, rgba(129, 140, 248, 0.08) 0%, transparent 100%);
+}
+.action-screenshot_tovar .type { color: #a5b4fc; }
+
+.action-condition {
+  border-left: 4px solid #f97316;
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.08) 0%, transparent 100%);
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+.action-condition .type { color: #fb923c; }
+
+.action-switch {
+  border-left: 4px solid #e879f9;
+  background: linear-gradient(90deg, rgba(232, 121, 249, 0.08) 0%, transparent 100%);
+}
+.action-switch .type { color: #e879f9; }
+
+.action-dropdown {
+  border-left: 4px solid #f472b6;
+  background: linear-gradient(90deg, rgba(244, 114, 182, 0.08) 0%, transparent 100%);
+}
+.action-dropdown .type { color: #f472b6; }
+
+/* Disabled action styling */
+.action-disabled {
+  opacity: 0.5;
+  background: var(--list-bg) !important;
+  border-left-color: #9ca3af !important;
+}
+
+.action-disabled .type,
+.action-disabled .value {
+  text-decoration: line-through;
+  color: var(--secondary-text);
+}
+
+.action-disabled .index::after {
+  content: ' ⏸';
+  font-size: 10px;
+}
+
+/* Undo/Redo button styles */
+.undo-redo-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.undo-redo-row button {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.action-script .value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Segoe UI Mono', 'Roboto Mono', 'Courier New', monospace;
+  white-space: nowrap;
+}
+
+.empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 10px;
+}
+
+/* === Form grid: label column + field column (Read DOM, Condition) === */
+.form-grid {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+.form-label {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+#readdomModeLabel { min-height: 28px; }
+.form-grid input:not([type="checkbox"]):not([type="radio"]),
+.form-grid select { margin: 0; }
+.form-inline { display: flex; gap: 6px; }
+.form-inline select { flex: 1; min-width: 0; }
+.form-inline input { flex: 0 0 96px; width: 96px; }
+.form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.form-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.form-check input { width: auto; margin: 0; }
+.form-inline .card-help-btn { align-self: center; }
+
+/* Condition: the expected-value label and field are grid cells of their own,
+   hidden together by hiding this wrapper. */
+#conditionExpectedValueWrapper { display: contents; }
+
+/* Condition: the actions "Then run" guards, edged like the guarded rows in
+   the action list. */
+.cond-guarded {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 3px 0 3px 8px;
+  border-left: 3px solid var(--sw-cond);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cond-guarded:empty { display: none; }
+.cond-guarded li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text);
+}
+.cond-guarded .cg-no {
+  flex: 0 0 auto;
+  min-width: 16px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.cond-guarded .cg-type {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cond-guarded .cg-val {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cond-guarded .cg-more { color: var(--muted); font-style: italic; }
+
+#readdomWrapper[data-mode="part"] .rd-whole,
+#readdomWrapper:not([data-mode="part"]) .rd-part { display: none; }
+
+#dropdownWrapper:not([data-mode="index"]) .dd-pick { display: none; }
+
+/* === Read DOM → Extract: Try on result === */
+.readdom-try-result {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  word-break: break-word;
+}
+.readdom-try-result:empty { display: none; }
+.readdom-try-result.is-ok b { color: var(--success); }
+.readdom-try-result.is-error { color: var(--danger); }
+
+/* === Drag & Drop === */
+.actions li { cursor: grab; }
+.actions li:active { cursor: grabbing; }
+.actions li.dragging { opacity: 0.5; transform: scale(0.98); }
+/* Room below the last row while dragging, inside the list, so "move to the
+   end" has somewhere to drop — the list only had 3px under its last row. */
+#actions.sw-dragging { padding-bottom: 32px; }
+/* A line, not a border + margin: those moved every row below by 11px each time
+   the drop spot changed, which moved the spot again. */
+.actions li.drag-over { box-shadow: 0 -2px 0 var(--primary); }
+/* Nothing animates while dragging: rows measured mid-transition gave the drop
+   position a moving target. */
+#actions.sw-dragging li { transition: none; }
+#actions li.dragging { outline: 1px dashed var(--primary); outline-offset: -1px; }
+/* The "move out" zone / case header the dragged row would land under. */
+.actions.sw-dragging li.sw-outside.drop-target {
+  border-color: var(--primary);
+  border-style: solid;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.actions li.sw-case-head.drop-target { background: color-mix(in srgb, var(--sw-color) 12%, transparent); }
+

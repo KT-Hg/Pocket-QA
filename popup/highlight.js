@@ -8,6 +8,10 @@ import { showConfirm, showToast, escHtml } from './utils.js';
 
 const HL_STORAGE_KEY  = 'hl_v1';
 const HL_PATTERNS_KEY = 'hl_patterns_v1';
+// An export's object URL is revoked this long after the click (see the export).
+const REVOKE_DELAY_MS = 1000;
+// How long a pattern validation message stays.
+const VALIDATION_MSG_MS = 3000;
 
 const HL_COLORS = {
   yellow: { dot: '#fde047', label: 'Yellow' },
@@ -186,7 +190,7 @@ export function initHighlight() {
       a.click();
       // Deferred: revoking immediately after click() can beat the browser to
       // reading the blob and produce an empty file for larger exports.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
       showToast('Highlights exported', 'success');
     });
   }
@@ -417,11 +421,9 @@ export function initHighlight() {
       chip.type = 'button';
       chip.className = `hl-seg hl-seg--${chipState}`;
       chip.textContent = chipState === 'any' ? '*' : seg;
-      chip.title = chipState === 'exact'
-        ? 'Exact match — click → wildcard (*)'
-        : chipState === 'any'
-          ? 'Wildcard (*) — click → exclude from pattern'
-          : 'Excluded — click to re-include';
+      if (chipState === 'exact') chip.title = 'Exact match — click → wildcard (*)';
+      else if (chipState === 'any') chip.title = 'Wildcard (*) — click → exclude from pattern';
+      else chip.title = 'Excluded — click to re-include';
 
       chip.addEventListener('click', () => {
         if (chipState === 'end') {
@@ -508,7 +510,7 @@ export function initHighlight() {
     hlValMsg.className = `hl-val-msg hl-val-msg--${type}`;
     hlValMsg.style.display = '';
     clearTimeout(hlValMsg._t);
-    hlValMsg._t = setTimeout(() => { if (hlValMsg) hlValMsg.style.display = 'none'; }, 3000);
+    hlValMsg._t = setTimeout(() => { if (hlValMsg) hlValMsg.style.display = 'none'; }, VALIDATION_MSG_MS);
   }
 
   function savePatterns() {
@@ -555,10 +557,17 @@ export function initHighlight() {
       ).size;
       const isWildcard  = p.includes('*');
       const isLocalhost = /^(localhost|127\.|0\.0\.0\.)/.test(p);
-      const badgeClass  = isLocalhost ? 'hl-pattern-badge hl-pattern-badge--local'
-                        : isWildcard  ? 'hl-pattern-badge hl-pattern-badge--wildcard'
-                        : 'hl-pattern-badge';
-      const badgeLabel  = isLocalhost ? 'local' : isWildcard ? '* wildcard' : 'exact';
+      let badgeClass, badgeLabel;
+      if (isLocalhost) {
+        badgeClass = 'hl-pattern-badge hl-pattern-badge--local';
+        badgeLabel = 'local';
+      } else if (isWildcard) {
+        badgeClass = 'hl-pattern-badge hl-pattern-badge--wildcard';
+        badgeLabel = '* wildcard';
+      } else {
+        badgeClass = 'hl-pattern-badge';
+        badgeLabel = 'exact';
+      }
       // Escape BEFORE the wildcard markup is spliced in. The pattern is free text
       // the user typed (or pasted from someone else), and it used to go into
       // innerHTML raw — the only validation is "no spaces, must contain . or *",

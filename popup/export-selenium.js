@@ -1,42 +1,9 @@
-import { showToast, lockScroll, unlockScroll, trapFocus, escHtml, getUsedVarNames } from './utils.js';
-import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../bg/switch-blocks.js';
-import { normalizeVarName, listSpec, parseListSpec, writtenVarNames } from '../bg/var-name.js';
-import { patternVarNames, patternRegexSource } from '../bg/text-pattern.js';
-
-function _activeVal(v) {
-  if (typeof v === 'string') return v;
-  if (v && typeof v === 'object' && 'activeType' in v) {
-    const t = v.activeType || 's';
-    if (t === 'r' && v.r) return `{random:${v.r.type}:${v.r.length}}`;
-    if (t === 'p') return listSpec('pick', v.p);
-    if (t === 'f') return listSpec('fallback', v.f);
-    return v.s || '';
-  }
-  return '';
-}
-
-function parseRandomSpec(val) {
-  const m = _activeVal(val).match(/^\{random:(\w+):(\d+)\}$/);
-  return m ? { type: m[1], length: parseInt(m[2]) } : null;
-}
-
-function parsePickSpec(val) {
-  return parseListSpec('pick', _activeVal(val));
-}
-
-function previewRandom(type, length) {
-  if (type === 'datetime') {
-    const d = new Date(), p = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
-  }
-  const c = {
-    alpha: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-    numeric: '0123456789',
-    alphanumeric: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-  };
-  const ch = c[type] || c.alphanumeric;
-  return Array.from({ length }, () => ch[Math.floor(Math.random() * ch.length)]).join('');
-}
+import { showToast, getUsedVarNames } from './utils.js';
+import { initExportModal } from './export-modal.js';
+import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../shared/switch-blocks.js';
+import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
+import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
+import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
@@ -128,7 +95,7 @@ function valueToPy(val) {
 // variable called `driver` or `class` would otherwise overwrite the WebDriver or
 // fail to parse, so those get a `_v` suffix.
 const _RESERVED_PY = new Set([
-  'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait',
+  'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index',
   'Select', 'ActionChains', 'NoSuchElementException', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
   'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
@@ -157,7 +124,7 @@ function scriptUsesVars(action) {
  *
  * The source used to be passed through verbatim, so a `${q}` sitting inside a JS
  * string literal stayed literal text and never picked up the value — playback
- * substitutes it via _applyVarsToCode() in bg/utils.js. Emitting an f-string lets
+ * substitutes it via _applyVarsToCode() in bg/interpolate.js. Emitting an f-string lets
  * Python do the same substitution at run time, which works for random and readdom
  * values too, and _js() applies the same escaping so a quote in a value cannot
  * terminate the surrounding JS literal.
@@ -190,7 +157,7 @@ function _scriptToPy(rawCode) {
   return [`driver.execute_script(${prefix}"""`, ...body.split('\n'), `""")`];
 }
 
-// The _js() runtime helper — same escaping as _applyVarsToCode() in bg/utils.js.
+// The _js() runtime helper — same escaping as _applyVarsToCode() in bg/interpolate.js.
 function _jsEscapeHelperPy() {
   return [
     'def _js(v):',
@@ -276,6 +243,53 @@ function _readValHelperPy() {
     'def _read_val(el, read_from, attr=""):',
     '    return driver.execute_script(_READ_VAL_JS, el, read_from, attr) or ""',
   ];
+}
+
+/**
+ * The _pick_item() runtime helper: a Dropdown's "Choose item #", mirroring
+ * _pickItem in the bookmarklet export. _pick_index is pickItemIndex of
+ * shared/dropdown-pick.js.
+ */
+function _pickItemHelperPy() {
+  return String.raw`
+def _pick_index(raw, count, ok):
+    s = str(raw).strip()
+    if s.lower() == "random":
+        pool = [k for k in range(count) if ok(k)]
+        if not pool:
+            raise Exception(f"Dropdown: no item to choose at random ({count} found)")
+        return random.choice(pool)
+    if not re.fullmatch(r"-?[0-9]+", s) or int(s) == 0:
+        raise Exception(f'Dropdown: "{s}" is not an item number')
+    n = int(s)
+    k = n - 1 if n > 0 else count + n
+    if k < 0 or k >= count:
+        raise Exception(f"Dropdown: there is no item #{n} ({count} found)")
+    return k
+
+
+def _pick_item(el, raw, item_sel, timeout):
+    if el.tag_name == "select":
+        opts = el.find_elements(By.TAG_NAME, "option")
+        k = _pick_index(raw, len(opts), lambda i: opts[i].is_enabled() and opts[i].get_attribute("value") != "")
+        if not opts[k].is_enabled():
+            raise Exception(f"Dropdown: item #{k + 1} is disabled")
+        Select(el).select_by_index(k)
+        return
+    el.click()
+    end = time.time() + timeout
+    while True:
+        items = [e for e in driver.find_elements(By.CSS_SELECTOR, item_sel or '[role="option"]') if e.is_displayed()]
+        try:
+            k = _pick_index(raw, len(items), lambda i: items[i].get_attribute("aria-disabled") != "true" and items[i].text.strip() != "")
+            break
+        except Exception:
+            if time.time() >= end:
+                raise
+            time.sleep(0.1)
+    if items[k].get_attribute("aria-disabled") == "true":
+        raise Exception(f"Dropdown: item #{k + 1} is disabled")
+    items[k].click()`.split('\n').slice(1);
 }
 
 const COND_FIELDS = ['valueEquals', 'textContains', 'idContains', 'classContains', 'typeEquals'];
@@ -434,6 +448,13 @@ function actionLines(action, stepNum, stepDelay, elTimeout) {
       break;
 
     case 'dropdown':
+      if (action.pick) {
+        out.push(`# Step ${stepNum}: dropdown → item #${String(action.pick.index ?? '?').replace(/\s+/g, ' ')}${lbl}`);
+        out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.element_to_be_clickable((${selPy})))`);
+        out.push(`_pick_item(${elVar}, ${valueToPy(action.pick.index)}, ${valueToPy(action.pick.itemSelector || '')}, ${tout})`);
+        if (delay > 0) out.push(`time.sleep(${delay})`);
+        break;
+      }
       out.push(`# Step ${stepNum}: open dropdown (freeze)${lbl}`);
       out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.element_to_be_clickable((${selPy})))`);
       out.push(`${elVar}.click()`);
@@ -477,10 +498,12 @@ function actionLines(action, stepNum, stepDelay, elTimeout) {
 
     case 'readdom': {
       // Extract: each ${name} of the pattern takes its part of the text, and
-      // "Save to var" (optional then) keeps the whole text — bg/text-pattern.js.
+      // "Save to var" (optional then) keeps the whole text — shared/text-pattern.js.
       const slots   = action.pattern ? patternVarNames(action.pattern) : [];
       const vn      = normalizeVarName(action.varName);
-      const varName = vn ? safeVarName(vn) : (slots.length ? null : 'dom_var');
+      let varName;
+      if (vn) varName = safeVarName(vn);
+      else varName = slots.length ? null : 'dom_var';
       const targets = [varName, ...slots.map(safeVarName)].filter(Boolean);
       out.push(`# Step ${stepNum}: read DOM → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
@@ -632,7 +655,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const warnings = new Set();
   const staticVars = {}, randomSpecs = {}, pickSpecs = {}, writtenVars = new Set();
   for (const [k, v] of Object.entries(variables || {})) {
-    const str  = _activeVal(v);
+    const str  = activeValue(v);
     const spec = parseRandomSpec(str);
     const pick = parsePickSpec(str);
     if (spec)      randomSpecs[k] = spec;
@@ -683,13 +706,15 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const needsChildCond    = enabled.some(a => a.conditions && typeof a.conditions === 'object');
   const needsExtract      = enabled.some(a => a.type === 'readdom' && patternVarNames(a.pattern).length);
   const needsJsEscape     = enabled.some(a => a.type === 'script' && scriptUsesVars(a));
+  const needsDropdownPick = enabled.some(a => a.type === 'dropdown' && a.pick);
 
   const out = [];
 
   // ── Imports ──
   out.push('import time');
   if (needsRandom)   { out.push('import random'); out.push('import string'); }
-  if (needsChildCond || needsExtract) out.push('import re');
+  else if (needsDropdownPick) out.push('import random');
+  if (needsChildCond || needsExtract || needsDropdownPick) out.push('import re');
   if (needsDatetime)  out.push('from datetime import datetime');
   out.push('from selenium import webdriver');
   out.push('from selenium.webdriver.common.by import By');
@@ -713,6 +738,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
   if (enabled.some(a => a.type === 'readdom')) {
     out.push(..._readValHelperPy());
+    out.push('');
+    out.push('');
+  }
+  if (needsDropdownPick) {
+    out.push(..._pickItemHelperPy());
     out.push('');
     out.push('');
   }
@@ -756,17 +786,16 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
       if (declared.has(safe)) continue;
       declared.add(safe);
       // "datetime" is a type the Variables modal offers and resolveRandomVars()
-      // in bg/utils.js implements; it used to fall through to the alphanumeric
+      // in bg/interpolate.js implements; it used to fall through to the alphanumeric
       // charset here and produce random junk instead of the run's timestamp.
       if (spec.type === 'datetime') {
         out.push(`${safe} = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")`);
         continue;
       }
-      const charset = spec.type === 'alpha'
-        ? 'string.ascii_letters'
-        : spec.type === 'numeric'
-          ? 'string.digits'
-          : 'string.ascii_letters + string.digits';
+      let charset;
+      if (spec.type === 'alpha') charset = 'string.ascii_letters';
+      else if (spec.type === 'numeric') charset = 'string.digits';
+      else charset = 'string.ascii_letters + string.digits';
       out.push(`${safe} = ''.join(random.choices(${charset}, k=${spec.length}))`);
     }
     for (const [k, vals] of Object.entries(pickSpecs)) {
@@ -829,70 +858,32 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UI MODULE
+// UI MODULE — the modal is popup/export-modal.js; what is particular to this export
 // ─────────────────────────────────────────────────────────────────────────────
-
-let _currentCode         = '';
-let _currentScenarioName = '';
-let _currentActions      = [];
-let _currentVariables    = {};
-let _releaseFocus        = null;
 
 /** Wire the export-Selenium modal trigger and all modal-internal buttons. */
 export function initExportSelenium() {
-  const triggerBtn = document.getElementById('exportSelenium');
-  if (!triggerBtn) return;
-
-  triggerBtn.addEventListener('click', _onTrigger);
-  document.getElementById('exportSeleniumClose')?.addEventListener('click', _close);
-  document.getElementById('exportSeleniumCancel')?.addEventListener('click', _close);
-  document.getElementById('exportSeleniumCopy')?.addEventListener('click', _copy);
-  document.getElementById('exportSeleniumDownload')?.addEventListener('click', _download);
-  document.getElementById('exportSeleniumRegenerate')?.addEventListener('click', _regenerate);
-  document.getElementById('exportSeleniumGetUrl')?.addEventListener('click', _fillCurrentUrl);
-
-  document.getElementById('exportSeleniumWrapBtn')?.addEventListener('click', () => {
-    const code = document.getElementById('exportSeleniumCode');
-    if (code) code.style.whiteSpace = code.style.whiteSpace === 'pre-wrap' ? 'pre' : 'pre-wrap';
-  });
-
-  document.getElementById('exportSeleniumSelectAllBtn')?.addEventListener('click', () => {
-    const code = document.querySelector('#exportSeleniumCode code');
-    if (!code) return;
-    const range = document.createRange();
-    range.selectNodeContents(code);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-  });
-
-  document.querySelectorAll('.export-py-tab').forEach(btn => {
-    btn.addEventListener('click', () => _switchTab(btn.dataset.tab));
-  });
-
-  const modal = document.getElementById('exportSeleniumModal');
-  modal?.addEventListener('click', e => { if (e.target === modal) _close(); });
-  modal?.addEventListener('keydown', e => { if (e.key === 'Escape') _close(); });
-}
-
-function _onTrigger() {
-  const sel        = document.getElementById('exportCodeSelect');
-  const scenarioId = sel?.value;
-  if (!scenarioId) { showToast('Please select a scenario first', 'error'); return; }
-
-  _currentScenarioName = sel.options[sel.selectedIndex]?.text || 'Scenario';
-
-  chrome.runtime.sendMessage({ type: 'GET_SCENARIOS' }, res => {
-    const scenario  = (res?.scenarios || {})[scenarioId];
-    _currentActions = scenario?.actions || [];
-    chrome.runtime.sendMessage({ type: 'GET_VARIABLES' }, varRes => {
-      const allVariables = varRes?.variables || {};
-      const usedNames = getUsedVarNames(_currentActions);
-      _currentVariables = Object.fromEntries(
-        Object.entries(allVariables).filter(([k]) => usedNames.has(k))
-      );
-      _openModal(_currentScenarioName, _currentActions, _currentVariables);
-    });
+  initExportModal({
+    triggerId: 'exportSelenium',
+    prefix: 'exportSelenium',
+    tabClass: 'export-py-tab',
+    title: 'Export Python',
+    fileSuffix: '_selenium.py',
+    readOptions: _getOpts,
+    generate: generateSeleniumPy,
+    regenerateFromStorage: false,
+    noticeLines: (stats) => {
+      const msgs = [];
+      if (stats.skipped > 0)  msgs.push(`${stats.skipped} action(s) skipped (switch)`);
+      if (stats.hasScript)    msgs.push('script → driver.execute_script() — please review');
+      return msgs;
+    },
+    // Selenium: only 'switch' is skipped; 'script' needs manual verification
+    isSkipped: (a) => a.type === 'switch',
+    copyText: (code) => code,
+    file: (code) => ({ text: code, type: 'text/x-python' }),
+    beforeOpen: _autoFillStartUrl,
+    wire: () => document.getElementById('exportSeleniumGetUrl')?.addEventListener('click', _fillCurrentUrl),
   });
 }
 
@@ -905,11 +896,8 @@ function _getOpts() {
   };
 }
 
-function _openModal(scenarioName, actions, variables) {
-  const modal = document.getElementById('exportSeleniumModal');
-  if (!modal) return;
-
-  // Auto-fill Starting URL from current tab (if input is still empty)
+// Auto-fill Starting URL from current tab (if input is still empty)
+function _autoFillStartUrl() {
   const urlInput = document.getElementById('exportSeleniumStartUrl');
   if (urlInput && !urlInput.value.trim()) {
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
@@ -922,174 +910,6 @@ function _openModal(scenarioName, actions, variables) {
       }
     });
   }
-
-  const result  = generateSeleniumPy(scenarioName, actions, variables, _getOpts());
-  _currentCode  = result.code;
-
-  _renderModal(scenarioName, result, variables);
-  modal.classList.add('show');
-  modal.setAttribute('aria-hidden', 'false');
-  lockScroll();
-  _switchTab('preview');
-  _releaseFocus = trapFocus(modal);
-}
-
-function _renderModal(scenarioName, result, variables) {
-  const safe = scenarioName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  const filename = `${safe}_selenium.py`;
-
-  // Header
-  document.getElementById('exportSeleniumTitle').textContent = `Export Python — ${scenarioName}`;
-  document.getElementById('exportSeleniumSub').textContent = `${filename} · ${result.stats.supported} steps`;
-  document.getElementById('exportSeleniumCodeLabel').textContent = filename;
-
-  // Code preview
-  const codeEl = document.querySelector('#exportSeleniumCode code');
-  if (codeEl) codeEl.textContent = result.code;
-
-  // Warning bar
-  const warning = document.getElementById('exportSeleniumWarning');
-  const skipMsg  = document.getElementById('exportSeleniumSkipMsg');
-  const msgs = [];
-  if (result.stats.skipped > 0)  msgs.push(`${result.stats.skipped} action(s) skipped (switch)`);
-  if (result.stats.hasScript)    msgs.push('script → driver.execute_script() — please review');
-  // Anything the generator could not express faithfully (renamed identifiers,
-  // unresolved ${...}). These used to surface only when the script was run.
-  msgs.push(...(result.warnings || []));
-  if (msgs.length > 0) {
-    skipMsg.style.whiteSpace = 'pre-line';
-    skipMsg.textContent  = msgs.join('\n');
-    warning.style.display = '';
-  } else {
-    warning.style.display = 'none';
-  }
-
-  // Variables — row layout
-  const vars = Object.entries(variables || {});
-  document.getElementById('exportSeleniumVarCount').textContent = vars.length;
-
-  const noVarsEl = document.getElementById('exportSeleniumNoVars');
-  const listEl   = document.getElementById('exportSeleniumVarList');
-
-  if (vars.length === 0) {
-    noVarsEl.style.display = '';
-    listEl.innerHTML = '';
-  } else {
-    noVarsEl.style.display = 'none';
-    listEl.innerHTML = '';
-    for (const [key, rawVal] of vars) {
-      const val     = _activeVal(rawVal);
-      const spec    = parseRandomSpec(val);
-      const pick    = parsePickSpec(val);
-      const isRand  = !!spec;
-      const isPick  = !!pick;
-      // Fallback specs match neither parser and used to be listed as "Static"
-      // showing the raw {fallback:...} text, which reads like a broken value.
-      const fbMatch = val.match(/^\{fallback:(.+)\}$/);
-      let icon, badgeLabel, badgeCls, preview;
-      if (isRand) {
-        icon = '🎲'; badgeLabel = 'Random'; badgeCls = 'rand';
-        preview = previewRandom(spec.type, spec.length);
-      } else if (isPick) {
-        icon = '⚄'; badgeLabel = `Pick (${pick.length})`; badgeCls = 'rand';
-        preview = pick.map(v => (v === '' ? '∅ blank' : v)).join(' | ');
-        if (preview.length > 40) preview = preview.slice(0, 40) + '…';
-      } else if (fbMatch) {
-        const fbVals = fbMatch[1].split('|').map(s => s.trim());
-        icon = '⛓'; badgeLabel = `Fallback (${fbVals.length})`; badgeCls = 'rand';
-        preview = fbVals.map(v => (v === '' ? '∅ blank' : v)).join(' → ');
-        if (preview.length > 40) preview = preview.slice(0, 40) + '…';
-      } else {
-        icon = '🔤'; badgeLabel = 'Static'; badgeCls = 'static';
-        preview = val.length > 40 ? val.slice(0, 40) + '…' : val;
-      }
-      const row = document.createElement('div');
-      row.className = 'export-bm-var-row';
-      row.innerHTML = `
-        <div class="export-bm-var-icon ${badgeCls}">${icon}</div>
-        <span class="export-bm-var-name">\${${escHtml(key)}}</span>
-        <span class="export-bm-badge ${badgeCls}">${badgeLabel}</span>
-        <span class="export-bm-preview">${escHtml(preview)}</span>`;
-      listEl.appendChild(row);
-    }
-  }
-
-  // Actions review tab
-  const actStats = _renderActionsTab(_currentActions);
-
-  // Stats pills
-  const { supported, skipped } = result.stats;
-  document.getElementById('exportSeleniumStatSteps').textContent = `${supported} steps`;
-  document.getElementById('exportSeleniumStatVars').textContent  = `${vars.length} variables`;
-
-  const warnPill    = document.getElementById('exportSeleniumStatWarnPill');
-  const skippedPill = document.getElementById('exportSeleniumStatSkippedPill');
-  if (actStats.warnCount > 0) {
-    document.getElementById('exportSeleniumStatWarn').textContent = `${actStats.warnCount} verify`;
-    warnPill.style.display = '';
-  } else {
-    warnPill.style.display = 'none';
-  }
-  if (skipped > 0) {
-    document.getElementById('exportSeleniumStatSkipped').textContent = `${skipped} skipped`;
-    skippedPill.style.display = '';
-  } else {
-    skippedPill.style.display = 'none';
-  }
-}
-
-function _close() {
-  const modal = document.getElementById('exportSeleniumModal');
-  modal?.classList.remove('show');
-  modal?.setAttribute('aria-hidden', 'true');
-  if (_releaseFocus) { _releaseFocus(); _releaseFocus = null; }
-  unlockScroll();
-}
-
-function _switchTab(tab) {
-  document.querySelectorAll('.export-py-tab').forEach(btn => {
-    const active = btn.dataset.tab === tab;
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-selected', String(active));
-  });
-  document.getElementById('exportSeleniumTabPreview').hidden   = tab !== 'preview';
-  document.getElementById('exportSeleniumTabVariables').hidden = tab !== 'variables';
-  document.getElementById('exportSeleniumTabActions').hidden   = tab !== 'actions';
-  document.getElementById('exportSeleniumTabSettings').hidden  = tab !== 'settings';
-}
-
-async function _copy() {
-  if (!_currentCode) return;
-  try {
-    await navigator.clipboard.writeText(_currentCode);
-    const btn = document.getElementById('exportSeleniumCopy');
-    if (btn) {
-      const orig = btn.textContent;
-      btn.textContent = 'Copied';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
-    }
-  } catch {
-    showToast('Clipboard not available', 'error');
-  }
-}
-
-function _download() {
-  if (!_currentCode) return;
-  const safe = _currentScenarioName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  const blob  = new Blob([_currentCode], { type: 'text/x-python' });
-  const url   = URL.createObjectURL(blob);
-  const a     = Object.assign(document.createElement('a'), { href: url, download: `${safe}_selenium.py` });
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function _regenerate() {
-  const result = generateSeleniumPy(_currentScenarioName, _currentActions, _currentVariables, _getOpts());
-  _currentCode = result.code;
-  _renderModal(_currentScenarioName, result, _currentVariables);
-  _switchTab('preview');
-  showToast('Code regenerated');
 }
 
 function _fillCurrentUrl() {
@@ -1107,100 +927,4 @@ function _fillCurrentUrl() {
       if (badge) badge.style.display = '';
     }
   });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ACTIONS REVIEW TAB
-// ─────────────────────────────────────────────────────────────────────────────
-
-const _ACT_TYPE_INFO = {
-  navigate:           { icon: '🌐', label: 'navigate',   cls: 'nav' },
-  click:              { icon: '👆', label: 'click',      cls: 'click' },
-  input:              { icon: '⌨',  label: 'input',      cls: 'input' },
-  hover:              { icon: '🖱',  label: 'hover',      cls: 'hover' },
-  dropdown:           { icon: '▼',  label: 'dropdown',   cls: 'click' },
-  dragdrop:           { icon: '↔',  label: 'dragdrop',   cls: 'dragdrop' },
-  wait:               { icon: '⏱',  label: 'wait',       cls: 'wait' },
-  script:             { icon: '📜', label: 'script',     cls: 'script' },
-  condition:          { icon: '🔀', label: 'condition',  cls: 'condition' },
-  screenshot:         { icon: '📷', label: 'screenshot', cls: 'screenshot' },
-  screenshot_full:    { icon: '📷', label: 'scr-full',   cls: 'screenshot' },
-  screenshot_element: { icon: '📷', label: 'scr-elem',   cls: 'screenshot' },
-  screenshot_tovar:   { icon: '📷', label: 'scr-var',    cls: 'screenshot' },
-  readdom:            { icon: '📖', label: 'readdom',    cls: 'readdom' },
-  switch:             { icon: '🔄', label: 'switch',     cls: 'wait' },
-};
-
-function _actionDesc(a) {
-  const sel = (a.selectors?.css
-    || (a.selectors?.id ? '#' + a.selectors.id : '')
-    || a.selector
-    || '').slice(0, 40);
-  switch (a.type) {
-    case 'navigate':  return (a.value || a.url || '').slice(0, 50);
-    case 'wait':      return `${a.delay ?? a.value ?? 1000} ms`;
-    case 'script':    return 'custom JS code';
-    case 'condition': return a.conditionType || 'condition';
-    case 'switch':    return `→ ${(a.scenario || a.value || '')}`.slice(0, 40);
-    case 'readdom':   return a.pattern
-      ? `${sel} → ${String(a.pattern).trim()}`
-      : `${sel} → \${${normalizeVarName(a.varName) || 'var'}}`;
-    case 'screenshot':
-    case 'screenshot_full':    return 'viewport';
-    case 'screenshot_element': return sel || 'element';
-    case 'screenshot_tovar':   return `→ \${${normalizeVarName(a.varName) || 'screenshot'}}`;
-    case 'input': {
-      const v = a.value ? ` = "${String(a.value).slice(0, 15)}"` : '';
-      return `${sel}${v}`;
-    }
-    default: return sel;
-  }
-}
-
-function _renderActionsTab(actions) {
-  const listEl    = document.getElementById('exportSeleniumActList');
-  const summaryEl = document.getElementById('exportSeleniumActSummary');
-  if (!listEl || !summaryEl) return { okCount: 0, warnCount: 0, skipCount: 0 };
-
-  let okCount = 0, skipCount = 0, warnCount = 0;
-  let html = '';
-
-  // Selenium: only 'switch' is skipped; 'script' needs manual verification
-  const enabled = (actions || []).filter(a => !a.disabled);
-  enabled.forEach((a, i) => {
-    // The fallback label is a.type straight out of an imported .json, so both it
-    // and the class name are escaped at the interpolation site below.
-    const info = _ACT_TYPE_INFO[a.type] || { icon: '●', label: String(a.type ?? 'unknown'), cls: 'wait' };
-    const desc = _actionDesc(a);
-    let status, statusLabel, rowCls;
-    if (a.type === 'switch') {
-      status = 'skip'; statusLabel = '— Skip'; rowCls = 'row-skip'; skipCount++;
-    } else if (a.type === 'script') {
-      status = 'warn'; statusLabel = '⚠ Verify'; rowCls = 'row-warn'; warnCount++;
-    } else {
-      status = 'ok'; statusLabel = '✓ OK'; rowCls = ''; okCount++;
-    }
-    html += `<div class="export-bm-action-row ${rowCls}">
-      <span class="export-bm-action-step">${i + 1}</span>
-      <span class="export-bm-action-type abt-${escHtml(info.cls)}">${info.icon} ${escHtml(info.label)}</span>
-      <span class="export-bm-action-desc">${escHtml(desc)}</span>
-      <span class="export-bm-action-status ast-${status}">${statusLabel}</span>
-    </div>`;
-  });
-  listEl.innerHTML = html;
-
-  let sumHtml = '<span class="export-bm-act-sum-label">Will export:</span>';
-  sumHtml += `<span class="export-bm-act-sum-pill act-sum-ok">✓ ${okCount} OK</span>`;
-  if (warnCount) sumHtml += `<span class="export-bm-act-sum-pill act-sum-warn">⚠ ${warnCount} needs review</span>`;
-  if (skipCount) sumHtml += `<span class="export-bm-act-sum-pill act-sum-skip">— ${skipCount} skipped</span>`;
-  summaryEl.innerHTML = sumHtml;
-
-  const badge = document.getElementById('exportSeleniumActCount');
-  if (badge) {
-    const warnTotal = skipCount + warnCount;
-    badge.textContent = warnTotal > 0 ? `${warnTotal} ⚠` : String(enabled.length);
-    badge.className   = 'export-bm-tab-count' + (warnTotal > 0 ? ' warn' : '');
-  }
-
-  return { okCount, warnCount, skipCount };
 }

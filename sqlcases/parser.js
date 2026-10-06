@@ -236,7 +236,10 @@ class Parser {
         if (this.eatKw('DESC')) dir = 'DESC';
         else this.eatKw('ASC');
         let nulls = null;
-        if (this.eatKw('NULLS')) nulls = this.eatKw('FIRST') ? 'FIRST' : (this.eatKw('LAST') ? 'LAST' : null);
+        if (this.eatKw('NULLS')) {
+          if (this.eatKw('FIRST')) nulls = 'FIRST';
+          else if (this.eatKw('LAST')) nulls = 'LAST';
+        }
         node.orderBy.push({ expr, dir, nulls });
       } while (this.eatPunct(','));
     }

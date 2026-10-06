@@ -23,9 +23,6 @@
 import { exprToSql } from './parser.js';
 import { boundParam, paramLabel, useTables } from './valuebook.js';
 
-/** Operators that place a value on an ordered scale, so BVA applies. */
-export const ORDERED_OPS = new Set(['>', '>=', '<', '<=', 'BETWEEN']);
-
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?/;
 const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
@@ -430,6 +427,18 @@ function findColumns(node, out = new Map()) {
   return [...out.values()];
 }
 
+/** A table reference as written: schema.name, name, or "(subquery)". */
+function refName(ref) {
+  if (ref.kind === 'subquery') return '(subquery)';
+  return ref.schema ? `${ref.schema}.${ref.name}` : ref.name;
+}
+
+/** A join's condition as SQL: its ON expression, its USING list, or null. */
+function joinConditionSql(j) {
+  if (j.on) return exprToSql(j.on);
+  return j.using.length ? `USING (${j.using.join(', ')})` : null;
+}
+
 function tableLabel(ref) {
   if (!ref) return '?';
   if (ref.kind === 'subquery') return ref.alias || '(subquery)';
@@ -489,7 +498,7 @@ export function analyze(ast, idPrefix = '') {
   // --- tables & joins -------------------------------------------------
   const fromList = ast.from || (ast.table ? [ast.table] : []);
   fromList.forEach(ref => model.tables.push({
-    name: ref.kind === 'subquery' ? '(subquery)' : (ref.schema ? `${ref.schema}.${ref.name}` : ref.name),
+    name: refName(ref),
     alias: ref.alias,
     label: tableLabel(ref),
     role: 'from',
@@ -501,7 +510,7 @@ export function analyze(ast, idPrefix = '') {
     const ref = j.table;
     const label = tableLabel(ref);
     model.tables.push({
-      name: ref.kind === 'subquery' ? '(subquery)' : (ref.schema ? `${ref.schema}.${ref.name}` : ref.name),
+      name: refName(ref),
       alias: ref.alias,
       label,
       role: 'join',
@@ -523,7 +532,7 @@ export function analyze(ast, idPrefix = '') {
       rightLabel: label,
       on: j.on,
       onTree,
-      onSql: j.on ? exprToSql(j.on) : (j.using.length ? `USING (${j.using.join(', ')})` : null),
+      onSql: joinConditionSql(j),
       using: j.using,
       // model.tables already carries FROM plus every join up to and including
       // this one (pushed just above), so joinKeys can resolve the alias on
@@ -762,9 +771,12 @@ function joinKeys(expr, scopeTables) {
     }
     // One side may be a scalar subquery standing in for "the matching row of
     // the table this ON is already about" — see subqueryCorrelation() above.
-    const colSide = isColumn(n.left) ? n.left : isColumn(n.right) ? n.right : null;
-    const subSide = unwrap(n.left)?.type === 'subquery' ? unwrap(n.left)
-      : unwrap(n.right)?.type === 'subquery' ? unwrap(n.right) : null;
+    let colSide = null;
+    if (isColumn(n.left)) colSide = n.left;
+    else if (isColumn(n.right)) colSide = n.right;
+    let subSide = null;
+    if (unwrap(n.left)?.type === 'subquery') subSide = unwrap(n.left);
+    else if (unwrap(n.right)?.type === 'subquery') subSide = unwrap(n.right);
     if (!colSide || !subSide) return;
     const anchor = asColumn(colSide);
     const anchorTable = anchor.table && outerAlias.get(anchor.table.toLowerCase());
@@ -775,4 +787,4 @@ function joinKeys(expr, scopeTables) {
   return keys;
 }
 
-export { unwrap, asColumn, describeOperand, typeFromName };
+export { typeFromName };

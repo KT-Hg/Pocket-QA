@@ -74,7 +74,7 @@ export async function persistCsvState(scenarioId, currentRow, delayBetween, expo
     await chrome.storage.session.set({
       csv_pending: { scenarioId, currentRow, delayBetween, exportFormat, timestamp: Date.now() },
     });
-  } catch (_) {}
+  } catch (_) { /* session storage full or unavailable: the run goes on, just not resumable */ }
 }
 
 /**
@@ -114,7 +114,7 @@ export async function restoreCsvState() {
       return null;
     }
     return { ...cp, rows };
-  } catch (_) {}
+  } catch (_) { /* unreadable checkpoint: treated as none */ }
   return null;
 }
 
@@ -133,7 +133,7 @@ export async function persistRecordingState() {
       rec_actions:    state.currentActions,
       rec_timestamp:  Date.now(),
     });
-  } catch (_) {}
+  } catch (_) { /* session storage full or unavailable: the recording only won't survive a worker restart */ }
 }
 
 /**
@@ -156,5 +156,5 @@ export async function restoreRecordingState() {
         count: state.currentActions.length,
       }).catch(() => {});
     }
-  } catch (_) {}
+  } catch (_) { /* unreadable snapshot: start with no recording */ }
 }

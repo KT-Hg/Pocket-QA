@@ -1,6 +1,6 @@
 /** theme.js — Light/dark theme persistence via chrome.storage.local. */
 
-export const THEME_KEY = 'popupTheme';
+import { THEME_KEY } from '../shared/storage-keys.js';
 
 /** Set `data-theme` on the root element and update the toggle button icon. */
 export function applyTheme(theme) {

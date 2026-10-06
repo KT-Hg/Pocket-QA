@@ -20,7 +20,7 @@
 import { showToast } from './utils.js';
 import {
   computeLockState, evaluateRemoteConfig, compareVersions, LOCK_MESSAGE,
-} from '../bg/update-lock.js';
+} from '../shared/update-lock.js';
 
 const DISMISS_KEY = 'updateBannerDismissed'; // version the user waved off
 
@@ -43,11 +43,6 @@ const LOCKED_CONTROLS = [
 let _latest = '';      // latest version currently on screen, for the dismiss key
 let _locked = false;   // mirrors the service worker's lock state
 let _lockMessage = LOCK_MESSAGE;
-
-/** True while the extension is locked for being out of date. */
-export function isUpdateLocked() {
-  return _locked;
-}
 
 function render() {
   const banner = document.getElementById('updateBanner');

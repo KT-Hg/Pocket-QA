@@ -1,0 +1,5096 @@
+{
+ "normalizeVarName": [
+  null,
+  "abc",
+  "abc",
+  "abc",
+  "$abc",
+  "{abc",
+  null,
+  "tên",
+  "họ tên",
+  "a.b",
+  "a-b",
+  "1x",
+  null,
+  null,
+  "$",
+  null,
+  null,
+  "42",
+  "[object Object]"
+ ],
+ "normalizeVarRef": [
+  "",
+  "${abc}",
+  "${abc}",
+  "${ abc }",
+  "${$abc}",
+  "${{abc}",
+  "${{abc}}",
+  "${tên}",
+  "${họ tên}",
+  "${a.b}",
+  "${a-b}",
+  "${1x}",
+  "${a}${b}",
+  "${}",
+  "${$}",
+  "",
+  "",
+  "${42}",
+  "${[object Object]}"
+ ],
+ "SELECTOR_KEYS": [
+  "css",
+  "xpath",
+  "fullXpath",
+  "id",
+  "name",
+  "testId",
+  "dataId",
+  "text"
+ ],
+ "selectorStrings": [
+  [],
+  [],
+  [
+   "#inputName",
+   "#inputName",
+   "//*[@id=\"inputName\"]",
+   "inputName"
+  ],
+  [
+   "#inputEmail",
+   "#inputEmail",
+   "//*[@id=\"inputEmail\"]",
+   "inputEmail"
+  ],
+  [
+   "#inputPassword",
+   "#inputPassword",
+   "//*[@id=\"inputPassword\"]",
+   "inputPassword"
+  ],
+  [
+   "#inputPhone",
+   "#inputPhone",
+   "//*[@id=\"inputPhone\"]",
+   "inputPhone"
+  ],
+  [
+   "#inputMessage",
+   "#inputMessage",
+   "//*[@id=\"inputMessage\"]",
+   "inputMessage"
+  ],
+  [
+   "#selectCountry",
+   "#selectCountry",
+   "//*[@id=\"selectCountry\"]",
+   "selectCountry"
+  ],
+  [
+   "#selectPriority",
+   "#selectPriority",
+   "//*[@id=\"selectPriority\"]",
+   "selectPriority"
+  ],
+  [
+   "#chkTerms",
+   "#chkTerms",
+   "//*[@id=\"chkTerms\"]",
+   "chkTerms"
+  ],
+  [
+   "#chkRemember",
+   "#chkRemember",
+   "//*[@id=\"chkRemember\"]",
+   "chkRemember"
+  ],
+  [
+   "input[name=\"role\"][value=\"viewer\"]",
+   "input[name=\"role\"][value=\"viewer\"]"
+  ],
+  [
+   "#btnLoad",
+   "#btnLoad",
+   "//*[@id=\"btnLoad\"]",
+   "btnLoad"
+  ],
+  [],
+  [
+   "#btnSubmit",
+   "#btnSubmit",
+   "//*[@id=\"btnSubmit\"]",
+   "btnSubmit"
+  ],
+  [],
+  [
+   "#btnReset",
+   "#btnReset",
+   "//*[@id=\"btnReset\"]",
+   "btnReset"
+  ],
+  [],
+  [],
+  [
+   "#hoverA",
+   "#hoverA",
+   "//*[@id=\"hoverA\"]",
+   "hoverA"
+  ],
+  [],
+  [
+   "#hoverB",
+   "#hoverB",
+   "//*[@id=\"hoverB\"]",
+   "hoverB"
+  ],
+  [],
+  [
+   "#hoverC",
+   "#hoverC",
+   "//*[@id=\"hoverC\"]",
+   "hoverC"
+  ],
+  [],
+  [],
+  [],
+  [
+   "#btnInc",
+   "#btnInc",
+   "//*[@id=\"btnInc\"]",
+   "btnInc"
+  ],
+  [
+   "#btnInc",
+   "#btnInc",
+   "//*[@id=\"btnInc\"]",
+   "btnInc"
+  ],
+  [
+   "#btnInc",
+   "#btnInc",
+   "//*[@id=\"btnInc\"]",
+   "btnInc"
+  ],
+  [
+   "#counter",
+   "#counter",
+   "//*[@id=\"counter\"]",
+   "counter"
+  ],
+  [],
+  [
+   "#domPrice",
+   "#domPrice",
+   "//*[@id=\"domPrice\"]",
+   "domPrice"
+  ],
+  [
+   "#domStock",
+   "#domStock",
+   "//*[@id=\"domStock\"]",
+   "domStock"
+  ],
+  [
+   "#domRating",
+   "#domRating",
+   "//*[@id=\"domRating\"]",
+   "domRating"
+  ],
+  [],
+  [
+   "#btnDec",
+   "#btnDec",
+   "//*[@id=\"btnDec\"]",
+   "btnDec"
+  ],
+  [
+   "#btnReset2",
+   "#btnReset2",
+   "//*[@id=\"btnReset2\"]",
+   "btnReset2"
+  ],
+  [],
+  [],
+  [
+   "#btnHide",
+   "#btnHide",
+   "//*[@id=\"btnHide\"]",
+   "btnHide"
+  ],
+  [],
+  [
+   "#conditionEl",
+   "#conditionEl",
+   "conditionEl"
+  ],
+  [
+   "#btnInc",
+   "#btnInc",
+   "btnInc"
+  ],
+  [],
+  [
+   "#btnShow",
+   "#btnShow",
+   "//*[@id=\"btnShow\"]",
+   "btnShow"
+  ],
+  [],
+  [
+   "#conditionEl",
+   "#conditionEl",
+   "conditionEl"
+  ],
+  [
+   "#btnHide",
+   "#btnHide",
+   "btnHide"
+  ],
+  [
+   "#condText",
+   "#condText",
+   "condText"
+  ],
+  [
+   "#btnInc",
+   "#btnInc",
+   "btnInc"
+  ],
+  [],
+  [
+   "#btnInc",
+   "#btnInc",
+   "btnInc"
+  ],
+  [],
+  [],
+  [
+   "li.drag-item[data-id=\"1\"]",
+   "li.drag-item[data-id=\"3\"]",
+   "li.drag-item[data-id=\"1\"]",
+   "li.drag-item[data-id=\"3\"]"
+  ],
+  [],
+  [
+   "li.drag-item[data-id=\"4\"]",
+   "li.drag-item[data-id=\"2\"]",
+   "li.drag-item[data-id=\"4\"]",
+   "li.drag-item[data-id=\"2\"]"
+  ],
+  [],
+  [],
+  [
+   "button.btn-ghost",
+   "#screen2 .section:last-child .btn-ghost",
+   "Reset"
+  ],
+  [],
+  [
+   "button.btn-primary",
+   "#screen2 button.btn-primary:last-of-type",
+   "Simulate Load (1.5s)"
+  ],
+  [
+   "#loadingSpinner",
+   "#loadingSpinner",
+   "loadingSpinner"
+  ],
+  [],
+  [
+   ".spinner",
+   ".spinner"
+  ],
+  [],
+  [
+   "#loadedValue",
+   "#loadedValue",
+   "loadedValue"
+  ],
+  [
+   "#loadedContent",
+   "#loadedContent",
+   "loadedContent"
+  ],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [
+   "#card-red",
+   "#card-red",
+   "card-red"
+  ],
+  [],
+  [
+   "#card-green",
+   "#card-green",
+   "card-green"
+  ],
+  [],
+  [
+   "#card-blue",
+   "#card-blue",
+   "card-blue"
+  ],
+  [],
+  [
+   "#card-gold",
+   "#card-gold",
+   "card-gold"
+  ],
+  [],
+  [],
+  [
+   "#inputName",
+   "#inputName",
+   "inputName"
+  ],
+  [
+   "#inputEmail",
+   "#inputEmail",
+   "inputEmail"
+  ],
+  [
+   "#selectCountry",
+   "#selectCountry",
+   "selectCountry"
+  ],
+  [
+   "#inputMessage",
+   "#inputMessage",
+   "inputMessage"
+  ],
+  [
+   "#btnSubmit",
+   "#btnSubmit",
+   "btnSubmit"
+  ],
+  [],
+  [],
+  [],
+  [
+   "#csvVarDisplay",
+   "#csvVarDisplay",
+   "csvVarDisplay"
+  ],
+  [
+   "#formStatus",
+   "#formStatus",
+   "formStatus"
+  ],
+  [],
+  [],
+  [
+   "#start",
+   "#start",
+   "//*[@id=\"start\"]"
+  ],
+  [
+   "#user",
+   "#user",
+   "//*[@id=\"user\"]"
+  ],
+  [
+   "#pass",
+   "#pass",
+   "//*[@id=\"pass\"]"
+  ],
+  [
+   "#menu",
+   "#menu",
+   "//*[@id=\"menu\"]"
+  ],
+  [
+   "#country",
+   "#country",
+   "//*[@id=\"country\"]"
+  ],
+  [
+   "#card-1",
+   "#lane-2",
+   "#card-1",
+   "//*[@id=\"card-1\"]",
+   "#lane-2"
+  ],
+  [],
+  [
+   "#greeting",
+   "#greeting",
+   "//*[@id=\"greeting\"]"
+  ],
+  [
+   "#order",
+   "#order",
+   "//*[@id=\"order\"]"
+  ],
+  [
+   "#link",
+   "#link",
+   "//*[@id=\"link\"]"
+  ],
+  [],
+  [],
+  [
+   "#chart",
+   "#chart",
+   "//*[@id=\"chart\"]"
+  ],
+  [],
+  [
+   "#file",
+   "#file",
+   "//*[@id=\"file\"]"
+  ],
+  [
+   "#row",
+   "#row",
+   "//*[@id=\"row\"]"
+  ],
+  [
+   "#disabled",
+   "#disabled",
+   "//*[@id=\"disabled\"]"
+  ],
+  [
+   "#banner",
+   "#banner",
+   "//*[@id=\"banner\"]"
+  ],
+  [
+   "#close-banner",
+   "#close-banner",
+   "//*[@id=\"close-banner\"]"
+  ],
+  [],
+  [
+   "#status",
+   "#status",
+   "//*[@id=\"status\"]"
+  ],
+  [
+   "#note",
+   "#note",
+   "//*[@id=\"note\"]"
+  ],
+  [],
+  [
+   "#qty",
+   "#qty",
+   "//*[@id=\"qty\"]"
+  ],
+  [
+   "#nested",
+   "#nested",
+   "//*[@id=\"nested\"]"
+  ],
+  [
+   "#x",
+   "#x",
+   "//*[@id=\"x\"]"
+  ],
+  [
+   "#y",
+   "#y",
+   "//*[@id=\"y\"]"
+  ],
+  [
+   "#after",
+   "#after",
+   "//*[@id=\"after\"]"
+  ],
+  [
+   "#z",
+   "#z",
+   "//*[@id=\"z\"]"
+  ],
+  [
+   "#z1",
+   "#z1",
+   "//*[@id=\"z1\"]"
+  ],
+  [
+   "#legacy",
+   "#legacy",
+   "//*[@id=\"legacy\"]"
+  ],
+  [
+   "#l1",
+   "#l1",
+   "//*[@id=\"l1\"]"
+  ],
+  [
+   "#l2",
+   "#l2",
+   "//*[@id=\"l2\"]"
+  ],
+  [
+   "#up",
+   "#up",
+   "//*[@id=\"up\"]"
+  ],
+  [],
+  [
+   "#admin-1",
+   "#admin-1",
+   "//*[@id=\"admin-1\"]"
+  ],
+  [
+   "#admin-2",
+   "#admin-2",
+   "//*[@id=\"admin-2\"]"
+  ],
+  [],
+  [
+   "#vi",
+   "#vi",
+   "//*[@id=\"vi\"]"
+  ],
+  [
+   "#en",
+   "#en",
+   "//*[@id=\"en\"]"
+  ],
+  [
+   "#tail",
+   "#tail",
+   "//*[@id=\"tail\"]"
+  ],
+  [
+   "#tail",
+   "#tail",
+   "//*[@id=\"tail\"]"
+  ],
+  [],
+  [],
+  [],
+  [
+   "#end",
+   "#end",
+   "//*[@id=\"end\"]"
+  ],
+  [
+   "#ten",
+   "#ten",
+   "//*[@id=\"ten\"]"
+  ],
+  [],
+  [
+   "#ma",
+   "#ma",
+   "//*[@id=\"ma\"]"
+  ]
+ ],
+ "writtenVarNames": [
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [
+   "counterValue"
+  ],
+  [],
+  [
+   "price"
+  ],
+  [
+   "stock"
+  ],
+  [
+   "rating"
+  ],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [
+   "loadedResult"
+  ],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [
+   "screenshot"
+  ],
+  [
+   "formResult"
+  ],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [
+   "greeting"
+  ],
+  [
+   "order",
+   "orderId",
+   "customer"
+  ],
+  [
+   "href"
+  ],
+  [],
+  [],
+  [],
+  [
+   "shot"
+  ],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [
+   "mã",
+   "a",
+   "b"
+  ]
+ ],
+ "listEntries": [
+  [],
+  [
+   "a",
+   ""
+  ],
+  [
+   "x|y",
+   "z\\w",
+   "}"
+  ],
+  [],
+  [],
+  []
+ ],
+ "listSpec": [
+  "",
+  "{pick:a|}",
+  "{pick:x|y|z\\w|}}",
+  "",
+  "",
+  "",
+  "",
+  "{fallback:a|}",
+  "{fallback:x|y|z\\w|}}",
+  "",
+  "",
+  ""
+ ],
+ "parseListSpec": [
+  [
+   "a",
+   "b"
+  ],
+  null,
+  [
+   "a",
+   "",
+   "b"
+  ],
+  null,
+  null,
+  [
+   "a\\",
+   "b",
+   "c"
+  ],
+  [
+   "a}b"
+  ],
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  [
+   "a",
+   "",
+   "b"
+  ],
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null
+ ],
+ "parsePattern": [
+  [],
+  [
+   {
+    "text": "Order #"
+   },
+   {
+    "name": "id"
+   }
+  ],
+  [
+   {
+    "name": "a"
+   },
+   {
+    "text": " - "
+   },
+   {
+    "name": "b"
+   }
+  ],
+  [
+   {
+    "name": "a"
+   },
+   {
+    "name": "b"
+   }
+  ],
+  [
+   {
+    "text": "x ${a"
+   }
+  ],
+  [
+   {
+    "name": "1bad"
+   }
+  ],
+  [
+   {
+    "text": "Total: "
+   },
+   {
+    "name": "amount"
+   },
+   {
+    "text": " VND"
+   }
+  ],
+  [
+   {
+    "text": "("
+   },
+   {
+    "name": "x"
+   },
+   {
+    "text": ") ["
+   },
+   {
+    "name": "y"
+   },
+   {
+    "text": "]"
+   }
+  ],
+  [
+   {
+    "name": "a"
+   }
+  ],
+  [
+   {
+    "name": "a"
+   },
+   {
+    "text": ".*"
+   },
+   {
+    "name": "b"
+   }
+  ],
+  [
+   {
+    "text": "no vars"
+   }
+  ],
+  [
+   {
+    "name": "tên"
+   },
+   {
+    "text": " và "
+   },
+   {
+    "name": "họ"
+   }
+  ],
+  [
+   {
+    "name": "a"
+   },
+   {
+    "text": " "
+   },
+   {
+    "name": "a"
+   }
+  ],
+  []
+ ],
+ "patternVarNames": [
+  [],
+  [
+   "id"
+  ],
+  [
+   "a",
+   "b"
+  ],
+  [
+   "a",
+   "b"
+  ],
+  [],
+  [
+   "1bad"
+  ],
+  [
+   "amount"
+  ],
+  [
+   "x",
+   "y"
+  ],
+  [
+   "a"
+  ],
+  [
+   "a",
+   "b"
+  ],
+  [],
+  [
+   "tên",
+   "họ"
+  ],
+  [
+   "a"
+  ],
+  []
+ ],
+ "patternError": [
+  "Write ${name} where the part to keep is, e.g. abc${value} 155",
+  "",
+  "",
+  "Put some text between ${a} and ${b} — nothing marks where one ends",
+  "Write ${name} where the part to keep is, e.g. abc${value} 155",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "Write ${name} where the part to keep is, e.g. abc${value} 155",
+  "",
+  "${a} is used twice",
+  "Write ${name} where the part to keep is, e.g. abc${value} 155"
+ ],
+ "patternRegexSource": [
+  "",
+  "Order\\s+#([\\s\\S]*)$",
+  "^([\\s\\S]*?)\\s+-\\s+([\\s\\S]*)$",
+  "^([\\s\\S]*?)([\\s\\S]*)$",
+  "x\\s+\\$\\{a",
+  "^([\\s\\S]*)$",
+  "Total:\\s+([\\s\\S]*?)\\s+VND",
+  "\\(([\\s\\S]*?)\\)\\s+\\[([\\s\\S]*?)\\]",
+  "^([\\s\\S]*)$",
+  "^([\\s\\S]*?)\\.\\*([\\s\\S]*)$",
+  "no\\s+vars",
+  "^([\\s\\S]*?)\\s+và\\s+([\\s\\S]*)$",
+  "^([\\s\\S]*?)\\s+([\\s\\S]*)$",
+  ""
+ ],
+ "extractWithPattern": [
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {
+   "id": "123 for Ann"
+  },
+  {
+   "id": "123 for Ann"
+  },
+  {
+   "id": "9 FOR bob"
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "a": "x",
+   "b": "y"
+  },
+  {
+   "a": "x",
+   "b": "y"
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "a": "",
+   "b": "Order #123 for Ann"
+  },
+  {
+   "a": "",
+   "b": "Order #123 for Ann"
+  },
+  {
+   "a": "",
+   "b": "order #9 FOR bob"
+  },
+  {
+   "a": "",
+   "b": "order #9 FOR bob"
+  },
+  {
+   "a": "",
+   "b": "x - y"
+  },
+  {
+   "a": "",
+   "b": "x - y"
+  },
+  {
+   "a": "",
+   "b": "Total: 1,000 VND"
+  },
+  {
+   "a": "",
+   "b": "Total: 1,000 VND"
+  },
+  {
+   "a": "",
+   "b": "(1) [2]"
+  },
+  {
+   "a": "",
+   "b": "(1) [2]"
+  },
+  {
+   "a": "",
+   "b": "Đức và Nguyễn"
+  },
+  {
+   "a": "",
+   "b": "Đức và Nguyễn"
+  },
+  {
+   "a": "",
+   "b": ""
+  },
+  {
+   "a": "",
+   "b": ""
+  },
+  {
+   "a": "",
+   "b": "nothing"
+  },
+  {
+   "a": "",
+   "b": "nothing"
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "1bad": "Order #123 for Ann"
+  },
+  {
+   "1bad": "Order #123 for Ann"
+  },
+  {
+   "1bad": "order #9 FOR bob"
+  },
+  {
+   "1bad": "order #9 FOR bob"
+  },
+  {
+   "1bad": "x - y"
+  },
+  {
+   "1bad": "x - y"
+  },
+  {
+   "1bad": "Total: 1,000 VND"
+  },
+  {
+   "1bad": "Total: 1,000 VND"
+  },
+  {
+   "1bad": "(1) [2]"
+  },
+  {
+   "1bad": "(1) [2]"
+  },
+  {
+   "1bad": "Đức và Nguyễn"
+  },
+  {
+   "1bad": "Đức và Nguyễn"
+  },
+  {
+   "1bad": ""
+  },
+  {
+   "1bad": ""
+  },
+  {
+   "1bad": "nothing"
+  },
+  {
+   "1bad": "nothing"
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "amount": "1,000"
+  },
+  {
+   "amount": "1,000"
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "x": "1",
+   "y": "2"
+  },
+  {
+   "x": "1",
+   "y": "2"
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "a": "Order #123 for Ann"
+  },
+  {
+   "a": "Order #123 for Ann"
+  },
+  {
+   "a": "order #9 FOR bob"
+  },
+  {
+   "a": "order #9 FOR bob"
+  },
+  {
+   "a": "x - y"
+  },
+  {
+   "a": "x - y"
+  },
+  {
+   "a": "Total: 1,000 VND"
+  },
+  {
+   "a": "Total: 1,000 VND"
+  },
+  {
+   "a": "(1) [2]"
+  },
+  {
+   "a": "(1) [2]"
+  },
+  {
+   "a": "Đức và Nguyễn"
+  },
+  {
+   "a": "Đức và Nguyễn"
+  },
+  {
+   "a": ""
+  },
+  {
+   "a": ""
+  },
+  {
+   "a": "nothing"
+  },
+  {
+   "a": "nothing"
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "tên": "Đức",
+   "họ": "Nguyễn"
+  },
+  {
+   "tên": "Đức",
+   "họ": "Nguyễn"
+  },
+  null,
+  null,
+  null,
+  null,
+  {
+   "a": "#123 for Ann"
+  },
+  {
+   "a": "#123 for Ann"
+  },
+  {
+   "a": "#9 FOR bob"
+  },
+  {
+   "a": "#9 FOR bob"
+  },
+  {
+   "a": "- y"
+  },
+  {
+   "a": "- y"
+  },
+  {
+   "a": "1,000 VND"
+  },
+  {
+   "a": "1,000 VND"
+  },
+  {
+   "a": "[2]"
+  },
+  {
+   "a": "[2]"
+  },
+  {
+   "a": "và Nguyễn"
+  },
+  {
+   "a": "và Nguyễn"
+  },
+  null,
+  null,
+  null,
+  null,
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {},
+  {}
+ ],
+ "patternMismatch": [
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern ",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern ",
+  "Read DOM: \"x - y\" does not match the Extract pattern ",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern ",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern ",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern ",
+  "Read DOM: \"\" does not match the Extract pattern ",
+  "Read DOM: \"nothing\" does not match the Extract pattern ",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern Order #${id}",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern Order #${id}",
+  "Read DOM: \"x - y\" does not match the Extract pattern Order #${id}",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern Order #${id}",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern Order #${id}",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern Order #${id}",
+  "Read DOM: \"\" does not match the Extract pattern Order #${id}",
+  "Read DOM: \"nothing\" does not match the Extract pattern Order #${id}",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern ${a} - ${b}",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern ${a} - ${b}",
+  "Read DOM: \"x - y\" does not match the Extract pattern ${a} - ${b}",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern ${a} - ${b}",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern ${a} - ${b}",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern ${a} - ${b}",
+  "Read DOM: \"\" does not match the Extract pattern ${a} - ${b}",
+  "Read DOM: \"nothing\" does not match the Extract pattern ${a} - ${b}",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern ${a}${b}",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern ${a}${b}",
+  "Read DOM: \"x - y\" does not match the Extract pattern ${a}${b}",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern ${a}${b}",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern ${a}${b}",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern ${a}${b}",
+  "Read DOM: \"\" does not match the Extract pattern ${a}${b}",
+  "Read DOM: \"nothing\" does not match the Extract pattern ${a}${b}",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern x ${a",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern x ${a",
+  "Read DOM: \"x - y\" does not match the Extract pattern x ${a",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern x ${a",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern x ${a",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern x ${a",
+  "Read DOM: \"\" does not match the Extract pattern x ${a",
+  "Read DOM: \"nothing\" does not match the Extract pattern x ${a",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern ${1bad}",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern ${1bad}",
+  "Read DOM: \"x - y\" does not match the Extract pattern ${1bad}",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern ${1bad}",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern ${1bad}",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern ${1bad}",
+  "Read DOM: \"\" does not match the Extract pattern ${1bad}",
+  "Read DOM: \"nothing\" does not match the Extract pattern ${1bad}",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern Total: ${amount} VND",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern Total: ${amount} VND",
+  "Read DOM: \"x - y\" does not match the Extract pattern Total: ${amount} VND",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern Total: ${amount} VND",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern Total: ${amount} VND",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern Total: ${amount} VND",
+  "Read DOM: \"\" does not match the Extract pattern Total: ${amount} VND",
+  "Read DOM: \"nothing\" does not match the Extract pattern Total: ${amount} VND",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern (${x}) [${y}]",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern (${x}) [${y}]",
+  "Read DOM: \"x - y\" does not match the Extract pattern (${x}) [${y}]",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern (${x}) [${y}]",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern (${x}) [${y}]",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern (${x}) [${y}]",
+  "Read DOM: \"\" does not match the Extract pattern (${x}) [${y}]",
+  "Read DOM: \"nothing\" does not match the Extract pattern (${x}) [${y}]",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern ${a}",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern ${a}",
+  "Read DOM: \"x - y\" does not match the Extract pattern ${a}",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern ${a}",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern ${a}",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern ${a}",
+  "Read DOM: \"\" does not match the Extract pattern ${a}",
+  "Read DOM: \"nothing\" does not match the Extract pattern ${a}",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern ${a}.*${b}",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern ${a}.*${b}",
+  "Read DOM: \"x - y\" does not match the Extract pattern ${a}.*${b}",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern ${a}.*${b}",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern ${a}.*${b}",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern ${a}.*${b}",
+  "Read DOM: \"\" does not match the Extract pattern ${a}.*${b}",
+  "Read DOM: \"nothing\" does not match the Extract pattern ${a}.*${b}",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern no vars",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern no vars",
+  "Read DOM: \"x - y\" does not match the Extract pattern no vars",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern no vars",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern no vars",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern no vars",
+  "Read DOM: \"\" does not match the Extract pattern no vars",
+  "Read DOM: \"nothing\" does not match the Extract pattern no vars",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern ${tên} và ${họ}",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern ${tên} và ${họ}",
+  "Read DOM: \"x - y\" does not match the Extract pattern ${tên} và ${họ}",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern ${tên} và ${họ}",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern ${tên} và ${họ}",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern ${tên} và ${họ}",
+  "Read DOM: \"\" does not match the Extract pattern ${tên} và ${họ}",
+  "Read DOM: \"nothing\" does not match the Extract pattern ${tên} và ${họ}",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern ${a} ${a}",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern ${a} ${a}",
+  "Read DOM: \"x - y\" does not match the Extract pattern ${a} ${a}",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern ${a} ${a}",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern ${a} ${a}",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern ${a} ${a}",
+  "Read DOM: \"\" does not match the Extract pattern ${a} ${a}",
+  "Read DOM: \"nothing\" does not match the Extract pattern ${a} ${a}",
+  "Read DOM: \"Order #123 for Ann\" does not match the Extract pattern ",
+  "Read DOM: \"order #9 FOR bob\" does not match the Extract pattern ",
+  "Read DOM: \"x - y\" does not match the Extract pattern ",
+  "Read DOM: \"Total: 1,000 VND\" does not match the Extract pattern ",
+  "Read DOM: \"(1) [2]\" does not match the Extract pattern ",
+  "Read DOM: \"Đức và Nguyễn\" does not match the Extract pattern ",
+  "Read DOM: \"\" does not match the Extract pattern ",
+  "Read DOM: \"nothing\" does not match the Extract pattern "
+ ],
+ "VARIABLE_SORTS": [
+  "custom",
+  "createdDesc",
+  "createdAsc",
+  "updatedDesc",
+  "nameAsc",
+  "nameDesc",
+  "type"
+ ],
+ "normalizeVariableSort": [
+  "custom",
+  "createdDesc",
+  "createdAsc",
+  "updatedDesc",
+  "nameAsc",
+  "nameDesc",
+  "type",
+  "custom",
+  "custom",
+  "custom",
+  "custom"
+ ],
+ "orderNames": [
+  [
+   "zeta",
+   "alpha",
+   "Beta",
+   "tên",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  [
+   "tên",
+   "zeta",
+   "alpha",
+   "Beta",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  [
+   "legacy",
+   "alpha",
+   "Beta",
+   "zeta",
+   "tên",
+   "noDates",
+   "legacyPick",
+   "legacyRand",
+   "stamp"
+  ]
+ ],
+ "orderVariableNames": [
+  [
+   "zeta",
+   "alpha",
+   "Beta",
+   "tên",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  [
+   "tên",
+   "zeta",
+   "alpha",
+   "Beta",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  [
+   "legacy",
+   "alpha",
+   "Beta",
+   "zeta",
+   "tên",
+   "noDates",
+   "legacyPick",
+   "legacyRand",
+   "stamp"
+  ]
+ ],
+ "variableType": [
+  "s",
+  "r",
+  "p",
+  "f",
+  "s",
+  "p",
+  "r",
+  "s",
+  "r"
+ ],
+ "variableComparator": [
+  [
+   "zeta",
+   "alpha",
+   "Beta",
+   "tên",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  [
+   "zeta",
+   "alpha",
+   "Beta",
+   "tên",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  [
+   "zeta",
+   "alpha",
+   "Beta",
+   "tên",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  [
+   "zeta",
+   "alpha",
+   "Beta",
+   "tên",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  {
+   "$error": "TypeError: Cannot read properties of undefined (reading 'localeCompare')"
+  },
+  {
+   "$error": "TypeError: Cannot read properties of undefined (reading 'localeCompare')"
+  },
+  {
+   "$error": "TypeError: Cannot read properties of undefined (reading 'localeCompare')"
+  }
+ ],
+ "sortVariableNames": [
+  [
+   "zeta",
+   "alpha",
+   "Beta",
+   "tên",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  [
+   "tên",
+   "zeta",
+   "alpha",
+   "Beta",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp"
+  ],
+  [
+   "legacy",
+   "alpha",
+   "Beta",
+   "zeta",
+   "tên",
+   "noDates",
+   "legacyPick",
+   "legacyRand",
+   "stamp"
+  ],
+  [
+   "stamp",
+   "zeta",
+   "Beta",
+   "tên",
+   "alpha",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates"
+  ],
+  [
+   "stamp",
+   "zeta",
+   "tên",
+   "Beta",
+   "alpha",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates"
+  ],
+  [
+   "stamp",
+   "zeta",
+   "Beta",
+   "tên",
+   "alpha",
+   "legacy",
+   "noDates",
+   "legacyPick",
+   "legacyRand"
+  ],
+  [
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "alpha",
+   "Beta",
+   "tên",
+   "zeta",
+   "stamp"
+  ],
+  [
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "alpha",
+   "tên",
+   "Beta",
+   "zeta",
+   "stamp"
+  ],
+  [
+   "legacy",
+   "noDates",
+   "legacyPick",
+   "legacyRand",
+   "alpha",
+   "Beta",
+   "tên",
+   "zeta",
+   "stamp"
+  ],
+  [
+   "Beta",
+   "zeta",
+   "tên",
+   "stamp",
+   "alpha",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates"
+  ],
+  [
+   "Beta",
+   "zeta",
+   "tên",
+   "stamp",
+   "alpha",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates"
+  ],
+  [
+   "Beta",
+   "zeta",
+   "tên",
+   "stamp",
+   "alpha",
+   "legacy",
+   "noDates",
+   "legacyPick",
+   "legacyRand"
+  ],
+  [
+   "alpha",
+   "Beta",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp",
+   "tên",
+   "zeta"
+  ],
+  [
+   "alpha",
+   "Beta",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp",
+   "tên",
+   "zeta"
+  ],
+  [
+   "alpha",
+   "Beta",
+   "legacy",
+   "legacyPick",
+   "legacyRand",
+   "noDates",
+   "stamp",
+   "tên",
+   "zeta"
+  ],
+  [
+   "zeta",
+   "tên",
+   "stamp",
+   "noDates",
+   "legacyRand",
+   "legacyPick",
+   "legacy",
+   "Beta",
+   "alpha"
+  ],
+  [
+   "zeta",
+   "tên",
+   "stamp",
+   "noDates",
+   "legacyRand",
+   "legacyPick",
+   "legacy",
+   "Beta",
+   "alpha"
+  ],
+  [
+   "zeta",
+   "tên",
+   "stamp",
+   "noDates",
+   "legacyRand",
+   "legacyPick",
+   "legacy",
+   "Beta",
+   "alpha"
+  ],
+  [
+   "legacy",
+   "noDates",
+   "zeta",
+   "alpha",
+   "legacyRand",
+   "stamp",
+   "Beta",
+   "legacyPick",
+   "tên"
+  ],
+  [
+   "legacy",
+   "noDates",
+   "zeta",
+   "alpha",
+   "legacyRand",
+   "stamp",
+   "Beta",
+   "legacyPick",
+   "tên"
+  ],
+  [
+   "legacy",
+   "noDates",
+   "zeta",
+   "alpha",
+   "legacyRand",
+   "stamp",
+   "Beta",
+   "legacyPick",
+   "tên"
+  ]
+ ],
+ "updateLockConstants": {
+  "DAY_MS": 86400000,
+  "GRACE_MS": 2592000000,
+  "MIN_GRACE_MS": 604800000,
+  "WARN_MS": 432000000,
+  "LOCK_MESSAGE": "Update required — install the latest version to use recording, playback and screenshots again.",
+  "CRITICAL_LOCK_MESSAGE": "Critical update required — install the latest version to use recording, playback and screenshots again."
+ },
+ "compareVersions": [
+  0,
+  0,
+  -1,
+  -1,
+  -1,
+  -1,
+  1,
+  1,
+  1,
+  -1,
+  0,
+  0,
+  0,
+  -1,
+  -1,
+  -1,
+  -1,
+  1,
+  1,
+  1,
+  -1,
+  0,
+  1,
+  1,
+  0,
+  1,
+  -1,
+  1,
+  1,
+  1,
+  1,
+  -1,
+  1,
+  1,
+  1,
+  -1,
+  0,
+  -1,
+  1,
+  1,
+  1,
+  1,
+  -1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  0,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  -1,
+  -1,
+  -1,
+  0,
+  1,
+  1,
+  1,
+  -1,
+  1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  0,
+  0,
+  0,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  0,
+  0,
+  0,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  0,
+  0,
+  0,
+  -1,
+  -1,
+  1,
+  1,
+  1,
+  1,
+  -1,
+  1,
+  1,
+  1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  -1,
+  -1,
+  -1,
+  -1,
+  1,
+  1,
+  1,
+  -1,
+  0
+ ],
+ "computeLockState": [
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 4,
+   "deadline": 1768813507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1768381507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1765875907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 4,
+   "deadline": 1768813507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1768381507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1765875907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 4,
+   "deadline": 1768813507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1768381507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1765875907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 30,
+   "deadline": 1771059907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 28,
+   "deadline": 1770887107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 24,
+   "deadline": 1770541507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 22,
+   "deadline": 1770368707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 7,
+   "deadline": 1769072707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 5,
+   "deadline": 1768899907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 4,
+   "deadline": 1768813507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 4,
+   "deadline": 1768813507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 4,
+   "deadline": 1768813507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 4,
+   "deadline": 1768813507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 4,
+   "deadline": 1768813507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 4,
+   "deadline": 1768813507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 7,
+   "deadline": 1769072707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 5,
+   "deadline": 1768899907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 7,
+   "deadline": 1769072707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 5,
+   "deadline": 1768899907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1768381507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1768381507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1768381507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1768381507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1768381507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": false,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": null,
+   "deadline": null
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 7,
+   "deadline": 1769072707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768467907000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 5,
+   "deadline": 1768899907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1768295107000
+  },
+  {
+   "pending": true,
+   "locked": false,
+   "warning": true,
+   "critical": false,
+   "daysLeft": 1,
+   "deadline": 1768554307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767949507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1768381507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1767776707000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1766826307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1766221507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1766567107000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765962307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1766394307000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1765789507000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": false,
+   "daysLeft": 0,
+   "deadline": 1765875907000
+  },
+  {
+   "pending": true,
+   "locked": true,
+   "warning": false,
+   "critical": true,
+   "daysLeft": 0,
+   "deadline": 1763283907000
+  }
+ ],
+ "computeLockStateDefaults": {
+  "pending": false,
+  "locked": false,
+  "warning": false,
+  "critical": false,
+  "daysLeft": null,
+  "deadline": null
+ },
+ "evaluateRemoteConfig": [
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": true,
+   "message": "Critical update required — install the latest version to use recording, playback and screenshots again."
+  },
+  {
+   "hardLock": true,
+   "message": "Critical update required — install the latest version to use recording, playback and screenshots again."
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": true,
+   "message": "Critical update required — install the latest version to use recording, playback and screenshots again."
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": true,
+   "message": "Custom"
+  },
+  {
+   "hardLock": true,
+   "message": "Custom"
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  },
+  {
+   "hardLock": false,
+   "message": ""
+  }
+ ],
+ "resolveRandomVars": [
+  [
+   "none",
+   {}
+  ],
+  [
+   "strings",
+   {
+    "user": "alice",
+    "page": "/home",
+    "tên": "Đức",
+    "họ_tên": "Nguyễn Văn A",
+    "expected": "Ready",
+    "role": "admin",
+    "lang": "vi",
+    "attr": "href",
+    "fileName": "x.png"
+   }
+  ],
+  [
+   "configs",
+   {
+    "user": "bob",
+    "token": "mAg88Rlsa9ce",
+    "pin": "1421",
+    "stamp": "2026-01-15_09-05-07",
+    "word": "zduNo",
+    "role": "admin",
+    "lang": "{fallback:vi|en}",
+    "tên": "Đức \"the\" \\ `bold`",
+    "empty": ""
+   }
+  ],
+  [
+   "legacy",
+   {
+    "token": "GaBZYoFL",
+    "role": "user",
+    "lang": "{fallback:vi|en}",
+    "n": "42",
+    "z": ""
+   }
+  ]
+ ],
+ "applyVars": [
+  "alice ${missing}",
+  "ĐứcĐức",
+  "none",
+  "",
+  null,
+  5,
+  "${}",
+  "${a}b}"
+ ],
+ "interpolateAction": [
+  [
+   "none",
+   [
+    {"type":"script","code":"showScreen(1, document.querySelectorAll('nav button')[0])","label":"Go to Screen 1"},
+    {"type":"wait","value":"300","label":"Wait for screen transition"},
+    {"type":"input","selector":"#inputName","selectors":{"css":"#inputName","id":"inputName","xpath":"//*[@id=\"inputName\"]"},"value":"John Doe","label":"Fill: Full name"},
+    {"type":"input","selector":"#inputEmail","selectors":{"css":"#inputEmail","id":"inputEmail","xpath":"//*[@id=\"inputEmail\"]"},"value":"john@example.com","label":"Fill: Email"},
+    {"type":"input","selector":"#inputPassword","selectors":{"css":"#inputPassword","id":"inputPassword","xpath":"//*[@id=\"inputPassword\"]"},"value":"Passw0rd!","label":"Fill: Password"},
+    {"type":"input","selector":"#inputPhone","selectors":{"css":"#inputPhone","id":"inputPhone","xpath":"//*[@id=\"inputPhone\"]"},"value":"+1 555 123 4567","label":"Fill: Phone"},
+    {"type":"input","selector":"#inputMessage","selectors":{"css":"#inputMessage","id":"inputMessage","xpath":"//*[@id=\"inputMessage\"]"},"value":"Hello from automation!","label":"Fill: Message textarea"},
+    {"type":"input","selector":"#selectCountry","selectors":{"css":"#selectCountry","id":"selectCountry","xpath":"//*[@id=\"selectCountry\"]"},"value":"vn","label":"Select: Country → Vietnam"},
+    {"type":"input","selector":"#selectPriority","selectors":{"css":"#selectPriority","id":"selectPriority","xpath":"//*[@id=\"selectPriority\"]"},"value":"high","label":"Select: Priority → High"},
+    {"type":"click","selector":"#chkTerms","selectors":{"css":"#chkTerms","id":"chkTerms","xpath":"//*[@id=\"chkTerms\"]"},"label":"Check: Accept terms"},
+    {"type":"click","selector":"#chkRemember","selectors":{"css":"#chkRemember","id":"chkRemember","xpath":"//*[@id=\"chkRemember\"]"},"label":"Check: Remember me"},
+    {"type":"click","selector":"input[name=\"role\"][value=\"viewer\"]","selectors":{"css":"input[name=\"role\"][value=\"viewer\"]"},"label":"Radio: Select Viewer role"},
+    {"type":"click","selector":"#btnLoad","selectors":{"css":"#btnLoad","id":"btnLoad","xpath":"//*[@id=\"btnLoad\"]"},"label":"Click: Load Sample"},
+    {"type":"wait","value":"400","label":"Wait after load"},
+    {"type":"click","selector":"#btnSubmit","selectors":{"css":"#btnSubmit","id":"btnSubmit","xpath":"//*[@id=\"btnSubmit\"]"},"label":"Click: Submit Form"},
+    {"type":"wait","value":"500","label":"Wait for form status"},
+    {"type":"click","selector":"#btnReset","selectors":{"css":"#btnReset","id":"btnReset","xpath":"//*[@id=\"btnReset\"]"},"label":"Click: Reset"},
+    {"type":"script","code":"showScreen(1, document.querySelectorAll('nav button')[0])","label":"Go to Screen 1"},
+    {"type":"wait","value":"300"},
+    {"type":"hover","selector":"#hoverA","selectors":{"css":"#hoverA","id":"hoverA","xpath":"//*[@id=\"hoverA\"]"},"label":"Hover: Box A"},
+    {"type":"wait","value":"600"},
+    {"type":"hover","selector":"#hoverB","selectors":{"css":"#hoverB","id":"hoverB","xpath":"//*[@id=\"hoverB\"]"},"label":"Hover: Box B"},
+    {"type":"wait","value":"600"},
+    {"type":"hover","selector":"#hoverC","selectors":{"css":"#hoverC","id":"hoverC","xpath":"//*[@id=\"hoverC\"]"},"label":"Hover: Box C"},
+    {"type":"wait","value":"600"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc","xpath":"//*[@id=\"btnInc\"]"},"label":"Click: Increment counter"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc","xpath":"//*[@id=\"btnInc\"]"},"label":"Click: Increment counter"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc","xpath":"//*[@id=\"btnInc\"]"},"label":"Click: Increment counter (total = 3)"},
+    {"type":"readdom","selector":"#counter","selectors":{"css":"#counter","id":"counter","xpath":"//*[@id=\"counter\"]"},"readFrom":"text","varName":"counterValue","label":"Read DOM: counter → ${counterValue}"},
+    {"type":"script","code":"document.getElementById('jsOutput').textContent = 'Counter read by readdom: ' + document.getElementById('counter').textContent","label":"Run JS: write to output panel"},
+    {"type":"readdom","selector":"#domPrice","selectors":{"css":"#domPrice","id":"domPrice","xpath":"//*[@id=\"domPrice\"]"},"readFrom":"text","varName":"price","label":"Read DOM: price → ${price}"},
+    {"type":"readdom","selector":"#domStock","selectors":{"css":"#domStock","id":"domStock","xpath":"//*[@id=\"domStock\"]"},"readFrom":"text","varName":"stock","label":"Read DOM: stock → ${stock}"},
+    {"type":"readdom","selector":"#domRating","selectors":{"css":"#domRating","id":"domRating","xpath":"//*[@id=\"domRating\"]"},"readFrom":"text","varName":"rating","label":"Read DOM: rating → ${rating}"},
+    {"type":"script","code":"document.getElementById('jsOutput').textContent += '\\nPrice: ' + document.getElementById('domPrice').textContent + ' | Stock: ' + document.getElementById('domStock').textContent + ' | Rating: ' + document.getElementById('domRating').textContent","label":"Run JS: display read values"},
+    {"type":"click","selector":"#btnDec","selectors":{"css":"#btnDec","id":"btnDec","xpath":"//*[@id=\"btnDec\"]"},"label":"Click: Decrement"},
+    {"type":"click","selector":"#btnReset2","selectors":{"css":"#btnReset2","id":"btnReset2","xpath":"//*[@id=\"btnReset2\"]"},"label":"Click: Reset counter"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"#btnHide","selectors":{"css":"#btnHide","id":"btnHide","xpath":"//*[@id=\"btnHide\"]"},"label":"Click: Hide element"},
+    {"type":"wait","value":"300"},
+    {"type":"condition","selector":"#conditionEl","selectors":{"css":"#conditionEl","id":"conditionEl"},"conditionType":"elementHidden","conditionSkipCount":2,"label":"IF elementHidden #conditionEl → skip 2 (increment + wait)"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc"},"label":"[SKIPPED] Increment — should be skipped"},
+    {"type":"wait","value":"500","label":"[SKIPPED] Wait — should be skipped"},
+    {"type":"click","selector":"#btnShow","selectors":{"css":"#btnShow","id":"btnShow","xpath":"//*[@id=\"btnShow\"]"},"label":"Click: Show element"},
+    {"type":"wait","value":"300"},
+    {"type":"condition","selector":"#conditionEl","selectors":{"css":"#conditionEl","id":"conditionEl"},"conditionType":"elementVisible","conditionSkipCount":1,"label":"IF elementVisible #conditionEl → skip 1 (hide action)"},
+    {"type":"click","selector":"#btnHide","selectors":{"css":"#btnHide","id":"btnHide"},"label":"[SKIPPED] Hide — should be skipped because element IS visible"},
+    {"type":"condition","selector":"#condText","selectors":{"css":"#condText","id":"condText"},"conditionType":"textContains","expectedValue":"Condition target","conditionSkipCount":1,"label":"IF #condText contains 'Condition target' → skip 1"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc"},"label":"[SKIPPED] Increment — skipped because text matched"},
+    {"type":"condition","conditionType":"urlContains","expectedValue":"test-page","conditionSkipCount":1,"label":"IF URL contains 'test-page' → skip 1"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc"},"label":"[SKIPPED] Increment — skipped because URL matched"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"400"},
+    {"type":"dragdrop","selector":"li.drag-item[data-id=\"1\"]","selectors":{"css":"li.drag-item[data-id=\"1\"]"},"targetSelector":"li.drag-item[data-id=\"3\"]","targetSelectors":{"css":"li.drag-item[data-id=\"3\"]"},"label":"Drag: Item Alpha → onto Item Gamma"},
+    {"type":"wait","value":"500"},
+    {"type":"dragdrop","selector":"li.drag-item[data-id=\"4\"]","selectors":{"css":"li.drag-item[data-id=\"4\"]"},"targetSelector":"li.drag-item[data-id=\"2\"]","targetSelectors":{"css":"li.drag-item[data-id=\"2\"]"},"label":"Drag: Item Delta → onto Item Beta"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"button.btn-ghost","selectors":{"css":"#screen2 .section:last-child .btn-ghost","text":"Reset","textTag":"button"},"label":"Click: Reset loading state"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"button.btn-primary","selectors":{"css":"#screen2 button.btn-primary:last-of-type","text":"Simulate Load (1.5s)","textTag":"button"},"label":"Click: Simulate Load (1.5s)"},
+    {"type":"condition","selector":"#loadingSpinner","selectors":{"css":"#loadingSpinner","id":"loadingSpinner"},"conditionType":"elementVisible","conditionSkipCount":1,"label":"IF spinner visible → skip 1 (wait for it to disappear)"},
+    {"type":"wait","value":"300","label":"[SKIPPED] Short wait — skipped because spinner is showing"},
+    {"type":"condition","selector":".spinner","selectors":{"css":".spinner"},"conditionType":"elementNotExists","conditionSkipCount":0,"timeout":4000,"label":"Wait up to 4s: spinner gone (elementNotExists — skip 0 = only gate)","disabled":true},
+    {"type":"wait","value":"2000","label":"Wait 2s for load to complete"},
+    {"type":"readdom","selector":"#loadedValue","selectors":{"css":"#loadedValue","id":"loadedValue"},"readFrom":"text","varName":"loadedResult","label":"Read DOM: loaded result → ${loadedResult}"},
+    {"type":"condition","selector":"#loadedContent","selectors":{"css":"#loadedContent","id":"loadedContent"},"conditionType":"elementVisible","conditionSkipCount":0,"label":"Assert: #loadedContent is visible (skip 0 = no-op assert)"},
+    {"type":"script","code":"showScreen(3, document.querySelectorAll('nav button')[2])","label":"Go to Screen 3"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot","label":"Screenshot: Visible viewport"},
+    {"type":"wait","value":"800"},
+    {"type":"screenshot_full","label":"Screenshot: Full page"},
+    {"type":"wait","value":"1000"},
+    {"type":"screenshot_element","selector":"#card-red","selectors":{"css":"#card-red","id":"card-red"},"label":"Screenshot Element: #card-red"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot_element","selector":"#card-green","selectors":{"css":"#card-green","id":"card-green"},"label":"Screenshot Element: #card-green"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot_element","selector":"#card-blue","selectors":{"css":"#card-blue","id":"card-blue"},"label":"Screenshot Element: #card-blue"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot_element","selector":"#card-gold","selectors":{"css":"#card-gold","id":"card-gold"},"label":"Screenshot Element: #card-gold"},
+    {"type":"script","code":"showScreen(1, document.querySelectorAll('nav button')[0])","label":"Go to Screen 1"},
+    {"type":"wait","value":"300"},
+    {"type":"input","selector":"#inputName","selectors":{"css":"#inputName","id":"inputName"},"value":"${name}","label":"Fill: name → ${name}"},
+    {"type":"input","selector":"#inputEmail","selectors":{"css":"#inputEmail","id":"inputEmail"},"value":"${email}","label":"Fill: email → ${email}"},
+    {"type":"input","selector":"#selectCountry","selectors":{"css":"#selectCountry","id":"selectCountry"},"value":"${country}","label":"Select: country → ${country}"},
+    {"type":"input","selector":"#inputMessage","selectors":{"css":"#inputMessage","id":"inputMessage"},"value":"${message}","label":"Fill: message → ${message}"},
+    {"type":"click","selector":"#btnSubmit","selectors":{"css":"#btnSubmit","id":"btnSubmit"},"label":"Click: Submit"},
+    {"type":"wait","value":"400"},
+    {"type":"script","code":"showScreen(3, document.querySelectorAll('nav button')[2]); document.getElementById('csvVarDisplay').textContent = '${name} | ${email} | ${country}'","label":"Go to Screen 3 + inject vars into display"},
+    {"type":"wait","value":"400"},
+    {"type":"screenshot_tovar","target":"element","selector":"#csvVarDisplay","selectors":{"css":"#csvVarDisplay","id":"csvVarDisplay"},"varName":"screenshot","label":"Screenshot Element → ${screenshot}"},
+    {"type":"readdom","selector":"#formStatus","selectors":{"css":"#formStatus","id":"formStatus"},"readFrom":"text","varName":"formResult","label":"Read DOM: form status → ${formResult}"},
+    {"type":"navigate","url":"https://example.com/login?next=${page}","label":"Open login"},
+    {"type":"wait","value":"250","label":"Settle"},
+    {"type":"click","selector":"#start","selectors":{"css":"#start","xpath":"//*[@id=\"start\"]"},"label":"Start","delay":0},
+    {"type":"input","selector":"#user","selectors":{"css":"#user","xpath":"//*[@id=\"user\"]"},"value":"${user}","label":"User"},
+    {"type":"input","selector":"#pass","selectors":{"css":"#pass","xpath":"//*[@id=\"pass\"]"},"value":"p@ss \"quoted\" \\ back`tick`"},
+    {"type":"hover","selector":"#menu","selectors":{"css":"#menu","xpath":"//*[@id=\"menu\"]"}},
+    {"type":"dropdown","selector":"#country","selectors":{"css":"#country","xpath":"//*[@id=\"country\"]"}},
+    {"type":"dragdrop","selector":"#card-1","selectors":{"css":"#card-1","xpath":"//*[@id=\"card-1\"]"},"targetSelector":"#lane-2","targetSelectors":{"css":"#lane-2"}},
+    {"type":"script","code":"const n = '${user}';\nconsole.log(n, ${tên});\nreturn 1;","label":"Inline script"},
+    {"type":"readdom","selector":"#greeting","selectors":{"css":"#greeting","xpath":"//*[@id=\"greeting\"]"},"varName":"${greeting}","readFrom":"visible"},
+    {"type":"readdom","selector":"#order","selectors":{"css":"#order","xpath":"//*[@id=\"order\"]"},"varName":"order","readFrom":"text","pattern":"Order #${orderId} for ${customer}","matchCase":true},
+    {"type":"readdom","selector":"#link","selectors":{"css":"#link","xpath":"//*[@id=\"link\"]"},"varName":"href","readFrom":"attr","attrName":"data-${attr}"},
+    {"type":"screenshot","label":"Visible"},
+    {"type":"screenshot_full"},
+    {"type":"screenshot_element","selector":"#chart","selectors":{"css":"#chart","xpath":"//*[@id=\"chart\"]"}},
+    {"type":"screenshot_tovar","varName":"shot","captureMode":"visible"},
+    {"type":"uploadFile","selector":"#file","selectors":{"css":"#file","xpath":"//*[@id=\"file\"]"},"folderPath":"C:\\data","fileName":"${fileName}","fileNames":["a.png","${fileName}"]},
+    {"type":"click","selector":"#row","selectors":{"css":"#row","xpath":"//*[@id=\"row\"]"},"conditions":{"matchMode":"any","textContains":"${tên}","classContains":"{fallback:a|b}"}},
+    {"type":"click","selector":"#disabled","selectors":{"css":"#disabled","xpath":"//*[@id=\"disabled\"]"},"disabled":true},
+    {"type":"condition","conditionType":"elementExists","selector":"#banner","selectors":{"css":"#banner","xpath":"//*[@id=\"banner\"]"},"skipCount":2,"label":"Banner shown"},
+    {"type":"click","selector":"#close-banner","selectors":{"css":"#close-banner","xpath":"//*[@id=\"close-banner\"]"}},
+    {"type":"wait","value":"100"},
+    {"type":"condition","conditionType":"textContains","selector":"#status","selectors":{"css":"#status","xpath":"//*[@id=\"status\"]"},"expectedValue":"${expected}","skipCount":1},
+    {"type":"input","selector":"#note","selectors":{"css":"#note","xpath":"//*[@id=\"note\"]"},"value":"ok"},
+    {"type":"condition","conditionType":"urlContains","expectedValue":"/done"},
+    {"type":"condition","conditionType":"valueEquals","selector":"#qty","selectors":{"css":"#qty","xpath":"//*[@id=\"qty\"]"},"expectedValue":"3","skipCount":1},
+    {"type":"click","selector":"#nested","selectors":{"css":"#nested","xpath":"//*[@id=\"nested\"]"}},
+    {"type":"condition","conditionType":"hasAttribute","selector":"#x","selectors":{"css":"#x","xpath":"//*[@id=\"x\"]"},"expectedValue":"data-x=1","empty":true},
+    {"type":"condition","conditionType":"unknownKind","selector":"#y","selectors":{"css":"#y","xpath":"//*[@id=\"y\"]"}},
+    {"type":"click","selector":"#after","selectors":{"css":"#after","xpath":"//*[@id=\"after\"]"}},
+    {"type":"condition","conditionType":"elementHidden","selector":"#z","selectors":{"css":"#z","xpath":"//*[@id=\"z\"]"},"skipCount":"abc"},
+    {"type":"click","selector":"#z1","selectors":{"css":"#z1","xpath":"//*[@id=\"z1\"]"}},
+    {"type":"condition","conditionType":"valueContains","selector":"#legacy","selectors":{"css":"#legacy","xpath":"//*[@id=\"legacy\"]"},"expectedValue":"v","conditionSkipCount":2},
+    {"type":"click","selector":"#l1","selectors":{"css":"#l1","xpath":"//*[@id=\"l1\"]"}},
+    {"type":"click","selector":"#l2","selectors":{"css":"#l2","xpath":"//*[@id=\"l2\"]"},"sourceSelector":"#legacy-src","actionValue":"old"},
+    {"type":"uploadFile","selector":"#up","selectors":{"css":"#up","xpath":"//*[@id=\"up\"]"},"folderPath":"/tmp","uploadFileName":"legacy.txt"},
+    {"type":"switch","switchVar":"${role}","label":"By role","cases":[{"value":"admin","scenarioId":"__self__","startAt":2,"endAt":3},{"value":"user","scenarioId":"__self__","startAt":4,"endAt":6},{"value":"guest","scenarioId":"__self__","empty":true},{"value":"__default__","scenarioId":"other-scn","startAt":2}]},
+    {"type":"click","selector":"#admin-1","selectors":{"css":"#admin-1","xpath":"//*[@id=\"admin-1\"]"}},
+    {"type":"click","selector":"#admin-2","selectors":{"css":"#admin-2","xpath":"//*[@id=\"admin-2\"]"}},
+    {"type":"switch","switchVar":"${lang}","cases":[{"value":"vi","scenarioId":"__self__","startAt":5,"endAt":5},{"value":"en","scenarioId":"__self__","startAt":6,"endAt":6}]},
+    {"type":"input","selector":"#vi","selectors":{"css":"#vi","xpath":"//*[@id=\"vi\"]"},"value":"Xin chào"},
+    {"type":"input","selector":"#en","selectors":{"css":"#en","xpath":"//*[@id=\"en\"]"},"value":"Hello"},
+    {"type":"condition","conditionType":"elementVisible","selector":"#tail","selectors":{"css":"#tail","xpath":"//*[@id=\"tail\"]"},"skipCount":1},
+    {"type":"click","selector":"#tail","selectors":{"css":"#tail","xpath":"//*[@id=\"tail\"]"}},
+    {"type":"switch","switchVar":"${jump}","cases":[{"value":"a","scenarioId":"__self__","startAt":10}]},
+    {"type":"wait","value":"50"},
+    {"type":"switch","switchVar":"${broken}","cases":[{"value":"x","scenarioId":"__self__","startAt":9,"endAt":9}]},
+    {"type":"click","selector":"#end","selectors":{"css":"#end","xpath":"//*[@id=\"end\"]"}},
+    {"type":"input","selector":"#ten","selectors":{"css":"#ten","xpath":"//*[@id=\"ten\"]"},"value":"${tên} — ${họ_tên}"},
+    {"type":"script","value":"document.title = \"${tên}\";"},
+    {"type":"readdom","selector":"#ma","selectors":{"css":"#ma","xpath":"//*[@id=\"ma\"]"},"varName":"mã","pattern":"${a} - ${b}"}
+   ]
+  ],
+  [
+   "strings",
+   [
+    {"type":"script","code":"showScreen(1, document.querySelectorAll('nav button')[0])","label":"Go to Screen 1"},
+    {"type":"wait","value":"300","label":"Wait for screen transition"},
+    {"type":"input","selector":"#inputName","selectors":{"css":"#inputName","id":"inputName","xpath":"//*[@id=\"inputName\"]"},"value":"John Doe","label":"Fill: Full name"},
+    {"type":"input","selector":"#inputEmail","selectors":{"css":"#inputEmail","id":"inputEmail","xpath":"//*[@id=\"inputEmail\"]"},"value":"john@example.com","label":"Fill: Email"},
+    {"type":"input","selector":"#inputPassword","selectors":{"css":"#inputPassword","id":"inputPassword","xpath":"//*[@id=\"inputPassword\"]"},"value":"Passw0rd!","label":"Fill: Password"},
+    {"type":"input","selector":"#inputPhone","selectors":{"css":"#inputPhone","id":"inputPhone","xpath":"//*[@id=\"inputPhone\"]"},"value":"+1 555 123 4567","label":"Fill: Phone"},
+    {"type":"input","selector":"#inputMessage","selectors":{"css":"#inputMessage","id":"inputMessage","xpath":"//*[@id=\"inputMessage\"]"},"value":"Hello from automation!","label":"Fill: Message textarea"},
+    {"type":"input","selector":"#selectCountry","selectors":{"css":"#selectCountry","id":"selectCountry","xpath":"//*[@id=\"selectCountry\"]"},"value":"vn","label":"Select: Country → Vietnam"},
+    {"type":"input","selector":"#selectPriority","selectors":{"css":"#selectPriority","id":"selectPriority","xpath":"//*[@id=\"selectPriority\"]"},"value":"high","label":"Select: Priority → High"},
+    {"type":"click","selector":"#chkTerms","selectors":{"css":"#chkTerms","id":"chkTerms","xpath":"//*[@id=\"chkTerms\"]"},"label":"Check: Accept terms"},
+    {"type":"click","selector":"#chkRemember","selectors":{"css":"#chkRemember","id":"chkRemember","xpath":"//*[@id=\"chkRemember\"]"},"label":"Check: Remember me"},
+    {"type":"click","selector":"input[name=\"role\"][value=\"viewer\"]","selectors":{"css":"input[name=\"role\"][value=\"viewer\"]"},"label":"Radio: Select Viewer role"},
+    {"type":"click","selector":"#btnLoad","selectors":{"css":"#btnLoad","id":"btnLoad","xpath":"//*[@id=\"btnLoad\"]"},"label":"Click: Load Sample"},
+    {"type":"wait","value":"400","label":"Wait after load"},
+    {"type":"click","selector":"#btnSubmit","selectors":{"css":"#btnSubmit","id":"btnSubmit","xpath":"//*[@id=\"btnSubmit\"]"},"label":"Click: Submit Form"},
+    {"type":"wait","value":"500","label":"Wait for form status"},
+    {"type":"click","selector":"#btnReset","selectors":{"css":"#btnReset","id":"btnReset","xpath":"//*[@id=\"btnReset\"]"},"label":"Click: Reset"},
+    {"type":"script","code":"showScreen(1, document.querySelectorAll('nav button')[0])","label":"Go to Screen 1"},
+    {"type":"wait","value":"300"},
+    {"type":"hover","selector":"#hoverA","selectors":{"css":"#hoverA","id":"hoverA","xpath":"//*[@id=\"hoverA\"]"},"label":"Hover: Box A"},
+    {"type":"wait","value":"600"},
+    {"type":"hover","selector":"#hoverB","selectors":{"css":"#hoverB","id":"hoverB","xpath":"//*[@id=\"hoverB\"]"},"label":"Hover: Box B"},
+    {"type":"wait","value":"600"},
+    {"type":"hover","selector":"#hoverC","selectors":{"css":"#hoverC","id":"hoverC","xpath":"//*[@id=\"hoverC\"]"},"label":"Hover: Box C"},
+    {"type":"wait","value":"600"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc","xpath":"//*[@id=\"btnInc\"]"},"label":"Click: Increment counter"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc","xpath":"//*[@id=\"btnInc\"]"},"label":"Click: Increment counter"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc","xpath":"//*[@id=\"btnInc\"]"},"label":"Click: Increment counter (total = 3)"},
+    {"type":"readdom","selector":"#counter","selectors":{"css":"#counter","id":"counter","xpath":"//*[@id=\"counter\"]"},"readFrom":"text","varName":"counterValue","label":"Read DOM: counter → ${counterValue}"},
+    {"type":"script","code":"document.getElementById('jsOutput').textContent = 'Counter read by readdom: ' + document.getElementById('counter').textContent","label":"Run JS: write to output panel"},
+    {"type":"readdom","selector":"#domPrice","selectors":{"css":"#domPrice","id":"domPrice","xpath":"//*[@id=\"domPrice\"]"},"readFrom":"text","varName":"price","label":"Read DOM: price → ${price}"},
+    {"type":"readdom","selector":"#domStock","selectors":{"css":"#domStock","id":"domStock","xpath":"//*[@id=\"domStock\"]"},"readFrom":"text","varName":"stock","label":"Read DOM: stock → ${stock}"},
+    {"type":"readdom","selector":"#domRating","selectors":{"css":"#domRating","id":"domRating","xpath":"//*[@id=\"domRating\"]"},"readFrom":"text","varName":"rating","label":"Read DOM: rating → ${rating}"},
+    {"type":"script","code":"document.getElementById('jsOutput').textContent += '\\nPrice: ' + document.getElementById('domPrice').textContent + ' | Stock: ' + document.getElementById('domStock').textContent + ' | Rating: ' + document.getElementById('domRating').textContent","label":"Run JS: display read values"},
+    {"type":"click","selector":"#btnDec","selectors":{"css":"#btnDec","id":"btnDec","xpath":"//*[@id=\"btnDec\"]"},"label":"Click: Decrement"},
+    {"type":"click","selector":"#btnReset2","selectors":{"css":"#btnReset2","id":"btnReset2","xpath":"//*[@id=\"btnReset2\"]"},"label":"Click: Reset counter"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"#btnHide","selectors":{"css":"#btnHide","id":"btnHide","xpath":"//*[@id=\"btnHide\"]"},"label":"Click: Hide element"},
+    {"type":"wait","value":"300"},
+    {"type":"condition","selector":"#conditionEl","selectors":{"css":"#conditionEl","id":"conditionEl"},"conditionType":"elementHidden","conditionSkipCount":2,"label":"IF elementHidden #conditionEl → skip 2 (increment + wait)"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc"},"label":"[SKIPPED] Increment — should be skipped"},
+    {"type":"wait","value":"500","label":"[SKIPPED] Wait — should be skipped"},
+    {"type":"click","selector":"#btnShow","selectors":{"css":"#btnShow","id":"btnShow","xpath":"//*[@id=\"btnShow\"]"},"label":"Click: Show element"},
+    {"type":"wait","value":"300"},
+    {"type":"condition","selector":"#conditionEl","selectors":{"css":"#conditionEl","id":"conditionEl"},"conditionType":"elementVisible","conditionSkipCount":1,"label":"IF elementVisible #conditionEl → skip 1 (hide action)"},
+    {"type":"click","selector":"#btnHide","selectors":{"css":"#btnHide","id":"btnHide"},"label":"[SKIPPED] Hide — should be skipped because element IS visible"},
+    {"type":"condition","selector":"#condText","selectors":{"css":"#condText","id":"condText"},"conditionType":"textContains","expectedValue":"Condition target","conditionSkipCount":1,"label":"IF #condText contains 'Condition target' → skip 1"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc"},"label":"[SKIPPED] Increment — skipped because text matched"},
+    {"type":"condition","conditionType":"urlContains","expectedValue":"test-page","conditionSkipCount":1,"label":"IF URL contains 'test-page' → skip 1"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc"},"label":"[SKIPPED] Increment — skipped because URL matched"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"400"},
+    {"type":"dragdrop","selector":"li.drag-item[data-id=\"1\"]","selectors":{"css":"li.drag-item[data-id=\"1\"]"},"targetSelector":"li.drag-item[data-id=\"3\"]","targetSelectors":{"css":"li.drag-item[data-id=\"3\"]"},"label":"Drag: Item Alpha → onto Item Gamma"},
+    {"type":"wait","value":"500"},
+    {"type":"dragdrop","selector":"li.drag-item[data-id=\"4\"]","selectors":{"css":"li.drag-item[data-id=\"4\"]"},"targetSelector":"li.drag-item[data-id=\"2\"]","targetSelectors":{"css":"li.drag-item[data-id=\"2\"]"},"label":"Drag: Item Delta → onto Item Beta"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"button.btn-ghost","selectors":{"css":"#screen2 .section:last-child .btn-ghost","text":"Reset","textTag":"button"},"label":"Click: Reset loading state"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"button.btn-primary","selectors":{"css":"#screen2 button.btn-primary:last-of-type","text":"Simulate Load (1.5s)","textTag":"button"},"label":"Click: Simulate Load (1.5s)"},
+    {"type":"condition","selector":"#loadingSpinner","selectors":{"css":"#loadingSpinner","id":"loadingSpinner"},"conditionType":"elementVisible","conditionSkipCount":1,"label":"IF spinner visible → skip 1 (wait for it to disappear)"},
+    {"type":"wait","value":"300","label":"[SKIPPED] Short wait — skipped because spinner is showing"},
+    {"type":"condition","selector":".spinner","selectors":{"css":".spinner"},"conditionType":"elementNotExists","conditionSkipCount":0,"timeout":4000,"label":"Wait up to 4s: spinner gone (elementNotExists — skip 0 = only gate)","disabled":true},
+    {"type":"wait","value":"2000","label":"Wait 2s for load to complete"},
+    {"type":"readdom","selector":"#loadedValue","selectors":{"css":"#loadedValue","id":"loadedValue"},"readFrom":"text","varName":"loadedResult","label":"Read DOM: loaded result → ${loadedResult}"},
+    {"type":"condition","selector":"#loadedContent","selectors":{"css":"#loadedContent","id":"loadedContent"},"conditionType":"elementVisible","conditionSkipCount":0,"label":"Assert: #loadedContent is visible (skip 0 = no-op assert)"},
+    {"type":"script","code":"showScreen(3, document.querySelectorAll('nav button')[2])","label":"Go to Screen 3"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot","label":"Screenshot: Visible viewport"},
+    {"type":"wait","value":"800"},
+    {"type":"screenshot_full","label":"Screenshot: Full page"},
+    {"type":"wait","value":"1000"},
+    {"type":"screenshot_element","selector":"#card-red","selectors":{"css":"#card-red","id":"card-red"},"label":"Screenshot Element: #card-red"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot_element","selector":"#card-green","selectors":{"css":"#card-green","id":"card-green"},"label":"Screenshot Element: #card-green"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot_element","selector":"#card-blue","selectors":{"css":"#card-blue","id":"card-blue"},"label":"Screenshot Element: #card-blue"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot_element","selector":"#card-gold","selectors":{"css":"#card-gold","id":"card-gold"},"label":"Screenshot Element: #card-gold"},
+    {"type":"script","code":"showScreen(1, document.querySelectorAll('nav button')[0])","label":"Go to Screen 1"},
+    {"type":"wait","value":"300"},
+    {"type":"input","selector":"#inputName","selectors":{"css":"#inputName","id":"inputName"},"value":"${name}","label":"Fill: name → ${name}"},
+    {"type":"input","selector":"#inputEmail","selectors":{"css":"#inputEmail","id":"inputEmail"},"value":"${email}","label":"Fill: email → ${email}"},
+    {"type":"input","selector":"#selectCountry","selectors":{"css":"#selectCountry","id":"selectCountry"},"value":"${country}","label":"Select: country → ${country}"},
+    {"type":"input","selector":"#inputMessage","selectors":{"css":"#inputMessage","id":"inputMessage"},"value":"${message}","label":"Fill: message → ${message}"},
+    {"type":"click","selector":"#btnSubmit","selectors":{"css":"#btnSubmit","id":"btnSubmit"},"label":"Click: Submit"},
+    {"type":"wait","value":"400"},
+    {"type":"script","code":"showScreen(3, document.querySelectorAll('nav button')[2]); document.getElementById('csvVarDisplay').textContent = '${name} | ${email} | ${country}'","label":"Go to Screen 3 + inject vars into display"},
+    {"type":"wait","value":"400"},
+    {"type":"screenshot_tovar","target":"element","selector":"#csvVarDisplay","selectors":{"css":"#csvVarDisplay","id":"csvVarDisplay"},"varName":"screenshot","label":"Screenshot Element → ${screenshot}"},
+    {"type":"readdom","selector":"#formStatus","selectors":{"css":"#formStatus","id":"formStatus"},"readFrom":"text","varName":"formResult","label":"Read DOM: form status → ${formResult}"},
+    {"type":"navigate","url":"https://example.com/login?next=/home","label":"Open login"},
+    {"type":"wait","value":"250","label":"Settle"},
+    {"type":"click","selector":"#start","selectors":{"css":"#start","xpath":"//*[@id=\"start\"]"},"label":"Start","delay":0},
+    {"type":"input","selector":"#user","selectors":{"css":"#user","xpath":"//*[@id=\"user\"]"},"value":"alice","label":"User"},
+    {"type":"input","selector":"#pass","selectors":{"css":"#pass","xpath":"//*[@id=\"pass\"]"},"value":"p@ss \"quoted\" \\ back`tick`"},
+    {"type":"hover","selector":"#menu","selectors":{"css":"#menu","xpath":"//*[@id=\"menu\"]"}},
+    {"type":"dropdown","selector":"#country","selectors":{"css":"#country","xpath":"//*[@id=\"country\"]"}},
+    {"type":"dragdrop","selector":"#card-1","selectors":{"css":"#card-1","xpath":"//*[@id=\"card-1\"]"},"targetSelector":"#lane-2","targetSelectors":{"css":"#lane-2"}},
+    {"type":"script","code":"const n = 'alice';\nconsole.log(n, Đức);\nreturn 1;","label":"Inline script"},
+    {"type":"readdom","selector":"#greeting","selectors":{"css":"#greeting","xpath":"//*[@id=\"greeting\"]"},"varName":"${greeting}","readFrom":"visible"},
+    {"type":"readdom","selector":"#order","selectors":{"css":"#order","xpath":"//*[@id=\"order\"]"},"varName":"order","readFrom":"text","pattern":"Order #${orderId} for ${customer}","matchCase":true},
+    {"type":"readdom","selector":"#link","selectors":{"css":"#link","xpath":"//*[@id=\"link\"]"},"varName":"href","readFrom":"attr","attrName":"data-href"},
+    {"type":"screenshot","label":"Visible"},
+    {"type":"screenshot_full"},
+    {"type":"screenshot_element","selector":"#chart","selectors":{"css":"#chart","xpath":"//*[@id=\"chart\"]"}},
+    {"type":"screenshot_tovar","varName":"shot","captureMode":"visible"},
+    {"type":"uploadFile","selector":"#file","selectors":{"css":"#file","xpath":"//*[@id=\"file\"]"},"folderPath":"C:\\data","fileName":"x.png","fileNames":["a.png","x.png"]},
+    {"type":"click","selector":"#row","selectors":{"css":"#row","xpath":"//*[@id=\"row\"]"},"conditions":{"matchMode":"any","textContains":"Đức","classContains":"{fallback:a|b}"}},
+    {"type":"click","selector":"#disabled","selectors":{"css":"#disabled","xpath":"//*[@id=\"disabled\"]"},"disabled":true},
+    {"type":"condition","conditionType":"elementExists","selector":"#banner","selectors":{"css":"#banner","xpath":"//*[@id=\"banner\"]"},"skipCount":2,"label":"Banner shown"},
+    {"type":"click","selector":"#close-banner","selectors":{"css":"#close-banner","xpath":"//*[@id=\"close-banner\"]"}},
+    {"type":"wait","value":"100"},
+    {"type":"condition","conditionType":"textContains","selector":"#status","selectors":{"css":"#status","xpath":"//*[@id=\"status\"]"},"expectedValue":"Ready","skipCount":1},
+    {"type":"input","selector":"#note","selectors":{"css":"#note","xpath":"//*[@id=\"note\"]"},"value":"ok"},
+    {"type":"condition","conditionType":"urlContains","expectedValue":"/done"},
+    {"type":"condition","conditionType":"valueEquals","selector":"#qty","selectors":{"css":"#qty","xpath":"//*[@id=\"qty\"]"},"expectedValue":"3","skipCount":1},
+    {"type":"click","selector":"#nested","selectors":{"css":"#nested","xpath":"//*[@id=\"nested\"]"}},
+    {"type":"condition","conditionType":"hasAttribute","selector":"#x","selectors":{"css":"#x","xpath":"//*[@id=\"x\"]"},"expectedValue":"data-x=1","empty":true},
+    {"type":"condition","conditionType":"unknownKind","selector":"#y","selectors":{"css":"#y","xpath":"//*[@id=\"y\"]"}},
+    {"type":"click","selector":"#after","selectors":{"css":"#after","xpath":"//*[@id=\"after\"]"}},
+    {"type":"condition","conditionType":"elementHidden","selector":"#z","selectors":{"css":"#z","xpath":"//*[@id=\"z\"]"},"skipCount":"abc"},
+    {"type":"click","selector":"#z1","selectors":{"css":"#z1","xpath":"//*[@id=\"z1\"]"}},
+    {"type":"condition","conditionType":"valueContains","selector":"#legacy","selectors":{"css":"#legacy","xpath":"//*[@id=\"legacy\"]"},"expectedValue":"v","conditionSkipCount":2},
+    {"type":"click","selector":"#l1","selectors":{"css":"#l1","xpath":"//*[@id=\"l1\"]"}},
+    {"type":"click","selector":"#l2","selectors":{"css":"#l2","xpath":"//*[@id=\"l2\"]"},"sourceSelector":"#legacy-src","actionValue":"old"},
+    {"type":"uploadFile","selector":"#up","selectors":{"css":"#up","xpath":"//*[@id=\"up\"]"},"folderPath":"/tmp","uploadFileName":"legacy.txt"},
+    {"type":"switch","switchVar":"admin","label":"By role","cases":[{"value":"admin","scenarioId":"__self__","startAt":2,"endAt":3},{"value":"user","scenarioId":"__self__","startAt":4,"endAt":6},{"value":"guest","scenarioId":"__self__","empty":true},{"value":"__default__","scenarioId":"other-scn","startAt":2}]},
+    {"type":"click","selector":"#admin-1","selectors":{"css":"#admin-1","xpath":"//*[@id=\"admin-1\"]"}},
+    {"type":"click","selector":"#admin-2","selectors":{"css":"#admin-2","xpath":"//*[@id=\"admin-2\"]"}},
+    {"type":"switch","switchVar":"vi","cases":[{"value":"vi","scenarioId":"__self__","startAt":5,"endAt":5},{"value":"en","scenarioId":"__self__","startAt":6,"endAt":6}]},
+    {"type":"input","selector":"#vi","selectors":{"css":"#vi","xpath":"//*[@id=\"vi\"]"},"value":"Xin chào"},
+    {"type":"input","selector":"#en","selectors":{"css":"#en","xpath":"//*[@id=\"en\"]"},"value":"Hello"},
+    {"type":"condition","conditionType":"elementVisible","selector":"#tail","selectors":{"css":"#tail","xpath":"//*[@id=\"tail\"]"},"skipCount":1},
+    {"type":"click","selector":"#tail","selectors":{"css":"#tail","xpath":"//*[@id=\"tail\"]"}},
+    {"type":"switch","switchVar":"${jump}","cases":[{"value":"a","scenarioId":"__self__","startAt":10}]},
+    {"type":"wait","value":"50"},
+    {"type":"switch","switchVar":"${broken}","cases":[{"value":"x","scenarioId":"__self__","startAt":9,"endAt":9}]},
+    {"type":"click","selector":"#end","selectors":{"css":"#end","xpath":"//*[@id=\"end\"]"}},
+    {"type":"input","selector":"#ten","selectors":{"css":"#ten","xpath":"//*[@id=\"ten\"]"},"value":"Đức — Nguyễn Văn A"},
+    {"type":"script","value":"document.title = \"Đức\";"},
+    {"type":"readdom","selector":"#ma","selectors":{"css":"#ma","xpath":"//*[@id=\"ma\"]"},"varName":"mã","pattern":"${a} - ${b}"}
+   ]
+  ],
+  [
+   "odd",
+   [
+    {"type":"script","code":"showScreen(1, document.querySelectorAll('nav button')[0])","label":"Go to Screen 1"},
+    {"type":"wait","value":"300","label":"Wait for screen transition"},
+    {"type":"input","selector":"#inputName","selectors":{"css":"#inputName","id":"inputName","xpath":"//*[@id=\"inputName\"]"},"value":"John Doe","label":"Fill: Full name"},
+    {"type":"input","selector":"#inputEmail","selectors":{"css":"#inputEmail","id":"inputEmail","xpath":"//*[@id=\"inputEmail\"]"},"value":"john@example.com","label":"Fill: Email"},
+    {"type":"input","selector":"#inputPassword","selectors":{"css":"#inputPassword","id":"inputPassword","xpath":"//*[@id=\"inputPassword\"]"},"value":"Passw0rd!","label":"Fill: Password"},
+    {"type":"input","selector":"#inputPhone","selectors":{"css":"#inputPhone","id":"inputPhone","xpath":"//*[@id=\"inputPhone\"]"},"value":"+1 555 123 4567","label":"Fill: Phone"},
+    {"type":"input","selector":"#inputMessage","selectors":{"css":"#inputMessage","id":"inputMessage","xpath":"//*[@id=\"inputMessage\"]"},"value":"Hello from automation!","label":"Fill: Message textarea"},
+    {"type":"input","selector":"#selectCountry","selectors":{"css":"#selectCountry","id":"selectCountry","xpath":"//*[@id=\"selectCountry\"]"},"value":"vn","label":"Select: Country → Vietnam"},
+    {"type":"input","selector":"#selectPriority","selectors":{"css":"#selectPriority","id":"selectPriority","xpath":"//*[@id=\"selectPriority\"]"},"value":"high","label":"Select: Priority → High"},
+    {"type":"click","selector":"#chkTerms","selectors":{"css":"#chkTerms","id":"chkTerms","xpath":"//*[@id=\"chkTerms\"]"},"label":"Check: Accept terms"},
+    {"type":"click","selector":"#chkRemember","selectors":{"css":"#chkRemember","id":"chkRemember","xpath":"//*[@id=\"chkRemember\"]"},"label":"Check: Remember me"},
+    {"type":"click","selector":"input[name=\"role\"][value=\"viewer\"]","selectors":{"css":"input[name=\"role\"][value=\"viewer\"]"},"label":"Radio: Select Viewer role"},
+    {"type":"click","selector":"#btnLoad","selectors":{"css":"#btnLoad","id":"btnLoad","xpath":"//*[@id=\"btnLoad\"]"},"label":"Click: Load Sample"},
+    {"type":"wait","value":"400","label":"Wait after load"},
+    {"type":"click","selector":"#btnSubmit","selectors":{"css":"#btnSubmit","id":"btnSubmit","xpath":"//*[@id=\"btnSubmit\"]"},"label":"Click: Submit Form"},
+    {"type":"wait","value":"500","label":"Wait for form status"},
+    {"type":"click","selector":"#btnReset","selectors":{"css":"#btnReset","id":"btnReset","xpath":"//*[@id=\"btnReset\"]"},"label":"Click: Reset"},
+    {"type":"script","code":"showScreen(1, document.querySelectorAll('nav button')[0])","label":"Go to Screen 1"},
+    {"type":"wait","value":"300"},
+    {"type":"hover","selector":"#hoverA","selectors":{"css":"#hoverA","id":"hoverA","xpath":"//*[@id=\"hoverA\"]"},"label":"Hover: Box A"},
+    {"type":"wait","value":"600"},
+    {"type":"hover","selector":"#hoverB","selectors":{"css":"#hoverB","id":"hoverB","xpath":"//*[@id=\"hoverB\"]"},"label":"Hover: Box B"},
+    {"type":"wait","value":"600"},
+    {"type":"hover","selector":"#hoverC","selectors":{"css":"#hoverC","id":"hoverC","xpath":"//*[@id=\"hoverC\"]"},"label":"Hover: Box C"},
+    {"type":"wait","value":"600"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc","xpath":"//*[@id=\"btnInc\"]"},"label":"Click: Increment counter"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc","xpath":"//*[@id=\"btnInc\"]"},"label":"Click: Increment counter"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc","xpath":"//*[@id=\"btnInc\"]"},"label":"Click: Increment counter (total = 3)"},
+    {"type":"readdom","selector":"#counter","selectors":{"css":"#counter","id":"counter","xpath":"//*[@id=\"counter\"]"},"readFrom":"text","varName":"counterValue","label":"Read DOM: counter → ${counterValue}"},
+    {"type":"script","code":"document.getElementById('jsOutput').textContent = 'Counter read by readdom: ' + document.getElementById('counter').textContent","label":"Run JS: write to output panel"},
+    {"type":"readdom","selector":"#domPrice","selectors":{"css":"#domPrice","id":"domPrice","xpath":"//*[@id=\"domPrice\"]"},"readFrom":"text","varName":"price","label":"Read DOM: price → ${price}"},
+    {"type":"readdom","selector":"#domStock","selectors":{"css":"#domStock","id":"domStock","xpath":"//*[@id=\"domStock\"]"},"readFrom":"text","varName":"stock","label":"Read DOM: stock → ${stock}"},
+    {"type":"readdom","selector":"#domRating","selectors":{"css":"#domRating","id":"domRating","xpath":"//*[@id=\"domRating\"]"},"readFrom":"text","varName":"rating","label":"Read DOM: rating → ${rating}"},
+    {"type":"script","code":"document.getElementById('jsOutput').textContent += '\\nPrice: ' + document.getElementById('domPrice').textContent + ' | Stock: ' + document.getElementById('domStock').textContent + ' | Rating: ' + document.getElementById('domRating').textContent","label":"Run JS: display read values"},
+    {"type":"click","selector":"#btnDec","selectors":{"css":"#btnDec","id":"btnDec","xpath":"//*[@id=\"btnDec\"]"},"label":"Click: Decrement"},
+    {"type":"click","selector":"#btnReset2","selectors":{"css":"#btnReset2","id":"btnReset2","xpath":"//*[@id=\"btnReset2\"]"},"label":"Click: Reset counter"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"#btnHide","selectors":{"css":"#btnHide","id":"btnHide","xpath":"//*[@id=\"btnHide\"]"},"label":"Click: Hide element"},
+    {"type":"wait","value":"300"},
+    {"type":"condition","selector":"#conditionEl","selectors":{"css":"#conditionEl","id":"conditionEl"},"conditionType":"elementHidden","conditionSkipCount":2,"label":"IF elementHidden #conditionEl → skip 2 (increment + wait)"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc"},"label":"[SKIPPED] Increment — should be skipped"},
+    {"type":"wait","value":"500","label":"[SKIPPED] Wait — should be skipped"},
+    {"type":"click","selector":"#btnShow","selectors":{"css":"#btnShow","id":"btnShow","xpath":"//*[@id=\"btnShow\"]"},"label":"Click: Show element"},
+    {"type":"wait","value":"300"},
+    {"type":"condition","selector":"#conditionEl","selectors":{"css":"#conditionEl","id":"conditionEl"},"conditionType":"elementVisible","conditionSkipCount":1,"label":"IF elementVisible #conditionEl → skip 1 (hide action)"},
+    {"type":"click","selector":"#btnHide","selectors":{"css":"#btnHide","id":"btnHide"},"label":"[SKIPPED] Hide — should be skipped because element IS visible"},
+    {"type":"condition","selector":"#condText","selectors":{"css":"#condText","id":"condText"},"conditionType":"textContains","expectedValue":"Condition target","conditionSkipCount":1,"label":"IF #condText contains 'Condition target' → skip 1"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc"},"label":"[SKIPPED] Increment — skipped because text matched"},
+    {"type":"condition","conditionType":"urlContains","expectedValue":"test-page","conditionSkipCount":1,"label":"IF URL contains 'test-page' → skip 1"},
+    {"type":"click","selector":"#btnInc","selectors":{"css":"#btnInc","id":"btnInc"},"label":"[SKIPPED] Increment — skipped because URL matched"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"400"},
+    {"type":"dragdrop","selector":"li.drag-item[data-id=\"1\"]","selectors":{"css":"li.drag-item[data-id=\"1\"]"},"targetSelector":"li.drag-item[data-id=\"3\"]","targetSelectors":{"css":"li.drag-item[data-id=\"3\"]"},"label":"Drag: Item Alpha → onto Item Gamma"},
+    {"type":"wait","value":"500"},
+    {"type":"dragdrop","selector":"li.drag-item[data-id=\"4\"]","selectors":{"css":"li.drag-item[data-id=\"4\"]"},"targetSelector":"li.drag-item[data-id=\"2\"]","targetSelectors":{"css":"li.drag-item[data-id=\"2\"]"},"label":"Drag: Item Delta → onto Item Beta"},
+    {"type":"script","code":"showScreen(2, document.querySelectorAll('nav button')[1])","label":"Go to Screen 2"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"button.btn-ghost","selectors":{"css":"#screen2 .section:last-child .btn-ghost","text":"Reset","textTag":"button"},"label":"Click: Reset loading state"},
+    {"type":"wait","value":"300"},
+    {"type":"click","selector":"button.btn-primary","selectors":{"css":"#screen2 button.btn-primary:last-of-type","text":"Simulate Load (1.5s)","textTag":"button"},"label":"Click: Simulate Load (1.5s)"},
+    {"type":"condition","selector":"#loadingSpinner","selectors":{"css":"#loadingSpinner","id":"loadingSpinner"},"conditionType":"elementVisible","conditionSkipCount":1,"label":"IF spinner visible → skip 1 (wait for it to disappear)"},
+    {"type":"wait","value":"300","label":"[SKIPPED] Short wait — skipped because spinner is showing"},
+    {"type":"condition","selector":".spinner","selectors":{"css":".spinner"},"conditionType":"elementNotExists","conditionSkipCount":0,"timeout":4000,"label":"Wait up to 4s: spinner gone (elementNotExists — skip 0 = only gate)","disabled":true},
+    {"type":"wait","value":"2000","label":"Wait 2s for load to complete"},
+    {"type":"readdom","selector":"#loadedValue","selectors":{"css":"#loadedValue","id":"loadedValue"},"readFrom":"text","varName":"loadedResult","label":"Read DOM: loaded result → ${loadedResult}"},
+    {"type":"condition","selector":"#loadedContent","selectors":{"css":"#loadedContent","id":"loadedContent"},"conditionType":"elementVisible","conditionSkipCount":0,"label":"Assert: #loadedContent is visible (skip 0 = no-op assert)"},
+    {"type":"script","code":"showScreen(3, document.querySelectorAll('nav button')[2])","label":"Go to Screen 3"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot","label":"Screenshot: Visible viewport"},
+    {"type":"wait","value":"800"},
+    {"type":"screenshot_full","label":"Screenshot: Full page"},
+    {"type":"wait","value":"1000"},
+    {"type":"screenshot_element","selector":"#card-red","selectors":{"css":"#card-red","id":"card-red"},"label":"Screenshot Element: #card-red"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot_element","selector":"#card-green","selectors":{"css":"#card-green","id":"card-green"},"label":"Screenshot Element: #card-green"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot_element","selector":"#card-blue","selectors":{"css":"#card-blue","id":"card-blue"},"label":"Screenshot Element: #card-blue"},
+    {"type":"wait","value":"500"},
+    {"type":"screenshot_element","selector":"#card-gold","selectors":{"css":"#card-gold","id":"card-gold"},"label":"Screenshot Element: #card-gold"},
+    {"type":"script","code":"showScreen(1, document.querySelectorAll('nav button')[0])","label":"Go to Screen 1"},
+    {"type":"wait","value":"300"},
+    {"type":"input","selector":"#inputName","selectors":{"css":"#inputName","id":"inputName"},"value":"${name}","label":"Fill: name → ${name}"},
+    {"type":"input","selector":"#inputEmail","selectors":{"css":"#inputEmail","id":"inputEmail"},"value":"${email}","label":"Fill: email → ${email}"},
+    {"type":"input","selector":"#selectCountry","selectors":{"css":"#selectCountry","id":"selectCountry"},"value":"${country}","label":"Select: country → ${country}"},
+    {"type":"input","selector":"#inputMessage","selectors":{"css":"#inputMessage","id":"inputMessage"},"value":"${message}","label":"Fill: message → ${message}"},
+    {"type":"click","selector":"#btnSubmit","selectors":{"css":"#btnSubmit","id":"btnSubmit"},"label":"Click: Submit"},
+    {"type":"wait","value":"400"},
+    {"type":"script","code":"showScreen(3, document.querySelectorAll('nav button')[2]); document.getElementById('csvVarDisplay').textContent = '${name} | ${email} | ${country}'","label":"Go to Screen 3 + inject vars into display"},
+    {"type":"wait","value":"400"},
+    {"type":"screenshot_tovar","target":"element","selector":"#csvVarDisplay","selectors":{"css":"#csvVarDisplay","id":"csvVarDisplay"},"varName":"screenshot","label":"Screenshot Element → ${screenshot}"},
+    {"type":"readdom","selector":"#formStatus","selectors":{"css":"#formStatus","id":"formStatus"},"readFrom":"text","varName":"formResult","label":"Read DOM: form status → ${formResult}"},
+    {"type":"navigate","url":"https://example.com/login?next=${page}","label":"Open login"},
+    {"type":"wait","value":"250","label":"Settle"},
+    {"type":"click","selector":"#start","selectors":{"css":"#start","xpath":"//*[@id=\"start\"]"},"label":"Start","delay":0},
+    {"type":"input","selector":"#user","selectors":{"css":"#user","xpath":"//*[@id=\"user\"]"},"value":"$&","label":"User"},
+    {"type":"input","selector":"#pass","selectors":{"css":"#pass","xpath":"//*[@id=\"pass\"]"},"value":"p@ss \"quoted\" \\ back`tick`"},
+    {"type":"hover","selector":"#menu","selectors":{"css":"#menu","xpath":"//*[@id=\"menu\"]"}},
+    {"type":"dropdown","selector":"#country","selectors":{"css":"#country","xpath":"//*[@id=\"country\"]"}},
+    {"type":"dragdrop","selector":"#card-1","selectors":{"css":"#card-1","xpath":"//*[@id=\"card-1\"]"},"targetSelector":"#lane-2","targetSelectors":{"css":"#lane-2"}},
+    {"type":"script","code":"const n = '$&';\nconsole.log(n, \\${user});\nreturn 1;","label":"Inline script"},
+    {"type":"readdom","selector":"#greeting","selectors":{"css":"#greeting","xpath":"//*[@id=\"greeting\"]"},"varName":"${greeting}","readFrom":"visible"},
+    {"type":"readdom","selector":"#order","selectors":{"css":"#order","xpath":"//*[@id=\"order\"]"},"varName":"order","readFrom":"text","pattern":"Order #${orderId} for ${customer}","matchCase":true},
+    {"type":"readdom","selector":"#link","selectors":{"css":"#link","xpath":"//*[@id=\"link\"]"},"varName":"href","readFrom":"attr","attrName":"data-${attr}"},
+    {"type":"screenshot","label":"Visible"},
+    {"type":"screenshot_full"},
+    {"type":"screenshot_element","selector":"#chart","selectors":{"css":"#chart","xpath":"//*[@id=\"chart\"]"}},
+    {"type":"screenshot_tovar","varName":"shot","captureMode":"visible"},
+    {"type":"uploadFile","selector":"#file","selectors":{"css":"#file","xpath":"//*[@id=\"file\"]"},"folderPath":"C:\\data","fileName":"${fileName}","fileNames":["a.png","${fileName}"]},
+    {"type":"click","selector":"#row","selectors":{"css":"#row","xpath":"//*[@id=\"row\"]"},"conditions":{"matchMode":"any","textContains":"${user}","classContains":"{fallback:a|b}"}},
+    {"type":"click","selector":"#disabled","selectors":{"css":"#disabled","xpath":"//*[@id=\"disabled\"]"},"disabled":true},
+    {"type":"condition","conditionType":"elementExists","selector":"#banner","selectors":{"css":"#banner","xpath":"//*[@id=\"banner\"]"},"skipCount":2,"label":"Banner shown"},
+    {"type":"click","selector":"#close-banner","selectors":{"css":"#close-banner","xpath":"//*[@id=\"close-banner\"]"}},
+    {"type":"wait","value":"100"},
+    {"type":"condition","conditionType":"textContains","selector":"#status","selectors":{"css":"#status","xpath":"//*[@id=\"status\"]"},"expectedValue":"${expected}","skipCount":1},
+    {"type":"input","selector":"#note","selectors":{"css":"#note","xpath":"//*[@id=\"note\"]"},"value":"ok"},
+    {"type":"condition","conditionType":"urlContains","expectedValue":"/done"},
+    {"type":"condition","conditionType":"valueEquals","selector":"#qty","selectors":{"css":"#qty","xpath":"//*[@id=\"qty\"]"},"expectedValue":"3","skipCount":1},
+    {"type":"click","selector":"#nested","selectors":{"css":"#nested","xpath":"//*[@id=\"nested\"]"}},
+    {"type":"condition","conditionType":"hasAttribute","selector":"#x","selectors":{"css":"#x","xpath":"//*[@id=\"x\"]"},"expectedValue":"data-x=1","empty":true},
+    {"type":"condition","conditionType":"unknownKind","selector":"#y","selectors":{"css":"#y","xpath":"//*[@id=\"y\"]"}},
+    {"type":"click","selector":"#after","selectors":{"css":"#after","xpath":"//*[@id=\"after\"]"}},
+    {"type":"condition","conditionType":"elementHidden","selector":"#z","selectors":{"css":"#z","xpath":"//*[@id=\"z\"]"},"skipCount":"abc"},
+    {"type":"click","selector":"#z1","selectors":{"css":"#z1","xpath":"//*[@id=\"z1\"]"}},
+    {"type":"condition","conditionType":"valueContains","selector":"#legacy","selectors":{"css":"#legacy","xpath":"//*[@id=\"legacy\"]"},"expectedValue":"v","conditionSkipCount":2},
+    {"type":"click","selector":"#l1","selectors":{"css":"#l1","xpath":"//*[@id=\"l1\"]"}},
+    {"type":"click","selector":"#l2","selectors":{"css":"#l2","xpath":"//*[@id=\"l2\"]"},"sourceSelector":"#legacy-src","actionValue":"old"},
+    {"type":"uploadFile","selector":"#up","selectors":{"css":"#up","xpath":"//*[@id=\"up\"]"},"folderPath":"/tmp","uploadFileName":"legacy.txt"},
+    {"type":"switch","switchVar":"x","label":"By role","cases":[{"value":"admin","scenarioId":"__self__","startAt":2,"endAt":3},{"value":"user","scenarioId":"__self__","startAt":4,"endAt":6},{"value":"guest","scenarioId":"__self__","empty":true},{"value":"__default__","scenarioId":"other-scn","startAt":2}]},
+    {"type":"click","selector":"#admin-1","selectors":{"css":"#admin-1","xpath":"//*[@id=\"admin-1\"]"}},
+    {"type":"click","selector":"#admin-2","selectors":{"css":"#admin-2","xpath":"//*[@id=\"admin-2\"]"}},
+    {"type":"switch","switchVar":"${lang}","cases":[{"value":"vi","scenarioId":"__self__","startAt":5,"endAt":5},{"value":"en","scenarioId":"__self__","startAt":6,"endAt":6}]},
+    {"type":"input","selector":"#vi","selectors":{"css":"#vi","xpath":"//*[@id=\"vi\"]"},"value":"Xin chào"},
+    {"type":"input","selector":"#en","selectors":{"css":"#en","xpath":"//*[@id=\"en\"]"},"value":"Hello"},
+    {"type":"condition","conditionType":"elementVisible","selector":"#tail","selectors":{"css":"#tail","xpath":"//*[@id=\"tail\"]"},"skipCount":1},
+    {"type":"click","selector":"#tail","selectors":{"css":"#tail","xpath":"//*[@id=\"tail\"]"}},
+    {"type":"switch","switchVar":"${jump}","cases":[{"value":"a","scenarioId":"__self__","startAt":10}]},
+    {"type":"wait","value":"50"},
+    {"type":"switch","switchVar":"${broken}","cases":[{"value":"x","scenarioId":"__self__","startAt":9,"endAt":9}]},
+    {"type":"click","selector":"#end","selectors":{"css":"#end","xpath":"//*[@id=\"end\"]"}},
+    {"type":"input","selector":"#ten","selectors":{"css":"#ten","xpath":"//*[@id=\"ten\"]"},"value":"${user} — ${họ_tên}"},
+    {"type":"script","value":"document.title = \"${user}\";"},
+    {"type":"readdom","selector":"#ma","selectors":{"css":"#ma","xpath":"//*[@id=\"ma\"]"},"varName":"mã","pattern":"${a} - ${b}"}
+   ]
+  ]
+ ],
+ "migrateToConfig": [
+  {
+   "activeType": "s",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "s",
+   "s": "plain",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "r",
+   "s": "",
+   "r": {
+    "type": "alpha",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "r",
+   "s": "",
+   "r": {
+    "type": "datetime",
+    "length": "0"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "p",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "a",
+    "b",
+    null
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "f",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "x",
+    null,
+    "y"
+   ]
+  },
+  {
+   "activeType": "s",
+   "s": "{pick:}",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "s",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "s",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "s",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "s",
+   "s": "v",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "r",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "p",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  },
+  {
+   "activeType": "f",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "3"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "a"
+   ]
+  },
+  {
+   "activeType": "s",
+   "s": "",
+   "r": {
+    "type": "alphanumeric",
+    "length": "8"
+   },
+   "p": [
+    "",
+    ""
+   ],
+   "f": [
+    "",
+    ""
+   ]
+  }
+ ],
+ "getActiveValue": [
+  "",
+  "plain",
+  "{random:alpha:8}",
+  "{random:datetime:0}",
+  "{pick:a|b|}",
+  "{fallback:x||y}",
+  "{pick:}",
+  "",
+  "",
+  "",
+  "v",
+  "{random:alphanumeric:8}",
+  "",
+  "{fallback:a}",
+  ""
+ ],
+ "getActiveValueRaw": [
+  "{random:numeric:4}",
+  "{pick:a|}",
+  "",
+  "q"
+ ],
+ "varSpecActiveValue": [
+  "",
+  "plain",
+  "{random:alpha:8}",
+  "{random:datetime:0}",
+  "{pick:a|b|}",
+  "{fallback:x||y}",
+  "{pick:}",
+  "",
+  "",
+  "",
+  "v",
+  "",
+  "",
+  "{fallback:a}",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "{random:alpha:6}",
+  "{random:weird:3}"
+ ],
+ "varSpecActiveValueText": [
+  "",
+  "plain",
+  "{random:alpha:8}",
+  "{random:datetime:0}",
+  "{pick:a|b|}",
+  "{fallback:x||y}",
+  "{pick:}",
+  "",
+  "",
+  "5",
+  "v",
+  "",
+  "",
+  "{fallback:a}",
+  "[object Object]",
+  "",
+  "",
+  "true",
+  "",
+  "{random:alpha:6}",
+  "{random:weird:3}"
+ ],
+ "varSpecParseRandomSpec": [
+  null,
+  null,
+  {
+   "type": "alpha",
+   "length": 8
+  },
+  {
+   "type": "datetime",
+   "length": 0
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "type": "alpha",
+   "length": 6
+  },
+  {
+   "type": "weird",
+   "length": 3
+  }
+ ],
+ "varSpecParsePickSpec": [
+  null,
+  null,
+  null,
+  null,
+  [
+   "a",
+   "b",
+   ""
+  ],
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null
+ ],
+ "varSpecPreviewRandom": [
+  "2026-01-15_09-05-07",
+  "2026-01-15_09-05-07",
+  "2026-01-15_09-05-07",
+  "",
+  "G",
+  "GaBZYoFLwZxz",
+  "",
+  "6",
+  "605992674944",
+  "",
+  "m",
+  "mAg88Rlsa9ce",
+  "",
+  "m",
+  "mAg88Rlsa9ce"
+ ],
+ "parseCSV": [
+  null,
+  null,
+  {
+   "headers": [
+    "a",
+    "b"
+   ],
+   "rows": [
+    {"a":"1","b":"2"}
+   ]
+  },
+  {
+   "headers": [
+    "name",
+    "age"
+   ],
+   "rows": [
+    {"name":"Ann","age":"3"},
+    {"name":"Bob","age":"4"}
+   ]
+  },
+  {
+   "headers": [
+    "h1",
+    "h2"
+   ],
+   "rows": [
+    {"h1":"x, y","h2":"multi\nline"},
+    {"h1":" pad ","h2":"trim"}
+   ]
+  },
+  {
+   "headers": [
+    "a",
+    "b"
+   ],
+   "rows": [
+    {"a":"1","b":"2"}
+   ]
+  },
+  {
+   "headers": [
+    "a"
+   ],
+   "rows": [
+    {"a":""}
+   ]
+  },
+  {
+   "headers": [
+    "a",
+    "b",
+    "c"
+   ],
+   "rows": [
+    {"a":"1","b":"","c":""},
+    {"a":"1","b":"2","c":"3"}
+   ]
+  },
+  {
+   "headers": [
+    "q"
+   ],
+   "rows": [
+    {"q":"he said \"hi\""}
+   ]
+  },
+  {
+   "headers": [
+    "x",
+    "y"
+   ],
+   "rows": [
+    {"x":"open quote\r\n","y":""}
+   ]
+  }
+ ],
+ "generateResultCsv": "\"user\",\"pass\",\"shot\",\"extra\",\"read\",\"Action Failed\"\r\n\"a\",\"1\",\"\",\"x\",\"\",\"\"\r\n\"b \"\"q\"\"\",\"<2>\",\"\",\"\",\"\",\"[3] click \"\"Go\"\"; [5] input\"\r\n\"Đức\",\"&\",\"f.png\",\"\",\"1\",\"\"",
+ "generateResultHtml": [
+  "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>CSV Result</title>\n<style>body{font-family:sans-serif;font-size:13px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px 8px;vertical-align:top}th{background:#f3f4f6;font-weight:bold}tr:nth-child(even){background:#f9fafb}</style>\n</head><body><h2>CSV Run Result (3 rows)</h2>\n<table><thead><tr><th>user</th><th>pass</th><th style=\"min-width:200px\">shot</th><th>extra</th><th>read</th><th style=\"min-width:200px\">other</th><th>Action Failed</th></tr></thead><tbody>\n<tr><td>a</td><td>1</td><td><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\" style=\"max-width:200px;max-height:130px;display:block;border-radius:3px;\"/></td><td>x</td><td></td><td></td><td></td></tr>\n<tr><td>b &quot;q&quot;</td><td>&lt;2&gt;</td><td></td><td></td><td></td><td><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\" style=\"max-width:200px;max-height:130px;display:block;border-radius:3px;\"/></td><td style=\"color:#dc2626;font-weight:600;\">[3] click &quot;Go&quot;; [5] input</td></tr>\n<tr><td>Đức</td><td>&amp;</td><td><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\" style=\"max-width:200px;max-height:130px;display:block;border-radius:3px;\"/></td><td></td><td>1</td><td></td><td></td></tr>\n</tbody></table></body></html>",
+  "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>CSV Result</title>\n<style>body{font-family:sans-serif;font-size:13px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px 8px;vertical-align:top}th{background:#f3f4f6;font-weight:bold}tr:nth-child(even){background:#f9fafb}</style>\n</head><body><h2>CSV Run Result (3 rows)</h2>\n<table><thead><tr><th>user</th><th>pass</th><th>extra</th><th>read</th><th style=\"min-width:200px\">shot</th><th style=\"min-width:200px\">other</th><th>Action Failed</th></tr></thead><tbody>\n<tr><td>a</td><td>1</td><td>x</td><td></td><td><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\" style=\"max-width:200px;max-height:130px;display:block;border-radius:3px;\"/></td><td></td><td></td></tr>\n<tr><td>b &quot;q&quot;</td><td>&lt;2&gt;</td><td></td><td></td><td></td><td><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\" style=\"max-width:200px;max-height:130px;display:block;border-radius:3px;\"/></td><td style=\"color:#dc2626;font-weight:600;\">[3] click &quot;Go&quot;; [5] input</td></tr>\n<tr><td>Đức</td><td>&amp;</td><td></td><td>1</td><td><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\" style=\"max-width:200px;max-height:130px;display:block;border-radius:3px;\"/></td><td></td><td></td></tr>\n</tbody></table></body></html>"
+ ],
+ "generateResultXlsx": [
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet c1e31432f0fcc91ec99af9d424a01ccb377900b55d715a463da8dbf38ad71d96",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet 6497294bd55488b49bc8992b15e5b4499eeb993d77e46d1d02e8e0b7c6bdf0c3",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet 7dc6a3ccbb498c5c6dc4d09463ea4f7a52fb0ceea7cfd88b9678f24f10ad9166"
+ ],
+ "zipWriter": "application/zip 2cd97f1667e99b06a296abee95f449c40cf7f674b2da2bb69962f01bbe46269d",
+ "formatStamp": [
+  "2026-01-15_09-05-07",
+  "2026-01-02_03-04-05",
+  "1999-12-31_23-59-59"
+ ]
+}

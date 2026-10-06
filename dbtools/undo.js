@@ -35,7 +35,7 @@
 
 import { buildUpdate, buildInsert, buildDelete, engineOf } from './sqlquote.js';
 
-export const UNDOABLE_OPS = new Set(['update', 'delete', 'insert']);
+const UNDOABLE_OPS = new Set(['update', 'delete', 'insert']);
 
 /**
  * The predicate to use when undoing one row: the recorded `where`, with any key

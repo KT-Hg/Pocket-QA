@@ -1,0 +1,496 @@
+/* === Fixed Header (Status + Tabs) === */
+.sticky-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  background: var(--card);
+  border-bottom: 2px solid var(--border);
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  min-height: 30px;
+}
+
+/* === Update banner === */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 10px;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+  color: #fff;
+  font-size: 12px;
+}
+/* [hidden] must beat the display:flex above */
+.update-banner[hidden] { display: none; }
+
+.update-banner-icon { font-size: 13px; line-height: 1; }
+
+.update-banner-text {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.update-banner-headline { font-weight: 700; }
+.update-banner-sub { opacity: 0.82; margin-left: 3px; }
+
+/* Reset the global full-width button styling inside the bar */
+.update-banner button {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  border: none;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.update-banner button:hover:not(:disabled) { transform: none; }
+
+.update-banner-link {
+  padding: 4px 3px;
+  background: transparent;
+  color: #fff;
+  font-weight: 500;
+  text-decoration: underline;
+}
+.update-banner-link:hover:not(:disabled) { background: transparent; opacity: 0.85; }
+
+.update-banner-cta {
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+.update-banner-cta:hover:not(:disabled) { background: #fff; color: var(--primary-dark); }
+
+.update-banner-x {
+  padding: 2px 5px;
+  background: transparent;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.update-banner-x:hover:not(:disabled) { background: transparent; opacity: 1; }
+
+/* Dark theme: the white CTA on a lighter gradient needs a darker label */
+[data-theme="dark"] .update-banner {
+  color: #0d1829;
+}
+[data-theme="dark"] .update-banner-link,
+[data-theme="dark"] .update-banner-x { color: #0d1829; }
+[data-theme="dark"] .update-banner-cta {
+  background: rgba(13, 24, 41, 0.9);
+  color: #f5f7fa;
+}
+[data-theme="dark"] .update-banner-cta:hover:not(:disabled) {
+  background: #0d1829;
+  color: #f5f7fa;
+}
+
+/* Countdown and locked variants override the informational blue/violet gradient.
+   Both keep white type in either theme, so the dark-theme rules above are undone. */
+.update-banner.is-warning {
+  background: linear-gradient(90deg, var(--warning-dark) 0%, var(--warning) 100%);
+}
+.update-banner.is-locked {
+  background: linear-gradient(90deg, var(--danger-dark) 0%, var(--danger) 100%);
+}
+.update-banner.is-warning,
+.update-banner.is-locked,
+[data-theme="dark"] .update-banner.is-warning,
+[data-theme="dark"] .update-banner.is-locked { color: #fff; }
+
+[data-theme="dark"] .update-banner.is-warning .update-banner-link,
+[data-theme="dark"] .update-banner.is-locked  .update-banner-link { color: #fff; }
+
+.update-banner.is-warning .update-banner-cta,
+.update-banner.is-locked  .update-banner-cta,
+[data-theme="dark"] .update-banner.is-warning .update-banner-cta,
+[data-theme="dark"] .update-banner.is-locked  .update-banner-cta {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--danger-dark);
+}
+.update-banner.is-warning .update-banner-cta { color: var(--warning-dark); }
+
+/* === Version card (Settings) === */
+.update-info-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.update-info-row[hidden] { display: none; }
+.update-info-label { flex: 0 0 auto; color: var(--muted); }
+.update-info-value {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+/* === Update lock === */
+/* Visual half of the lock — the service worker refuses the work regardless, and
+   a capture-phase click guard in update-banner.js catches synthetic clicks. */
+body.update-locked #startRecord,
+body.update-locked #playScenario,
+body.update-locked #startSequence,
+body.update-locked #startCsvRun,
+body.update-locked #diffScreenshots,
+body.update-locked .cap-save-btn,
+body.update-locked .cap-edit-btn {
+  opacity: 0.45;
+  filter: grayscale(0.8);
+  cursor: not-allowed;
+}
+body.update-locked #startRecord:hover,
+body.update-locked #playScenario:hover,
+body.update-locked #startSequence:hover,
+body.update-locked #startCsvRun:hover,
+body.update-locked #diffScreenshots:hover,
+body.update-locked .cap-save-btn:hover,
+body.update-locked .cap-edit-btn:hover { transform: none; }
+
+/* === Now Playing bar === */
+.now-playing-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--success) 10%, var(--card));
+  border-bottom: 1px solid color-mix(in srgb, var(--success) 30%, var(--border));
+  cursor: pointer;
+  user-select: none;
+  min-height: 28px;
+  transition: background .15s;
+}
+
+.now-playing-bar:hover {
+  background: color-mix(in srgb, var(--success) 18%, var(--card));
+}
+
+.now-playing-bar.switched {
+  background: color-mix(in srgb, var(--secondary) 12%, var(--card));
+  border-bottom-color: color-mix(in srgb, var(--secondary) 30%, var(--border));
+}
+
+.now-playing-bar.switched:hover {
+  background: color-mix(in srgb, var(--secondary) 20%, var(--card));
+}
+
+.now-playing-bar.csv-done {
+  background: color-mix(in srgb, var(--success) 8%, var(--card));
+  border-bottom-color: color-mix(in srgb, var(--success) 25%, var(--border));
+  opacity: 0.85;
+}
+
+.now-playing-bar.csv-done:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--success) 14%, var(--card));
+}
+
+.now-playing-icon {
+  font-size: 11px;
+  color: var(--success);
+  flex: 0 0 auto;
+}
+
+.now-playing-bar.switched .now-playing-icon {
+  color: var(--secondary);
+}
+
+.now-playing-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-playing-step {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.now-playing-caret {
+  font-size: 11px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  transition: transform .2s;
+}
+
+.now-playing-bar[aria-expanded="true"] .now-playing-caret {
+  transform: rotate(180deg);
+}
+
+/* === Playback mini panel === */
+.playback-panel {
+  background: var(--card);
+  border-bottom: 2px solid var(--border);
+  padding: 8px 10px;
+  animation: pb-panel-in .15s ease;
+}
+
+@keyframes pb-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pb-panel-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.pb-panel-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  width: 62px;
+  flex: 0 0 62px;
+}
+
+.pb-panel-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb-panel-orig {
+  color: var(--muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.pb-panel-progress {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--secondary-bg);
+  overflow: hidden;
+  margin: 6px 0 4px;
+}
+
+.pb-panel-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--success);
+  transition: width .3s ease;
+}
+
+.pb-panel-fill-csv {
+  background: var(--primary);
+}
+
+.pb-panel-csv-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pb-panel-csv-stop {
+  display: flex;
+  border: 2px solid var(--danger);
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+.pb-panel-csv-stop button {
+  flex: 1;
+  background: var(--card);
+  color: var(--danger);
+  border: none;
+  border-radius: 0;
+  margin: 0 !important;
+  padding: 5px 0 !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  width: auto !important;
+  height: auto !important;
+  white-space: nowrap;
+}
+.pb-panel-csv-stop button:first-child {
+  border-right: 1.5px solid var(--danger);
+}
+.pb-panel-csv-stop button:hover {
+  background: var(--danger-fill);
+  color: #fff;
+  transform: none;
+}
+
+.status-bar .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: 0 0 8px;
+  transition: background 0.2s;
+}
+
+.status-bar .status-dot.active {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
+.status-bar .status-dot.inactive {
+  background: var(--danger);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+.status-bar .status-dot.recording {
+  background: var(--danger);
+  animation: pulse-dot 1s ease infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(239, 68, 68, 0.5); }
+  50% { opacity: 0.4; box-shadow: 0 0 2px rgba(239, 68, 68, 0.2); }
+}
+
+.status-bar .status-label {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-bar .status-spacer {
+  flex: 1;
+}
+
+.status-bar .status-progress {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.status-bar .status-scenario-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--secondary-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.status-bar .status-scenario-name.switched {
+  color: var(--secondary);
+  border-color: var(--secondary);
+  background: color-mix(in srgb, var(--secondary) 12%, transparent);
+}
+
+.status-bar .status-scenario-name.switched::before {
+  content: '→ ';
+  opacity: 0.7;
+}
+
+.status-bar button {
+  margin: 0;
+  padding: 3px 8px;
+  font-size: 10px;
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.status-bar .icon-btn {
+  background: transparent;
+  border: none;
+  padding: 2px 6px;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+  line-height: 1;
+}
+
+.status-bar .icon-btn:hover {
+  background: var(--secondary-bg);
+  color: var(--text);
+  transform: none;
+}
+
+/* === Resume Banner === */
+.resume-banner {
+  display: none;
+  position: fixed;
+  bottom: 48px;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: #1e40af;
+  color: #fff;
+  padding: 10px 14px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+}
+/* Both banners are fixed to the same edge, so the CSV one stacks above the
+   single-scenario one for the rare case where both have something to offer. */
+#csvResumeBanner { bottom: 96px; background: #075985; }
+.resume-banner-msg { flex: 1; }
+.resume-banner-btn {
+  background: var(--success-fill);
+  color: #fff;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  width: auto;
+  margin: 0;
+}
+.resume-banner-btn:hover { background: var(--success-fill-hover); transform: none; }
+.resume-banner-dismiss:hover { background: rgba(255, 255, 255, 0.3); transform: none; }
+.resume-banner-dismiss {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  width: auto;
+  margin: 0;
+}
+
+/* === Tab panel entrance animation === */
+@keyframes tabPanelIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tab-panel.active {
+  animation: tabPanelIn 0.18s ease-out;
+}
+

@@ -161,7 +161,11 @@ function node(tag, className, text) {
  * so the linked columns go where the eye lands first.
  */
 function orderedColumns(tbl) {
-  const rankOf = (c) => (c.isPk ? 0 : c.fk ? 1 : 2);
+  // Primary keys first, then foreign keys, then the rest.
+  const rankOf = (c) => {
+    if (c.isPk) return 0;
+    return c.fk ? 1 : 2;
+  };
   return [...(tbl.columns || [])]
     .map((c, i) => ({ c, i }))
     .sort((a, b) => rankOf(a.c) - rankOf(b.c) || a.i - b.i)

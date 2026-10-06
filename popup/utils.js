@@ -1,4 +1,6 @@
-import { normalizeVarRef, selectorStrings, writtenVarNames } from '../bg/var-name.js';
+import { normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
+import { pickStrings } from '../shared/dropdown-pick.js';
+import { trapFocus } from './ui/focus.js';
 /* === HTML Escape === */
 
 export function escHtml(s) {
@@ -7,7 +9,7 @@ export function escHtml(s) {
 
 /* === Action Icons === */
 
-export const ACTION_ICONS = {
+const ACTION_ICONS = {
   click: '🖱', input: '⌨', navigate: '🔗', script: '⚡', hover: '👆',
   wait: '⏱', condition: '❓', switch: '🔀', dragdrop: '↕', readdom: '📖',
   screenshot: '📷', screenshot_full: '📄', screenshot_element: '📌', screenshot_tovar: '📸',
@@ -71,46 +73,6 @@ export function unlockScroll() {
   document.body.style.top = '';
   document.body.scrollTop = _savedScrollY;
   window.scrollTo(0, _savedScrollY);
-}
-
-/* === Focus Trap === */
-
-// Matches all interactive elements that can receive keyboard focus.
-// tabindex="-1" is deliberately excluded — those elements are not in the
-// natural tab order and should not be cycled through by the trap.
-const FOCUSABLE_SEL = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-// Returns a cleanup function that removes the listener and restores prior focus.
-export function trapFocus(modalEl) {
-  const prevActive = document.activeElement;
-  const getFocusable = () => Array.from(modalEl.querySelectorAll(FOCUSABLE_SEL))
-    .filter(el => el.offsetParent !== null || el === document.activeElement);
-
-  const focusable = getFocusable();
-  if (focusable.length) focusable[0].focus();
-
-  const handler = (e) => {
-    if (e.key !== 'Tab') return;
-    const items = getFocusable();
-    if (!items.length) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-  modalEl.addEventListener('keydown', handler);
-
-  return () => {
-    modalEl.removeEventListener('keydown', handler);
-    if (prevActive && typeof prevActive.focus === 'function') {
-      try { prevActive.focus(); } catch (_) {}
-    }
-  };
 }
 
 /* === Confirm / Alert Modals === */
@@ -213,22 +175,11 @@ export function showPrompt(msg, onSubmit, { title = 'Enter Value', value = '', t
   };
 }
 
-/* === Validation === */
-
-export function validateNumberInput(input, min = 0) {
-  const value = parseInt(input.value, 10);
-  if (input.value && (isNaN(value) || value < min)) {
-    input.classList.add('required-error');
-    setTimeout(() => {
-      input.classList.remove('required-error');
-    }, 2000);
-    return false;
-  }
-  input.classList.remove('required-error');
-  return true;
-}
-
 /* === Tab Messaging === */
+
+// Must stay identical to the content_scripts entry in manifest.json: a tab opened
+// before the extension was installed gets the same script the manifest injects.
+export const CONTENT_SCRIPT_FILES = ['content.js'];
 
 export function safeSendTabMessage(tabId, payload) {
   chrome.tabs.sendMessage(tabId, payload, () => {
@@ -304,7 +255,7 @@ export function getDragAfterElement(container, y) {
 /**
  * Variable names a scenario actually references.
  *
- * The field list must stay in step with interpolateAction() in bg/utils.js: a
+ * The field list must stay in step with interpolateAction() in bg/interpolate.js: a
  * field that gets variables substituted at playback but is not scanned here is
  * dropped from the export's variable list, so the generated code references an
  * identifier it never declared (ReferenceError in JS, NameError in Python).
@@ -349,10 +300,11 @@ export function getReadVarNames(actions) {
     // A bare Switch name reads `${name}` at run time — see normalizeVarRef.
     scan(normalizeVarRef(action.switchVar));
     // selectors.* / targetSelectors.* and attrName get variables substituted at
-    // playback too (bg/utils.js interpolateAction).
+    // playback too (bg/interpolate.js interpolateAction).
     selectorStrings(action).forEach(scan);
     scan(action.attrName);
     if (Array.isArray(action.fileNames)) action.fileNames.forEach(scan);
+    pickStrings(action).forEach(scan);
     if (action.conditions && typeof action.conditions === 'object') {
       for (const f of C_FIELDS) scan(action.conditions[f]);
     }

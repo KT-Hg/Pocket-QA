@@ -1,14 +1,15 @@
 // Each variable stores a full config object across all 4 types so switching type never discards data.
 
 import { showToast, showConfirm, lockScroll, unlockScroll, getDragAfterElement } from './utils.js';
-import { listEntries, listSpec, parseListSpec } from '../bg/var-name.js';
-import { normalizeVariableSort, orderNames, variableComparator } from '../bg/var-order.js';
+import { listEntries, parseListSpec } from '../shared/var-name.js';
+import { normalizeVariableSort, orderNames, variableComparator } from '../shared/var-order.js';
+import { configValue } from '../shared/var-spec.js';
 
 /* ── Parsers ─────────────────────────────────────────────────────────────── */
 
 const RANDOM_RE   = /^\{random:(\w+):(\d+)\}$/;
 
-// Config lists keep a Blank entry as null (see listEntries in bg/var-name.js).
+// Config lists keep a Blank entry as null (see listEntries in shared/var-name.js).
 const _toConfigList = (vals) => vals && vals.map(v => (v === '' ? null : v));
 
 function _parsePick(val) {
@@ -41,7 +42,7 @@ function _configBody(cfg) {
   return JSON.stringify({ ...cfg, createdAt: undefined, updatedAt: undefined });
 }
 
-export function _migrateToConfig(val) {
+export function migrateToConfig(val) {
   if (val && typeof val === 'object' && 'activeType' in val) {
     const def = _defaultConfig();
     return {
@@ -63,18 +64,22 @@ export function _migrateToConfig(val) {
   return cfg;
 }
 
-export function _getActiveValue(cfg) {
-  const t = cfg.activeType || 's';
-  if (t === 'r' && cfg.r) return `{random:${cfg.r.type}:${cfg.r.length}}`;
-  if (t === 'p') return listSpec('pick', cfg.p);
-  if (t === 'f') return listSpec('fallback', cfg.f);
-  return cfg.s || '';
-}
 
 /* ── Type helpers ────────────────────────────────────────────────────────── */
 
 function _typeLabel(t) {
-  return t === 'f' ? 'Fallback' : t === 'p' ? 'Pick' : t === 'r' ? 'Rand' : 'Static';
+  if (t === 'f') return 'Fallback';
+  if (t === 'p') return 'Pick';
+  if (t === 'r') return 'Rand';
+  return 'Static';
+}
+
+/** The one-letter icon of a variable type: S, R, P or F. */
+function _typeLetter(t) {
+  if (t === 's') return 'S';
+  if (t === 'r') return 'R';
+  if (t === 'p') return 'P';
+  return 'F';
 }
 
 function _valueText(cfg) {
@@ -90,6 +95,10 @@ function _valueText(cfg) {
 }
 
 const BLANK_TEXT = '∅ blank';
+// How long a missing required field stays marked.
+const REQUIRED_FLASH_MS = 2000;
+// The modal is shown before focus moves into it.
+const FOCUS_AFTER_OPEN_MS = 50;
 
 /** "a · ∅ blank · c" — a Blank is named, never shown as nothing. */
 function _listText(arr, sep) {
@@ -252,7 +261,7 @@ function _keyTitle(key, cfg) {
 }
 
 function _buildRow(key, valOrCfg) {
-  const cfg = _migrateToConfig(valOrCfg);
+  const cfg = migrateToConfig(valOrCfg);
   const t   = cfg.activeType || 's';
 
   const li = document.createElement('li');
@@ -271,7 +280,7 @@ function _buildRow(key, valOrCfg) {
   typeSpan.className = 'vr-type';
   const iconBox = document.createElement('span');
   iconBox.className   = `vt-i ${t}`;
-  iconBox.textContent = t === 's' ? 'S' : t === 'r' ? 'R' : t === 'p' ? 'P' : 'F';
+  iconBox.textContent = _typeLetter(t);
   typeSpan.appendChild(iconBox);
   typeSpan.appendChild(document.createTextNode(' ' + _typeLabel(t)));
 
@@ -286,7 +295,7 @@ function _buildRow(key, valOrCfg) {
 
   const valSpan = document.createElement('span');
   valSpan.className   = 'vr-val';
-  valSpan.title       = _getActiveValue(cfg);
+  valSpan.title       = configValue(cfg);
   valSpan.textContent = _valueText(cfg);
 
   if (t === 'p') {
@@ -345,7 +354,7 @@ function _buildRow(key, valOrCfg) {
 function _refreshRow(li) {
   let cfg;
   try { cfg = JSON.parse(li.dataset.config || '{}'); } catch { cfg = _defaultConfig(); }
-  cfg = _migrateToConfig(cfg);
+  cfg = migrateToConfig(cfg);
   const t = cfg.activeType || 's';
 
   li.className = `var-row t-${t}`;
@@ -355,7 +364,7 @@ function _refreshRow(li) {
     typeSpan.innerHTML = '';
     const iconBox = document.createElement('span');
     iconBox.className   = `vt-i ${t}`;
-    iconBox.textContent = t === 's' ? 'S' : t === 'r' ? 'R' : t === 'p' ? 'P' : 'F';
+    iconBox.textContent = _typeLetter(t);
     typeSpan.appendChild(iconBox);
     typeSpan.appendChild(document.createTextNode(' ' + _typeLabel(t)));
   }
@@ -366,7 +375,7 @@ function _refreshRow(li) {
 
   const valSpan = li.querySelector('.vr-val');
   if (valSpan) {
-    valSpan.title       = _getActiveValue(cfg);
+    valSpan.title       = configValue(cfg);
     valSpan.textContent = _valueText(cfg);
     if (t === 'p') {
       const sub = document.createElement('span');
@@ -403,7 +412,7 @@ function _insertRow(key, value) {
   if (key || value) {
     const empty = findEmptyRow();
     if (empty) {
-      const cfg = _migrateToConfig(value);
+      const cfg = migrateToConfig(value);
       empty.dataset.key    = key;
       empty.dataset.config = JSON.stringify(cfg);
       _refreshRow(empty);
@@ -417,14 +426,14 @@ function _insertRow(key, value) {
   _reindexRows();
 }
 
-export function findEmptyRow() {
+function findEmptyRow() {
   const ul = getListEl();
   if (!ul) return null;
   for (const li of ul.querySelectorAll('li.var-row')) {
     if (!li.dataset.key) {
       try {
         const cfg = JSON.parse(li.dataset.config || '{}');
-        if (!_getActiveValue(cfg)) return li;
+        if (!configValue(cfg)) return li;
       } catch { return li; }
     }
   }
@@ -446,11 +455,7 @@ function _readTable() {
   return { variables, order: _customNames() };
 }
 
-export function getVariablesFromTable() {
-  return _readTable().variables;
-}
-
-export function loadVariables() {
+function loadVariables() {
   chrome.runtime.sendMessage({ type: 'GET_VARIABLES' }, (res) => {
     const ul = getListEl();
     if (!ul) return;
@@ -615,7 +620,7 @@ function _openModal(editRow = null) {
   if (editRow) {
     let cfg;
     try { cfg = JSON.parse(editRow.dataset.config || '{}'); } catch { cfg = _defaultConfig(); }
-    cfg = _migrateToConfig(cfg);
+    cfg = migrateToConfig(cfg);
 
     if (varName) { varName.value = editRow.dataset.key || ''; varName.readOnly = false; }
     if (title)      title.textContent      = 'Edit Variable';
@@ -671,7 +676,7 @@ function _openModal(editRow = null) {
     _focusTimer = null;
     if (!document.getElementById('randomModal')?.classList.contains('show')) return;
     (editRow ? confirmBtn : varName)?.focus();
-  }, 50);
+  }, FOCUS_AFTER_OPEN_MS);
 }
 
 function _closeModal() {
@@ -710,7 +715,7 @@ export function initVariables() {
   rndType?.addEventListener('change', () => _updateLengthRow(rndType.value));
 
   _initDragArea();
-  // A mouse pick lets go of focus by itself — popup/calm-focus.js.
+  // A mouse pick lets go of focus by itself — shared/ui/calm-focus.js.
   document.getElementById('variableSort')?.addEventListener('change', (e) => _setSortMode(e.target.value));
 
   document.getElementById('addPickValue')?.addEventListener('click',     () => _addPickValueRow(''));
@@ -722,7 +727,7 @@ export function initVariables() {
     const name = varName?.value.trim();
     if (!name) {
       varName?.classList.add('required-error');
-      setTimeout(() => varName?.classList.remove('required-error'), 2000);
+      setTimeout(() => varName?.classList.remove('required-error'), REQUIRED_FLASH_MS);
       return;
     }
 
@@ -750,7 +755,7 @@ export function initVariables() {
     const now = Date.now();
     if (_editingRow) {
       const oldKey = _editingRow.dataset.key || '';
-      const prev   = _migrateToConfig(_rowConfig(_editingRow));
+      const prev   = migrateToConfig(_rowConfig(_editingRow));
       if (prev.createdAt) cfg.createdAt = prev.createdAt;
       // Saving without a change is not an edit, for the Recently edited sort.
       if (name !== oldKey || _configBody(prev) !== _configBody(cfg)) cfg.updatedAt = now;

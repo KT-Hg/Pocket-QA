@@ -87,7 +87,7 @@ export function ssWrite(rowIdx, varName, base64) {
   }));
 }
 
-export function ssReadAll(maxEntries = 5_000) {
+export function ssReadAll(maxEntries = SS_MAX_ENTRIES) {
   return _withDb(db => new Promise((resolve, reject) => {
     const result = {};
     let count    = 0;
@@ -124,15 +124,6 @@ export function ssReadPage(offset = 0, limit = 500) {
       else resolve(result);
     };
     req.onerror = e => reject(e.target.error);
-  }));
-}
-
-export function ssCount() {
-  return _withDb(db => new Promise((resolve, reject) => {
-    const tx  = db.transaction(STORE, 'readonly');
-    const req = tx.objectStore(STORE).count();
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror   = e => reject(e.target.error);
   }));
 }
 

@@ -20,7 +20,7 @@
  */
 
 import { t, setLang } from '../dbtools/i18n.js';
-import { sendAlertNotification, sendCompletionNotification } from './utils.js';
+import { sendAlertNotification, sendCompletionNotification } from './notify.js';
 import { TABLE_COPIES } from '../dbtools/features.js';
 
 const SETTINGS_KEY = 'dbtoolsSettings';

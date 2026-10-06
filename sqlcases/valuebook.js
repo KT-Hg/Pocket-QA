@@ -34,7 +34,6 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/;
 const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
 
-const NUMERIC_TYPES = new Set(['integer', 'decimal']);
 const TEXTUAL_TYPES = new Set(['string', 'email']);
 
 /** key → the raw text the user typed, exactly as typed. */
@@ -98,10 +97,6 @@ export function rawOverride(key) {
   return overrides.get(key) ?? '';
 }
 
-export function hasOverride(key) {
-  return overrides.has(key);
-}
-
 export function overrideCount() {
   return overrides.size;
 }
@@ -137,7 +132,7 @@ export function useTables(tables) {
 }
 
 /** Table name behind a reference that may be an alias, a name, or nothing. */
-export function resolveTable(ref) {
+function resolveTable(ref) {
   if (!ref) return singleTable;
   return tableIndex.get(String(ref).toLowerCase()) || String(ref);
 }

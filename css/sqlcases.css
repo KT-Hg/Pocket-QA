@@ -1,9 +1,9 @@
 /**
  * sqlcases.css — SQL Test Case Designer page.
  *
- * Standalone rather than an extension of popup.css: that file is built around
+ * Standalone rather than an extension of css/popup/: those files are built around
  * a 480px popup body, and this page is a full tab. The theme variables keep
- * the names popup.css uses so the shared `popupTheme` storage key still means
+ * the names css/popup/ uses so the shared `popupTheme` storage key still means
  * the same thing on both surfaces; the extra tokens below (--sunken, --faint,
  * the soft tints, the shadows) exist only here, where a three-column shell
  * needs more than one surface colour to separate its columns.

@@ -44,7 +44,7 @@ import { changesInPlay } from './summary.js';
 const has = (obj, key) => Boolean(obj) && Object.prototype.hasOwnProperty.call(obj, key);
 
 /** One row's identity: table and key, whatever order the key columns came in. */
-export function rowId(change, where) {
+function rowId(change, where) {
   const cols = Object.keys(where || {}).sort();
   if (!cols.length) return '';
   const key = cols.map((col) => [col, where[col] === null || where[col] === undefined ? null : String(where[col])]);
@@ -119,7 +119,7 @@ function absorb(fold, change, row, dir) {
 }
 
 /** What the test did to the row, all told: 'update', 'delete', 'insert', 'none' — or 'steps'. */
-export function netOf(fold) {
+function netOf(fold) {
   if (fold.opaque) return 'steps';
   if (fold.existed && fold.exists) return 'update';
   if (fold.existed) return 'delete';
@@ -204,6 +204,16 @@ function foldExpect(fold, net, dir) {
 }
 
 /**
+ * A write with no key: there is no telling which row it wrote, so every fold
+ * open on its table stops here rather than risk folding across it.
+ */
+function closeFoldsOnTable(open, change) {
+  for (const [key, fold] of open) {
+    if (fold.table === change.table && fold.schema === (change.schema || '')) open.delete(key);
+  }
+}
+
+/**
  * The folded run of part or all of a session.
  *
  * Takes the options `runRollback`/`runRedo` take — `changeIds`, `includeUndone`,
@@ -239,15 +249,8 @@ export function compactPlan(session, opts = {}) {
     for (const row of change.rows || []) {
       const id = rowId(change, row.where);
       if (!joins) {
-        if (id) {
-          open.delete(id);
-        } else {
-          // No key, so no telling which row it wrote: every fold on that table
-          // stops here rather than risk folding across it.
-          for (const [key, fold] of open) {
-            if (fold.table === change.table && fold.schema === (change.schema || '')) open.delete(key);
-          }
-        }
+        if (id) open.delete(id);
+        else closeFoldsOnTable(open, change);
         continue;
       }
       let fold = id ? open.get(id) : null;

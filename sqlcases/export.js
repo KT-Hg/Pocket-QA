@@ -11,7 +11,7 @@ import { toJSON as valueBookJson } from './valuebook.js';
 import { t, getLang } from './i18n.js';
 
 /** Column order for the CSV, and where each value comes from. */
-export const CSV_COLUMNS = [
+const CSV_COLUMNS = [
   ['csv.id', c => c.id],
   ['csv.technique', c => t('tech.code.' + c.technique)],
   ['csv.group', c => c.group],
@@ -116,7 +116,8 @@ export function suggestFilename(result, ext) {
 export function downloadText(text, filename, mime) {
   const blob = new Blob([text], { type: `${mime};charset=utf-8` });
   const url = URL.createObjectURL(blob);
-  const revoke = () => setTimeout(() => URL.revokeObjectURL(url), 60000);
+  const REVOKE_DELAY_MS = 60_000; // the save dialog may stay open a while
+  const revoke = () => setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
 
   if (typeof chrome !== 'undefined' && chrome.downloads?.download) {
     chrome.downloads.download({ url, filename, saveAs: true }, () => revoke());

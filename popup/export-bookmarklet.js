@@ -1,35 +1,16 @@
-import { showToast, lockScroll, unlockScroll, trapFocus, escHtml, getUsedVarNames } from './utils.js';
-import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../bg/switch-blocks.js';
-import { normalizeVarName, listSpec, parseListSpec, writtenVarNames } from '../bg/var-name.js';
-import { patternVarNames, patternRegexSource } from '../bg/text-pattern.js';
+import { getUsedVarNames } from './utils.js';
+import { initExportModal } from './export-modal.js';
+import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../shared/switch-blocks.js';
+import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
+import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
+import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
 ]);
 
-function _activeVal(v) {
-  if (typeof v === 'string') return v;
-  if (v && typeof v === 'object' && 'activeType' in v) {
-    const t = v.activeType || 's';
-    if (t === 'r' && v.r) return `{random:${v.r.type}:${v.r.length}}`;
-    if (t === 'p') return listSpec('pick', v.p);
-    if (t === 'f') return listSpec('fallback', v.f);
-    return v.s || '';
-  }
-  return '';
-}
-
-function parseRandomSpec(val) {
-  const m = _activeVal(val).match(/^\{random:(\w+):(\d+)\}$/);
-  return m ? { type: m[1], length: parseInt(m[2]) } : null;
-}
-
-function parsePickSpec(val) {
-  return parseListSpec('pick', _activeVal(val));
-}
-
 function makeRandomFn(type, length) {
-  // Must mirror resolveRandomVars() in bg/utils.js. The Variables modal offers a
+  // Must mirror resolveRandomVars() in bg/interpolate.js. The Variables modal offers a
   // "datetime" type that used to fall through to the alphanumeric branch here, so
   // an exported ${stamp} produced random junk instead of the run's timestamp.
   if (type === 'datetime')
@@ -43,26 +24,12 @@ function makeRandomFn(type, length) {
   return `() => Array.from({length:${length}},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join('')`;
 }
 
-export function previewRandom(type, length) {
-  if (type === 'datetime') {
-    const d = new Date(), p = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
-  }
-  const c = {
-    alpha: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-    numeric: '0123456789',
-    alphanumeric: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  };
-  const ch = c[type] || c.alphanumeric;
-  return Array.from({ length }, () => ch[Math.floor(Math.random() * ch.length)]).join('');
-}
-
 // Identifiers the generated bookmarklet declares for itself, plus the JS reserved
 // words. Variable names are free-form in the Variables modal, so one called
 // `sleep` would shadow a helper and one called `class` is a SyntaxError — those
 // get a `_v` suffix instead.
 const _RESERVED_JS = new Set([
-  'sleep', 'getEl', 'setInput', '_qsel', '_findChild', '_readVal', 'err', 'res', 'rej', 'obs',
+  'sleep', 'getEl', 'setInput', '_qsel', '_findChild', '_readVal', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
   'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete',
   'do', 'else', 'enum', 'export', 'extends', 'false', 'finally', 'for', 'function', 'if',
   'import', 'in', 'instanceof', 'new', 'null', 'return', 'super', 'switch', 'this', 'throw',
@@ -118,7 +85,7 @@ function valueToJS(val) {
  *
  * A script action's code is emitted verbatim, so a `${name}` sitting inside a
  * string literal — `console.log("${q}")` — is just text and never picked up the
- * value, even though playback substitutes it via _applyVarsToCode() in bg/utils.js.
+ * value, even though playback substitutes it via _applyVarsToCode() in bg/interpolate.js.
  *
  * Static values are known at export time and are inlined the same way playback
  * escapes them. Random/pick/fallback/readdom values only exist at run time and a
@@ -146,6 +113,56 @@ function _scriptCodeWithVars(rawCode, ctx) {
       .replace(/\r/g, '\\r');
   });
   return { code, unresolved };
+}
+
+/**
+ * _pickIdx / _pickItem: a Dropdown's "Choose item #" in the bookmarklet. _pickIdx
+ * is pickItemIndex of shared/dropdown-pick.js (tests/dropdown-pick.test.mjs
+ * compares the two). A <select> gets its option set; anything else is clicked
+ * open and the item clicked once the list shows it.
+ */
+const PICK_ITEM_HELPER_JS = String.raw`
+  const _pickIdx = (raw, count, ok) => {
+    const s = String(raw == null ? '' : raw).trim();
+    if (/^random$/i.test(s)) {
+      const pool = [];
+      for (let k = 0; k < count; k++) if (ok(k)) pool.push(k);
+      if (!pool.length) throw new Error('Dropdown: no item to choose at random (' + count + ' found)');
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    if (!/^-?\d+$/.test(s) || Number(s) === 0) throw new Error('Dropdown: "' + s + '" is not an item number');
+    const n = Number(s), k = n > 0 ? n - 1 : count + n;
+    if (k < 0 || k >= count) throw new Error('Dropdown: there is no item #' + n + ' (' + count + ' found)');
+    return k;
+  };
+  const _pickItem = async (el, raw, itemSel, timeout) => {
+    if (el.tagName === 'SELECT') {
+      const o = Array.from(el.options);
+      const k = _pickIdx(raw, o.length, i => !o[i].disabled && o[i].value !== '');
+      if (o[k].disabled) throw new Error('Dropdown: item #' + (k + 1) + ' is disabled');
+      el.selectedIndex = k;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      return;
+    }
+    el.click();
+    const shown = e => e.getClientRects().length > 0 && (e.checkVisibility ? e.checkVisibility({ visibilityProperty: true }) : getComputedStyle(e).visibility !== 'hidden');
+    const off = e => e.getAttribute('aria-disabled') === 'true' || e.hasAttribute('disabled');
+    const end = Date.now() + timeout;
+    for (;;) {
+      const items = Array.from(document.querySelectorAll(itemSel || '[role="option"]')).filter(shown);
+      let k;
+      try { k = _pickIdx(raw, items.length, i => !off(items[i]) && items[i].textContent.trim() !== ''); }
+      catch (e) { if (Date.now() >= end) throw e; await sleep(100); continue; }
+      if (off(items[k])) throw new Error('Dropdown: item #' + (k + 1) + ' is disabled');
+      items[k].click();
+      return;
+    }
+  };`.split('\n').slice(1);
+
+/** One line for a step comment: the item number as written, whitespace folded. */
+function _pickLabel(action) {
+  return String(action.pick?.index ?? '?').replace(/\s+/g, ' ');
 }
 
 function indentLines(lines, spaces) {
@@ -255,6 +272,13 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
       break;
 
     case 'dropdown':
+      if (action.pick) {
+        out.push(`// Step ${stepNum}: dropdown → item #${_pickLabel(action)}${lbl}`);
+        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`await _pickItem(${v}, ${valueToJS(action.pick.index)}, ${valueToJS(action.pick.itemSelector || '')}, ${elTimeout});`);
+        if (delay > 0) out.push(`await sleep(${delay});`);
+        break;
+      }
       out.push(`// Step ${stepNum}: open dropdown (freeze)${lbl}`);
       out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       out.push(`${v}.click();`);
@@ -315,10 +339,12 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
 
     case 'readdom': {
       // Extract: each ${name} of the pattern takes its part of the text, and
-      // "Save to var" (optional then) keeps the whole text — bg/text-pattern.js.
+      // "Save to var" (optional then) keeps the whole text — shared/text-pattern.js.
       const slots   = action.pattern ? patternVarNames(action.pattern) : [];
       const vn      = normalizeVarName(action.varName);
-      const varName = vn ? _sanitizeVarName(vn) : (slots.length ? null : 'domVar');
+      let varName;
+      if (vn) varName = _sanitizeVarName(vn);
+      else varName = slots.length ? null : 'domVar';
       const targets = [varName, ...slots.map(_sanitizeVarName)].filter(Boolean);
       out.push(`// Step ${stepNum}: readdom → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
@@ -417,7 +443,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   const staticVars = {}, randomSpecs = {}, pickSpecs = {}, writtenVars = new Set();
 
   for (const [k, v] of Object.entries(variables || {})) {
-    const str  = _activeVal(v);
+    const str  = activeValue(v);
     const spec = parseRandomSpec(str);
     const pick = parsePickSpec(str);
     if (spec)      randomSpecs[k] = spec;
@@ -571,6 +597,11 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('  };');
   }
 
+  if (enabled.some(a => a.type === 'dropdown' && a.pick)) {
+    out.push('');
+    out.push(...PICK_ITEM_HELPER_JS);
+  }
+
   if (Object.keys(randomSpecs).length > 0) {
     out.push('');
     out.push('  // --- RANDOM VARIABLE GENERATORS ---');
@@ -667,198 +698,31 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UI MODULE
+// UI MODULE — the modal is popup/export-modal.js; what is particular to this export
 // ─────────────────────────────────────────────────────────────────────────────
-
-let _currentCode         = '';
-let _currentScenarioName = '';
-let _currentActions      = [];
-let _releaseFocus        = null;
 
 /** Wire the export-bookmarklet modal trigger and all modal-internal buttons. */
 export function initExportBookmarklet() {
-  const triggerBtn = document.getElementById('exportBookmarklet');
-  if (!triggerBtn) return;
-
-  triggerBtn.addEventListener('click', _onTrigger);
-  document.getElementById('exportBmClose')?.addEventListener('click', _close);
-  document.getElementById('exportBmCancel')?.addEventListener('click', _close);
-  document.getElementById('exportBmCopy')?.addEventListener('click', _copy);
-  document.getElementById('exportBmDownload')?.addEventListener('click', _download);
-  document.getElementById('exportBmRegenerate')?.addEventListener('click', _regenerate);
-
-  document.getElementById('exportBmWrapBtn')?.addEventListener('click', () => {
-    const code = document.getElementById('exportBmCode');
-    if (code) code.style.whiteSpace = code.style.whiteSpace === 'pre-wrap' ? 'pre' : 'pre-wrap';
+  initExportModal({
+    triggerId: 'exportBookmarklet',
+    prefix: 'exportBm',
+    tabClass: 'export-bm-tab',
+    title: 'Export JS',
+    fileSuffix: '_bookmarklet.js',
+    readOptions: () => ({
+      stepDelay: parseInt(document.getElementById('exportBmStepDelay')?.value) || 300,
+      elTimeout: parseInt(document.getElementById('exportBmElTimeout')?.value)  || 5000,
+    }),
+    generate: generateBookmarklet,
+    regenerateFromStorage: true,
+    noticeLines: (stats) => (stats.skipped > 0
+      ? [`${stats.skipped} action(s) skipped (screenshot/switch — requires Extension API)`]
+      : []),
+    isSkipped: (a) => SKIPPED_TYPES.has(a.type),
+    copyText: _toBookmarkletUrl,
+    // .js file: pretty-printed, without javascript: prefix
+    file: (code) => ({ text: _toJsFile(code), type: 'application/javascript' }),
   });
-
-  document.getElementById('exportBmSelectAllBtn')?.addEventListener('click', () => {
-    const code = document.querySelector('#exportBmCode code');
-    if (!code) return;
-    const range = document.createRange();
-    range.selectNodeContents(code);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-  });
-
-  document.querySelectorAll('.export-bm-tab').forEach(btn => {
-    btn.addEventListener('click', () => _switchTab(btn.dataset.tab));
-  });
-
-  document.getElementById('exportBmModal')?.addEventListener('click', e => {
-    if (e.target.id === 'exportBmModal') _close();
-  });
-
-  document.getElementById('exportBmModal')?.addEventListener('keydown', e => {
-    if (e.key === 'Escape') _close();
-  });
-}
-
-function _onTrigger() {
-  const sel = document.getElementById('exportCodeSelect');
-  const scenarioId = sel?.value;
-  if (!scenarioId) { showToast('Please select a scenario first', 'error'); return; }
-
-  const scenarioName = sel.options[sel.selectedIndex]?.text || 'Scenario';
-  _currentScenarioName = scenarioName;
-
-  chrome.runtime.sendMessage({ type: 'GET_SCENARIOS' }, res => {
-    const scenario = (res?.scenarios || {})[scenarioId];
-    const actions = scenario?.actions || [];
-    _currentActions = actions;
-    chrome.runtime.sendMessage({ type: 'GET_VARIABLES' }, varRes => {
-      const allVariables = varRes?.variables || {};
-      const usedNames = getUsedVarNames(actions);
-      const variables = Object.fromEntries(
-        Object.entries(allVariables).filter(([k]) => usedNames.has(k))
-      );
-      _openModal(scenarioName, actions, variables);
-    });
-  });
-}
-
-function _openModal(scenarioName, actions, variables) {
-  const modal = document.getElementById('exportBmModal');
-  if (!modal) return;
-
-  const delay   = parseInt(document.getElementById('exportBmStepDelay')?.value) || 300;
-  const timeout = parseInt(document.getElementById('exportBmElTimeout')?.value)  || 5000;
-
-  const result = generateBookmarklet(scenarioName, actions, variables, { stepDelay: delay, elTimeout: timeout });
-  _currentCode = result.code;
-
-  _renderModal(scenarioName, result, variables);
-  modal.classList.add('show');
-  modal.setAttribute('aria-hidden', 'false');
-  lockScroll();
-  _switchTab('preview');
-  _releaseFocus = trapFocus(modal);
-}
-
-function _renderModal(scenarioName, result, variables) {
-  const safe = scenarioName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  const filename = `${safe}_bookmarklet.js`;
-
-  // Header
-  document.getElementById('exportBmTitle').textContent = `Export JS — ${scenarioName}`;
-  document.getElementById('exportBmSub').textContent = `${filename} · ${result.stats.supported} steps`;
-  document.getElementById('exportBmCodeLabel').textContent = filename;
-
-  // Code preview
-  const codeEl = document.querySelector('#exportBmCode code');
-  if (codeEl) codeEl.textContent = result.code;
-
-  // Warning bar — skipped steps plus anything the generator could not express
-  // faithfully (renamed identifiers, unresolved ${...}, script placeholders).
-  // These used to surface only as a runtime error in the page's console.
-  const warning = document.getElementById('exportBmWarning');
-  const skipMsg = document.getElementById('exportBmSkipMsg');
-  const msgs = [];
-  if (result.stats.skipped > 0) {
-    msgs.push(`${result.stats.skipped} action(s) skipped (screenshot/switch — requires Extension API)`);
-  }
-  msgs.push(...(result.warnings || []));
-  if (msgs.length) {
-    skipMsg.style.whiteSpace = 'pre-line';
-    skipMsg.textContent = msgs.join('\n');
-    warning.style.display = '';
-  } else {
-    warning.style.display = 'none';
-  }
-
-  // Variables — row layout
-  const vars = Object.entries(variables || {});
-  document.getElementById('exportBmVarCount').textContent = vars.length;
-
-  const noVarsEl = document.getElementById('exportBmNoVars');
-  const listEl   = document.getElementById('exportBmVarList');
-
-  if (vars.length === 0) {
-    noVarsEl.style.display = '';
-    listEl.innerHTML = '';
-  } else {
-    noVarsEl.style.display = 'none';
-    listEl.innerHTML = '';
-    for (const [key, rawVal] of vars) {
-      const val     = _activeVal(rawVal);
-      const spec    = parseRandomSpec(val);
-      const pick    = parsePickSpec(val);
-      const isRand  = !!spec;
-      const isPick  = !!pick;
-      // Fallback specs match neither parser and used to be listed as "Static"
-      // showing the raw {fallback:...} text, which reads like a broken value.
-      const fbMatch = val.match(/^\{fallback:(.+)\}$/);
-      let icon, badgeLabel, badgeCls, preview;
-      if (isRand) {
-        icon = '🎲'; badgeLabel = 'Random'; badgeCls = 'rand';
-        preview = previewRandom(spec.type, spec.length);
-      } else if (isPick) {
-        icon = '⚄'; badgeLabel = `Pick (${pick.length})`; badgeCls = 'rand';
-        preview = pick.map(v => (v === '' ? '∅ blank' : v)).join(' | ');
-        if (preview.length > 40) preview = preview.slice(0, 40) + '…';
-      } else if (fbMatch) {
-        const fbVals = fbMatch[1].split('|').map(s => s.trim());
-        icon = '⛓'; badgeLabel = `Fallback (${fbVals.length})`; badgeCls = 'rand';
-        preview = fbVals.map(v => (v === '' ? '∅ blank' : v)).join(' → ');
-        if (preview.length > 40) preview = preview.slice(0, 40) + '…';
-      } else {
-        icon = '🔤'; badgeLabel = 'Static'; badgeCls = 'static';
-        preview = val.length > 40 ? val.slice(0, 40) + '…' : val;
-      }
-      const row = document.createElement('div');
-      row.className = 'export-bm-var-row';
-      row.innerHTML = `
-        <div class="export-bm-var-icon ${badgeCls}">${icon}</div>
-        <span class="export-bm-var-name">\${${escHtml(key)}}</span>
-        <span class="export-bm-badge ${badgeCls}">${badgeLabel}</span>
-        <span class="export-bm-preview">${escHtml(preview)}</span>`;
-      listEl.appendChild(row);
-    }
-  }
-
-  // Actions review tab
-  const actStats = _renderActionsTab(_currentActions);
-
-  // Stats pills
-  const { supported, skipped } = result.stats;
-  document.getElementById('exportBmStatSteps').textContent = `${supported} steps`;
-  document.getElementById('exportBmStatVars').textContent  = `${vars.length} variables`;
-
-  const warnPill    = document.getElementById('exportBmStatWarnPill');
-  const skippedPill = document.getElementById('exportBmStatSkippedPill');
-  if (actStats.warnCount > 0) {
-    document.getElementById('exportBmStatWarn').textContent = `${actStats.warnCount} verify`;
-    warnPill.style.display = '';
-  } else {
-    warnPill.style.display = 'none';
-  }
-  if (skipped > 0) {
-    document.getElementById('exportBmStatSkipped').textContent = `${skipped} skipped`;
-    skippedPill.style.display = '';
-  } else {
-    skippedPill.style.display = 'none';
-  }
 }
 
 // Produce a single-line bookmark URL: drop // comment lines, collapse whitespace.
@@ -884,169 +748,4 @@ function _toBookmarkletUrl(code) {
 function _toJsFile(code) {
   const body = code.startsWith('javascript:') ? code.slice('javascript:'.length) : code;
   return body.trimStart();
-}
-
-function _close() {
-  const modal = document.getElementById('exportBmModal');
-  modal?.classList.remove('show');
-  modal?.setAttribute('aria-hidden', 'true');
-  if (_releaseFocus) { _releaseFocus(); _releaseFocus = null; }
-  unlockScroll();
-}
-
-function _switchTab(tab) {
-  document.querySelectorAll('.export-bm-tab').forEach(btn => {
-    const active = btn.dataset.tab === tab;
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-selected', String(active));
-  });
-  document.getElementById('exportBmTabPreview').hidden   = tab !== 'preview';
-  document.getElementById('exportBmTabVariables').hidden = tab !== 'variables';
-  document.getElementById('exportBmTabActions').hidden   = tab !== 'actions';
-  document.getElementById('exportBmTabSettings').hidden  = tab !== 'settings';
-}
-
-async function _copy() {
-  if (!_currentCode) return;
-  try {
-    await navigator.clipboard.writeText(_toBookmarkletUrl(_currentCode));
-    const btn = document.getElementById('exportBmCopy');
-    if (btn) {
-      const orig = btn.textContent;
-      btn.textContent = 'Copied';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
-    }
-  } catch {
-    showToast('Clipboard not available', 'error');
-  }
-}
-
-function _download() {
-  if (!_currentCode) return;
-  const safe = _currentScenarioName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  // .js file: pretty-printed, without javascript: prefix
-  const blob  = new Blob([_toJsFile(_currentCode)], { type: 'application/javascript' });
-  const url   = URL.createObjectURL(blob);
-  const a     = Object.assign(document.createElement('a'), { href: url, download: `${safe}_bookmarklet.js` });
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function _regenerate() {
-  const sel        = document.getElementById('exportCodeSelect');
-  const scenarioId = sel?.value;
-  if (!scenarioId) return;
-
-  const delay   = parseInt(document.getElementById('exportBmStepDelay')?.value) || 300;
-  const timeout = parseInt(document.getElementById('exportBmElTimeout')?.value)  || 5000;
-
-  chrome.runtime.sendMessage({ type: 'GET_SCENARIOS' }, res => {
-    const scenario  = (res?.scenarios || {})[scenarioId];
-    const actions   = scenario?.actions || [];
-    _currentActions = actions;
-    chrome.runtime.sendMessage({ type: 'GET_VARIABLES' }, varRes => {
-      const variables = varRes?.variables || {};
-      const result    = generateBookmarklet(_currentScenarioName, actions, variables, { stepDelay: delay, elTimeout: timeout });
-      _currentCode    = result.code;
-      _renderModal(_currentScenarioName, result, variables);
-      _switchTab('preview');
-      showToast('Code regenerated');
-    });
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ACTIONS REVIEW TAB
-// ─────────────────────────────────────────────────────────────────────────────
-
-const _ACT_TYPE_INFO = {
-  navigate:           { icon: '🌐', label: 'navigate',   cls: 'nav' },
-  click:              { icon: '👆', label: 'click',      cls: 'click' },
-  input:              { icon: '⌨',  label: 'input',      cls: 'input' },
-  hover:              { icon: '🖱',  label: 'hover',      cls: 'hover' },
-  dropdown:           { icon: '▼',  label: 'dropdown',   cls: 'click' },
-  dragdrop:           { icon: '↔',  label: 'dragdrop',   cls: 'dragdrop' },
-  wait:               { icon: '⏱',  label: 'wait',       cls: 'wait' },
-  script:             { icon: '📜', label: 'script',     cls: 'script' },
-  condition:          { icon: '🔀', label: 'condition',  cls: 'condition' },
-  screenshot:         { icon: '📷', label: 'screenshot', cls: 'screenshot' },
-  screenshot_full:    { icon: '📷', label: 'scr-full',   cls: 'screenshot' },
-  screenshot_element: { icon: '📷', label: 'scr-elem',   cls: 'screenshot' },
-  screenshot_tovar:   { icon: '📷', label: 'scr-var',    cls: 'screenshot' },
-  readdom:            { icon: '📖', label: 'readdom',    cls: 'readdom' },
-  switch:             { icon: '🔄', label: 'switch',     cls: 'wait' },
-};
-
-function _actionDesc(a) {
-  const sel = (a.selectors?.css
-    || (a.selectors?.id ? '#' + a.selectors.id : '')
-    || a.selector
-    || '').slice(0, 40);
-  switch (a.type) {
-    case 'navigate':  return (a.value || a.url || '').slice(0, 50);
-    case 'wait':      return `${a.delay ?? a.value ?? 1000} ms`;
-    case 'script':    return 'custom JS code';
-    case 'condition': return a.conditionType || 'condition';
-    case 'switch':    return `→ ${(a.scenario || a.value || '')}`.slice(0, 40);
-    case 'readdom':   return a.pattern
-      ? `${sel} → ${String(a.pattern).trim()}`
-      : `${sel} → \${${normalizeVarName(a.varName) || 'var'}}`;
-    case 'screenshot':
-    case 'screenshot_full':    return 'viewport';
-    case 'screenshot_element': return sel || 'element';
-    case 'screenshot_tovar':   return `→ \${${normalizeVarName(a.varName) || 'screenshot'}}`;
-    case 'input': {
-      const v = a.value ? ` = "${String(a.value).slice(0, 15)}"` : '';
-      return `${sel}${v}`;
-    }
-    default: return sel;
-  }
-}
-
-function _renderActionsTab(actions) {
-  const listEl    = document.getElementById('exportBmActList');
-  const summaryEl = document.getElementById('exportBmActSummary');
-  if (!listEl || !summaryEl) return { okCount: 0, warnCount: 0, skipCount: 0 };
-
-  let okCount = 0, skipCount = 0, warnCount = 0;
-  let html = '';
-
-  const enabled = (actions || []).filter(a => !a.disabled);
-  enabled.forEach((a, i) => {
-    // The fallback label is a.type straight out of an imported .json, so both it
-    // and the class name are escaped at the interpolation site below.
-    const info = _ACT_TYPE_INFO[a.type] || { icon: '●', label: String(a.type ?? 'unknown'), cls: 'wait' };
-    const desc = _actionDesc(a);
-    let status, statusLabel, rowCls;
-    if (SKIPPED_TYPES.has(a.type)) {
-      status = 'skip'; statusLabel = '— Skip'; rowCls = 'row-skip'; skipCount++;
-    } else if (a.type === 'script') {
-      status = 'warn'; statusLabel = '⚠ Verify'; rowCls = 'row-warn'; warnCount++;
-    } else {
-      status = 'ok'; statusLabel = '✓ OK'; rowCls = ''; okCount++;
-    }
-    html += `<div class="export-bm-action-row ${rowCls}">
-      <span class="export-bm-action-step">${i + 1}</span>
-      <span class="export-bm-action-type abt-${escHtml(info.cls)}">${info.icon} ${escHtml(info.label)}</span>
-      <span class="export-bm-action-desc">${escHtml(desc)}</span>
-      <span class="export-bm-action-status ast-${status}">${statusLabel}</span>
-    </div>`;
-  });
-  listEl.innerHTML = html;
-
-  let sumHtml = '<span class="export-bm-act-sum-label">Will export:</span>';
-  sumHtml += `<span class="export-bm-act-sum-pill act-sum-ok">✓ ${okCount} OK</span>`;
-  if (warnCount) sumHtml += `<span class="export-bm-act-sum-pill act-sum-warn">⚠ ${warnCount} needs review</span>`;
-  if (skipCount) sumHtml += `<span class="export-bm-act-sum-pill act-sum-skip">— ${skipCount} skipped</span>`;
-  summaryEl.innerHTML = sumHtml;
-
-  const badge = document.getElementById('exportBmActCount');
-  if (badge) {
-    const warnTotal = skipCount + warnCount;
-    badge.textContent = warnTotal > 0 ? `${warnTotal} ⚠` : String(enabled.length);
-    badge.className   = 'export-bm-tab-count' + (warnTotal > 0 ? ' warn' : '');
-  }
-
-  return { okCount, warnCount, skipCount };
 }

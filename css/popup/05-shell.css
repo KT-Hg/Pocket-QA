@@ -1,0 +1,207 @@
+/* === QUICK-BAR (persistent top bar) === */
+.quick-bar {
+  background: var(--card);
+  border-bottom: 2px solid var(--border);
+  padding: 8px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.quick-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quick-bar-row + .quick-bar-row {
+  margin-top: 6px;
+}
+
+.quick-bar select {
+  margin: 0;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.quick-bar button {
+  margin: 0;
+  padding: 5px 10px;
+  font-size: 12px;
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.quick-bar .qb-status {
+  font-size: 11px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* === TAB NAVIGATION === */
+.tab-nav {
+  display: flex;
+  background: var(--card);
+  padding: 0 4px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.tab-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--secondary-bg);
+  transform: none;
+}
+
+.tab-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: transparent;
+}
+
+.tab-btn.active:hover:not(:disabled) {
+  background: transparent;
+  /* The inactive hover above sets --text; the tab you are on keeps its colour. */
+  color: var(--primary);
+  transform: none;
+}
+
+.tab-btn.tab-dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.tab-btn.tab-drag-over {
+  background: var(--secondary-bg);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+
+.tab-btn[draggable="true"] {
+  cursor: grab;
+}
+
+/* === TAB PANELS === */
+.tab-panel {
+  display: none;
+  padding: 10px 12px;
+  position: relative;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* === Hotkey Rows === */
+.hotkey-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.hotkey-label {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.hotkey-badge {
+  font-family: ui-monospace, 'Segoe UI Mono', monospace;
+  font-size: 11px;
+  background: var(--secondary-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  color: var(--text);
+  min-width: 64px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.hotkey-set-btn {
+  width: auto !important;
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  margin: 0 !important;
+}
+
+.hotkey-set-btn.capturing {
+  background: var(--primary-fill) !important;
+  color: white !important;
+  border-color: var(--primary-fill) !important;
+  animation: pulse-border 1s ease infinite;
+}
+
+/* Disabled state for hotkeys requiring tab activation */
+[data-requires-activation] {
+  transition: opacity 0.25s ease;
+}
+
+body:not([data-activation="active"]) [data-requires-activation] {
+  opacity: 0.38;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Hatch pattern on badge to reinforce "unavailable" without blur */
+body:not([data-activation="active"]) [data-requires-activation] .hotkey-badge {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--secondary-bg), var(--secondary-bg) 4px,
+    var(--border) 4px, var(--border) 6px
+  );
+  color: var(--muted);
+}
+
+/* Hide Set button; JS adds aria-hidden + tabindex="-1" on the row */
+body:not([data-activation="active"]) [data-requires-activation] .hotkey-set-btn {
+  display: none;
+}
+
+/* Notice shown below hotkey list when not activated */
+.activation-required-notice {
+  display: none;
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  align-items: center;
+  gap: 6px;
+}
+
+body:not([data-activation="active"]) .activation-required-notice {
+  display: flex;
+}
+
+@keyframes pulse-border {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* === Scroll lock while a modal is open === */
+body.modal-open {
+  overflow: hidden;
+}
+

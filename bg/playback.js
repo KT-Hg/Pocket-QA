@@ -1,61 +1,29 @@
+/**
+ * playback.js — playing scenarios: playActionsOnTab (the loop over the actions),
+ * single runs, resume from a checkpoint, sequences, CSV runs.
+ *
+ * Each action type is a step in bg/playback/steps/; the keep-alive is
+ * bg/playback/keepalive.js, a failed action's prompt bg/playback/failure-prompt.js.
+ */
+
 import { state, persistCsvState, clearCsvState } from './state.js';
 import { getScenarios, getVariables } from './storage.js';
-import {
-  updateBadge, sendCompletionNotification, sendAlertNotification,
-  resolveRandomVars, interpolateAction, runScriptViaCdp, openDropdownViaCdp,
-  getActiveTabId, tabMsg, getTabUrl, waitForTabLoad, setFileInputViaCdp, setFileDropZoneViaCdp,
-} from './utils.js';
-import {
-  takeVisibleScreenshot, takeFullPageScreenshot, takeElementScreenshot,
-} from './screenshot.js';
+import { updateBadge } from './badge.js';
+import { sendCompletionNotification, sendAlertNotification } from './notify.js';
+import { resolveRandomVars, interpolateAction } from './interpolate.js';
+import { getActiveTabId } from './tabs.js';
+// The steps load bg/screenshot.js, whose listeners have always registered at this point.
+import { STEPS, runOnPage, STOP } from './playback/steps/index.js';
 import { ssWrite, ssClear, csvResultWrite, csvResultClear } from './idb-screenshots.js';
 import { beginDbGuard, endDbGuard } from './dbguard.js';
-import {
-  anyBlocks, getSwitchLayout, hasBlock, isBlockCase, caseRange, blockEnd, continueIndex,
-  validateSwitch, conditionSkipTarget, conditionSkip, resumeSegments,
-} from './switch-blocks.js';
-import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from './var-name.js';
-import { extractWithPattern, patternMismatch } from './text-pattern.js';
-
-/* ── SW keep-alive ──────────────────────────────────────────────────────────── */
-
-// Chrome MV3 terminates idle Service Workers after ~30 s. A playback that sits in
-// a long wait() action makes no extension API calls, so nothing resets that timer
-// and the run would be killed mid-flight.
-//
-// Two mechanisms, because neither is sufficient alone:
-//
-//   - The alarm survives a worker that has already been torn down, and is what
-//     brings it back. It asks for 20 s but Chrome clamps alarms to a 30 s floor,
-//     landing exactly on the idle deadline — too close to rely on by itself.
-//   - The interval below makes a cheap API call every 20 s. Each one resets the
-//     idle timer from inside, so the worker never reaches the deadline in the
-//     first place. It dies with the worker, which is why the alarm is still needed.
-
-const KEEPALIVE_ALARM = 'playback-keepalive';
-const KEEPALIVE_MS    = 20_000;
-
-let _keepaliveTimer = null;
-
-function _startKeepalive() {
-  chrome.alarms.create(KEEPALIVE_ALARM, { when: Date.now() + KEEPALIVE_MS });
-  if (_keepaliveTimer) clearInterval(_keepaliveTimer);
-  _keepaliveTimer = setInterval(() => {
-    // Any extension API call resets the idle countdown; this is among the cheapest.
-    chrome.runtime.getPlatformInfo(() => { void chrome.runtime.lastError; });
-  }, KEEPALIVE_MS);
-}
-
-function _stopKeepalive() {
-  chrome.alarms.clear(KEEPALIVE_ALARM);
-  if (_keepaliveTimer) { clearInterval(_keepaliveTimer); _keepaliveTimer = null; }
-}
+import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, resumeSegments } from '../shared/switch-blocks.js';
+import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
+import { pickStrings } from '../shared/dropdown-pick.js';
+import { isAnyPlaybackActive } from './run-state.js';
+import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
+import { notifyActionFailed, onActionFailed, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
 
 /* ── Concurrency Guard ──────────────────────────────────────────────────────── */
-
-function _isAnyPlaybackActive() {
-  return state.playback.active || state.sequencePlayback.active || state.csvPlayback.active;
-}
 
 function _notifyAlreadyRunning() {
   chrome.runtime.sendMessage({ type: 'PLAYBACK_ALREADY_RUNNING' }).catch(() => {});
@@ -100,7 +68,7 @@ export function refuseIfRecording() {
  * @returns {boolean} true if the request was refused — the caller must return.
  */
 export function refuseRecordingIfPlaying() {
-  if (!_isAnyPlaybackActive()) return false;
+  if (!isAnyPlaybackActive()) return false;
   chrome.runtime.sendMessage({ type: 'RECORD_BLOCKED_PLAYBACK' }).catch(() => {});
   sendAlertNotification(
     '⚠ Playback Active',
@@ -114,114 +82,6 @@ export function refuseRecordingIfPlaying() {
 function _failSuffix(failedActions) {
   const n = failedActions?.length || 0;
   return n ? ` — ${n} action${n === 1 ? '' : 's'} failed` : '';
-}
-
-function _notifyActionFailed(index, action, reason, { toPopup = true } = {}) {
-  const r = reason || 'element not found';
-  if (toPopup) chrome.runtime.sendMessage({ type: 'ACTION_FAILED', index, action, reason: r }).catch(() => {});
-  if (!state.csvPlayback.active) {
-    const label = action?.label || action?.type || '';
-    // Stable id: playback continues past a failed action, so without one a run
-    // with many failures buries the notification centre under a separate entry
-    // per action. Re-using the id keeps a single, always-current "latest failure".
-    sendAlertNotification(
-      `⚠ Action ${index + 1} Failed`,
-      label ? `${label}: ${r}` : r,
-      'action_failed',
-    );
-  }
-}
-
-/* ── Failed-action prompt ───────────────────────────────────────────────────────
- * A failed action pauses the run and asks, in a popup on the page being played,
- * whether to run it again, skip it or stop. The content script holds the message
- * open until a button is clicked, so the answer comes back as its response.
- * ────────────────────────────────────────────────────────────────────────────── */
-
-const FAIL_RETRY = 'retry';
-const FAIL_SKIP  = 'skip';
-const FAIL_STOP  = 'stop';
-
-/** One attempt at showing the prompt: resolves to { choice } or { error }. */
-function _promptInPage(tabId, info) {
-  return new Promise((resolve) => {
-    let settled = false;
-    const settle = (res) => {
-      if (settled) return;
-      settled = true;
-      clearInterval(poll);
-      resolve(res);
-    };
-    // A stop from the popup or a hotkey, or the tab closing, ends the run while
-    // the prompt is still up; the loop must not keep waiting for a click then.
-    const poll = setInterval(() => {
-      if (!state.playback.active) settle({ choice: FAIL_STOP, external: true });
-    }, 250);
-    chrome.tabs.sendMessage(tabId, { type: 'ACTION_FAILED_PROMPT', ...info }, { frameId: 0 }, (res) => {
-      const err = chrome.runtime.lastError?.message;
-      settle(err || !res?.choice ? { error: err || 'no answer' } : { choice: res.choice });
-    });
-  });
-}
-
-/**
- * Pause on a failed action until the user picks retry / skip / stop in the page.
- * Returns null when no page could show the prompt (restricted URL, no content
- * script), and the caller falls back to notifying and moving on.
- */
-async function _askOnFailure(tabId, info) {
-  state.playback.failPrompt = true;
-  updateBadge();
-  try {
-    // Several tries: the failure is often the page being between documents, and
-    // a reload under an open prompt drops it — both are shown again once the new
-    // document has loaded.
-    for (let attempt = 0; attempt < 3 && state.playback.active; attempt++) {
-      const res = await _promptInPage(tabId, info);
-      if (res.choice) {
-        if (res.external) tabMsg(tabId, { type: 'ACTION_FAILED_PROMPT_CLOSE' }, 2_000);
-        return res.choice;
-      }
-      await waitForTabLoad(tabId, 10_000);
-      await new Promise(r => setTimeout(r, 300)); // let content.js register
-    }
-    return state.playback.active ? null : FAIL_STOP;
-  } finally {
-    state.playback.failPrompt = false;
-    updateBadge();
-  }
-}
-
-/**
- * Every failed action goes through here. Retry leaves nothing behind; skip and
- * stop record the failure, and stop ends the run the way STOP_PLAYBACK does.
- */
-async function _onActionFailed(tabId, i, actions, action, reason, failedActions, record = reason) {
-  const r = reason || 'element not found';
-  chrome.runtime.sendMessage({ type: 'ACTION_FAILED', index: i, action, reason: r }).catch(() => {});
-
-  const csv = state.csvPlayback.active;
-  const choice = await _askOnFailure(tabId, {
-    index: i, total: actions.length, reason: r,
-    actionType: action?.type || '', label: action?.label || '',
-    scenarioName: state.playback.scenarioName || '',
-    row: csv ? state.csvPlayback.currentRow + 1 : null,
-    rows: csv ? state.csvPlayback.rows?.length || 0 : null,
-  });
-
-  if (choice === FAIL_RETRY) return FAIL_RETRY;
-  if (!choice) _notifyActionFailed(i, action, r, { toPopup: false });
-  if (failedActions) {
-    failedActions.push({ index: i + 1, type: action?.type || 'unknown', label: action?.label || '', reason: record || r });
-  }
-  if (choice === FAIL_STOP) {
-    state.playback.active         = false;
-    state.sequencePlayback.active = false;
-    state.csvPlayback.active      = false;
-    updateBadge();
-    return FAIL_STOP;
-  }
-  return FAIL_SKIP;
 }
 
 /* ── Screenshot settings cache ──────────────────────────────────────────────── */
@@ -239,48 +99,45 @@ async function _getSsSettings() {
 
 /* ── Playback Core ──────────────────────────────────────────────────────────── */
 
-// Switch case target meaning "the scenario currently playing": the case jumps to
-// its startAt action in place instead of running a nested scenario.
-const SWITCH_SELF    = '__self__';
-const MAX_SELF_JUMPS = 1000;
-
 /**
  * Play `actions` from `startFromIndex`. `endAtIndex` (0-based, inclusive) stops
  * the run early — a Switch block case plays only its own range this way, then
- * the caller moves on to the block's continueAt (see bg/switch-blocks.js).
+ * the caller moves on to the block's continueAt (see shared/switch-blocks.js).
  */
-export async function playActionsOnTab(
-  tabId, actions, vars = null, screenshotsResult = null,
-  forceAutoSave = false, skipDownload = false, startFromIndex = 0,
-  failedActions = null, _depth = 0, endAtIndex = null,
-) {
-  if (_depth > 10) {
+export async function playActionsOnTab(tabId, actions, {
+  vars = null, screenshotsResult = null, forceAutoSave = false, skipDownload = false,
+  startFromIndex = 0, failedActions = null, depth = 0, endAtIndex = null,
+} = {}) {
+  if (depth > 10) {
     console.error('[PLAYBACK] Max switch/nested-scenario depth (10) exceeded — aborting branch');
-    _notifyActionFailed(startFromIndex, null, 'Max nested scenario depth exceeded (possible infinite loop in switch)');
+    notifyActionFailed(startFromIndex, null, 'Max nested scenario depth exceeded (possible infinite loop in switch)');
     return vars || {};
   }
 
   const resolvedVars = resolveRandomVars(vars !== null ? vars : await getVariables());
 
-  let _tabClosed = false;
+  // The run, as every step sees it (bg/playback/steps/). tabClosed and selfJumps
+  // (Switch → "this scenario" hops taken in this run) change as it goes.
+  const ctx = {
+    tabId, actions, resolvedVars, screenshotsResult, forceAutoSave, skipDownload,
+    tabClosed: false, selfJumps: 0,
+  };
   const _onTabRemoved = (removedTabId) => {
-    if (removedTabId === tabId) { _tabClosed = true; state.playback.active = false; }
+    if (removedTabId === tabId) { ctx.tabClosed = true; state.playback.active = false; }
   };
   chrome.tabs.onRemoved.addListener(_onTabRemoved);
 
-  let _selfJumps = 0; // Switch → "this scenario" hops taken in this run
-
   // Only scenarios that use Switch blocks pay for the layout; without one every
-  // Switch and Condition below takes exactly its old path.
+  // Switch and Condition step takes exactly its old path.
   const _layout = anyBlocks(actions) ? getSwitchLayout(actions) : null;
   const _last = endAtIndex == null
     ? actions.length - 1
     : Math.min(endAtIndex, actions.length - 1);
 
   // Pauses on the in-page prompt. Each call site steps i back on FAIL_RETRY and
-  // breaks on FAIL_STOP; FAIL_SKIP falls through to the action's usual tail.
+  // stops the run on FAIL_STOP; FAIL_SKIP falls through to the action's usual tail.
   const fail = (i, action, reason, record) =>
-    _onActionFailed(tabId, i, actions, action, reason, failedActions, record);
+    onActionFailed({ tabId, i, actions, action, reason, failedActions, record });
 
   // Sticky fallback resolution: if the content script resolved a {fallback:...}
   // variable, persist the winning value into resolvedVars so every subsequent
@@ -294,9 +151,19 @@ export async function playActionsOnTab(
     }
   };
 
+  Object.assign(ctx, {
+    layout: _layout, fail, stickFallbacks: _stickFallbacks, getSsSettings: _getSsSettings,
+    // A Switch case played as a run of its own, one level deeper. It shares this
+    // run's screenshots, save options and failure list; its variables are a copy.
+    playNested: (acts, nestedVars, start, end) => playActionsOnTab(tabId, acts, {
+      vars: nestedVars, screenshotsResult, forceAutoSave, skipDownload, startFromIndex: start,
+      failedActions, depth: depth + 1, endAtIndex: end,
+    }),
+  });
+
   try {
     for (let i = startFromIndex; i <= _last; i++) {
-      if (!state.playback.active || _tabClosed) break;
+      if (!state.playback.active || ctx.tabClosed) break;
 
       state.playback.actionIndex = i;
       updateBadge();
@@ -322,418 +189,12 @@ export async function playActionsOnTab(
           continue;
         }
 
-        /* ── Navigate ── */
-        if (action.type === 'navigate') {
-          let navSuccess = true;
-          const targetUrl = action.value || action.url;
-          let initialTabUrl = null;
-          try {
-            const t = await new Promise(r => chrome.tabs.get(tabId, r));
-            initialTabUrl = t?.url || null;
-          } catch (_) {}
-          await new Promise((resolve) => {
-            let resolved = false;
-            const done = (success = true) => {
-              if (resolved) return;
-              resolved = true;
-              navSuccess = success;
-              chrome.tabs.onUpdated.removeListener(listener);
-              chrome.tabs.onRemoved.removeListener(removedListener);
-              clearInterval(spaPoller);
-              clearTimeout(navTimeout);
-              setTimeout(resolve, 500); // brief settle time after status=complete
-            };
-
-            const listener = (updatedTabId, changeInfo) => {
-              if (!state.playback.active) { done(false); return; }
-              if (updatedTabId === tabId && changeInfo.status === 'complete') done(true);
-            };
-            const removedListener = (removedTabId) => { if (removedTabId === tabId) done(false); };
-            chrome.tabs.onUpdated.addListener(listener);
-            chrome.tabs.onRemoved.addListener(removedListener);
-
-            try { chrome.tabs.update(tabId, { url: targetUrl }); }
-            catch (e) { done(false); return; }
-
-            // SPA fallback: some single-page apps never fire status='complete' on
-            // in-app navigation.  Poll the tab URL every 200 ms instead.
-            // Only accept an exact or prefix match in the target→current direction
-            // to avoid false-positives when the current URL is a prefix of the
-            // target (e.g. current="/", target="/checkout").
-            const spaPoller = setInterval(async () => {
-              if (resolved) { clearInterval(spaPoller); return; }
-              try {
-                const tab = await new Promise(r => chrome.tabs.get(tabId, r));
-                if (tab?.url && targetUrl && tab.url !== initialTabUrl && (
-                  tab.url === targetUrl ||
-                  tab.url.startsWith(targetUrl)
-                )) done(true);
-              } catch (_) {}
-            }, 200);
-
-            const navTimeout = setTimeout(() => done(false), 30_000);
-          });
-
-          if (!navSuccess) {
-            const next = await fail(i, action, 'Navigation timed out or tab was closed', 'Navigation timed out');
-            if (next === FAIL_RETRY) { i--; continue; }
-            if (next === FAIL_STOP) break;
-          }
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          continue;
-        }
-
-        /* ── Wait ── */
-        if (action.type === 'wait') {
-          // `delay` first, the same order the popup's preview and editor and both
-          // exporters read it in. Only old actions (and "save sequence as
-          // scenario" ones) keep the duration in `value`; one carrying both used
-          // to show one duration and wait another.
-          const ms = parseInt(action.delay || action.value || 500, 10);
-          await new Promise((resolve) => setTimeout(resolve, isNaN(ms) ? 500 : ms));
-          continue;
-        }
-
-        /* ── Dropdown — CDP trusted click ── */
-        if (action.type === 'dropdown') {
-          const cssSel = action.selectors?.css
-            || (action.selectors?.id ? `#${CSS.escape(action.selectors.id)}` : null)
-            || action.selector || '';
-          if (cssSel) await openDropdownViaCdp(tabId, cssSel);
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          continue;
-        }
-
-        /* ── Script — CDP execution (bypasses page CSP) ── */
-        if (action.type === 'script') {
-          await runScriptViaCdp(tabId, action.code || '');
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          continue;
-        }
-
-        /* ── Element screenshot ── */
-        if (action.type === 'screenshot_element') {
-          const settings = await _getSsSettings();
-          const saveMode = forceAutoSave ? 'auto' : (settings.screenshotSaveMode || 'auto');
-          const prefix   = settings.screenshotPrefix || 'screenshot';
-          const result   = await takeElementScreenshot(tabId, action.selector, saveMode, prefix, false, false, skipDownload, action.selectors)
-            .catch(e => ({ error: e.message }));
-          if (result?.error) {
-            const next = await fail(i, action, result.error);
-            if (next === FAIL_RETRY) { i--; continue; }
-            if (next === FAIL_STOP) break;
-          }
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          continue;
-        }
-
-        /* ── Screenshot → Variable (CSV mode) ── */
-        if (action.type === 'screenshot_tovar') {
-          const settings = await _getSsSettings();
-          try {
-            const saveMode = forceAutoSave ? 'auto' : (settings.screenshotSaveMode || 'auto');
-            const prefix   = settings.screenshotPrefix || 'screenshot';
-            let res;
-            if (action.target === 'element' && action.selector) {
-              res = await takeElementScreenshot(tabId, action.selector, saveMode, prefix, false, true, skipDownload);
-            } else if (action.target === 'full') {
-              res = await takeFullPageScreenshot(tabId, saveMode, prefix, null, false, 'full', true, skipDownload);
-            } else {
-              res = await takeVisibleScreenshot(tabId, saveMode, prefix, null, false, true, skipDownload);
-            }
-            if (res?.error) throw new Error(res.error);
-            const ssVar = normalizeVarName(action.varName);
-            if (res && ssVar) {
-              resolvedVars[ssVar] = res.filename || '';
-              if (screenshotsResult && res.base64) screenshotsResult[ssVar] = res.base64;
-            }
-          } catch (e) {
-            console.error('[PLAYBACK] screenshot_tovar failed:', e);
-            const next = await fail(i, action, e.message);
-            if (next === FAIL_RETRY) { i--; continue; }
-            if (next === FAIL_STOP) break;
-          }
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          continue;
-        }
-
-        /* ── Screenshot (visible / full) ── */
-        if (action.type === 'screenshot' || action.type === 'screenshot_full') {
-          const settings = await _getSsSettings();
-          const saveMode = forceAutoSave ? 'auto' : (settings.screenshotSaveMode || 'auto');
-          const prefix   = settings.screenshotPrefix || 'screenshot';
-          const task     = action.type === 'screenshot_full'
-            ? takeFullPageScreenshot(tabId, saveMode, prefix, action.value || null, false, 'full', false, skipDownload)
-            : takeVisibleScreenshot(tabId, saveMode, prefix, action.value || null, false, false, skipDownload);
-          const result = await task.catch(e => ({ error: e.message }));
-          if (result?.error) {
-            const next = await fail(i, action, result.error);
-            if (next === FAIL_RETRY) { i--; continue; }
-            if (next === FAIL_STOP) break;
-          }
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          continue;
-        }
-
-        /* ── Read DOM value → variable ── */
-        if (action.type === 'readdom') {
-          // `${abc}` saved by older versions of the form is read as `abc`.
-          const rdVar    = normalizeVarName(action.varName);
-          const rdResult = await tabMsg(tabId, { type: 'PLAY_ACTION', action }, Math.max(10_000, (action.timeout || 0) + 2_000), action.frameId);
-          _stickFallbacks(rdResult);
-          let rdFailed = !!rdResult?.failed;
-          let rdError  = rdResult?.error || null;
-          if (rdResult?.value !== undefined && !rdFailed) {
-            // Extract pattern: each ${name} takes its part of the text (bg/text-pattern.js).
-            const parts = action.pattern
-              ? extractWithPattern(rdResult.value, action.pattern, { matchCase: !!action.matchCase })
-              : {};
-            if (parts) {
-              if (rdVar) resolvedVars[rdVar] = rdResult.value;
-              Object.assign(resolvedVars, parts);
-            } else {
-              rdFailed = true;
-              rdError  = patternMismatch(rdResult.value, action.pattern);
-            }
-          }
-          if (rdFailed) {
-            const next = await fail(i, action, rdError);
-            if (next === FAIL_RETRY) { i--; continue; }
-            if (next === FAIL_STOP) break;
-            // Skipped: in a looped run the variables would otherwise still hold the
-            // previous iteration's values and later steps would use them silently.
-            for (const n of writtenVarNames(action)) resolvedVars[n] = '';
-          }
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          continue;
-        }
-
-        /* ── Condition (if / skip-N) ── */
-        if (action.type === 'condition') {
-          const condResult = await tabMsg(tabId, {
-            type: 'CHECK_CONDITION',
-            conditionType: action.conditionType || 'elementExists',
-            selector: action.selector || '',
-            selectors: action.selectors || null,
-            expectedValue: action.expectedValue || '',
-          }, 10_000, action.frameId);
-          const passed = !!condResult?.result;
-          if (!passed) {
-            // At least 1 — a stored skipCount of 0 reads as 1 — or 0 for a
-            // Condition emptied in the editor (`empty: true`), which skips nothing.
-            const skip = conditionSkip(action);
-            // A Switch counts as one action together with its block, and a skip
-            // landing inside a block goes on to that block's continueAt.
-            if (skip > 0) i = _layout ? conditionSkipTarget(actions, i, skip, _layout) - 1 : i + skip;
-          }
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          continue;
-        }
-
-        /* ── Switch (variable → scenario branch) ── */
-        if (action.type === 'switch') {
-          // A block Switch owns the actions after it: only the matched case's
-          // range runs, then playback goes on at continueAt. Without a block
-          // every path below is the old one.
-          const block = !!_layout && hasBlock(action);
-          if (block) {
-            const { errors } = validateSwitch(actions, i, _layout);
-            if (errors.length) {
-              const more = errors.length > 1 ? ` (+${errors.length - 1} more)` : '';
-              const next = await fail(i, action, `Switch: ${errors[0]}${more}`, 'Invalid Switch block');
-              if (next === FAIL_RETRY) { i--; continue; }
-              if (next === FAIL_STOP) break;
-              i = blockEnd(actions, i); // skipped: leave the block without running any of it
-              continue;
-            }
-          }
-          const contIdx = block ? continueIndex(actions, i) : null;
-
-          const switchVal = action.switchVar || '';
-          const cases     = action.cases || [];
-          let matched     = cases.find(c => c.value === switchVal);
-          if (!matched) matched = cases.find(c => c.value === '__default__');
-          // 1-based "start at action #N" on the case; absent on older cases = 1.
-          const startIdx  = Math.max(0, (parseInt(matched?.startAt, 10) || 1) - 1);
-          // 1-based last action of the case's range; absent = play on to the end.
-          const endRaw    = parseInt(matched?.endAt, 10);
-          const endIdx    = Number.isFinite(endRaw) ? endRaw - 1 : null;
-          if (matched && isBlockCase(matched)) {
-            // Play just this case's actions. A nested Switch at the end of the
-            // range that jumps past it simply ends this run; this Switch's
-            // continueAt then applies.
-            const range = caseRange(matched);
-            if (range) {
-              const nestedVars = await playActionsOnTab(
-                tabId, actions, { ...resolvedVars },
-                screenshotsResult, forceAutoSave, skipDownload, range.start, failedActions, _depth + 1, range.end,
-              );
-              Object.assign(resolvedVars, nestedVars);
-              if (!state.playback.active || _tabClosed) break;
-            }
-          } else if (matched?.scenarioId === SWITCH_SELF) {
-            // Jump within the scenario being played: no nested run, just move i.
-            // A backward jump is a loop, so cap the hops — a case that always
-            // matches would otherwise spin forever.
-            if (startIdx >= actions.length) {
-              const next = await fail(i, action, `Switch: action #${startIdx + 1} does not exist (scenario has ${actions.length})`, 'Jump target out of range');
-              if (next === FAIL_RETRY) { i--; continue; }
-              if (next === FAIL_STOP) break;
-            } else if (++_selfJumps > MAX_SELF_JUMPS) {
-              const next = await fail(i, action, `Switch: more than ${MAX_SELF_JUMPS} jumps — possible infinite loop, continuing without jumping`, 'Jump limit exceeded');
-              if (next === FAIL_RETRY) { i--; continue; }
-              if (next === FAIL_STOP) break;
-            } else {
-              if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-              i = startIdx - 1; // the loop's i++ lands on startIdx
-              continue;
-            }
-          } else if (matched?.scenarioId) {
-            const scenarios      = await getScenarios();
-            const targetScenario = scenarios[matched.scenarioId];
-            const targetLen      = targetScenario?.actions?.length || 0;
-            if (targetLen && startIdx >= targetLen) {
-              const next = await fail(i, action, `Switch: "${targetScenario.name || matched.scenarioId}" has no action #${startIdx + 1} (only ${targetLen})`, 'Switch start action out of range');
-              if (next === FAIL_RETRY) { i--; continue; }
-              if (next === FAIL_STOP) break;
-            } else if (targetLen && endIdx != null && (endIdx >= targetLen || endIdx < startIdx)) {
-              const next = await fail(i, action, `Switch: "${targetScenario.name || matched.scenarioId}" has no range #${startIdx + 1}–#${endIdx + 1} (only ${targetLen})`, 'Switch range out of range');
-              if (next === FAIL_RETRY) { i--; continue; }
-              if (next === FAIL_STOP) break;
-            } else if (targetLen) {
-              const caseLabel    = matched.value === '__default__' ? 'default' : matched.value;
-              const switchedName = targetScenario.name || matched.scenarioId;
-              const parentName   = state.playback.scenarioName;
-              const parentTotal  = state.playback.totalActions;
-              state.playback.scenarioName  = switchedName;
-              state.playback.actionIndex   = startIdx;
-              state.playback.totalActions  = targetScenario.actions.length;
-              chrome.runtime.sendMessage({ type: 'SWITCH_SCENARIO', scenarioName: switchedName, caseLabel }).catch(() => {});
-              if (!state.csvPlayback.active) {
-                // Same reasoning as action_failed: a scenario can switch many times
-                // in one run, and only the most recent hop is worth showing.
-                sendAlertNotification('🔀 Scenario Switched', `[${caseLabel}] → "${switchedName}"`, 'scenario_switched');
-              }
-              // Pass a copy of vars so the nested scenario cannot mutate the parent's
-              // variable map; merge returned vars back after completion.
-              //
-              // failedActions, by contrast, is shared with the nested run rather than
-              // dropped: a failure is a failure whichever scenario it happened in.
-              // Passing null here meant a switch branch could fail every one of its
-              // actions and still be reported as a clean run — a CSV row with only
-              // nested failures counted as passed, and its exported `failures` list
-              // came back empty.
-              //
-              // endIdx limits the branch to a range of the target when the case has one.
-              const nestedVars = await playActionsOnTab(
-                tabId, targetScenario.actions, { ...resolvedVars },
-                screenshotsResult, forceAutoSave, skipDownload, startIdx, failedActions, _depth + 1, endIdx,
-              );
-              Object.assign(resolvedVars, nestedVars);
-              // Back in this scenario: progress counts its actions again, not the branch's.
-              state.playback.scenarioName = parentName;
-              state.playback.totalActions = parentTotal;
-            } else {
-              const next = await fail(i, action, `Switch: scenario "${matched.scenarioName || matched.scenarioId}" not found or has no actions`);
-              if (next === FAIL_RETRY) { i--; continue; }
-              if (next === FAIL_STOP) break;
-            }
-          } else if (!block) {
-            // A block Switch with no matching case simply runs none of its cases.
-            const next = await fail(i, action, `Switch: no case matched value "${switchVal}" and no default case set`);
-            if (next === FAIL_RETRY) { i--; continue; }
-            if (next === FAIL_STOP) break;
-          }
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          if (block) {
-            // Leave the block — whatever ran (or failed and was skipped) above,
-            // the other cases' actions must not run. A backward continueAt is a
-            // loop and shares the jump cap.
-            if (contIdx <= i && ++_selfJumps > MAX_SELF_JUMPS) {
-              const next = await fail(i, action, `Switch: more than ${MAX_SELF_JUMPS} jumps — possible infinite loop, leaving the block`, 'Jump limit exceeded');
-              if (next === FAIL_STOP) break;
-              i = blockEnd(actions, i);
-            } else {
-              i = contIdx - 1; // the loop's i++ lands on continueAt
-            }
-          }
-          continue;
-        }
-
-        /* ── Upload File — CDP DOM.setFileInputFiles ── */
-        if (action.type === 'uploadFile') {
-          const cssSel = action.selectors?.css
-            || (action.selectors?.id ? `#${CSS.escape(action.selectors.id)}` : null)
-            || action.selector || '';
-          const folder = (action.folderPath || '').replace(/[/\\]+$/, '');
-          // backward-compat: old actions store a single fileName string
-          const rawNames = Array.isArray(action.fileNames) && action.fileNames.length
-            ? action.fileNames
-            : action.fileName ? [action.fileName] : [];
-
-          if (!cssSel || !folder || !rawNames.length) {
-            const next = await fail(i, action, 'uploadFile: missing selector, folderPath, or file name(s)');
-            if (next === FAIL_RETRY) { i--; continue; }
-            if (next === FAIL_STOP) break;
-          } else {
-            const sep       = folder.includes('\\') ? '\\' : '/';
-            const filePaths = rawNames.map(n => `${folder}${sep}${n}`);
-            try {
-              if (action.uploadMode === 'dropzone') {
-                await setFileDropZoneViaCdp(tabId, cssSel, filePaths);
-              } else {
-                await setFileInputViaCdp(tabId, cssSel, filePaths);
-              }
-            } catch (e) {
-              const next = await fail(i, action, e.message);
-              if (next === FAIL_RETRY) { i--; continue; }
-              if (next === FAIL_STOP) break;
-            }
-          }
-          if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-          continue;
-        }
-
-        /* ── All other actions → content script ── */
-        const _isClickLike  = action.type === 'click' || action.type === 'select';
-        const preActionUrl  = _isClickLike ? await getTabUrl(tabId).catch(() => null) : null;
-
-        const result = await tabMsg(tabId, { type: 'PLAY_ACTION', action }, Math.max(10_000, (action.timeout || 0) + 2_000), action.frameId);
-
-        _stickFallbacks(result);
-
-        // If a click/select caused an immediate navigation, the content script may
-        // have become unreachable before it could send a response.  Detect this by
-        // comparing the URL before and after — if it changed, treat the action as
-        // successful and wait for the new page to finish loading.
-        if (_isClickLike && result?._noContentScript && preActionUrl !== null) {
-          const postClickUrl = await getTabUrl(tabId).catch(() => null);
-          if (postClickUrl !== null && postClickUrl !== preActionUrl) {
-            await waitForTabLoad(tabId, 15_000);
-            if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
-            continue;
-          }
-        }
-
-        if (result?.failed) {
-          const reason = result._noContentScript ? 'Content script not reachable' : (result.error || 'Action failed');
-          const next = await fail(i, action, reason);
-          if (next === FAIL_RETRY) { i--; continue; }
-          if (next === FAIL_STOP) break;
-        }
-
-        // For succeeded click/select, also check for post-action navigation
-        // (e.g. form submit that navigates rather than using AJAX).
-        if (preActionUrl !== null && !result?.failed) {
-          const postActionUrl = await getTabUrl(tabId).catch(() => null);
-          if (postActionUrl !== null && postActionUrl !== preActionUrl) {
-            await waitForTabLoad(tabId, 15_000);
-          }
-        }
-
-        if (action.delay && action.delay > 0) {
-          await new Promise((resolve) => setTimeout(resolve, action.delay));
-        }
+        // Each action type is a step in bg/playback/steps/; any other is played by
+        // the content script.
+        const step = STEPS.get(action.type) || runOnPage;
+        const next = await step(ctx, i, action);
+        if (next === STOP) break;
+        i = next;
       } catch (err) {
         console.error(`[PLAYBACK] Action ${i} failed:`, err);
         const next = await fail(i, actions[i], err?.message || null, err?.message || 'unknown error');
@@ -743,7 +204,7 @@ export async function playActionsOnTab(
     }
   } finally {
     chrome.tabs.onRemoved.removeListener(_onTabRemoved);
-    if (_tabClosed) {
+    if (ctx.tabClosed) {
       chrome.runtime.sendMessage({ type: 'PLAYBACK_TAB_CLOSED', tabId }).catch(() => {});
       sendAlertNotification('⚠ Playback Stopped', 'Tab was closed — playback stopped', 'tab_closed');
     }
@@ -760,7 +221,7 @@ export async function startPlaybackFromCheckpoint(scenarioId, fromIndex, tabId) 
   // active.  CSV has its own per-row resume path; running startPlaybackFromCheckpoint
   // on top of an active CSV run would bypass forceAutoSave/skipDownload and cause
   // screenshot save-as dialogs instead of accumulating results for the zip.
-  if (_isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
+  if (isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
   const scenarios = await getScenarios();
   const scenario  = scenarios[scenarioId];
   if (!scenario) return;
@@ -772,7 +233,7 @@ export async function startPlaybackFromCheckpoint(scenarioId, fromIndex, tabId) 
   };
   updateBadge();
   chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
-  await _startKeepalive();
+  await startKeepalive();
   // Collected so the completion notification can say whether "finished" means
   // "finished cleanly". Sequence and CSV runs already reported their failure
   // counts; single and resumed runs claimed success no matter how many actions
@@ -785,10 +246,13 @@ export async function startPlaybackFromCheckpoint(scenarioId, fromIndex, tabId) 
     let vars = null;
     for (const seg of resumeSegments(actions, fromIndex)) {
       if (!state.playback.active || seg.start >= actions.length) break;
-      vars = await playActionsOnTab(tabId, actions, vars, null, false, false, seg.start, failedActions, 0, seg.end);
+      vars = await playActionsOnTab(tabId, actions, {
+        vars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
+        startFromIndex: seg.start, failedActions, depth: 0, endAtIndex: seg.end,
+      });
     }
   } finally {
-    await _stopKeepalive();
+    await stopKeepalive();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.playback.active = false;
     updateBadge();
@@ -802,7 +266,7 @@ export async function startPlaybackFromCheckpoint(scenarioId, fromIndex, tabId) 
 
 export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0) {
   if (refuseIfRecording()) return;
-  if (_isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
+  if (isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
   _ssSettings = null; // reset screenshot settings cache for this run
 
   const scenarios = await getScenarios();
@@ -829,7 +293,7 @@ export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0) {
   };
   updateBadge();
   chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
-  await _startKeepalive();
+  await startKeepalive();
 
   // Accumulates across every loop iteration, so a 10-loop run reports the total.
   const failedActions = [];
@@ -842,11 +306,14 @@ export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0) {
       state.playback.loopCurrent = loop + 1;
       state.playback.actionIndex = 0;
       updateBadge();
-      loopVars = await playActionsOnTab(tabId, actions, loopVars, null, false, false, 0, failedActions);
+      loopVars = await playActionsOnTab(tabId, actions, {
+        vars: loopVars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
+        startFromIndex: 0, failedActions,
+      });
       if (loop < loops - 1 && loopDelay > 0) await new Promise(r => setTimeout(r, loopDelay));
     }
   } finally {
-    await _stopKeepalive();
+    await stopKeepalive();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.playback.active = false;
     updateBadge();
@@ -863,7 +330,7 @@ export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0) {
 
 export async function startSequence(runList) {
   if (refuseIfRecording()) return;
-  if (_isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
+  if (isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
   _ssSettings = null;
 
   state.sequencePlayback = { active: true, runList, currentIndex: 0 };
@@ -892,7 +359,7 @@ export async function startSequence(runList) {
   };
   chrome.tabs.onRemoved.addListener(_onSeqTabRemoved);
   chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
-  await _startKeepalive();
+  await startKeepalive();
 
   let _seqCompleted = 0, _seqFailed = 0;
 
@@ -915,7 +382,10 @@ export async function startSequence(runList) {
         actionIndex: 0, totalActions: actions.length,
       };
       const _seqItemFailed = [];
-      await playActionsOnTab(tabId, actions, null, null, false, false, 0, _seqItemFailed);
+      await playActionsOnTab(tabId, actions, {
+        vars: null, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
+        startFromIndex: 0, failedActions: _seqItemFailed,
+      });
       state.playback.active = false;
       _seqCompleted++;
       if (_seqItemFailed.length > 0) _seqFailed++;
@@ -937,7 +407,7 @@ export async function startSequence(runList) {
     console.error('[SEQUENCE] Error during sequence playback:', err);
   } finally {
     chrome.tabs.onRemoved.removeListener(_onSeqTabRemoved);
-    await _stopKeepalive();
+    await stopKeepalive();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.sequencePlayback.active = false;
     state.playback.active = false;
@@ -952,7 +422,7 @@ export async function startSequence(runList) {
  * Variable names a scenario actually touches. Only these are kept in the per-row
  * IndexedDB record, which is what the CSV/XLSX/HTML export turns into columns.
  *
- * The field list must stay in step with interpolateAction() in bg/utils.js
+ * The field list must stay in step with interpolateAction() in bg/interpolate.js
  * (selectors, targetSelectors and attrName included) — a
  * field that gets variables substituted but is not scanned here silently loses
  * its column. folderPath, fileName, fileNames and the idContains/classContains
@@ -981,6 +451,7 @@ function collectRelevantKeys(actions) {
     selectorStrings(a).forEach(scan);
     scan(a.attrName);
     if (Array.isArray(a.fileNames)) a.fileNames.forEach(scan);
+    pickStrings(a).forEach(scan);
     if (a.conditions && typeof a.conditions === 'object') {
       for (const f of C_FIELDS) scan(a.conditions[f]);
     }
@@ -993,7 +464,7 @@ function collectRelevantKeys(actions) {
 // Results go to IndexedDB one row at a time (O(1)/row vs the previous O(n²) array-rewrite approach).
 export async function startCsvPlayback(scenarioId, rows, delayBetween, exportFormat = 'csv', startRowIndex = 0) {
   if (refuseIfRecording()) return;
-  if (_isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
+  if (isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
   _ssSettings = null;
 
   // xlsx/html/zip formats post-process screenshots client-side — skip downloading
@@ -1088,7 +559,7 @@ export async function startCsvPlayback(scenarioId, rows, delayBetween, exportFor
     await new Promise(r => chrome.storage.local.remove('playbackCheckpoint', r));
 
     chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
-    await _startKeepalive();
+    await startKeepalive();
     keepaliveOn = true;
 
     for (let i = startRowIndex; i < rows.length; i++) {
@@ -1110,7 +581,10 @@ export async function startCsvPlayback(scenarioId, rows, delayBetween, exportFor
       const screenshotsResult = {};
       const failedActions     = [];
       const finalVars = await playActionsOnTab(
-        tabId, actions, rowVars, screenshotsResult, true, skipDownload, 0, failedActions,
+        tabId, actions, {
+          vars: rowVars, screenshotsResult, forceAutoSave: true, skipDownload, startFromIndex: 0,
+          failedActions,
+        },
       );
       state.playback.active = false;
 
@@ -1161,7 +635,7 @@ export async function startCsvPlayback(scenarioId, rows, delayBetween, exportFor
     runError = err;
     console.error('[CSV] Run aborted by an unexpected error:', err);
   } finally {
-    if (keepaliveOn) _stopKeepalive();
+    if (keepaliveOn) stopKeepalive();
     if (tabId != null) chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.csvPlayback.active = false;
     state.playback.active    = false;

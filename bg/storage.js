@@ -1,5 +1,5 @@
-import { sendAlertNotification } from './utils.js';
-import { orderVariableNames, sortVariableNames, normalizeVariableSort } from './var-order.js';
+import { sendAlertNotification } from './notify.js';
+import { orderVariableNames, sortVariableNames, normalizeVariableSort } from '../shared/var-order.js';
 
 /* === Storage health notifications ═══════════════════════════════════════════
  * A failed write means the scenario the user just recorded was NOT saved, and a
@@ -81,7 +81,7 @@ export function setFolders(folders) {
 /* === Variables ===
  * chrome.storage hands an object back with its keys sorted, so the order the
  * user dragged the Variables table into is kept beside it, in `variableOrder`,
- * and the sort picked above the table in `variableSort` (bg/var-order.js).
+ * and the sort picked above the table in `variableSort` (shared/var-order.js).
  */
 
 /**
@@ -131,7 +131,7 @@ export function generateId() {
  */
 const _UNDO_MAX_SCENARIOS = 20;
 
-export const undoStacks = {};
+const undoStacks = {};
 
 const _undoOrder = [];
 
@@ -147,13 +147,15 @@ if (chrome.storage.session) {
 // Debounce writes to session storage — undo operations can fire rapidly
 // (e.g. holding Ctrl+Z), and each write has non-trivial IPC cost.
 let _persistTimer = null;
+// Undo stacks are written to session storage this long after the last change.
+const PERSIST_DEBOUNCE_MS = 500;
 
 function _persistUndoStacks() {
   if (chrome.storage.session) {
     clearTimeout(_persistTimer);
     _persistTimer = setTimeout(() => {
       chrome.storage.session.set({ undoStacks }).catch(() => {});
-    }, 500);
+    }, PERSIST_DEBOUNCE_MS);
   }
 }
 

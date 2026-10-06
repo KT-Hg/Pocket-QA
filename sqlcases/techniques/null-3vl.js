@@ -27,9 +27,11 @@ function baseCase(fields) {
 /** Predicates whose column going NULL makes them UNKNOWN → row disappears. */
 function nullablePredicateCases(model, kind) {
   const cases = [];
-  const outcome = t(kind === 'update' ? 'n3.outUpdate'
-    : kind === 'delete' ? 'n3.outDelete'
-    : 'n3.outSelect');
+  let outcomeKey;
+  if (kind === 'update') outcomeKey = 'n3.outUpdate';
+  else if (kind === 'delete') outcomeKey = 'n3.outDelete';
+  else outcomeKey = 'n3.outSelect';
+  const outcome = t(outcomeKey);
 
   const seen = new Set();
   const all = [...model.conditions, ...model.havingConditions, ...model.joinConditions];

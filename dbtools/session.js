@@ -291,18 +291,6 @@ export async function updateChange(sessionId, changeId, patch) {
   });
 }
 
-export async function removeChange(sessionId, changeId) {
-  return serialize(async () => {
-    const res = await get([K_SESSIONS]);
-    const sessions = res[K_SESSIONS] || {};
-    const session = sessions[sessionId];
-    if (!session) return null;
-    session.changes = session.changes.filter((c) => c.id !== changeId);
-    await set({ [K_SESSIONS]: sessions });
-    return session;
-  });
-}
-
 /* === Snapshots and backup tables ═════════════════════════════════════════
  * A snapshot's rows are not stored inside the session: every append rewrites the
  * whole sessions map, and dragging a few thousand rows through each of those
@@ -398,10 +386,6 @@ export async function addBackup(sessionId, meta) {
 
 export function updateBackup(sessionId, backupId, patch) {
   return patchListItem(sessionId, 'backups', backupId, patch);
-}
-
-export function removeBackup(sessionId, backupId) {
-  return dropListItem(sessionId, 'backups', backupId);
 }
 
 /* === Pending change ══════════════════════════════════════════════════════

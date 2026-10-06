@@ -50,6 +50,7 @@
       "resources": [
         "dbtools/*.js",
         "dbtools/adapters/*.js",
+        "dbtools/i18n/*.js",
         "sqlcases/tokenizer.js",
         "sqlcases/parser.js"
       ],

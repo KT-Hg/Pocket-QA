@@ -1,0 +1,411 @@
+/* === Picker Active State === */
+/* 🎯 is a 17px-tall glyph: 1px less padding each side keeps the Selector row at 30px. */
+#pickElement { padding-top: 4.5px; padding-bottom: 4.5px; }
+#pickElement.picker-active {
+  background: var(--success) !important;
+  color: #fff !important;
+  border-color: var(--success-dark) !important;
+}
+
+/* === Switch form === */
+.sw-hint { display: block; margin: 3px 2px 0; font-size: 11px; color: var(--muted); }
+.sw-hint code { font-size: 10.5px; }
+.sw-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 12px 2px 5px;
+}
+.sw-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.sw-section-sub { font-size: 10.5px; color: var(--muted); }
+.sw-case-list { display: flex; flex-direction: column; gap: 4px; }
+.sw-case-empty-list {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  text-align: center;
+}
+.sw-case-row-view {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: var(--secondary-bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--sw-color, var(--border));
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.sw-case-row-view.is-editing { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.sw-case-no {
+  flex: 0 0 auto;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.sw-case-default { color: var(--muted) !important; font-style: italic; }
+.sw-case-editor {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.sw-case-editor.is-editing { border-style: solid; border-color: var(--primary); }
+.sw-editor-title { font-size: 12px; font-weight: 700; color: var(--text); }
+.sw-case-editor.is-editing .sw-editor-title { color: var(--primary); }
+.sw-field { display: flex; flex-direction: column; gap: 3px; margin: 0; }
+.sw-field-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+.sw-field input, .sw-field select { margin: 0; font-size: 12px; }
+.sw-seg { display: flex; gap: 4px; }
+/* position: relative keeps the hidden radio inside its label: it would
+   otherwise take the global `input { width: 100% }` from the nearest
+   positioned ancestor and run past the 480px popup, adding a sideways scroll. */
+.sw-seg label { position: relative; flex: 1; min-width: 0; margin: 0; cursor: pointer; }
+.sw-seg input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.sw-seg span {
+  display: block;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11.5px;
+  text-align: center;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sw-seg input:checked + span {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+.sw-seg input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 1px; }
+.sw-other-row { display: flex; gap: 5px; align-items: center; }
+.sw-other-row select { flex: 1; min-width: 0; }
+.sw-to { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.sw-editor-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.sw-editor-actions button { width: auto; margin: 0; padding: 5px 12px; font-size: 12px; }
+#switchAddCase { color: var(--primary); border-color: var(--primary); font-weight: 600; }
+.sw-continue { margin-top: 10px; }
+.sw-help { margin-top: 8px; font-size: 11px; color: var(--muted); }
+.sw-help summary { cursor: pointer; font-weight: 600; user-select: none; }
+.sw-help ul { margin: 5px 0 0; padding-left: 16px; line-height: 1.45; }
+.sw-help li { margin-bottom: 3px; }
+.sw-field .sw-range-row { margin-top: 0; }
+.sw-case-label {
+  font-size: 12px;
+  color: #e879f9;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sw-case-target {
+  font-size: 11px;
+  color: var(--muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sw-case-btn {
+  width: auto !important;
+  flex: 0 0 auto;
+  margin: 0 !important;
+  padding: 2px 7px !important;
+  font-size: 11px !important;
+}
+.sw-start-input {
+  width: 52px !important;
+  flex: 0 0 52px;
+  margin: 0 !important;
+  font-size: 12px !important;
+}
+
+/* === Paste row in action/sequence list === */
+.action-paste-li {
+  justify-content: center;
+  cursor: default;
+  gap: 6px;
+}
+.action-paste-btn {
+  width: auto !important;
+  font-size: 11px !important;
+  margin: 0 !important;
+}
+
+/* === Loop Controls Row === */
+.loop-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.loop-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  border-radius: 8px;
+  padding: 3px 8px;
+  flex: 0 0 auto;
+}
+
+.loop-chip-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.loop-chip #loopCount {
+  width: 42px;
+  margin: 0;
+  font-size: 12px;
+  padding: 2px 5px;
+  border-color: transparent;
+  background: var(--card);
+  border-radius: 5px;
+}
+
+.loop-chip-x {
+  font-size: 11px;
+  color: var(--primary);
+  opacity: 0.7;
+  font-weight: 600;
+}
+
+.loop-delay-lbl {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.loop-delay-select {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  padding: 3px 6px;
+}
+
+.loop-delay-custom {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  padding: 3px 6px;
+}
+
+.loop-actions {
+  display: flex;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.loop-action-btn {
+  width: auto !important;
+  margin: 0 !important;
+  padding: 5px 9px !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+}
+
+/* === CSV Data-Driven Run — Group 2 UI === */
+
+/* Format label */
+.csv-format-label {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* Feature 3: locked format warning row */
+.csv-format-locked {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.csv-format-lock-icon { font-size: 13px; flex: 0 0 auto; }
+.csv-format-lock-text {
+  flex: 1;
+  font-size: 11px;
+  color: var(--danger);
+}
+.csv-format-clear-btn {
+  background: var(--card);
+  border: 1.5px solid var(--danger);
+  border-radius: 6px;
+  color: var(--danger);
+  font-size: 11px;
+  padding: 3px 9px !important;
+  width: auto !important;
+  margin: 0 !important;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.csv-format-clear-btn:hover {
+  background: var(--danger-fill);
+  border-color: var(--danger-fill);
+  color: #fff;
+  transform: none;
+}
+
+/* Feature 1: Progress wrap */
+.csv-progress-wrap { margin-top: 8px; }
+
+.csv-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+.csv-prog-text {
+  flex: 1;
+  font-size: 11px;
+  color: var(--muted);
+}
+.csv-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1.5px solid;
+  flex: 0 0 auto;
+}
+.csv-badge-ok {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+.csv-badge-fail {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  opacity: 0.35;
+  transition: opacity 0.2s;
+}
+.csv-badge-fail.has-fail { opacity: 1; }
+
+.csv-dual-bar {
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+}
+.csv-bar-ok {
+  height: 100%;
+  background: var(--success);
+  transition: width 0.4s ease;
+}
+.csv-bar-fail {
+  height: 100%;
+  background: var(--danger);
+  transition: width 0.4s ease;
+}
+
+/* Feature 4: Countdown */
+.csv-countdown-wrap { margin-top: 5px; }
+.csv-cd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+.csv-countdown-text {
+  font-size: 11px;
+  color: var(--secondary);
+  font-style: italic;
+}
+.csv-cd-next-label {
+  font-size: 10px;
+  color: var(--muted);
+}
+.csv-cd-bar-track {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.csv-cd-bar {
+  height: 100%;
+  width: 100%;
+  background: var(--secondary);
+  border-radius: 2px;
+}
+
+/* Feature 2: Split stop button — height matches Start button */
+.csv-action-row { align-items: stretch; }
+.csv-action-row > button { margin-top: 0; }
+
+.csv-stop-split {
+  display: flex;
+  align-self: stretch;
+  border: 2px solid var(--danger);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.csv-stop-split button {
+  background: var(--card);
+  color: var(--danger);
+  border: none;
+  border-radius: 0;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  white-space: nowrap;
+  height: 100%;
+}
+.csv-stop-split button:first-child {
+  border-right: 1.5px solid var(--danger);
+}
+.csv-stop-split button:hover {
+  background: var(--danger-fill);
+  color: #fff;
+  transform: none;
+}
+
+/* Switch mode: On a variable | Always (data-mode on #switchWrapper, see setSwitchMode) */
+.sw-mode { margin-bottom: 6px; }
+#switchWrapper[data-mode="always"] .sw-var-only,
+#switchWrapper:not([data-mode="always"]) .sw-always-only { display: none; }

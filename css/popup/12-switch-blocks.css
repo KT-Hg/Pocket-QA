@@ -1,0 +1,125 @@
+/* === Switch blocks — preview === */
+/* Nested numbers (1.2.1) need a wider index column than 1..N. */
+#actions .index {
+  width: var(--idx-w, 18px);
+  min-width: var(--idx-w, 18px);
+  flex: 0 0 var(--idx-w, 18px);
+}
+#actions.has-blocks .index { justify-content: flex-start; padding-left: 6px; }
+.actions li.sw-in-block {
+  margin-left: calc(var(--sw-depth, 0) * 12px);
+  border-left-color: var(--sw-color) !important;
+}
+.actions li.sw-hidden { display: none !important; }
+.actions li.sw-case-head {
+  cursor: default;
+  background: transparent;
+  padding: 2px 6px;
+  margin-top: 4px;
+  margin-bottom: 1px;
+  min-height: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sw-color);
+  border-left: 3px solid var(--sw-color);
+  gap: 6px;
+}
+.actions li.sw-case-head::before,
+.actions li.sw-outside::before { content: none; }
+.actions li.sw-case-head:hover { background: transparent; }
+.sw-case-head-rule { flex: 1 1 auto; border-top: 1px dashed var(--sw-color); opacity: 0.5; }
+.sw-case-empty { color: var(--warning-text); font-weight: 500; }
+.sw-case-toggle { color: var(--sw-color); }
+.actions li.sw-case-head.sw-case-head-click { cursor: pointer; user-select: none; }
+.actions li.sw-case-head-click:hover .sw-toggle { color: var(--text); background: var(--secondary-bg); }
+.actions li.sw-case-head-click:hover .sw-case-head-label { text-decoration: underline; }
+.sw-case-count { color: var(--muted); font-weight: 500; font-style: italic; }
+.sw-case-count:empty { display: none; }
+/* A collapsed Switch: the hidden count takes the case summary's place. */
+.actions li.sw-collapsed .sw-summary { display: none; }
+/* Only while dragging: the drop target that takes a row out of the block. */
+.actions li.sw-outside { display: none; }
+.actions.sw-dragging li.sw-outside {
+  display: flex;
+  justify-content: center;
+  cursor: default;
+  background: transparent;
+  border: 1px dashed var(--muted);
+  border-left-width: 1px;
+  color: var(--muted);
+  font-size: 10px;
+  padding: 3px 6px;
+}
+.actions.sw-dragging li.sw-outside.sw-hidden { display: none !important; }
+.actions li.sw-flash { animation: sw-flash 1.2s ease-out; }
+@keyframes sw-flash {
+  0%, 50% { box-shadow: 0 0 0 2px var(--sw-color, var(--primary)); }
+  100%    { box-shadow: 0 0 0 0 transparent; }
+}
+.actions li.sw-invalid { outline: 1px solid var(--danger); outline-offset: -1px; }
+.actions li.sw-orphan .index { color: var(--warning-text); }
+.sw-warn { color: var(--warning-text); margin-right: 3px; cursor: help; }
+.sw-invalid .sw-warn { color: var(--danger); }
+.sw-toggle {
+  flex: 0 0 auto;
+  /* Same small arrow, larger hit area: padding grows the target and the
+     negative margin keeps the layout where the 12px glyph put it. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12px;
+  padding: 4px 5px;
+  margin: -4px -5px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.sw-toggle:hover, .sw-toggle:focus-visible { color: var(--text); background: var(--secondary-bg); }
+/* Right after the word "switch", inside the type column. */
+.actions .type .sw-toggle { margin-left: -1px; }
+.actions .type.sw-type-toggle { cursor: pointer; user-select: none; }
+.actions .type.sw-type-toggle:hover .sw-toggle { color: var(--text); background: var(--secondary-bg); }
+.sw-hidden-count {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--secondary-bg);
+  color: var(--muted);
+  font-size: 9px;
+  font-style: italic;
+  line-height: 12px;
+  vertical-align: middle;
+}
+.sw-hidden-count:empty { display: none; }
+.sw-summary { color: var(--muted); }
+.sw-note {
+  font-size: 9px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* === Switch blocks — form === */
+.sw-range-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+.sw-range-row label {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sw-range-row select {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0 !important;
+  font-size: 11px !important;
+}
+.sw-case-label-block { color: var(--sw-color); }
+.sw-validation { margin-top: 6px; font-size: 11px; }
+.sw-val-error { color: var(--danger); }
+.sw-val-warn  { color: var(--warning-text); }
+.sw-frame-note { display: block; margin-top: 4px; color: var(--secondary); }

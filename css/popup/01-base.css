@@ -1,0 +1,414 @@
+/**
+ * css/popup/ — the popup's stylesheets, linked from popup.html in file-name
+ * order; later files rely on earlier ones (the cascade order is the old single
+ * popup.css, cut at its section banners).
+ *
+ * 01-base.css: theme variables, base elements, form controls, row utilities,
+ * scrollbars.
+ */
+
+:root {
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --danger: #ef4444;
+  --danger-dark: #dc2626;
+  --success: #10b981;
+  --success-dark: #059669;
+  --warning: #f59e0b;
+  --warning-dark: #d97706;
+  /* Text-safe amber: --warning is a fill colour and is too light to read as
+     text on a light surface. Use --warning-text wherever amber is the type. */
+  --warning-text: #b45309;
+  --secondary: #8b5cf6;
+  --secondary-dark: #7c3aed;
+  /* Button fills that carry white text. In light they are the accents
+     themselves; dark mode lightens the accents for text on a dark surface, and
+     white on those light fills was barely legible (#60a5fa: 2.5:1). */
+  --primary-fill: #3b82f6;
+  --primary-fill-hover: #2563eb;
+  --success-fill: #10b981;
+  --success-fill-hover: #059669;
+  --danger-fill: #ef4444;
+  --danger-fill-hover: #dc2626;
+  --bg: #f9fafb;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --text: #111827;
+  --muted: #6b7280;
+  --secondary-bg: #f3f4f6;
+  --secondary-text: #111827;
+  --list-bg: #f3f4f6;
+  /* Highlight tab inner surfaces */
+  --hl-pill-bg:   rgba(0,0,0,0.025);
+  --hl-inner-bg:  rgba(0,0,0,0.035);
+  /* Modal backdrop — unified */
+  --modal-backdrop: rgba(0, 0, 0, 0.52);
+  /* Code block / toolbar (light mode) */
+  --code-bg: #f1f5f9;
+  --code-text: #334155;
+  --code-toolbar-bg: #e2e8f0;
+  --code-toolbar-border: #cbd5e1;
+  --code-toolbar-label: #475569;
+  --code-toolbar-btn-bg: #f8fafc;
+  --code-toolbar-btn-border: #cbd5e1;
+  --code-toolbar-btn-text: #475569;
+  /* Switch case colours (preview + form). Dark text-safe on a light surface. */
+  --sw-c0: #c026d3;
+  --sw-c1: #0284c7;
+  --sw-c2: #b45309;
+  --sw-c3: #047857;
+  --sw-c4: #e11d48;
+  /* Condition (If) blocks in the preview */
+  --sw-cond: #d97706;
+}
+
+[data-theme="dark"] {
+  --primary: #60a5fa;
+  --primary-dark: #3b82f6;
+  --danger: #f87171;
+  --danger-dark: #ef4444;
+  --success: #34d399;
+  --success-dark: #10b981;
+  --warning: #fbbf24;
+  --warning-dark: #f59e0b;
+  --warning-text: #fbbf24;
+  --secondary: #a78bfa;
+  --secondary-dark: #8b5cf6;
+  --primary-fill: #3b82f6;
+  --primary-fill-hover: #2563eb;
+  --success-fill: #10b981;
+  --success-fill-hover: #059669;
+  --danger-fill: #ef4444;
+  --danger-fill-hover: #dc2626;
+  --bg: #050f1f;
+  --card: #0d1829;
+  --border: #2d4157;
+  --text: #f5f7fa;
+  --muted: #b8c8da;
+  --secondary-bg: #1a2938;
+  --secondary-text: #f5f7fa;
+  --list-bg: #0d1829;
+  /* Highlight tab inner surfaces — must be lighter than card (#0d1829) */
+  --hl-pill-bg:   rgba(255,255,255,0.06);
+  --hl-inner-bg:  rgba(0,0,0,0.22);
+  /* Code block / toolbar (dark mode) */
+  --code-bg: #1e2231;
+  --code-text: #abb2bf;
+  --code-toolbar-bg: #1a2938;
+  --code-toolbar-border: #2d4157;
+  --code-toolbar-label: #6b7280;
+  --code-toolbar-btn-bg: rgba(255, 255, 255, 0.05);
+  --code-toolbar-btn-border: rgba(255, 255, 255, 0.1);
+  --code-toolbar-btn-text: #9ca3af;
+  --sw-c0: #e879f9;
+  --sw-c1: #38bdf8;
+  --sw-c2: #fbbf24;
+  --sw-c3: #34d399;
+  --sw-c4: #fb7185;
+  --sw-cond: #f59e0b;
+  color-scheme: dark;
+}
+
+/* === Row Item Sizing Utilities === */
+.flex-1 { flex: 1 1 0; }
+.w-auto { width: auto; flex: 0 0 auto; }
+.w-100 { width: 100px; flex: 0 0 auto; }
+.w-140 { width: 140px; flex: 0 0 auto; }
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 480px;
+  min-height: 600px;
+  max-height: 600px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+body:has(#tabHighlight.active) {
+  overflow: hidden;
+}
+
+h3 {
+  font-size: 12px;
+  margin: 0 0 6px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.card {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+/* Standard controls are 30px tall: 5.5px padding + 15px of text + 2 × 2px
+   border. A dropdown's text box is 2px taller than an input's at the same font
+   size, so it gets 1px less padding on each side to line up with the input
+   beside it. Controls that set their own padding keep their own size. */
+button,
+input,
+select,
+textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 5.5px 10px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  font-size: 13px;
+}
+select:where(:not([multiple], [size])) {
+  padding-top: 4.5px;
+  padding-bottom: 4.5px;
+}
+
+input,
+select,
+textarea {
+  background: var(--card);
+  color: var(--text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+  font-size: 12px;
+}
+
+/* Every plain <textarea> (upload filenames, manual step value, highlight
+   notes…) is otherwise resizable both ways by default, which can drag it
+   wider than this fixed-width popup, and its drag corner is a native widget
+   color-scheme doesn't reach — Chromium paints it in light chrome no matter
+   the theme, so it sits on the dark field as a bright square. Cap the
+   direction and match the corner to the field, same fix as sqlcases.css. */
+textarea {
+  resize: vertical;
+}
+textarea::-webkit-resizer {
+  background: var(--card);
+}
+
+/* Checkbox/radio tick color: color-scheme already makes these render as dark
+   controls, but without this they tick in the browser's generic blue rather
+   than the extension's own accent — only one radio group (.cond-match-label,
+   below) had this, so every other checkbox/radio in the popup was a shade
+   off. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--primary);
+}
+
+/* Form field focus: the border alone, in a softened accent. The glow and the
+   outer ring that used to come with it (see the keyboard rule further down)
+   read as the field staying highlighted. Dropdowns also let go of focus once
+   picked with the mouse — popup/calm-focus.js. */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+}
+
+input.required-error,
+textarea.required-error {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  border: none;
+  padding: 0;
+  background: linear-gradient(to right,
+    var(--primary) 0%,
+    var(--primary) var(--pct, 0%),
+    var(--border)  var(--pct, 0%),
+    var(--border)  100%
+  );
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: none;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: none;
+}
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Dark-friendly file input */
+input[type="file"] {
+  padding: 6px 10px;
+}
+
+input[type="file"]::file-selector-button {
+  background: var(--secondary-bg);
+  color: var(--secondary-text);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+input[type="file"]:hover::file-selector-button {
+  filter: brightness(0.95);
+}
+
+/* Every button colours itself as one of six roles, and every rule below uses
+   that role's colours rather than its own:
+     primary    --primary-fill, white text; hover --primary-fill-hover
+     secondary  --card on --border, --text; hover --secondary-bg, --primary border and text
+     quiet      transparent on --border, --muted; hover an 8% --primary tint, --primary border and text
+     danger     --card on --danger, --danger text; hover --danger-fill, white text
+                (quiet-danger: quiet at rest, the same hover in --danger)
+     success    --success-fill, white text; hover --success-fill-hover
+     tinted     8% of an accent, 40% border, accent text; hover 14%, full border */
+button {
+  cursor: pointer;
+  font-weight: 500;
+  background: var(--primary-fill);
+  color: white;
+  border: 2px solid var(--primary-fill);
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+/* :where() drops this to the specificity of a bare `button` (0,0,1). As
+   `button:hover:not(:disabled)` it scored 0,2,1 and beat every `.x:hover`
+   rule (0,2,0): a transparent button with --primary text turned --primary-dark
+   on hover, blue on blue, and the text vanished. Any class rule now wins. */
+button:where(:hover:not(:disabled)) {
+  background: var(--primary-fill-hover);
+  border-color: var(--primary-fill-hover);
+  transform: translateY(-1px);
+}
+
+button:where(:active:not(:disabled)) {
+  transform: translateY(0);
+}
+
+button.secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 2px solid var(--border);
+  box-shadow: none;
+}
+
+button.secondary:hover:not(:disabled) {
+  background: var(--secondary-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+button.success {
+  background: var(--success-fill);
+  border-color: var(--success-fill);
+  box-shadow: none;
+}
+
+button.success:hover:not(:disabled) {
+  background: var(--success-fill-hover);
+  border-color: var(--success-fill-hover);
+}
+
+button.primary-gradient {
+  background: linear-gradient(135deg, var(--primary-fill) 0%, var(--primary-fill-hover) 100%);
+  border: none;
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--primary-fill) 30%, transparent);
+}
+
+button.primary-gradient:hover:not(:disabled) {
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--primary-fill) 40%, transparent);
+  filter: brightness(1.05);
+}
+
+button.danger {
+  background: var(--card);
+  color: var(--danger);
+  border: 2px solid var(--danger);
+  box-shadow: none;
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--danger-fill);
+  border-color: var(--danger-fill);
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+}
+
+/* Equalize child widths in paired rows (select + button) */
+.row.equalize > * {
+  flex: 1 1 0;
+}
+
+/* === Scrollbars — hidden globally, restored for list containers === */
+*::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* Thin scrollbar on action/variable lists so users know more items exist */
+.actions,
+.var-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.actions::-webkit-scrollbar,
+.var-list::-webkit-scrollbar { display: block; width: 5px; }
+.actions::-webkit-scrollbar-track,
+.var-list::-webkit-scrollbar-track { background: transparent; }
+.actions::-webkit-scrollbar-thumb,
+.var-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.actions::-webkit-scrollbar-thumb:hover,
+.var-list::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+

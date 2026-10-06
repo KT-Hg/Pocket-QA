@@ -45,7 +45,7 @@ const noop = () => {};
  * Check every row of a change and report the ones that moved under us.
  * A value the capture never recorded cannot be checked and is reported as such.
  */
-export async function checkDrift(ctx, change, dir = 'undo') {
+async function checkDrift(ctx, change, dir = 'undo') {
   const redo = dir === 'redo';
   const out = [];
   for (const row of change.rows || []) {
@@ -133,9 +133,10 @@ async function runChanges(ctx, session, opts, dir) {
       onProgress({ phase: 'drift', i: i + 1, n: changes.length, change });
       const drifted = await checkDrift(ctx, change, dir);
       if (drifted.length) {
-        const answer = opts.force
-          ? 'force'
-          : (opts.onDrift ? await opts.onDrift(change, drifted) : 'skip');
+        let answer;
+        if (opts.force) answer = 'force';
+        else if (opts.onDrift) answer = await opts.onDrift(change, drifted);
+        else answer = 'skip';
         if (answer !== 'force') {
           const bad = new Set(drifted.map((d) => d.row));
           rows = rows.filter((r) => !bad.has(r));
@@ -278,9 +279,10 @@ async function runCompacted(ctx, session, opts, dir) {
       onProgress({ phase: 'drift', i: i + 1, n, change: lead });
       const drifted = await unitDriftNow(ctx, unit, dir);
       if (drifted.length) {
-        const answer = opts.force
-          ? 'force'
-          : (opts.onDrift ? await opts.onDrift(unit.check || { ...lead, table: unit.table }, drifted) : 'skip');
+        let answer;
+        if (opts.force) answer = 'force';
+        else if (opts.onDrift) answer = await opts.onDrift(unit.check || { ...lead, table: unit.table }, drifted);
+        else answer = 'skip';
         report.details.push({ change: lead.id, drifted: drifted.length, answer });
         if (answer !== 'force') {
           await settle(unit, 'drifted');

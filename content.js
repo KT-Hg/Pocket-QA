@@ -2,6 +2,36 @@
  * content.js — Content script injected into every eligible tab.
  * Handles action recording (click, input events), action playback, element
  * picker UI, screenshot helpers, hotkeys, and segment-capture overlay.
+ *
+ * A classic script in all frames, injected by the manifest and again by
+ * chrome.scripting; everything after safeSend runs inside the
+ * `window.__actionRecorderInjected` guard, so a second injection only says
+ * CONTENT_READY again. Sections, in file order (search for the name):
+ *
+ *   STATE                          recording / picker state of this frame; REGISTER_FRAME,
+ *                                  RECORDING_STATE
+ *   DYNAMIC ID DETECTION           ids too unstable to use in a selector
+ *   SELECTOR BUILDERS              css / xpath / full xpath / all locators of an element
+ *   SHADOW DOM PIERCE              querySelectorDeep through open shadow roots
+ *   ELEMENT FINDER                 findElementWithFallback: each locator in turn
+ *   CONDITION-BASED ELEMENT FIND   findElementByCondition, waitForElement
+ *   RECORDING                      page events → RECORDED_ACTION
+ *   PLAYBACK                       PLAY_ACTION; the Read DOM reader sits between the
+ *                                  <readdom-core> markers (tests/readdom.test.mjs loads it),
+ *                                  Dropdown's item chooser after it (<dropdown-pick-core>,
+ *                                  tests/dropdown-pick.test.mjs)
+ *   SHARED IN-PAGE OVERLAY CHROME  _extOverlay(): the template every overlay below uses
+ *   ELEMENT PICKER                 START_PICK_MODE / STOP_PICK_MODE → ELEMENT_PICKED
+ *   FULL PAGE SCREENSHOT HELPER    GET_PAGE_DIMENSIONS, GET_ELEMENT_RECT, CHECK_CONDITION
+ *   HOTKEYS                        the shortcut settings
+ *   VISIBLE SCREENSHOT COUNTDOWN   the countdown pill, FULL_CAPTURE_STATE (ESC cancels a
+ *                                  capture), and the keydown handler that fires the hotkeys
+ *   FAILED-ACTION PROMPT           ACTION_FAILED_PROMPT: retry / skip / stop on the page
+ *   PING / PONG                    liveness probe
+ *   SEGMENT CAPTURE OVERLAY        START_SEGMENT_TAB: the bar and auto-scroll → CAPTURE_SEGMENT
+ *   HIGHLIGHT ENGINE               text highlights and notes (HL_* messages): tooltip,
+ *                                  marks, restore on load, URL patterns
+ *   NOTIFY READY                   CONTENT_READY to the worker
  */
 
 // Suppress "Extension context invalidated" errors thrown after an extension
@@ -10,7 +40,7 @@ function safeSend(msg) {
   try {
     if (!chrome.runtime?.id) return;
     chrome.runtime.sendMessage(msg).catch(() => {});
-  } catch (_) {}
+  } catch (_) { /* extension reloaded under this page: nobody left to send to */ }
 }
 
 // Guard against multiple injections — chrome.scripting.executeScript can be
@@ -53,7 +83,7 @@ try {
     if (res.frameId != null) _myFrameId = res.frameId;
     _isRecording = !!res.recording;
   });
-} catch (_) {}
+} catch (_) { /* extension context invalidated: keep frame 0, not recording */ }
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type === 'RECORDING_STATE') _isRecording = !!msg.recording;
@@ -255,7 +285,7 @@ function findElementWithFallback(selectors, timeout = 5000) {
         try {
           const el = strategy.fn();
           if (el) { return el; }
-        } catch (_) {}
+        } catch (_) { /* selector invalid for this strategy: try the next one */ }
       }
       return null;
     };
@@ -276,12 +306,12 @@ function findElementWithFallback(selectors, timeout = 5000) {
       requestAnimationFrame(() => {
         rafQueued = false;
         if (found) return;
-        const el = tryStrategies();
-        if (el) {
+        const foundEl = tryStrategies();
+        if (foundEl) {
           found = true;
           observer.disconnect();
           clearTimeout(timer);
-          resolve(el);
+          resolve(foundEl);
         }
       });
     });
@@ -408,8 +438,8 @@ function waitForElement(selector, timeout = 5000) {
       requestAnimationFrame(() => {
         rafQueued = false;
         if (resolved) return;
-        const el = document.querySelector(selector);
-        if (el) { resolved = true; observer.disconnect(); clearTimeout(t); resolve(el); }
+        const foundEl = document.querySelector(selector);
+        if (foundEl) { resolved = true; observer.disconnect(); clearTimeout(t); resolve(foundEl); }
       });
     });
     observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
@@ -451,6 +481,7 @@ document.addEventListener('click', (event) => {
 // WeakMap keyed by element so timers are GC'd when their element is removed
 // from the DOM without needing an explicit cleanup step.
 const _inputDebounceTimers = new WeakMap();
+const INPUT_DEBOUNCE_MS = 400;
 
 document.addEventListener('input', (event) => {
   if (!_isRecording || pickerMode) return;
@@ -471,7 +502,7 @@ document.addEventListener('input', (event) => {
       type: 'RECORDED_ACTION',
       action: { type: 'input', selector: selectors.css, selectors, value: el.value, frameId: _myFrameId },
     });
-  }, 400));
+  }, INPUT_DEBOUNCE_MS));
 }, true);
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -537,9 +568,9 @@ function readElementValue(el, readFrom, attrName) {
 /** Run one Read DOM action: { value } on success, { failed, error } otherwise. */
 async function readDomAction(action) {
   const timeout = (action.timeout && action.timeout > 0) ? action.timeout : 5000;
-  const sels = (action.selectors && typeof action.selectors === 'object')
-    ? action.selectors
-    : (action.selector ? { css: action.selector } : null);
+  let sels = null;
+  if (action.selectors && typeof action.selectors === 'object') sels = action.selectors;
+  else if (action.selector) sels = { css: action.selector };
   const hasSel = !!sels && Object.values(sels).some(v => typeof v === 'string' && v.trim());
   // Actions saved before the form checked these could still lack them.
   if (!hasSel) return { failed: true, error: 'Read DOM: missing selector' };
@@ -564,6 +595,152 @@ async function readDomAction(action) {
 }
 /* </readdom-core> */
 
+/* ── Dropdown: choose item #i ─────────────────────────────────────────────────
+ * A native <select> is set here (pickNativeOption). Any other dropdown is opened
+ * by the worker first; pickDropdownItem then finds its items and clicks one.
+ */
+/* <dropdown-pick-core> */
+// parsePickIndex / pickItemIndex: a copy of shared/dropdown-pick.js, which this
+// classic script cannot import; tests/dropdown-pick.test.mjs keeps them the same.
+function parsePickIndex(raw) {
+  const s = String(raw ?? '').trim();
+  if (/^random$/i.test(s)) return { random: true };
+  if (/^-?\d+$/.test(s) && Number(s) !== 0) return { n: Number(s) };
+  if (!s) return { error: 'no item number — 1 is the first item, -1 the last, or random' };
+  return { error: `"${s}" is not an item number — use 1, 2, … (-1 = last) or random` };
+}
+
+function pickItemIndex(raw, count, eligible = () => true, rand = Math.random) {
+  const p = parsePickIndex(raw);
+  if (p.error) return p;
+  if (p.random) {
+    const pool = [];
+    for (let k = 0; k < count; k++) if (eligible(k)) pool.push(k);
+    if (!pool.length) return { error: `no item to choose at random (${count} found)` };
+    return { index: pool[Math.floor(rand() * pool.length)] };
+  }
+  const index = p.n > 0 ? p.n - 1 : count + p.n;
+  if (index < 0 || index >= count) return { error: `there is no item #${p.n} (${count} found)` };
+  return { index };
+}
+
+/** Choose option `pick.index` of a native <select> and tell the page, as Input does. */
+function pickNativeOption(select, pick) {
+  const options = [...select.options];
+  const r = pickItemIndex(pick?.index, options.length, (k) => !options[k].disabled && options[k].value !== '');
+  if (r.error) return { failed: true, error: `Dropdown: ${r.error}` };
+  const option = options[r.index];
+  const text = String(option.text ?? '').trim();
+  if (option.disabled) return { failed: true, error: `Dropdown: item #${r.index + 1} ("${text}") is disabled` };
+  select.selectedIndex = r.index;
+  select.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }));
+  select.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+  select.dispatchEvent(new Event('blur',   { bubbles: true }));
+  select.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  return { picked: { index: r.index + 1, text, count: options.length } };
+}
+/* </dropdown-pick-core> */
+
+// The opened list may render a moment after the click; this long at most.
+const DROPDOWN_ITEM_WAIT_MS = 5000;
+const DROPDOWN_ITEM_POLL_MS = 100;
+// Items of a custom dropdown when the action names none: ARIA options, else menu items.
+const DROPDOWN_OPTION_SEL = '[role="option"]';
+const DROPDOWN_MENUITEM_SEL = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
+
+// checkVisibility also sees content-visibility (a closed <details>, for one).
+function _isShown(el) {
+  if (!el?.isConnected || !el.getClientRects().length) return false;
+  if (typeof el.checkVisibility === 'function') return el.checkVisibility({ visibilityProperty: true });
+  const st = getComputedStyle(el);
+  return st.display !== 'none' && st.visibility !== 'hidden';
+}
+
+function _itemDisabled(el) {
+  return el.getAttribute('aria-disabled') === 'true'
+    || el.hasAttribute('disabled')
+    || el.matches('[data-disabled]:not([data-disabled="false"])');
+}
+
+/**
+ * The shown items of an opened custom dropdown, in page order: `itemSelector`
+ * when the action has one; else, when the trigger points to its list
+ * (aria-controls / aria-owns, on the trigger, around it or inside it), the
+ * options — or menu items — in that list only, even while it is still empty;
+ * else every shown ARIA option, then every shown menu item, on the page.
+ */
+function _dropdownItems(trigger, itemSelector) {
+  if (itemSelector) return [...document.querySelectorAll(itemSelector)].filter(_isShown);
+  const owners = [
+    trigger,
+    trigger?.closest('[aria-controls], [aria-owns]'),
+    trigger?.querySelector('[aria-controls], [aria-owns]'),
+  ];
+  const lists = [];
+  for (const owner of owners) {
+    if (!owner) continue;
+    const ids = `${owner.getAttribute('aria-controls') || ''} ${owner.getAttribute('aria-owns') || ''}`
+      .trim().split(/\s+/).filter(Boolean);
+    for (const id of ids) {
+      const list = document.getElementById(id);
+      if (list && !lists.includes(list)) lists.push(list);
+    }
+  }
+  const scopes = lists.length ? lists : [document];
+  const within = (sel) => scopes.flatMap((root) => [...root.querySelectorAll(sel)]).filter(_isShown);
+  const options = within(DROPDOWN_OPTION_SEL);
+  return options.length ? options : within(DROPDOWN_MENUITEM_SEL);
+}
+
+/** The press and click a person makes, so libraries that act on pointerdown or mousedown see it too. */
+function _clickDropdownItem(el) {
+  el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const r = el.getBoundingClientRect();
+  const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };
+  const pointer = { ...opts, pointerType: 'mouse', isPrimary: true };
+  el.dispatchEvent(new PointerEvent('pointerdown', pointer));
+  el.dispatchEvent(new MouseEvent('mousedown', opts));
+  el.dispatchEvent(new PointerEvent('pointerup', pointer));
+  el.dispatchEvent(new MouseEvent('mouseup', opts));
+  el.click();
+}
+
+/** Custom dropdown, already opened: wait for item `pick.index`, then click it. */
+async function pickDropdownItem(action) {
+  const pick = action.pick || {};
+  const parsed = parsePickIndex(pick.index);
+  if (parsed.error) return { failed: true, error: `Dropdown: ${parsed.error}` };
+  let trigger = null;
+  if (!pick.itemSelector) {
+    const sels = action.selectors && typeof action.selectors === 'object' ? action.selectors : { css: action.selector };
+    trigger = await findElementWithFallback(sels, 500).catch(() => null);
+  }
+  const eligible = (items) => (k) => !_itemDisabled(items[k]) && items[k].textContent.trim() !== '';
+  const deadline = Date.now() + DROPDOWN_ITEM_WAIT_MS;
+  let items, r;
+  for (;;) {
+    try {
+      items = _dropdownItems(trigger, pick.itemSelector);
+    } catch (e) {
+      return { failed: true, error: `Dropdown: item selector "${pick.itemSelector}" — ${e.message}` };
+    }
+    r = pickItemIndex(pick.index, items.length, eligible(items));
+    if (!r.error || Date.now() >= deadline) break;
+    await new Promise((res) => setTimeout(res, DROPDOWN_ITEM_POLL_MS));
+  }
+  if (r.error) {
+    const where = pick.itemSelector
+      ? `"${pick.itemSelector}"`
+      : 'role=option / menuitem (set Items to the selector of the items)';
+    return { failed: true, error: `Dropdown: ${r.error}; items looked for: ${where}` };
+  }
+  const item = items[r.index];
+  const text = item.textContent.trim().replace(/\s+/g, ' ').slice(0, 80);
+  if (_itemDisabled(item)) return { failed: true, error: `Dropdown: item #${r.index + 1} ("${text}") is disabled` };
+  _clickDropdownItem(item);
+  return { picked: { index: r.index + 1, text, count: items.length } };
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== 'PLAY_ACTION') return;
 
@@ -575,6 +752,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     // sticky values into resolvedVars for the rest of the run.
     const _rf = {};
     const _ok = (data = {}) => sendResponse({ ...data, resolvedFallbacks: _rf });
+
+    /* ── dropdown, opened by the worker: choose its item ── */
+    if (action.type === 'dropdown' && msg.pickStage === 'items') {
+      const r = await pickDropdownItem(action);
+      if (r.failed) sendResponse(r); else _ok(r);
+      return;
+    }
 
     /* ── readdom ── */
     if (action.type === 'readdom') {
@@ -702,8 +886,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       return;
     }
 
-    /* ── DROPDOWN fallback ── */
+    /* ── DROPDOWN ── */
     if (action.type === 'dropdown') {
+      // Choose item #: a native <select> is set right here; any other dropdown
+      // is opened by the worker, which then asks for the item (pickStage 'items').
+      if (msg.pickStage === 'select') {
+        if (target.tagName !== 'SELECT') { _ok({ needsOpen: true }); return; }
+        const r = pickNativeOption(target, action.pick);
+        if (r.failed) sendResponse(r); else _ok(r);
+        return;
+      }
+      // Fallback opener, when the worker cannot click through CDP.
       target.click();
       _ok();
       return;
@@ -837,25 +1030,26 @@ function _extRegisterThemed(apply) {
 
 function _extApplyTheme() {
   const t = _extTokens();
-  _extThemed.forEach((e) => { try { e.apply(t); } catch (_) {} });
+  _extThemed.forEach((e) => { try { e.apply(t); } catch (_) { /* one broken surface must not stop the others repainting */ } });
   // Overlay surfaces are repainted by their own registry entry above; this
   // repaints the highlight panels' inner parts (swatches, note field, arrow),
   // which the template has no way to know about.
-  try { _hlApplyTipTheme(); } catch (_) {}
+  try { _hlApplyTipTheme(); } catch (_) { /* highlight tooltip not built yet: nothing to repaint */ }
 }
 
 // Load the popup's theme once, up front. Owned here rather than by the
 // highlight bootstrap so the capture overlays are themed even when the
 // highlight engine bails out early (e.g. invalidated extension context).
+// 'popupTheme' is THEME_KEY in shared/storage-keys.js; a classic script cannot import it.
 try {
   chrome.storage.local.get(['popupTheme'], (res) => {
     try {
       void chrome.runtime.lastError;
       _extTheme = res?.popupTheme === 'dark' ? 'dark' : 'light';
       _extApplyTheme();
-    } catch (_) {}
+    } catch (_) { /* context invalidated mid-callback: keep the current theme */ }
   });
-} catch (_) {}
+} catch (_) { /* extension context invalidated: keep the default theme */ }
 
 // Base declarations for a floating overlay panel. `extra` is appended last so
 // callers can override any of the defaults (e.g. a non-neutral background).
@@ -1159,7 +1353,7 @@ document.addEventListener('click', (event) => {
     height: Math.round(_cr.height),
   };
 
-  try { chrome.storage.local.set({ lastPickedSelector: selectors.css, lastPickedSelectors: selectors, lastPickedFrameId: _myFrameId }); } catch (_) {}
+  try { chrome.storage.local.set({ lastPickedSelector: selectors.css, lastPickedSelectors: selectors, lastPickedFrameId: _myFrameId }); } catch (_) { /* context invalidated: ELEMENT_PICKED below still carries the selector */ }
   safeSend({ type: 'ELEMENT_PICKED', selector: selectors.css, selectors, rect: pickedRect, frameId: _myFrameId });
   pickerMode = false;
   clearPickerUI();
@@ -1228,13 +1422,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const s = selectorMap;
       if (s && typeof s === 'object') {
         let el = null;
-        try { if (s.fullXpath) el = document.evaluate(s.fullXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; } catch(_) {}
+        try { if (s.fullXpath) el = document.evaluate(s.fullXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; } catch(_) { /* invalid XPath: fall through to the next selector */ }
         if (!el && s.id) el = document.getElementById(s.id);
-        try { if (!el && s.xpath) el = document.evaluate(s.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; } catch(_) {}
-        if (!el && s.css) { try { el = document.querySelector(s.css); } catch(_) {} }
+        try { if (!el && s.xpath) el = document.evaluate(s.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; } catch(_) { /* invalid XPath: fall through to the next selector */ }
+        if (!el && s.css) { try { el = document.querySelector(s.css); } catch(_) { /* invalid CSS: no element */ } }
         return el || null;
       }
-      if (selector) { try { return document.querySelector(selector); } catch(_) {} }
+      if (selector) { try { return document.querySelector(selector); } catch(_) { /* invalid CSS: no element */ } }
       return null;
     };
 
@@ -1342,16 +1536,16 @@ let activeHotkeys = {
 
 try {
   chrome.storage.sync.get(['hotkeys'], (res) => {
-    try { void chrome.runtime.lastError; if (res?.hotkeys) activeHotkeys = { ...activeHotkeys, ...res.hotkeys }; } catch (_) {}
+    try { void chrome.runtime.lastError; if (res?.hotkeys) activeHotkeys = { ...activeHotkeys, ...res.hotkeys }; } catch (_) { /* context invalidated mid-callback: keep the default hotkeys */ }
   });
-} catch (_) {}
+} catch (_) { /* extension context invalidated: keep the default hotkeys */ }
 try {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes.hotkeys) {
       activeHotkeys = { ...activeHotkeys, ...changes.hotkeys.newValue };
     }
   });
-} catch (_) {}
+} catch (_) { /* extension context invalidated: no live hotkey updates */ }
 
 function getKeyCombo(e) {
   const parts = [];
@@ -1383,18 +1577,23 @@ let _countdownOverlay = null;
 // so ESC never stays hijacked from the page.
 let _fullCaptureActive = false;
 let _fullCaptureSafetyTimer = null;
+// Longer than any capture takes; only a lost "off" message ever reaches it.
+const FULL_CAPTURE_SAFETY_MS = 120_000;
 
 function _setFullCaptureActive(active) {
   _fullCaptureActive = active;
   clearTimeout(_fullCaptureSafetyTimer);
   if (active) {
-    _fullCaptureSafetyTimer = setTimeout(() => { _fullCaptureActive = false; }, 120000);
+    _fullCaptureSafetyTimer = setTimeout(() => { _fullCaptureActive = false; }, FULL_CAPTURE_SAFETY_MS);
   }
 }
 
 // `fromHotkey` is carried all the way to the background so the capture result
 // can be reported as a notification. A hotkey capture happens with the popup
 // closed, so the SCREENSHOT_RESULT toast has nobody to show it to.
+// One count of the countdown.
+const COUNTDOWN_TICK_MS = 1000;
+
 function _startVisibleCountdown(seconds, crop, fromHotkey = false) {
   if (_countdownOverlay) return;
   let remaining = seconds;
@@ -1421,9 +1620,9 @@ function _startVisibleCountdown(seconds, crop, fromHotkey = false) {
     remaining--;
     if (remaining <= 0) { _fireVisibleCapture(crop, fromHotkey); return; }
     numEl.textContent = remaining;
-    _countdownTimer = setTimeout(tick, 1000);
+    _countdownTimer = setTimeout(tick, COUNTDOWN_TICK_MS);
   };
-  _countdownTimer = setTimeout(tick, 1000);
+  _countdownTimer = setTimeout(tick, COUNTDOWN_TICK_MS);
 }
 
 function _teardownCountdown() {
@@ -1453,6 +1652,33 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
+/** The record hotkeys: start or stop, on an activated tab only. */
+function _hotkeyRecord(combo) {
+  try {
+    if (!chrome.runtime?.id) return;
+    chrome.runtime.sendMessage({ type: 'IS_TAB_ACTIVATED' }, (res) => {
+      if (chrome.runtime.lastError) return;
+      if (!res?.activated) return;
+      if (combo === activeHotkeys.startRecord) { safeSend({ type: 'START_RECORD' }); }
+      else                                     { safeSend({ type: 'STOP_RECORD'  }); }
+    });
+  } catch (_) { /* extension context invalidated: the hotkey does nothing */ }
+}
+
+/** The screenshot hotkey: after the countdown when it is on, cropping either way. */
+function _hotkeyScreenshot() {
+  try {
+    if (!chrome.runtime?.id) return;
+    chrome.storage.local.get(['screenshotCountdownEnabled', 'screenshotCountdownSeconds'], (res) => {
+      try {
+        void chrome.runtime.lastError;
+        if (res.screenshotCountdownEnabled) _startVisibleCountdown(res.screenshotCountdownSeconds || 3, true, true);
+        else safeSend({ type: 'TAKE_SCREENSHOT', crop: true, fromHotkey: true });
+      } catch (_) { /* context invalidated mid-callback: the hotkey does nothing */ }
+    });
+  } catch (_) { /* extension context invalidated: the hotkey does nothing */ }
+}
+
 document.addEventListener('keydown', (e) => {
   // Held keys re-fire 'keydown' at the OS repeat rate. Without this guard, a
   // press that lasts a beat too long re-triggers the matched hotkey (most
@@ -1477,27 +1703,10 @@ document.addEventListener('keydown', (e) => {
 
   if (combo === activeHotkeys.startRecord || combo === activeHotkeys.stopRecord) {
     e.preventDefault();
-    try {
-      if (!chrome.runtime?.id) return;
-      chrome.runtime.sendMessage({ type: 'IS_TAB_ACTIVATED' }, (res) => {
-        if (chrome.runtime.lastError) return;
-        if (!res?.activated) return;
-        if (combo === activeHotkeys.startRecord) { safeSend({ type: 'START_RECORD' }); }
-        else                                     { safeSend({ type: 'STOP_RECORD'  }); }
-      });
-    } catch (_) {}
+    _hotkeyRecord(combo);
   } else if (combo === activeHotkeys.screenshot) {
     e.preventDefault();
-    try {
-      if (!chrome.runtime?.id) return;
-      chrome.storage.local.get(['screenshotCountdownEnabled', 'screenshotCountdownSeconds'], (res) => {
-        try {
-          void chrome.runtime.lastError;
-          if (res.screenshotCountdownEnabled) _startVisibleCountdown(res.screenshotCountdownSeconds || 3, true, true);
-          else safeSend({ type: 'TAKE_SCREENSHOT', crop: true, fromHotkey: true });
-        } catch (_) {}
-      });
-    } catch (_) {}
+    _hotkeyScreenshot();
   } else if (combo === activeHotkeys.screenshotFull)   { e.preventDefault(); safeSend({ type: 'TAKE_SCREENSHOT_FULL', crop: true, fromHotkey: true }); }
   else if (activeHotkeys.screenshotScrollV && combo === activeHotkeys.screenshotScrollV) { e.preventDefault(); safeSend({ type: 'TAKE_SCREENSHOT_SCROLL_V', fromHotkey: true }); }
   else if (activeHotkeys.screenshotScrollH && combo === activeHotkeys.screenshotScrollH) { e.preventDefault(); safeSend({ type: 'TAKE_SCREENSHOT_SCROLL_H', fromHotkey: true }); }
@@ -1528,7 +1737,7 @@ function _closeFailPrompt(choice) {
   const { handle, respond } = _failPrompt;
   _failPrompt = null;
   handle.destroy();
-  try { respond(choice ? { choice } : { closed: true }); } catch (_) {}
+  try { respond(choice ? { choice } : { closed: true }); } catch (_) { /* the waiting side already gave up: nothing to answer */ }
 }
 
 function _failPromptLine(text, extra = []) {
@@ -1633,6 +1842,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   // Declared before the overlay so the button handlers can close over it; the
   // template calls back into these, never the other way round.
+  // eslint-disable-next-line prefer-const -- assigned below, after the overlay exists
   let cleanup, capture;
 
   const bar = _extOverlay({
@@ -1658,9 +1868,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const speedKey = isVert ? 'segScrollSpeedV' : 'segScrollSpeedH';
   try {
     chrome.storage.sync.get([speedKey], (res) => {
-      try { void chrome.runtime.lastError; scrollStep = Math.min(10, Math.max(0.1, parseFloat(res?.[speedKey]) || 2)); } catch (_) {}
+      try { void chrome.runtime.lastError; scrollStep = Math.min(10, Math.max(0.1, parseFloat(res?.[speedKey]) || 2)); } catch (_) { /* context invalidated mid-callback: keep the default speed */ }
     });
-  } catch (_) {}
+  } catch (_) { /* extension context invalidated: keep the default speed */ }
 
   const scrollLoop = () => {
     if (scrollStopped) return;
@@ -1727,6 +1937,8 @@ function _hlCtxOk() { return !!chrome.runtime?.id; }
 let _hlEnabled      = true;
 let _hlObserver     = null;
 let _hlRestoreTimer = null;
+// Page changes are waited out this long before marks are restored.
+const HL_RESTORE_DEBOUNCE_MS = 600;
 let _hlStyleEl      = null;
 
 /**
@@ -1782,7 +1994,7 @@ function _hlSetEnabled(on) {
     if (!_hlObserver) {
       _hlObserver = new MutationObserver(() => {
         clearTimeout(_hlRestoreTimer);
-        _hlRestoreTimer = setTimeout(() => { if (_hlCtxOk()) _hlRestore(); }, 600);
+        _hlRestoreTimer = setTimeout(() => { if (_hlCtxOk()) _hlRestore(); }, HL_RESTORE_DEBOUNCE_MS);
       });
       _hlObserver.observe(document.documentElement, { childList: true, subtree: true });
       _hlRestore();
@@ -1852,6 +2064,8 @@ function _hlUnwrapAll() {
 // Patterns changed → this page's storage key may have moved. Repaint from the
 // bucket the page now resolves to.
 let _hlPatternRefreshTimer = null;
+// Pattern changes arriving together are applied once.
+const HL_PATTERN_REFRESH_MS = 150;
 function _hlRefreshForPatterns() {
   clearTimeout(_hlPatternRefreshTimer);
   _hlPatternRefreshTimer = setTimeout(() => {
@@ -1862,7 +2076,7 @@ function _hlRefreshForPatterns() {
     _hlHideNotePop();
     _hlUnwrapAll();
     _hlRestore();
-  }, 150);
+  }, HL_PATTERN_REFRESH_MS);
 }
 
 // ── Bootstrap: load patterns + enabled state, then start observer ──
@@ -1895,7 +2109,7 @@ try {
       _extApplyTheme();
     }
   });
-} catch (_) {}
+} catch (_) { /* extension context invalidated: no live theme updates */ }
 
 function _hlGetAll(cb) {
   try {
@@ -1904,9 +2118,9 @@ function _hlGetAll(cb) {
       try {
         void chrome.runtime.lastError;
         cb(res[_HL_KEY] || {});
-      } catch (_) {}
+      } catch (_) { /* context invalidated mid-callback: highlights are not restored */ }
     });
-  } catch (_) {}
+  } catch (_) { /* extension context invalidated: highlights are not restored */ }
 }
 
 function _hlSavePage(list, cb) {
@@ -1954,6 +2168,10 @@ let _hlNotePop    = null;   // small bubble showing a highlight's note on hover
 // highlight UI and the capture chrome stay on one palette. See _EXT_THEMES.
 const _HL_TIP_THEMES = _EXT_THEMES;
 
+// Solid swatch colour of each highlight colour: the tooltip's colour dots and the
+// note bubble's accent.
+const _HL_SWATCHES = { yellow:'#fde047', green:'#86efac', pink:'#f9a8d4', blue:'#93c5fd', orange:'#fdba74' };
+
 function _hlTipEl() {
   if (_hlTip) return _hlTip;
   const t0 = _extTokens();
@@ -1977,7 +2195,7 @@ function _hlTipEl() {
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:6px;align-items:center;font-family:inherit;line-height:0;';
 
-  const DOTS = { yellow:'#fde047', green:'#86efac', pink:'#f9a8d4', blue:'#93c5fd', orange:'#fdba74' };
+  const DOTS = _HL_SWATCHES;
   const LABELS = { yellow:'Yellow', green:'Green', pink:'Pink', blue:'Blue', orange:'Orange' };
   _hlColorBtns = {};
   Object.keys(DOTS).forEach(color => {
@@ -2230,6 +2448,9 @@ function _hlHideTip() {
   _hlTipEditId = null;
 }
 
+// The selection is read a moment after mouseup, once the browser has settled it.
+const SELECTION_SETTLE_MS = 10;
+
 document.addEventListener('mouseup', e => {
   setTimeout(() => {
     if (!_hlEnabled) return;
@@ -2244,7 +2465,7 @@ document.addEventListener('mouseup', e => {
     _hlAnchor = _hlGetFlatCtx(range);
     _hlParentSel = _hlGetParentSel(range);
     _hlShowTip(range.getBoundingClientRect());
-  }, 10);
+  }, SELECTION_SETTLE_MS);
 }, true);
 
 document.addEventListener('mousedown', e => {
@@ -2256,9 +2477,9 @@ document.addEventListener('mousedown', e => {
    and an interactive body (hover in to select/copy text or click links). */
 const _HL_NOTE_SHOW_DELAY = 280;   // ms of hover before the bubble appears
 const _HL_NOTE_HIDE_DELAY = 200;   // ms grace to cross the gap into the bubble
-// Solid swatch colours (mirror the tooltip dots) for the bubble's accent —
-// links the bubble visually to the highlight it belongs to.
-const _HL_NOTE_ACCENT = { yellow:'#fde047', green:'#86efac', pink:'#f9a8d4', blue:'#93c5fd', orange:'#fdba74' };
+// The tooltip's swatch colours, as the bubble's accent — links the bubble
+// visually to the highlight it belongs to.
+const _HL_NOTE_ACCENT = _HL_SWATCHES;
 let _hlNotePopMark = null;          // mark the bubble is currently showing for
 let _hlNotePopShowT = null;
 let _hlNotePopHideT = null;
@@ -2367,7 +2588,7 @@ function _hlPositionNotePop(pop, mark) {
   let above = true;
   let top = r.top - ph - 9;
   if (top < 8) { top = r.bottom + 9; above = false; }
-  let left = Math.max(8, Math.min(markCx - pw / 2, window.innerWidth - pw - 8));
+  const left = Math.max(8, Math.min(markCx - pw / 2, window.innerWidth - pw - 8));
   pop.style.top  = top  + 'px';
   pop.style.left = left + 'px';
 
@@ -2452,7 +2673,8 @@ function _hlHideNotePop() {
   const pop = _hlNotePop;
   pop.style.opacity = '0';
   pop.style.transform = 'translateY(6px) scale(0.96)';
-  setTimeout(() => { if (pop.style.opacity === '0') pop.style.display = 'none'; }, 160);
+  const NOTE_POP_FADE_MS = 160; // the fade-out above, then it is taken out of the layout
+  setTimeout(() => { if (pop.style.opacity === '0') pop.style.display = 'none'; }, NOTE_POP_FADE_MS);
 }
 
 // Hover a highlight that has a note → show the note bubble (unless the edit
@@ -2506,7 +2728,7 @@ function _hlGetParentSel(range) {
   }
 
   const sel = path.join(' > ');
-  try { if (sel && document.querySelector(sel)) return sel; } catch (_) {}
+  try { if (sel && document.querySelector(sel)) return sel; } catch (_) { /* the path is not a valid selector: no selector */ }
   return '';
 }
 
@@ -2733,7 +2955,7 @@ function _hlFindRange(text, anchor = '', parentSel = '') {
         const r = _hlFindRangeIn(root, text);
         if (r) return r;
       }
-    } catch (_) {}
+    } catch (_) { /* stale parent selector: search the whole page below */ }
   }
 
   const nodes = [];
@@ -2812,7 +3034,7 @@ async function _hlRestoreOne(h) {
       try {
         const el = await findElementWithFallback(h.containerSelectors, 2000);
         if (el) range = _hlFindRangeIn(el, h.text);
-      } catch (_) {}
+      } catch (_) { /* container not found: strategy 2 below */ }
     }
 
     // Strategy 2: parentSel + anchor (legacy / fallback)
@@ -2872,7 +3094,8 @@ function _hlScrollTo(id) {
   const prev = m.style.outline;
   m.style.outline = '2.5px solid #6366f1';
   m.style.outlineOffset = '2px';
-  setTimeout(() => { m.style.outline = prev; m.style.outlineOffset = ''; }, 1200);
+  const FLASH_MS = 1200; // how long the scrolled-to mark stays outlined
+  setTimeout(() => { m.style.outline = prev; m.style.outlineOffset = ''; }, FLASH_MS);
   return true;
 }
 
