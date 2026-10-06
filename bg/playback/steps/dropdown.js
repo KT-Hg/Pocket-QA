@@ -1,6 +1,7 @@
 /**
- * playback/steps/dropdown.js — Dropdown: open it with a trusted CDP click, and
- * with "Choose item #" (action.pick, shared/dropdown-pick.js) choose an item.
+ * playback/steps/dropdown.js — Dropdown: open it with a trusted CDP click (the
+ * page's own click where CDP cannot reach the trigger), and with "Choose item #"
+ * (action.pick, shared/dropdown-pick.js) choose an item.
  */
 
 import { cssEscape } from '../../../shared/css-escape.js';
@@ -16,9 +17,21 @@ export async function runDropdown(ctx, i, action) {
     || (action.selectors?.id ? `#${cssEscape(action.selectors.id)}` : null)
     || action.selector || '';
   if (action.pick) return _pickItem(ctx, i, action, cssSel);
-  if (cssSel) await openDropdownViaCdp(tabId, cssSel);
+  if (_cdpCanOpen(action, cssSel)) await openDropdownViaCdp(tabId, cssSel);
+  // Like the CDP click, a trigger the page cannot find is not a failure here.
+  else if (cssSel) await tabMsg(tabId, { type: 'PLAY_ACTION', action }, pageReplyTimeout(action), action.frameId);
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;
+}
+
+/**
+ * CDP evaluates a CSS selector in the top frame only, so a trigger inside a
+ * frame, or known only by XPath, is clicked by the page instead.
+ */
+function _cdpCanOpen(action, cssSel) {
+  const inFrame = action.frameId != null && action.frameId !== 0;
+  const isXPath = /^[/(]/.test(cssSel);
+  return !!cssSel && !isXPath && !inFrame;
 }
 
 /**
@@ -32,11 +45,7 @@ async function _pickItem(ctx, i, action, cssSel) {
 
   let result = await toPage('select');
   if (!result?.failed && result?.needsOpen) {
-    // CDP evaluates a CSS selector in the top frame only, so a trigger inside a
-    // frame, or known only by XPath, is clicked by the page instead.
-    const inFrame = action.frameId != null && action.frameId !== 0;
-    const isXPath = /^[/(]/.test(cssSel);
-    if (cssSel && !isXPath && !inFrame) await openDropdownViaCdp(tabId, cssSel);
+    if (_cdpCanOpen(action, cssSel)) await openDropdownViaCdp(tabId, cssSel);
     else await toPage(undefined);
     result = await toPage('items');
   }

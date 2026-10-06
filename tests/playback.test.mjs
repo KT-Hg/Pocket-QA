@@ -231,6 +231,13 @@ await run('dropdown on an attached session', play([
   teardown: () => { chrome.debugger.attach = saved.attach; },
 });
 
+await run('dropdown: opened by the page', play([
+  { type: 'dropdown', selector: '//div[@id="x"]', selectors: { xpath: '//div[@id="x"]' } },
+  { type: 'dropdown', selector: '#framed', frameId: 2 },
+  { type: 'dropdown', selector: '(//ul)[2]', selectors: { xpath: '(//ul)[2]' } },
+  hover('#end'),
+], {}), { setup: () => { page['(//ul)[2]'] = { failed: true }; } });
+
 await run('clicks that navigate, fail, retry', play([
   { type: 'select', selector: '#s', delay: 20 },
   { type: 'click', selector: '#navaway', delay: 15 },
