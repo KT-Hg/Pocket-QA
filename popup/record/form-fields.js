@@ -192,8 +192,6 @@ export function updateDropdownForm() {
   if (wrap) wrap.dataset.mode = document.getElementById("dropdownPickMode")?.value || "";
 }
 
-export let connectionStatus;
-
 export function initFormFields() {
   // Listen for conditionType changes
   if (conditionType) {
@@ -216,6 +214,4 @@ export function initFormFields() {
     if (selectorSection) selectorSection.style.display = this.value === "element" ? "block" : "none";
     updateStepLabels();
   });
-  // Status indicator elements
-  connectionStatus = document.getElementById("connectionStatus");
 }

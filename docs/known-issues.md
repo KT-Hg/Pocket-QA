@@ -4,10 +4,7 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 
 ## Bug có từ trước (thấy trong đợt refactor)
 
-- **Health check kết nối 2 giây của popup không bao giờ chạy.** `checkContentScriptConnection`
-  (`popup/connection.js`) đọc `state.currentTabId` / `state.activatedTabs` của `popup/state.js`, nhưng không ai gán
-  hai giá trị đó; interval của nó cũng không bao giờ bị xoá (dù callback không làm gì). Cần quyết định: bật health
-  check (tab có thể bị đánh dấu "Lost") hay xoá hẳn.
+Đã sửa hết.
 
 ## Giới hạn của tính năng
 

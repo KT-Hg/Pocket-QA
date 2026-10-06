@@ -3,10 +3,7 @@
  * lock overlay on tabs that cannot be used, and the cards gated by activation.
  */
 
-import { startConnectionCheck } from './connection.js';
 import { activateTab, activationStatus, deactivateTab } from './dom.js';
-import { connectionStatus } from './record/form-fields.js';
-import { ui } from './ui-state.js';
 import { COLLAPSIBLE_STATE_KEY } from './ui/collapsible.js';
 import { CONTENT_SCRIPT_FILES, isEligibleTab, lockScroll, showConfirm, unlockScroll } from './utils.js';
 
@@ -114,7 +111,6 @@ function checkTabActivation() {
       hideLockOverlay();
       document.body.dataset.activation = 'active';
       syncGatedCardCollapse(true);
-      startConnectionCheck();
     } else {
       activationStatus.textContent = "Inactive";
       activationStatus.style.color = "var(--danger)";
@@ -125,13 +121,6 @@ function checkTabActivation() {
       showLockOverlay('data', 'inactive');
       document.body.dataset.activation = 'inactive';
       syncGatedCardCollapse(false);
-      if (ui.connectionCheckInterval) {
-        clearInterval(ui.connectionCheckInterval);
-        ui.connectionCheckInterval = null;
-      }
-      if (connectionStatus) {
-        connectionStatus.textContent = "";
-      }
     }
   });
 }
@@ -144,8 +133,7 @@ export function initTabActivation() {
     checkTabActivation();
   });
   // Re-check the lock whenever init.js's switchTab() flips data-active-tab, since
-  // showLockOverlay/hideLockOverlay run independently of tab switches (driven by
-  // the connection-check interval).
+  // showLockOverlay/hideLockOverlay run independently of tab switches.
   new MutationObserver(_syncOverlayScrollLock).observe(document.body, {
     attributeFilter: ['data-active-tab'],
   });
@@ -199,14 +187,6 @@ export function initTabActivation() {
 
         activatedTabs.delete(tab.id);
         chrome.storage.local.set({ activatedTabs: Array.from(activatedTabs) });
-
-        if (ui.connectionCheckInterval) {
-          clearInterval(ui.connectionCheckInterval);
-          ui.connectionCheckInterval = null;
-        }
-        if (connectionStatus) {
-          connectionStatus.textContent = "";
-        }
 
         // Reload the tab to unload the content script.
         chrome.tabs.reload(tab.id, () => {

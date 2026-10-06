@@ -5,11 +5,11 @@
  *  1. initHeaderSpacer / initTabs — structural layout must be ready before content renders.
  *  2. initTheme — applies before any elements render to avoid flash of wrong theme.
  *  3. Feature modules (screenshots, variables, settings, main, exports) — order is independent.
- *  4. startConnectionCheck — starts the PING interval after UI is ready.
  */
 
 import { initTheme } from './theme.js';
-import { startConnectionCheck } from './connection.js';
+// Starts the status bar's poll when it loads; kept second, where it always loaded.
+import './connection.js';
 import { initScreenshots } from './screenshots.js';
 import { initVariables } from './variables.js';
 import { initSettings, reloadSettings } from './settings.js';
@@ -332,4 +332,3 @@ step('initExportSelenium',     initExportSelenium);
 step('initImageEditor',        initImageEditor);
 step('initHighlight',          initHighlight);
 step('initUpdateBanner',       initUpdateBanner);
-step('startConnectionCheck',   startConnectionCheck);

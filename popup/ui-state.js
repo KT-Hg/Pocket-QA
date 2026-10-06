@@ -5,9 +5,7 @@
  * the schedule being edited and the CSV run.
  *
  * One object so every module reads and writes the same values (ES module
- * bindings cannot be assigned from outside). Separate from popup/state.js:
- * `connectionCheckInterval` here is this UI's own copy, not
- * state.connectionCheckInterval, which popup/connection.js uses.
+ * bindings cannot be assigned from outside).
  */
 
 export const ui = {
@@ -25,8 +23,6 @@ export const ui = {
   currentPickedDragdropTargetSelectors: null,
   actionClipboard: null,
   pickerMode: false,
-  // Connection check state
-  connectionCheckInterval: null,
   _switchCases: [], // [{ value, scenarioId, scenarioName, startAt?, endAt?, empty? }]
   // continueAt of the Switch in the form: null = automatic (right after its block).
   _switchContinueAt: null,

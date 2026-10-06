@@ -1,81 +1,17 @@
 /**
- * connection.js — Content script connectivity check and popup status indicator.
+ * connection.js — Popup status indicator.
  *
  * Responsibilities:
- *  - PING the content script on the active tab and auto-reinject on failure.
  *  - Drive the "Now Playing" bar, mini panel, and progress bar based on
  *    background playback/recording state polled via GET_EXTENSION_STATUS.
  *  - Throttle the poll rate: 150 ms while active, 2 000 ms when idle.
  */
 
-import { CONTENT_SCRIPT_FILES } from './utils.js';
-import { state } from './state.js';
-
-const MAX_CONNECTION_RETRIES = 5;
-// How often the tab's content script is checked, and the status line refreshed.
-const CONNECTION_CHECK_MS = 2000;
+// How often the status line is refreshed while nothing runs.
 const STATUS_REFRESH_MS = 2000;
 
 let _lastActiveState = false;
 let statusInterval = null;
-
-/**
- * PING the content script on the current tab and update the connection badge.
- * On failure, re-injects content.js up to MAX_CONNECTION_RETRIES times before
- * marking the tab as disconnected and removing it from activatedTabs.
- */
-function checkContentScriptConnection() {
-  const connectionStatus = document.getElementById('connectionStatus');
-  const activateTab = document.getElementById('activateTab');
-  const deactivateTab = document.getElementById('deactivateTab');
-
-  if (!state.currentTabId || !state.activatedTabs.has(state.currentTabId)) {
-    if (connectionStatus) {
-      connectionStatus.textContent = '';
-    }
-    return;
-  }
-
-  chrome.tabs.sendMessage(state.currentTabId, { type: 'PING' }, (response) => {
-    if (chrome.runtime.lastError || !response || !response.ready) {
-      state.connectionRetryCount++;
-
-      if (state.connectionRetryCount >= MAX_CONNECTION_RETRIES) {
-        if (connectionStatus) {
-          connectionStatus.textContent = 'Lost';
-          connectionStatus.style.color = 'var(--danger)';
-        }
-        if (activateTab) activateTab.style.display = 'block';
-        if (deactivateTab) deactivateTab.style.display = 'none';
-        state.activatedTabs.delete(state.currentTabId);
-        chrome.storage.local.set({ activatedTabs: Array.from(state.activatedTabs) });
-      } else {
-        if (connectionStatus) {
-          connectionStatus.textContent = `Retry ${state.connectionRetryCount}/${MAX_CONNECTION_RETRIES}`;
-          connectionStatus.style.color = 'var(--warning, #f59e0b)';
-        }
-        chrome.scripting.executeScript({
-          target: { tabId: state.currentTabId },
-          files: CONTENT_SCRIPT_FILES
-        }).catch(() => {});
-      }
-    } else {
-      state.connectionRetryCount = 0;
-      if (connectionStatus) {
-        connectionStatus.textContent = 'Connected';
-        connectionStatus.style.color = 'var(--success)';
-      }
-    }
-  });
-}
-
-/** Start (or restart) the 2 s connection health-check interval. */
-export function startConnectionCheck() {
-  if (state.connectionCheckInterval) clearInterval(state.connectionCheckInterval);
-  state.connectionRetryCount = 0;
-  checkContentScriptConnection();
-  state.connectionCheckInterval = setInterval(checkContentScriptConnection, CONNECTION_CHECK_MS);
-}
 
 let _panelOpen = false;
 // Guards the "done" bar hold period: while true, the idle branch of
