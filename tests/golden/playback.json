@@ -206,6 +206,39 @@
   "pendingTimers": 0
  },
  {
+  "step": "dropdown: opened by the page",
+  "done": true,
+  "result": {
+   "vars": {},
+   "failed": [],
+   "shots": null
+  },
+  "calls": [
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/4\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"dropdown\",\"selector\":\"//div[@id=\\\"x\\\"]\",\"selectors\":{\"xpath\":\"//div[@id=\\\"x\\\"]\"}}},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"2/4\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"dropdown\",\"selector\":\"#framed\",\"frameId\":2}},{\"frameId\":2}]",
+   "action.setBadgeText [{\"text\":\"3/4\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"dropdown\",\"selector\":\"(//ul)[2]\",\"selectors\":{\"xpath\":\"(//ul)[2]\"}}},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"4/4\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#end\"}},{\"frameId\":0}]"
+  ],
+  "console": [],
+  "state": {
+   "playback": {"active":true,"tabId":1,"scenarioId":null,"scenarioName":"Direct","originalScenarioName":"Direct","actionIndex":3,"totalActions":4},
+   "sequencePlayback": {"active":false},
+   "csvPlayback": {"active":false},
+   "csvInterrupted": null,
+   "recording": false
+  },
+  "pendingTimers": 0
+ },
+ {
   "step": "clicks that navigate, fail, retry",
   "done": true,
   "result": {
