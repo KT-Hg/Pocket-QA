@@ -307,14 +307,18 @@
   "step": "visible: quota message (no \"rate\" in it)",
   "done": true,
   "result": {
-   "error": "Capture failed"
+   "success": true,
+   "filename": "cap_2026-01-15_09-00-01.png"
   },
   "calls": [
    "tabs.get [1]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
    "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
-   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]"
+   "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible3\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-00-01.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -377,7 +381,7 @@
    "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"cap_2026-01-15_09-00-02.png\",\"saveAs\":true}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"cap_2026-01-15_09-00-04.png\",\"saveAs\":true}]"
   ],
   "console": [],
   "zoom": {
@@ -399,7 +403,7 @@
    "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-00-03.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-00-04.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -413,7 +417,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_2026-01-15_09-00-03.png"
+   "filename": "cap_2026-01-15_09-00-04.png"
   },
   "calls": [
    "tabs.get [3]",
@@ -422,7 +426,7 @@
    "tabs.captureVisibleTab [2,{\"format\":\"png\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":3},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-00-03.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-00-04.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -436,7 +440,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_full_2026-01-15_09-00-03.png"
+   "filename": "cap_full_2026-01-15_09-00-04.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -460,7 +464,7 @@
    "debugger.detach [{\"tabId\":1}]",
    "tabs.setZoom [1,1.25]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-03.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-04.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -513,7 +517,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_full_2026-01-15_09-00-07.png"
+   "filename": "cap_full_2026-01-15_09-00-08.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -540,7 +544,7 @@
    "debugger.detach [{\"tabId\":1}]",
    "tabs.setZoom [1,1.25]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-07.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-08.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "storage": {
@@ -559,7 +563,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_full_2026-01-15_09-00-10.png"
+   "filename": "cap_full_2026-01-15_09-00-11.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -635,7 +639,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":9000,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",{\\\"canvas\\\":\\\"800x4000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,800,560,0,0,800,560],[\\\"draw\\\",\\\"cap2\\\",0,0,800,560,0,560,800,560],[\\\"draw\\\",\\\"cap3\\\",0,0,800,560,0,1120,800,560],[\\\"draw\\\",\\\"cap4\\\",0,0,800,560,0,1680,800,560],[\\\"draw\\\",\\\"cap5\\\",0,0,800,560,0,2240,800,560],[\\\"draw\\\",\\\"cap6\\\",0,0,800,560,0,2800,800,560],[\\\"draw\\\",\\\"cap7\\\",0,0,800,560,0,3360,800,560],[\\\"draw\\\",\\\"cap8\\\",0,0,800,80,0,3920,800,80]]},0,0],[\\\"draw\\\",{\\\"canvas\\\":\\\"800x4000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap8\\\",0,80,800,480,0,0,800,480],[\\\"draw\\\",\\\"cap9\\\",0,0,800,560,0,480,800,560],[\\\"draw\\\",\\\"cap10\\\",0,0,800,560,0,1040,800,560],[\\\"draw\\\",\\\"cap11\\\",0,0,800,560,0,1600,800,560],[\\\"draw\\\",\\\"cap12\\\",0,0,800,560,0,2160,800,560],[\\\"draw\\\",\\\"cap13\\\",0,0,800,560,0,2720,800,560],[\\\"draw\\\",\\\"cap14\\\",0,0,800,560,0,3280,800,560],[\\\"draw\\\",\\\"cap15\\\",0,0,800,160,0,3840,800,160]]},0,4000],[\\\"draw\\\",{\\\"canvas\\\":\\\"800x1000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap15\\\",0,160,800,400,0,0,800,400],[\\\"draw\\\",\\\"cap16\\\",0,0,800,560,0,400,800,560],[\\\"draw\\\",\\\"cap17\\\",0,0,800,40,0,960,800,40]]},0,8000]]}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-10.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":9000,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",{\\\"canvas\\\":\\\"800x4000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,800,560,0,0,800,560],[\\\"draw\\\",\\\"cap2\\\",0,0,800,560,0,560,800,560],[\\\"draw\\\",\\\"cap3\\\",0,0,800,560,0,1120,800,560],[\\\"draw\\\",\\\"cap4\\\",0,0,800,560,0,1680,800,560],[\\\"draw\\\",\\\"cap5\\\",0,0,800,560,0,2240,800,560],[\\\"draw\\\",\\\"cap6\\\",0,0,800,560,0,2800,800,560],[\\\"draw\\\",\\\"cap7\\\",0,0,800,560,0,3360,800,560],[\\\"draw\\\",\\\"cap8\\\",0,0,800,80,0,3920,800,80]]},0,0],[\\\"draw\\\",{\\\"canvas\\\":\\\"800x4000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap8\\\",0,80,800,480,0,0,800,480],[\\\"draw\\\",\\\"cap9\\\",0,0,800,560,0,480,800,560],[\\\"draw\\\",\\\"cap10\\\",0,0,800,560,0,1040,800,560],[\\\"draw\\\",\\\"cap11\\\",0,0,800,560,0,1600,800,560],[\\\"draw\\\",\\\"cap12\\\",0,0,800,560,0,2160,800,560],[\\\"draw\\\",\\\"cap13\\\",0,0,800,560,0,2720,800,560],[\\\"draw\\\",\\\"cap14\\\",0,0,800,560,0,3280,800,560],[\\\"draw\\\",\\\"cap15\\\",0,0,800,160,0,3840,800,160]]},0,4000],[\\\"draw\\\",{\\\"canvas\\\":\\\"800x1000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap15\\\",0,160,800,400,0,0,800,400],[\\\"draw\\\",\\\"cap16\\\",0,0,800,560,0,400,800,560],[\\\"draw\\\",\\\"cap17\\\",0,0,800,40,0,960,800,40]]},0,8000]]}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-11.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -649,7 +653,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_full_2026-01-15_09-00-13.png"
+   "filename": "cap_full_2026-01-15_09-00-14.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -821,7 +825,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":6251,\\\"h\\\":4251,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,1000,700,0,0,1000,700],[\\\"draw\\\",\\\"cap2\\\",0,0,1000,700,1000,0,1000,700],[\\\"draw\\\",\\\"cap3\\\",0,0,1000,700,2000,0,1000,700],[\\\"draw\\\",\\\"cap4\\\",0,0,1000,700,3000,0,1000,700],[\\\"draw\\\",\\\"cap5\\\",0,0,1000,700,4000,0,1000,700],[\\\"draw\\\",\\\"cap6\\\",0,0,1000,700,5000,0,1000,700],[\\\"draw\\\",\\\"cap7\\\",0,0,251,700,6000,0,251,700],[\\\"draw\\\",\\\"cap8\\\",0,0,1000,700,0,700,1000,700],[\\\"draw\\\",\\\"cap9\\\",0,0,1000,700,1000,700,1000,700],[\\\"draw\\\",\\\"cap10\\\",0,0,1000,700,2000,700,1000,700],[\\\"draw\\\",\\\"cap11\\\",0,0,1000,700,3000,700,1000,700],[\\\"draw\\\",\\\"cap12\\\",0,0,1000,700,4000,700,1000,700],[\\\"draw\\\",\\\"cap13\\\",0,0,1000,700,5000,700,1000,700],[\\\"draw\\\",\\\"cap14\\\",0,0,251,700,6000,700,251,700],[\\\"draw\\\",\\\"cap15\\\",0,0,1000,700,0,1400,1000,700],[\\\"draw\\\",\\\"cap16\\\",0,0,1000,700,1000,1400,1000,700],[\\\"draw\\\",\\\"cap17\\\",0,0,1000,700,2000,1400,1000,700],[\\\"draw\\\",\\\"cap18\\\",0,0,1000,700,3000,1400,1000,700],[\\\"draw\\\",\\\"cap19\\\",0,0,1000,700,4000,1400,1000,700],[\\\"draw\\\",\\\"cap20\\\",0,0,1000,700,5000,1400,1000,700],[\\\"draw\\\",\\\"cap21\\\",0,0,251,700,6000,1400,251,700],[\\\"draw\\\",\\\"cap22\\\",0,0,1000,700,0,2100,1000,700],[\\\"draw\\\",\\\"cap23\\\",0,0,1000,700,1000,2100,1000,700],[\\\"draw\\\",\\\"cap24\\\",0,0,1000,700,2000,2100,1000,700],[\\\"draw\\\",\\\"cap25\\\",0,0,1000,700,3000,2100,1000,700],[\\\"draw\\\",\\\"cap26\\\",0,0,1000,700,4000,2100,1000,700],[\\\"draw\\\",\\\"cap27\\\",0,0,1000,700,5000,2100,1000,700],[\\\"draw\\\",\\\"cap28\\\",0,0,251,700,6000,2100,251,700],[\\\"draw\\\",\\\"cap29\\\",0,0,1000,700,0,2800,1000,700],[\\\"draw\\\",\\\"cap30\\\",0,0,1000,700,1000,2800,1000,700],[\\\"draw\\\",\\\"cap31\\\",0,0,1000,700,2000,2800,1000,700],[\\\"draw\\\",\\\"cap32\\\",0,0,1000,700,3000,2800,1000,700],[\\\"draw\\\",\\\"cap33\\\",0,0,1000,700,4000,2800,1000,700],[\\\"draw\\\",\\\"cap34\\\",0,0,1000,700,5000,2800,1000,700],[\\\"draw\\\",\\\"cap35\\\",0,0,251,700,6000,2800,251,700],[\\\"draw\\\",\\\"cap36\\\",0,0,1000,700,0,3500,1000,700],[\\\"draw\\\",\\\"cap37\\\",0,0,1000,700,1000,3500,1000,700],[\\\"draw\\\",\\\"cap38\\\",0,0,1000,700,2000,3500,1000,700],[\\\"draw\\\",\\\"cap39\\\",0,0,1000,700,3000,3500,1000,700],[\\\"draw\\\",\\\"cap40\\\",0,0,1000,700,4000,3500,1000,700],[\\\"draw\\\",\\\"cap41\\\",0,0,1000,700,5000,3500,1000,700],[\\\"draw\\\",\\\"cap42\\\",0,0,251,700,6000,3500,251,700],[\\\"draw\\\",\\\"cap43\\\",0,0,1000,51,0,4200,1000,51],[\\\"draw\\\",\\\"cap44\\\",0,0,1000,51,1000,4200,1000,51],[\\\"draw\\\",\\\"cap45\\\",0,0,1000,51,2000,4200,1000,51],[\\\"draw\\\",\\\"cap46\\\",0,0,1000,51,3000,4200,1000,51],[\\\"draw\\\",\\\"cap47\\\",0,0,1000,51,4000,4200,1000,51],[\\\"draw\\\",\\\"cap48\\\",0,0,1000,51,5000,4200,1000,51],[\\\"draw\\\",\\\"cap49\\\",0,0,251,51,6000,4200,251,51]]}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-13.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":6251,\\\"h\\\":4251,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,1000,700,0,0,1000,700],[\\\"draw\\\",\\\"cap2\\\",0,0,1000,700,1000,0,1000,700],[\\\"draw\\\",\\\"cap3\\\",0,0,1000,700,2000,0,1000,700],[\\\"draw\\\",\\\"cap4\\\",0,0,1000,700,3000,0,1000,700],[\\\"draw\\\",\\\"cap5\\\",0,0,1000,700,4000,0,1000,700],[\\\"draw\\\",\\\"cap6\\\",0,0,1000,700,5000,0,1000,700],[\\\"draw\\\",\\\"cap7\\\",0,0,251,700,6000,0,251,700],[\\\"draw\\\",\\\"cap8\\\",0,0,1000,700,0,700,1000,700],[\\\"draw\\\",\\\"cap9\\\",0,0,1000,700,1000,700,1000,700],[\\\"draw\\\",\\\"cap10\\\",0,0,1000,700,2000,700,1000,700],[\\\"draw\\\",\\\"cap11\\\",0,0,1000,700,3000,700,1000,700],[\\\"draw\\\",\\\"cap12\\\",0,0,1000,700,4000,700,1000,700],[\\\"draw\\\",\\\"cap13\\\",0,0,1000,700,5000,700,1000,700],[\\\"draw\\\",\\\"cap14\\\",0,0,251,700,6000,700,251,700],[\\\"draw\\\",\\\"cap15\\\",0,0,1000,700,0,1400,1000,700],[\\\"draw\\\",\\\"cap16\\\",0,0,1000,700,1000,1400,1000,700],[\\\"draw\\\",\\\"cap17\\\",0,0,1000,700,2000,1400,1000,700],[\\\"draw\\\",\\\"cap18\\\",0,0,1000,700,3000,1400,1000,700],[\\\"draw\\\",\\\"cap19\\\",0,0,1000,700,4000,1400,1000,700],[\\\"draw\\\",\\\"cap20\\\",0,0,1000,700,5000,1400,1000,700],[\\\"draw\\\",\\\"cap21\\\",0,0,251,700,6000,1400,251,700],[\\\"draw\\\",\\\"cap22\\\",0,0,1000,700,0,2100,1000,700],[\\\"draw\\\",\\\"cap23\\\",0,0,1000,700,1000,2100,1000,700],[\\\"draw\\\",\\\"cap24\\\",0,0,1000,700,2000,2100,1000,700],[\\\"draw\\\",\\\"cap25\\\",0,0,1000,700,3000,2100,1000,700],[\\\"draw\\\",\\\"cap26\\\",0,0,1000,700,4000,2100,1000,700],[\\\"draw\\\",\\\"cap27\\\",0,0,1000,700,5000,2100,1000,700],[\\\"draw\\\",\\\"cap28\\\",0,0,251,700,6000,2100,251,700],[\\\"draw\\\",\\\"cap29\\\",0,0,1000,700,0,2800,1000,700],[\\\"draw\\\",\\\"cap30\\\",0,0,1000,700,1000,2800,1000,700],[\\\"draw\\\",\\\"cap31\\\",0,0,1000,700,2000,2800,1000,700],[\\\"draw\\\",\\\"cap32\\\",0,0,1000,700,3000,2800,1000,700],[\\\"draw\\\",\\\"cap33\\\",0,0,1000,700,4000,2800,1000,700],[\\\"draw\\\",\\\"cap34\\\",0,0,1000,700,5000,2800,1000,700],[\\\"draw\\\",\\\"cap35\\\",0,0,251,700,6000,2800,251,700],[\\\"draw\\\",\\\"cap36\\\",0,0,1000,700,0,3500,1000,700],[\\\"draw\\\",\\\"cap37\\\",0,0,1000,700,1000,3500,1000,700],[\\\"draw\\\",\\\"cap38\\\",0,0,1000,700,2000,3500,1000,700],[\\\"draw\\\",\\\"cap39\\\",0,0,1000,700,3000,3500,1000,700],[\\\"draw\\\",\\\"cap40\\\",0,0,1000,700,4000,3500,1000,700],[\\\"draw\\\",\\\"cap41\\\",0,0,1000,700,5000,3500,1000,700],[\\\"draw\\\",\\\"cap42\\\",0,0,251,700,6000,3500,251,700],[\\\"draw\\\",\\\"cap43\\\",0,0,1000,51,0,4200,1000,51],[\\\"draw\\\",\\\"cap44\\\",0,0,1000,51,1000,4200,1000,51],[\\\"draw\\\",\\\"cap45\\\",0,0,1000,51,2000,4200,1000,51],[\\\"draw\\\",\\\"cap46\\\",0,0,1000,51,3000,4200,1000,51],[\\\"draw\\\",\\\"cap47\\\",0,0,1000,51,4000,4200,1000,51],[\\\"draw\\\",\\\"cap48\\\",0,0,1000,51,5000,4200,1000,51],[\\\"draw\\\",\\\"cap49\\\",0,0,251,51,6000,4200,251,51]]}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-14.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -835,7 +839,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_scrollV_2026-01-15_09-00-16.png"
+   "filename": "cap_scrollV_2026-01-15_09-00-18.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -885,7 +889,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":1600,\\\"h\\\":9400,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",{\\\"canvas\\\":\\\"1600x8000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,1600,1120,0,0,1600,1120],[\\\"draw\\\",\\\"cap2\\\",0,0,1600,1120,0,1120,1600,1120],[\\\"draw\\\",\\\"cap3\\\",0,0,1600,1120,0,2240,1600,1120],[\\\"draw\\\",\\\"cap4\\\",0,0,1600,1120,0,3360,1600,1120],[\\\"draw\\\",\\\"cap5\\\",0,0,1600,1120,0,4480,1600,1120],[\\\"draw\\\",\\\"cap6\\\",0,0,1600,1120,0,5600,1600,1120],[\\\"draw\\\",\\\"cap7\\\",0,0,1600,1120,0,6720,1600,1120],[\\\"draw\\\",\\\"cap8\\\",0,0,1600,160,0,7840,1600,160]]},0,0],[\\\"draw\\\",{\\\"canvas\\\":\\\"1600x1400\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap8\\\",0,160,1600,960,0,0,1600,960],[\\\"draw\\\",\\\"cap9\\\",0,0,1600,440,0,960,1600,440]]},0,8000]]}›\",\"filename\":\"screenshots/2026-01-15/cap_scrollV_2026-01-15_09-00-16.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":1600,\\\"h\\\":9400,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",{\\\"canvas\\\":\\\"1600x8000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,1600,1120,0,0,1600,1120],[\\\"draw\\\",\\\"cap2\\\",0,0,1600,1120,0,1120,1600,1120],[\\\"draw\\\",\\\"cap3\\\",0,0,1600,1120,0,2240,1600,1120],[\\\"draw\\\",\\\"cap4\\\",0,0,1600,1120,0,3360,1600,1120],[\\\"draw\\\",\\\"cap5\\\",0,0,1600,1120,0,4480,1600,1120],[\\\"draw\\\",\\\"cap6\\\",0,0,1600,1120,0,5600,1600,1120],[\\\"draw\\\",\\\"cap7\\\",0,0,1600,1120,0,6720,1600,1120],[\\\"draw\\\",\\\"cap8\\\",0,0,1600,160,0,7840,1600,160]]},0,0],[\\\"draw\\\",{\\\"canvas\\\":\\\"1600x1400\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap8\\\",0,160,1600,960,0,0,1600,960],[\\\"draw\\\",\\\"cap9\\\",0,0,1600,440,0,960,1600,440]]},0,8000]]}›\",\"filename\":\"screenshots/2026-01-15/cap_scrollV_2026-01-15_09-00-18.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -899,7 +903,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_scrollH_2026-01-15_09-00-19.png"
+   "filename": "cap_scrollH_2026-01-15_09-00-20.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -918,7 +922,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":2900,\\\"h\\\":600,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_scrollH_2026-01-15_09-00-19.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":2900,\\\"h\\\":600,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_scrollH_2026-01-15_09-00-20.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -932,7 +936,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_full_2026-01-15_09-00-21.png",
+   "filename": "cap_full_2026-01-15_09-00-22.png",
    "base64": "‹base64 {\"w\":800,\"h\":1500,\"tag\":\"cap1\"}›"
   },
   "calls": [
@@ -967,7 +971,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_scrollV_2026-01-15_09-00-23.png"
+   "filename": "cap_scrollV_2026-01-15_09-00-24.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -986,7 +990,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_scrollV_2026-01-15_09-00-23.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_scrollV_2026-01-15_09-00-24.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -1000,7 +1004,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_segV_2026-01-15_09-00-25.png"
+   "filename": "cap_segV_2026-01-15_09-00-26.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -1026,7 +1030,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":500,\\\"h\\\":300,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,500,300,0,0,500,300]]}›\",\"filename\":\"screenshots/2026-01-15/cap_segV_2026-01-15_09-00-25.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":500,\\\"h\\\":300,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,500,300,0,0,500,300]]}›\",\"filename\":\"screenshots/2026-01-15/cap_segV_2026-01-15_09-00-26.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -1040,7 +1044,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_segH_2026-01-15_09-00-27.png"
+   "filename": "cap_segH_2026-01-15_09-00-28.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -1090,7 +1094,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":2125,\\\"h\\\":1625,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,1000,700,0,0,1000,700],[\\\"draw\\\",\\\"cap2\\\",0,0,1000,700,1000,0,1000,700],[\\\"draw\\\",\\\"cap3\\\",0,0,125,700,2000,0,125,700],[\\\"draw\\\",\\\"cap4\\\",0,0,1000,700,0,700,1000,700],[\\\"draw\\\",\\\"cap5\\\",0,0,1000,700,1000,700,1000,700],[\\\"draw\\\",\\\"cap6\\\",0,0,125,700,2000,700,125,700],[\\\"draw\\\",\\\"cap7\\\",0,0,1000,225,0,1400,1000,225],[\\\"draw\\\",\\\"cap8\\\",0,0,1000,225,1000,1400,1000,225],[\\\"draw\\\",\\\"cap9\\\",0,0,125,225,2000,1400,125,225]]}›\",\"filename\":\"screenshots/2026-01-15/cap_segH_2026-01-15_09-00-27.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":2125,\\\"h\\\":1625,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,1000,700,0,0,1000,700],[\\\"draw\\\",\\\"cap2\\\",0,0,1000,700,1000,0,1000,700],[\\\"draw\\\",\\\"cap3\\\",0,0,125,700,2000,0,125,700],[\\\"draw\\\",\\\"cap4\\\",0,0,1000,700,0,700,1000,700],[\\\"draw\\\",\\\"cap5\\\",0,0,1000,700,1000,700,1000,700],[\\\"draw\\\",\\\"cap6\\\",0,0,125,700,2000,700,125,700],[\\\"draw\\\",\\\"cap7\\\",0,0,1000,225,0,1400,1000,225],[\\\"draw\\\",\\\"cap8\\\",0,0,1000,225,1000,1400,1000,225],[\\\"draw\\\",\\\"cap9\\\",0,0,125,225,2000,1400,125,225]]}›\",\"filename\":\"screenshots/2026-01-15/cap_segH_2026-01-15_09-00-28.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -1201,7 +1205,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"cap_full_2026-01-15_09-00-34.png\",\"saveAs\":true}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"cap_full_2026-01-15_09-00-35.png\",\"saveAs\":true}]"
   ],
   "console": [],
   "zoom": {
@@ -1235,7 +1239,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-36.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-37.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -1323,7 +1327,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_full_2026-01-15_09-00-40.png"
+   "filename": "cap_full_2026-01-15_09-00-41.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -1344,7 +1348,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-40.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-41.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -1358,7 +1362,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_full_2026-01-15_09-00-42.png"
+   "filename": "cap_full_2026-01-15_09-00-43.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -1379,7 +1383,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-42.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-43.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -1531,7 +1535,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_full_2026-01-15_09-00-52.png",
+   "filename": "cap_full_2026-01-15_09-00-53.png",
    "partial": true
   },
   "calls": [
@@ -1566,7 +1570,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1680,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,800,560,0,0,800,560],[\\\"draw\\\",\\\"cap2\\\",0,0,800,560,0,560,800,560],[\\\"draw\\\",\\\"cap3\\\",0,0,800,560,0,1120,800,560]]}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-52.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1680,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,800,560,0,0,800,560],[\\\"draw\\\",\\\"cap2\\\",0,0,800,560,0,560,800,560],[\\\"draw\\\",\\\"cap3\\\",0,0,800,560,0,1120,800,560]]}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-53.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -1702,7 +1706,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_elem_2026-01-15_09-01-00.png"
+   "filename": "cap_elem_2026-01-15_09-01-01.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -1735,7 +1739,7 @@
    "debugger.detach [{\"tabId\":1}]",
    "tabs.setZoom [1,1.25]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-00.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-01.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -1795,7 +1799,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_elem_2026-01-15_09-01-02.png",
+   "filename": "cap_elem_2026-01-15_09-01-03.png",
    "base64": "‹base64 {\"w\":1501,\"h\":1876,\"tag\":\"canvas\",\"ops\":[[\"draw\",\"cap1\",0,0],[\"draw\",\"cap2\",1000,0],[\"draw\",\"cap3\",0,700],[\"draw\",\"cap4\",1000,700],[\"draw\",\"cap5\",0,1400],[\"draw\",\"cap6\",1000,1400]]}›"
   },
   "calls": [
@@ -1855,7 +1859,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_elem_2026-01-15_09-01-03.png"
+   "filename": "cap_elem_2026-01-15_09-01-04.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -1886,7 +1890,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.getElementById('__ext_no_scroll')?.remove()\",\"awaitPromise\":false}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":60,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-03.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":60,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-04.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -1900,7 +1904,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_elem_2026-01-15_09-01-04.png"
+   "filename": "cap_elem_2026-01-15_09-01-05.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -1931,7 +1935,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.getElementById('__ext_no_scroll')?.remove()\",\"awaitPromise\":false}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-04.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-05.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -2067,51 +2071,6 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_elem_2026-01-15_09-01-07.png"
-  },
-  "calls": [
-   "storage.sync.get [[\"screenshotTypeInName\"]]",
-   "tabs.sendMessage [1,{\"type\":\"GET_ELEMENT_RECT\",\"selector\":\"#el\",\"selectors\":null},{\"frameId\":0}]",
-   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
-   "tabs.getZoom [1]",
-   "debugger.detach [{\"tabId\":1}]",
-   "debugger.attach [{\"tabId\":1},\"1.3\"]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(function(){\\n  if(!document.getElementById('__ext_no_scroll')){\\n    const s=document.createElement('style');\\n    s.id='__ext_no_scroll';\\n    s.textContent='::-webkit-scrollbar{display:none!important}*:not(textarea):not(input):not(select){scrollbar-width:none!important}';\\n    document.documentElement.appendChild(s);\\n  }\\n})()\",\"awaitPromise\":false}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.querySelectorAll('[data-ext-overlay]').forEach(el=>{\\n  if(!el.hasAttribute('data-exthide')){\\n    el.setAttribute('data-exthide',el.style.visibility);\\n    el.style.visibility='hidden';\\n  }\\n})\",\"awaitPromise\":false}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(function(){\\n      let el = null;\\n      \\n      \\n      \\n      if(!el) el = document.querySelector(\\\"#el\\\");\\n      if(!el) return null;\\n      const r   = el.getBoundingClientRect();\\n      const sx  = document.documentElement.scrollLeft || document.body.scrollLeft || 0;\\n      const sy  = document.documentElement.scrollTop  || document.body.scrollTop  || 0;\\n      return { x: r.left + sx, y: r.top + sy, width: r.width, height: r.height,\\n               dpr: window.devicePixelRatio || 1,\\n               vpW: window.innerWidth, vpH: window.innerHeight };\\n    })()\",\"returnByValue\":true}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"window.scrollTo(10, 700)\",\"awaitPromise\":false}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.documentElement.style.transform='';window.scrollTo(0,0)\",\"awaitPromise\":false}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(function(){\\n      let el = null;\\n      \\n      \\n      \\n      if(!el) el = document.querySelector(\\\"#el\\\");\\n      if(!el) return null;\\n      const r   = el.getBoundingClientRect();\\n      const sx  = document.documentElement.scrollLeft || document.body.scrollLeft || 0;\\n      const sy  = document.documentElement.scrollTop  || document.body.scrollTop  || 0;\\n      return { x: r.left + sx, y: r.top + sy, width: r.width, height: r.height,\\n               dpr: window.devicePixelRatio || 1,\\n               vpW: window.innerWidth, vpH: window.innerHeight };\\n    })()\",\"returnByValue\":true}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Page.getLayoutMetrics\",{}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.documentElement.style.transform='translate(-10px,-900px)'\",\"awaitPromise\":false}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Page.captureScreenshot\",{\"format\":\"png\",\"captureBeyondViewport\":false,\"clip\":{\"x\":0,\"y\":0,\"width\":300,\"height\":200,\"scale\":1}}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.documentElement.style.transform=''\",\"awaitPromise\":false}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"window.scrollTo(0, 0)\",\"awaitPromise\":false}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.querySelectorAll('[data-fxhide]').forEach(el=>{\\n  el.style.visibility=el.getAttribute('data-fxhide');\\n  el.removeAttribute('data-fxhide');\\n})\",\"awaitPromise\":false}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.querySelectorAll('[data-exthide]').forEach(el=>{\\n  el.style.visibility=el.getAttribute('data-exthide');\\n  el.removeAttribute('data-exthide');\\n})\",\"awaitPromise\":false}]",
-   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.getElementById('__ext_no_scroll')?.remove()\",\"awaitPromise\":false}]",
-   "debugger.detach [{\"tabId\":1}]",
-   "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-07.png\",\"saveAs\":false}]"
-  ],
-  "console": [],
-  "zoom": {
-   "1": 1,
-   "3": 1
-  },
-  "pendingTimers": 0
- },
- {
-  "step": "element: no stale session",
-  "done": true,
-  "result": {
-   "success": true,
    "filename": "cap_elem_2026-01-15_09-01-08.png"
   },
   "calls": [
@@ -2144,6 +2103,51 @@
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-08.png\",\"saveAs\":false}]"
+  ],
+  "console": [],
+  "zoom": {
+   "1": 1,
+   "3": 1
+  },
+  "pendingTimers": 0
+ },
+ {
+  "step": "element: no stale session",
+  "done": true,
+  "result": {
+   "success": true,
+   "filename": "cap_elem_2026-01-15_09-01-09.png"
+  },
+  "calls": [
+   "storage.sync.get [[\"screenshotTypeInName\"]]",
+   "tabs.sendMessage [1,{\"type\":\"GET_ELEMENT_RECT\",\"selector\":\"#el\",\"selectors\":null},{\"frameId\":0}]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
+   "tabs.getZoom [1]",
+   "debugger.detach [{\"tabId\":1}]",
+   "debugger.attach [{\"tabId\":1},\"1.3\"]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(function(){\\n  if(!document.getElementById('__ext_no_scroll')){\\n    const s=document.createElement('style');\\n    s.id='__ext_no_scroll';\\n    s.textContent='::-webkit-scrollbar{display:none!important}*:not(textarea):not(input):not(select){scrollbar-width:none!important}';\\n    document.documentElement.appendChild(s);\\n  }\\n})()\",\"awaitPromise\":false}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.querySelectorAll('[data-ext-overlay]').forEach(el=>{\\n  if(!el.hasAttribute('data-exthide')){\\n    el.setAttribute('data-exthide',el.style.visibility);\\n    el.style.visibility='hidden';\\n  }\\n})\",\"awaitPromise\":false}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(function(){\\n      let el = null;\\n      \\n      \\n      \\n      if(!el) el = document.querySelector(\\\"#el\\\");\\n      if(!el) return null;\\n      const r   = el.getBoundingClientRect();\\n      const sx  = document.documentElement.scrollLeft || document.body.scrollLeft || 0;\\n      const sy  = document.documentElement.scrollTop  || document.body.scrollTop  || 0;\\n      return { x: r.left + sx, y: r.top + sy, width: r.width, height: r.height,\\n               dpr: window.devicePixelRatio || 1,\\n               vpW: window.innerWidth, vpH: window.innerHeight };\\n    })()\",\"returnByValue\":true}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"window.scrollTo(10, 700)\",\"awaitPromise\":false}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.documentElement.style.transform='';window.scrollTo(0,0)\",\"awaitPromise\":false}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(function(){\\n      let el = null;\\n      \\n      \\n      \\n      if(!el) el = document.querySelector(\\\"#el\\\");\\n      if(!el) return null;\\n      const r   = el.getBoundingClientRect();\\n      const sx  = document.documentElement.scrollLeft || document.body.scrollLeft || 0;\\n      const sy  = document.documentElement.scrollTop  || document.body.scrollTop  || 0;\\n      return { x: r.left + sx, y: r.top + sy, width: r.width, height: r.height,\\n               dpr: window.devicePixelRatio || 1,\\n               vpW: window.innerWidth, vpH: window.innerHeight };\\n    })()\",\"returnByValue\":true}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Page.getLayoutMetrics\",{}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.documentElement.style.transform='translate(-10px,-900px)'\",\"awaitPromise\":false}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))\",\"awaitPromise\":true,\"timeout\":5000}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Page.captureScreenshot\",{\"format\":\"png\",\"captureBeyondViewport\":false,\"clip\":{\"x\":0,\"y\":0,\"width\":300,\"height\":200,\"scale\":1}}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.documentElement.style.transform=''\",\"awaitPromise\":false}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"window.scrollTo(0, 0)\",\"awaitPromise\":false}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.querySelectorAll('[data-fxhide]').forEach(el=>{\\n  el.style.visibility=el.getAttribute('data-fxhide');\\n  el.removeAttribute('data-fxhide');\\n})\",\"awaitPromise\":false}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.querySelectorAll('[data-exthide]').forEach(el=>{\\n  el.style.visibility=el.getAttribute('data-exthide');\\n  el.removeAttribute('data-exthide');\\n})\",\"awaitPromise\":false}]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.getElementById('__ext_no_scroll')?.remove()\",\"awaitPromise\":false}]",
+   "debugger.detach [{\"tabId\":1}]",
+   "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-09.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -2187,7 +2191,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.getElementById('__ext_no_scroll')?.remove()\",\"awaitPromise\":false}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"cap_elem_2026-01-15_09-01-08.png\",\"saveAs\":true}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"cap_elem_2026-01-15_09-01-10.png\",\"saveAs\":true}]"
   ],
   "console": [],
   "zoom": {
@@ -2231,7 +2235,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.getElementById('__ext_no_scroll')?.remove()\",\"awaitPromise\":false}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-09.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-11.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -2244,10 +2248,10 @@
   "step": "queue: captures on one tab run one after another",
   "done": true,
   "result": [
-   {"success":true,"filename":"q1_full_2026-01-15_09-01-10.png"},
-   {"success":true,"filename":"q2_2026-01-15_09-01-13.png"},
-   {"success":true,"filename":"q3_elem_2026-01-15_09-01-13.png"},
-   {"success":true,"filename":"other-tab_2026-01-15_09-01-10.png"}
+   {"success":true,"filename":"q1_full_2026-01-15_09-01-11.png"},
+   {"success":true,"filename":"q2_2026-01-15_09-01-14.png"},
+   {"success":true,"filename":"q3_elem_2026-01-15_09-01-14.png"},
+   {"success":true,"filename":"other-tab_2026-01-15_09-01-11.png"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -2259,7 +2263,7 @@
    "tabs.captureVisibleTab [2,{\"format\":\"png\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":3},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/other-tab_2026-01-15_09-01-10.png\",\"saveAs\":false}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/other-tab_2026-01-15_09-01-11.png\",\"saveAs\":false}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
    "debugger.attach [{\"tabId\":1},\"1.3\"]",
@@ -2275,14 +2279,14 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/q1_full_2026-01-15_09-01-10.png\",\"saveAs\":false}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/q1_full_2026-01-15_09-01-11.png\",\"saveAs\":false}]",
    "tabs.get [1]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
    "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible4\\\"}›\",\"filename\":\"screenshots/2026-01-15/q2_2026-01-15_09-01-13.png\",\"saveAs\":false}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible4\\\"}›\",\"filename\":\"screenshots/2026-01-15/q2_2026-01-15_09-01-14.png\",\"saveAs\":false}]",
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.sendMessage [1,{\"type\":\"GET_ELEMENT_RECT\",\"selector\":\"#el\",\"selectors\":null},{\"frameId\":0}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
@@ -2311,7 +2315,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.getElementById('__ext_no_scroll')?.remove()\",\"awaitPromise\":false}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap2\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/q3_elem_2026-01-15_09-01-13.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap2\\\",0,0]]}›\",\"filename\":\"screenshots/2026-01-15/q3_elem_2026-01-15_09-01-14.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -2325,7 +2329,7 @@
   "done": true,
   "result": [
    {"error":"nope"},
-   {"success":true,"filename":"q2_2026-01-15_09-01-14.png"}
+   {"success":true,"filename":"q2_2026-01-15_09-01-15.png"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -2343,7 +2347,7 @@
    "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/q2_2026-01-15_09-01-14.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/q2_2026-01-15_09-01-15.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -2357,7 +2361,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "after-close_full_2026-01-15_09-01-14.png"
+   "filename": "after-close_full_2026-01-15_09-01-15.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -2378,7 +2382,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/after-close_full_2026-01-15_09-01-14.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/after-close_full_2026-01-15_09-01-15.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "zoom": {
@@ -2392,7 +2396,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_2026-01-15_09-01-16.png"
+   "filename": "cap_2026-01-15_09-01-17.png"
   },
   "calls": [
    "tabs.get [1]",
@@ -2402,7 +2406,7 @@
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "tabs.get [1]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"visible2\\\",0,0],[\\\"fillRect\\\",\\\"rgba(0,0,0,0.55)\\\",0,571,800,29],[\\\"fillText\\\",\\\"13px sans-serif\\\",\\\"middle\\\",\\\"#ffffff\\\",\\\"https://example.com/start  2026-01-15T09:01:16.700Z\\\",8,585.5]]}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-16.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"visible2\\\",0,0],[\\\"fillRect\\\",\\\"rgba(0,0,0,0.55)\\\",0,571,800,29],[\\\"fillText\\\",\\\"13px sans-serif\\\",\\\"middle\\\",\\\"#ffffff\\\",\\\"https://example.com/start  2026-01-15T09:01:17.800Z\\\",8,585.5]]}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-17.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "storage": {
@@ -2421,7 +2425,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_2026-01-15_09-01-16.png"
+   "filename": "cap_2026-01-15_09-01-17.png"
   },
   "calls": [
    "tabs.get [3]",
@@ -2431,7 +2435,7 @@
    "scripting.executeScript [{\"target\":{\"tabId\":3},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "tabs.get [3]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"visible2\\\",0,0],[\\\"fillRect\\\",\\\"rgba(0,0,0,0.55)\\\",0,563,800,37],[\\\"fillText\\\",\\\"17px sans-serif\\\",\\\"middle\\\",\\\"#ffffff\\\",\\\"https://very-long-host-name.exam…h/a/name?and=query&string=values  2026-01-15T09:01:16.780Z\\\",12,581.5]]}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-16.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"visible2\\\",0,0],[\\\"fillRect\\\",\\\"rgba(0,0,0,0.55)\\\",0,563,800,37],[\\\"fillText\\\",\\\"17px sans-serif\\\",\\\"middle\\\",\\\"#ffffff\\\",\\\"https://very-long-host-name.exam…h/a/name?and=query&string=values  2026-01-15T09:01:17.880Z\\\",12,581.5]]}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-17.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "storage": {
@@ -2450,7 +2454,7 @@
   "done": true,
   "result": {
    "success": true,
-   "filename": "cap_elem_2026-01-15_09-01-16.png"
+   "filename": "cap_elem_2026-01-15_09-01-17.png"
   },
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
@@ -2482,7 +2486,7 @@
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "tabs.get [1]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":120,\\\"h\\\":45,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",{\\\"canvas\\\":\\\"120x30\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]},0,0],[\\\"fillRect\\\",\\\"#111111\\\",0,30,120,15],[\\\"fillText\\\",\\\"7px sans-serif\\\",\\\"middle\\\",\\\"#ffffff\\\",\\\"· 2026-01-15T09:01:17.710Z ·\\\",8,37.5]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-16.png\",\"saveAs\":false}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":120,\\\"h\\\":45,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",{\\\"canvas\\\":\\\"120x30\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]},0,0],[\\\"fillRect\\\",\\\"#111111\\\",0,30,120,15],[\\\"fillText\\\",\\\"7px sans-serif\\\",\\\"middle\\\",\\\"#ffffff\\\",\\\"· 2026-01-15T09:01:18.810Z ·\\\",8,37.5]]}›\",\"filename\":\"screenshots/2026-01-15/cap_elem_2026-01-15_09-01-17.png\",\"saveAs\":false}]"
   ],
   "console": [],
   "storage": {
@@ -2519,7 +2523,7 @@
  {
   "step": "watermark: no URL",
   "done": true,
-  "result": "‹png {\"w\":400,\"h\":300,\"tag\":\"canvas\",\"ops\":[[\"draw\",\"w\",0,0],[\"fillRect\",\"rgba(0,0,0,0.55)\",0,271,400,29],[\"fillText\",\"13px sans-serif\",\"middle\",\"#ffffff\",\"2026-01-15T09:01:17.710Z end\",8,285.5]]}›",
+  "result": "‹png {\"w\":400,\"h\":300,\"tag\":\"canvas\",\"ops\":[[\"draw\",\"w\",0,0],[\"fillRect\",\"rgba(0,0,0,0.55)\",0,271,400,29],[\"fillText\",\"13px sans-serif\",\"middle\",\"#ffffff\",\"2026-01-15T09:01:18.810Z end\",8,285.5]]}›",
   "calls": [
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]"
   ],
@@ -2538,7 +2542,7 @@
  {
   "step": "watermark: tab gone",
   "done": true,
-  "result": "‹png {\"w\":400,\"h\":300,\"tag\":\"canvas\",\"ops\":[[\"draw\",\"w\",0,0],[\"fillRect\",\"rgba(0,0,0,0.55)\",0,271,400,29],[\"fillText\",\"13px sans-serif\",\"middle\",\"#ffffff\",\"2026-01-15T09:01:17.710Z\",8,285.5]]}›",
+  "result": "‹png {\"w\":400,\"h\":300,\"tag\":\"canvas\",\"ops\":[[\"draw\",\"w\",0,0],[\"fillRect\",\"rgba(0,0,0,0.55)\",0,271,400,29],[\"fillText\",\"13px sans-serif\",\"middle\",\"#ffffff\",\"2026-01-15T09:01:18.810Z\",8,285.5]]}›",
   "calls": [
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "tabs.get [99]"
@@ -2676,7 +2680,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"cap_2026-01-15_09-01-17.png"}
+   {"success":true,"filename":"cap_2026-01-15_09-01-18.png"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
@@ -2686,8 +2690,8 @@
    "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-17.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-17.png\"}}]"
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-18.png\",\"saveAs\":false}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-18.png\"}}]"
   ],
   "console": [],
   "zoom": {
@@ -2826,7 +2830,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"cap_2026-01-15_09-01-19.png"}
+   {"success":true,"filename":"cap_2026-01-15_09-01-21.png"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
@@ -2836,10 +2840,10 @@
    "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-19.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-19.png\"}}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-21.png\",\"saveAs\":false}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-21.png\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
-   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Screenshot saved\",\"message\":\"cap_2026-01-15_09-01-19.png\"}]"
+   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Screenshot saved\",\"message\":\"cap_2026-01-15_09-01-21.png\"}]"
   ],
   "console": [],
   "zoom": {
@@ -2905,7 +2909,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"cap_scrollV_2026-01-15_09-01-22.png"}
+   {"success":true,"filename":"cap_scrollV_2026-01-15_09-01-23.png"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
@@ -2926,11 +2930,11 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_scrollV_2026-01-15_09-01-22.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_scrollV_2026-01-15_09-01-22.png\"}}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_scrollV_2026-01-15_09-01-23.png\",\"saveAs\":false}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_scrollV_2026-01-15_09-01-23.png\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
    "tabs.sendMessage [1,{\"type\":\"FULL_CAPTURE_STATE\",\"active\":false},{\"frameId\":0}]",
-   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Vertical scroll screenshot saved\",\"message\":\"cap_scrollV_2026-01-15_09-01-22.png\"}]"
+   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Vertical scroll screenshot saved\",\"message\":\"cap_scrollV_2026-01-15_09-01-23.png\"}]"
   ],
   "console": [],
   "zoom": {
@@ -2993,7 +2997,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"screenshot_elem_2026-01-15_09-01-24.png"}
+   {"success":true,"filename":"screenshot_elem_2026-01-15_09-01-25.png"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
@@ -3025,10 +3029,10 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.getElementById('__ext_no_scroll')?.remove()\",\"awaitPromise\":false}]",
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshot_elem_2026-01-15_09-01-24.png\",\"saveAs\":true}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"screenshot_elem_2026-01-15_09-01-24.png\"}}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshot_elem_2026-01-15_09-01-25.png\",\"saveAs\":true}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"screenshot_elem_2026-01-15_09-01-25.png\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
-   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Element screenshot saved\",\"message\":\"screenshot_elem_2026-01-15_09-01-24.png\"}]"
+   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Element screenshot saved\",\"message\":\"screenshot_elem_2026-01-15_09-01-25.png\"}]"
   ],
   "console": [],
   "storage": {
@@ -3157,10 +3161,10 @@
    "windows.remove [9]",
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\",\"screenshotTypeInName\"]]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":1280,\\\"h\\\":720,\\\"tag\\\":\\\"window\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_window_2026-01-15_09-01-25.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_window_2026-01-15_09-01-25.png\"}}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":1280,\\\"h\\\":720,\\\"tag\\\":\\\"window\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_window_2026-01-15_09-01-26.png\",\"saveAs\":false}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_window_2026-01-15_09-01-26.png\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
-   "notifications.create [\"window_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Window capture saved\",\"message\":\"cap_window_2026-01-15_09-01-25.png\"}]"
+   "notifications.create [\"window_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Window capture saved\",\"message\":\"cap_window_2026-01-15_09-01-26.png\"}]"
   ],
   "console": [],
   "zoom": {
@@ -3251,7 +3255,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\",\"screenshotTypeInName\"]]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":10,\\\"h\\\":10,\\\"tag\\\":\\\"w\\\"}›\",\"filename\":\"cap_2026-01-15_09-01-29.png\",\"saveAs\":true}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":10,\\\"h\\\":10,\\\"tag\\\":\\\"w\\\"}›\",\"filename\":\"cap_2026-01-15_09-01-30.png\",\"saveAs\":true}]",
    "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"cancelled\":true}}]"
   ],
   "console": [],
@@ -3283,7 +3287,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\",\"screenshotTypeInName\"]]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":10,\\\"h\\\":10,\\\"tag\\\":\\\"w\\\"}›\",\"filename\":\"cap_2026-01-15_09-01-29.png\",\"saveAs\":true}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":10,\\\"h\\\":10,\\\"tag\\\":\\\"w\\\"}›\",\"filename\":\"cap_2026-01-15_09-01-30.png\",\"saveAs\":true}]",
    "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"error\":\"Invalid filename\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
    "notifications.create [\"window_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Window capture failed\",\"message\":\"Invalid filename\"}]"
@@ -3376,7 +3380,7 @@
   ],
   "console": [],
   "storage": {
-   "local": {"lastUpdateAt":1763283689730,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000},"watermarkEnabled":false,"watermarkFormat":"{url}  {datetime}","windowCaptureBounds":{"width":1000,"height":800,"left":10,"top":20},"remoteConfig":{"hardLock":true,"minVersion":"9.0.0","fetchedAt":1768467689730,"message":"Update now"},"updateAvailableSince":1763283689730},
+   "local": {"lastUpdateAt":1763283690830,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000},"watermarkEnabled":false,"watermarkFormat":"{url}  {datetime}","windowCaptureBounds":{"width":1000,"height":800,"left":10,"top":20},"remoteConfig":{"hardLock":true,"minVersion":"9.0.0","fetchedAt":1768467690830,"message":"Update now"},"updateAvailableSince":1763283690830},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"cap"},
    "session": {}
   },
@@ -3434,10 +3438,10 @@
    "windows.remove [9]",
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\",\"screenshotTypeInName\"]]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
-   "downloads.download [{\"url\":\"‹png {\\\"w\\\":10,\\\"h\\\":10,\\\"tag\\\":\\\"w\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_window_2026-01-15_09-01-31.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_window_2026-01-15_09-01-31.png\"}}]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":10,\\\"h\\\":10,\\\"tag\\\":\\\"w\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_window_2026-01-15_09-01-32.png\",\"saveAs\":false}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_window_2026-01-15_09-01-32.png\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
-   "notifications.create [\"window_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Window capture saved\",\"message\":\"cap_window_2026-01-15_09-01-31.png\"}]"
+   "notifications.create [\"window_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Window capture saved\",\"message\":\"cap_window_2026-01-15_09-01-32.png\"}]"
   ],
   "console": [],
   "zoom": {
