@@ -3,6 +3,7 @@
  * or a drop on a drop zone).
  */
 
+import { cssEscape } from '../../../shared/css-escape.js';
 import { setFileInputViaCdp, setFileDropZoneViaCdp } from '../../cdp/upload.js';
 import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
 import { STOP } from './flow.js';
@@ -10,7 +11,7 @@ import { STOP } from './flow.js';
 export async function runUploadFile(ctx, i, action) {
   const { tabId, fail } = ctx;
   const cssSel = action.selectors?.css
-    || (action.selectors?.id ? `#${CSS.escape(action.selectors.id)}` : null)
+    || (action.selectors?.id ? `#${cssEscape(action.selectors.id)}` : null)
     || action.selector || '';
   const folder = (action.folderPath || '').replace(/[/\\]+$/, '');
   // backward-compat: old actions store a single fileName string

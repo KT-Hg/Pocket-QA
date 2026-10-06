@@ -3,6 +3,7 @@
  * with "Choose item #" (action.pick, shared/dropdown-pick.js) choose an item.
  */
 
+import { cssEscape } from '../../../shared/css-escape.js';
 import { openDropdownViaCdp } from '../../cdp/dropdown.js';
 import { tabMsg } from '../../tabs.js';
 import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
@@ -12,7 +13,7 @@ import { pageReplyTimeout } from './page-reply.js';
 export async function runDropdown(ctx, i, action) {
   const { tabId } = ctx;
   const cssSel = action.selectors?.css
-    || (action.selectors?.id ? `#${CSS.escape(action.selectors.id)}` : null)
+    || (action.selectors?.id ? `#${cssEscape(action.selectors.id)}` : null)
     || action.selector || '';
   if (action.pick) return _pickItem(ctx, i, action, cssSel);
   if (cssSel) await openDropdownViaCdp(tabId, cssSel);

@@ -15,9 +15,6 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   (`popup/connection.js`) đọc `state.currentTabId` / `state.activatedTabs` của `popup/state.js`, nhưng không ai gán
   hai giá trị đó; interval của nó cũng không bao giờ bị xoá (dù callback không làm gì). Cần quyết định: bật health
   check (tab có thể bị đánh dấu "Lost") hay xoá hẳn.
-- **Service worker không có `CSS`.** Dropdown hoặc Upload File chỉ có `selectors.id` (không có `selectors.css`,
-  không có `selector`) gọi `CSS.escape` trong service worker và lỗi "CSS is not defined"
-  (`bg/playback/steps/dropdown.js`, `upload.js`).
 - **Dropdown "chỉ mở" với selector XPath không mở được.** CDP chỉ nhận CSS selector (`openDropdownViaCdp`), nên
   action Dropdown không chọn item mà selector là XPath thì không làm gì. Chế độ **Choose item #** đã tránh được:
   trigger XPath (hoặc nằm trong iframe) được trang tự click.

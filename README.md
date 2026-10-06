@@ -672,7 +672,8 @@ load, message with timeout) and `bg/cdp/` (debugger sessions; dropdown, script a
 
 `shared/*.js` holds the pure modules (no `chrome.*`) that both sides use and the Node tests import directly:
 variable names (`var-name`), variable ordering (`var-order`), Read DOM patterns (`text-pattern`), Switch block
-and Condition range math (`switch-blocks`), and the update-lock deadline (`update-lock`).
+and Condition range math (`switch-blocks`), the update-lock deadline (`update-lock`), and `CSS.escape` for the
+service worker, which has no `CSS` global (`css-escape`).
 
 `sqlcases.html` + `sqlcases/*.js` sit outside that pipeline: the SQL Test Case Designer is a self-contained
 page that never messages the service worker or touches a tab. It is opened from the Data tab and uses
