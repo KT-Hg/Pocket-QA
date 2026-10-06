@@ -67,7 +67,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -270,7 +270,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -310,7 +310,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -350,7 +350,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -436,7 +436,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -467,7 +467,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -522,7 +522,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -560,7 +560,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -615,7 +615,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -670,7 +670,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -725,7 +725,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -777,7 +777,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -829,7 +829,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -876,7 +876,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -931,7 +931,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -978,7 +978,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -1021,7 +1021,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -1061,7 +1061,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -1103,7 +1103,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -1442,7 +1442,7 @@
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -2324,7 +2324,7 @@
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -2386,7 +2386,7 @@
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -2459,7 +2459,7 @@
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[{"user":"a"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -2573,7 +2573,7 @@
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -3003,7 +3003,7 @@
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -3044,7 +3044,7 @@
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"fromHotkey":false}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -3142,7 +3142,7 @@
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -3207,7 +3207,7 @@
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
@@ -3395,7 +3395,7 @@
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
    "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
-   "segmentCapture": {"active":false,"tabId":null,"dir":null}
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false}
   }
  },
  {
