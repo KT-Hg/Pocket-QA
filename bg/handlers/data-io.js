@@ -7,7 +7,7 @@
  */
 
 import { state } from '../state.js';
-import { getScenarios, setScenarios, getFolders, setFolders, generateId } from '../storage.js';
+import { getScenarios, setScenarios, getFolders, setFolders, generateId, runExclusive } from '../storage.js';
 import { broadcastRecordingState } from './recording.js';
 
 /**
@@ -31,7 +31,8 @@ export const dataIoHandlers = {
       sendResponse({ success: false, error: 'Not a scenario: expected an object with an "actions" array' });
       return true;
     }
-    getScenarios().then(async (scenarios) => {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
       const id = generateId();
       // folderId is dropped: it refers to a folder id from the exporting profile
       // that almost certainly does not exist here, which would hide the scenario
@@ -65,7 +66,8 @@ export const dataIoHandlers = {
       sendResponse({ success: false, error: 'Folder export contains no valid scenarios' });
       return true;
     }
-    Promise.all([getFolders(), getScenarios()]).then(async ([folders, scenarios]) => {
+    runExclusive(async () => {
+      const [folders, scenarios] = await Promise.all([getFolders(), getScenarios()]);
       const folderId = generateId();
       folders[folderId] = { name: payload.name || 'Imported folder', createdAt: Date.now() };
       // Every scenario gets a fresh id, which used to break `switch` actions that
@@ -187,17 +189,20 @@ export const dataIoHandlers = {
     // No rollback snapshot is stored: the one this used to write was never read
     // by anything, and it doubled storage usage on every restore. The popup warns
     // to take a backup first instead.
-    const writeLocal = new Promise((resolve) => {
-      chrome.storage.local.set(sanitized, () => resolve(chrome.runtime.lastError?.message || null));
-    });
-    // Backups made before sync settings were included simply have no __sync block.
-    const writeSync = isPlainObject(syncPayload)
-      ? new Promise((resolve) => {
-          chrome.storage.sync.set(syncPayload, () => resolve(chrome.runtime.lastError?.message || null));
-        })
-      : Promise.resolve(null);
-
-    Promise.all([writeLocal, writeSync]).then(([localErr, syncErr]) => {
+    // Queued behind any import or edit still writing, which would otherwise put
+    // its own copy of `scenarios` back over the restored one.
+    runExclusive(() => {
+      const writeLocal = new Promise((resolve) => {
+        chrome.storage.local.set(sanitized, () => resolve(chrome.runtime.lastError?.message || null));
+      });
+      // Backups made before sync settings were included simply have no __sync block.
+      const writeSync = isPlainObject(syncPayload)
+        ? new Promise((resolve) => {
+            chrome.storage.sync.set(syncPayload, () => resolve(chrome.runtime.lastError?.message || null));
+          })
+        : Promise.resolve(null);
+      return Promise.all([writeLocal, writeSync]);
+    }).then(([localErr, syncErr]) => {
       if (localErr) { sendResponse({ success: false, error: localErr }); return; }
       state.recording = false;
       state.currentActions = [];

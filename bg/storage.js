@@ -26,6 +26,25 @@ function _mb(bytes) {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
+/* === One read-modify-write at a time ════════════════════════════════════════
+ * Handlers read the whole `scenarios` (and `folders`) object, change it and
+ * write it back. Two of them interleaving each wrote back their own copy, so
+ * the last write dropped the other's change — importing a file of three
+ * scenarios sends three IMPORT_SCENARIO at once and kept only the last one.
+ * runExclusive() starts a task only once every earlier one has settled.
+ *
+ * A task must not wait on another runExclusive() call: it would wait on itself.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+let _exclusiveTail = Promise.resolve();
+
+export function runExclusive(task) {
+  const run = _exclusiveTail.then(task);
+  // A failed task must not hold up the ones queued after it.
+  _exclusiveTail = run.catch(() => {});
+  return run;
+}
+
 /* === Scenarios === */
 
 export function getScenarios() {
