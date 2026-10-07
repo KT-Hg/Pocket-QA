@@ -2,11 +2,12 @@
  * record/picker.js — picking an element on the page for the form.
  */
 
-import { manualSelector, pickElement, selectorType } from '../dom.js';
+import { manualSelector, pickElement, scenarioList, selectorType } from '../dom.js';
 import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
+import { isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
 import { restoreDraft } from './draft.js';
-import { applyManualFormState, setEditing } from './form-state.js';
+import { applyManualFormState, collectManualFormState, setEditing } from './form-state.js';
 import { updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 
 export function initPicker() {
@@ -108,5 +109,28 @@ export function initPicker() {
         restoreDraft(res.manualFormDraft);
       }
     }
+  });
+
+  // Dragdrop target pick mode
+  document.getElementById("dragdropTargetPick")?.addEventListener("click", () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.id || !isEligibleTab(tab)) { showToast("Invalid tab for pick mode", "error"); return; }
+      // Save current form state so we can restore after pick
+      chrome.storage.local.remove(["elemShotPickPending", "elemShotPickCrop"]);
+      chrome.storage.local.set({
+        dragdropTargetPickPending: true,
+        // Full snapshot — the popup closes below, so a partial save would drop
+        // everything outside the dragdrop fields.
+        dragdropTargetPickState: {
+          ...collectManualFormState(),
+          scenarioId: scenarioList.value || null,
+          editingIndex: ui.editing ? ui.editing.index : null,
+        }
+      });
+      safeSendTabMessage(tab.id, { type: "START_PICK_MODE" });
+      chrome.runtime.sendMessage({ type: "START_PICK_MODE", tabId: tab.id });
+      window.close();
+    });
   });
 }
