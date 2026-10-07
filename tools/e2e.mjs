@@ -20,6 +20,8 @@
  *                 finds an element added there (Chrome runs no rAF in a hidden tab)
  *   label-click   a real click on a checkbox's <label>, recorded, is one action, and
  *                 playing it leaves the box checked
+ *   child-condition  "Text contains" clicks the innermost element holding the text,
+ *                 and ALL needs every condition
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -61,12 +63,18 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
 <input id="out"><input id="big">
 <button id="bg1">bg1</button><button id="bg2">bg2</button>
 <label for="agree" id="agreeLabel">Agree</label><input type="checkbox" id="agree"><label id="plainLabel">Just text</label>
+<table id="people"><tbody>
+  <tr><td id="aliceCell">Alice</td><td><button id="edit1" class="edit">Edit</button></td></tr>
+  <tr><td id="johnCell">John</td><td><button id="edit2" class="edit special">Edit</button></td></tr>
+</tbody></table>
 <script>
   window.__log = [];
   // background-tab: #bg1 adds #late a moment later; every click logs whether the tab was visible.
   const logClick = (el) => el.addEventListener('click', () => __log.push(el.id + ' ' + document.visibilityState));
   logClick(document.getElementById('bg1'));
   logClick(document.getElementById('bg2'));
+  // child-condition: which element under #people a Child Condition clicked.
+  document.getElementById('people').addEventListener('click', (e) => __log.push('people ' + (e.target.id || e.target.tagName)));
   document.getElementById('bg1').addEventListener('click', () => setTimeout(() => {
     const late = document.createElement('button');
     late.id = 'late';
@@ -275,6 +283,19 @@ async function checkLabelClick(ctx) {
     'a click on the checkbox itself, and on a label with no control, are still recorded', direct.actions.map((a) => a.selector));
 }
 
+async function checkChildCondition(ctx) {
+  await reloadTestPage(ctx);
+  const inPeople = (conditions) => ({ type: 'click', selector: '#people', selectors: { css: '#people' }, conditions, delay: 100 });
+  const id = await makeScenario(ctx, 'e2e child condition', [
+    inPeople({ matchMode: 'any', textContains: 'John' }),
+    inPeople({ matchMode: 'all', textContains: 'Edit', classContains: 'special' }),
+  ]);
+  const r = await play(ctx, id);
+  const clicked = r.log.filter((e) => e.startsWith('people ')).map((e) => e.slice(7));
+  check(clicked[0] === 'johnCell', 'Text contains "John" clicks the cell holding it, not the table body', clicked);
+  check(clicked[1] === 'edit2', 'ALL clicks the one element matching every condition', clicked);
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -283,6 +304,7 @@ const CHECKS = [
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
+  ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],
 ];
 
 async function main() {

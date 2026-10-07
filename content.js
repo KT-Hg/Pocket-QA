@@ -382,9 +382,23 @@ function _findElementSingle(root, conditions, normalize, blankField = null) {
   if (blankField) checks.push(_blankCheck(blankField, normalize));
   if (checks.length === 0) return null;
   const test = matchMode === 'all' ? el => checks.every(fn => fn(el)) : el => checks.some(fn => fn(el));
+  let hit = _firstMatch(root, test);
+  // An element's textContent holds all of its children's text, so for a text
+  // condition the first match in document order is the outermost wrapper (the
+  // <tbody> of a table holding "John"). Go down to the innermost element that
+  // still matches: the cell or link the text is actually in.
+  if (hit && textContains != null && textContains !== '') {
+    for (let inner = _firstMatch(hit, test); inner; inner = _firstMatch(hit, test)) hit = inner;
+  }
+  return hit;
+}
+
+// The first element under `root`, in document order, that passes `test`.
+function _firstMatch(root, test) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-  let node = walker.nextNode();
-  while (node) { if (test(node)) return node; node = walker.nextNode(); }
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (test(node)) return node;
+  }
   return null;
 }
 
