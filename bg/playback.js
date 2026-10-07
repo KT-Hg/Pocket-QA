@@ -22,6 +22,7 @@ import { pickStrings } from '../shared/dropdown-pick.js';
 import { isAnyPlaybackActive, runClaimed } from './run-state.js';
 import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
 import { notifyActionFailed, onActionFailed, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
+import { closeOpenSessions } from './cdp/session.js';
 
 /* ── Concurrency Guard ──────────────────────────────────────────────────────── */
 
@@ -317,6 +318,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
     }
   } finally {
     await stopKeepalive();
+    await closeOpenSessions();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.playback.active = false;
     updateBadge();
@@ -381,6 +383,7 @@ async function _playScenario(scenarioId, loopCount, loopDelay) {
     }
   } finally {
     await stopKeepalive();
+    await closeOpenSessions();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.playback.active = false;
     updateBadge();
@@ -478,6 +481,7 @@ async function _playSequence(runList) {
   } finally {
     chrome.tabs.onRemoved.removeListener(_onSeqTabRemoved);
     await stopKeepalive();
+    await closeOpenSessions();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.sequencePlayback.active = false;
     state.playback.active = false;
@@ -709,6 +713,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
     console.error('[CSV] Run aborted by an unexpected error:', err);
   } finally {
     if (keepaliveOn) stopKeepalive();
+    await closeOpenSessions();
     if (tabId != null) chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.csvPlayback.active = false;
     state.playback.active    = false;
