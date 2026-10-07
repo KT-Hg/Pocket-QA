@@ -682,6 +682,14 @@ await run('condition: the page cannot evaluate it', play([
 ], {}), {
   setup: () => { conditions['#bogus'] = { result: false, error: 'Unknown condition type "bogus"' }; choices = ['skip']; },
 });
+// A URL Chrome refuses fails the Navigate at once, with Chrome's reason.
+await run('navigate: refused URL', play([{ type: 'navigate', url: 'https://refused.example/x' }, hover('#after')], {}), {
+  setup: () => { choices = ['skip']; },
+});
+test('a URL Chrome refuses fails the Navigate with its reason, without the 30 s wait', () => {
+  assert.match(_failedOf('navigate: refused URL'), /"Navigation failed"/);
+  assert.ok(_callsOf('navigate: refused URL').some((c) => c.includes('Navigation failed: Cannot navigate')), 'the prompt gives the reason');
+});
 test('a Condition the page cannot evaluate fails, and skip runs what it guards', () => {
   assert.match(_failedOf('condition: the page cannot evaluate it'), /Unknown condition type/);
   assert.ok(_callsOf('condition: the page cannot evaluate it').some((c) => c.includes('"selector":"#guarded"')));

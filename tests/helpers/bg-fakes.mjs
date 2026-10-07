@@ -257,6 +257,14 @@ export function installNavigation(fake, tabs) {
   globalThis.chrome.tabs.update = (...args) => {
     const [id, props] = args;
     const url = props?.url;
+    // "refused": Chrome will not load it (malformed, a chrome:// page) — lastError.
+    if (url && /refused/.test(url) && typeof args[2] === 'function') {
+      const cb = args[2];
+      return base(id, props, () => {
+        fake.setLastError({ message: 'Cannot navigate to this URL.' });
+        try { cb(); } finally { fake.setLastError(undefined); }
+      });
+    }
     if (url) {
       if (/closes/.test(url)) setTimeout(() => closeTab(id), 100);
       else if (/spa/.test(url)) setTimeout(() => { const t = tabById(id); if (t) t.url = url; }, 300);
