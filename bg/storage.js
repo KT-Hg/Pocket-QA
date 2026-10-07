@@ -201,13 +201,15 @@ export function pushUndo(key, snapshot) {
   _persistUndoStacks();
 }
 
-export async function mutateScenarioActions(scenarioId, updater) {
-  const scenarios = await getScenarios();
-  if (!scenarios[scenarioId]) throw new Error(`Scenario "${scenarioId}" not found`);
-  const prev = scenarios[scenarioId].actions ?? [];
-  const next = updater(prev);
-  pushUndo(scenarioId, prev);
-  scenarios[scenarioId].actions = next;
-  await setScenarios(scenarios);
-  return next;
+export function mutateScenarioActions(scenarioId, updater) {
+  return runExclusive(async () => {
+    const scenarios = await getScenarios();
+    if (!scenarios[scenarioId]) throw new Error(`Scenario "${scenarioId}" not found`);
+    const prev = scenarios[scenarioId].actions ?? [];
+    const next = updater(prev);
+    pushUndo(scenarioId, prev);
+    scenarios[scenarioId].actions = next;
+    await setScenarios(scenarios);
+    return next;
+  });
 }

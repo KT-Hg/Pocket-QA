@@ -7,7 +7,7 @@
  */
 
 import { state, persistRecordingState } from '../state.js';
-import { getScenarios, setScenarios, getStack, pushUndo } from '../storage.js';
+import { getScenarios, setScenarios, getStack, pushUndo, runExclusive } from '../storage.js';
 import { updateBadge } from '../badge.js';
 import { refuseRecordingIfPlaying } from '../playback.js';
 import { ignoreLastError } from '../last-error.js';
@@ -134,7 +134,8 @@ export const recordingHandlers = {
     if (sid) {
       const newActions = [...state.currentActions];
       state.currentActions = [];
-      getScenarios().then(async (scenarios) => {
+      runExclusive(async () => {
+        const scenarios = await getScenarios();
         if (scenarios[sid]) {
           const existing = scenarios[sid].actions || [];
           pushUndo(sid, [...existing]);

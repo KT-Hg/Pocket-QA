@@ -6,7 +6,7 @@
  */
 
 import { state } from '../state.js';
-import { getScenarios, setScenarios, generateId, getStack } from '../storage.js';
+import { getScenarios, setScenarios, generateId, getStack, runExclusive } from '../storage.js';
 
 export const scenariosHandlers = {
   /* --- Scenario CRUD --- */
@@ -16,7 +16,8 @@ export const scenariosHandlers = {
   },
 
   SAVE_SCENARIO(request, sender, sendResponse) {
-    getScenarios().then(async (scenarios) => {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
       const id = generateId();
       const now = Date.now();
       scenarios[id] = {
@@ -40,7 +41,8 @@ export const scenariosHandlers = {
   CREATE_SCENARIO(request, sender, sendResponse) {
     const name = String(request.name || "").trim();
     if (!name) { sendResponse({ success: false }); return; }
-    getScenarios().then(async (scenarios) => {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
       const id = generateId();
       const now = Date.now();
       scenarios[id] = { name, actions: [], folderId: request.folderId || null, createdAt: now, updatedAt: now };
@@ -59,7 +61,8 @@ export const scenariosHandlers = {
   },
 
   DELETE_SCENARIO(request, sender, sendResponse) {
-    getScenarios().then(async (scenarios) => {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
       delete scenarios[request.scenarioId];
       await setScenarios(scenarios);
       sendResponse({ success: true });
@@ -68,7 +71,8 @@ export const scenariosHandlers = {
   },
 
   RENAME_SCENARIO(request, sender, sendResponse) {
-    getScenarios().then(async (scenarios) => {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
       if (scenarios[request.scenarioId]) {
         scenarios[request.scenarioId].name = request.newName;
         await setScenarios(scenarios);
@@ -79,7 +83,8 @@ export const scenariosHandlers = {
   },
 
   DUPLICATE_SCENARIO(request, sender, sendResponse) {
-    getScenarios().then(async (scenarios) => {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
       const original = scenarios[request.scenarioId];
       if (!original) { sendResponse({ success: false }); return; }
       const id = generateId();
@@ -96,7 +101,8 @@ export const scenariosHandlers = {
   },
 
   SAVE_SEQUENCE_AS_SCENARIO(request, sender, sendResponse) {
-    getScenarios().then(async (scenarios) => {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
       const allActions = [];
       for (let i = 0; i < request.runList.length; i++) {
         const item = request.runList[i];

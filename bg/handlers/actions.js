@@ -8,7 +8,7 @@
  */
 
 import { state } from '../state.js';
-import { getScenarios, setScenarios, getStack, pushUndo, mutateScenarioActions } from '../storage.js';
+import { getScenarios, setScenarios, getStack, pushUndo, mutateScenarioActions, runExclusive } from '../storage.js';
 import { remapAfterRemove, remapAfterReorder, toggleDisabled } from '../../shared/switch-blocks.js';
 
 /**
@@ -47,7 +47,8 @@ export const actionsHandlers = {
     const s = getStack(key);
     if (!s.undo.length) { sendResponse({ success: false }); return; }
     if (request.scenarioId) {
-      getScenarios().then(async (scenarios) => {
+      runExclusive(async () => {
+        const scenarios = await getScenarios();
         const current = scenarios[request.scenarioId]?.actions || [];
         s.redo.push(JSON.parse(JSON.stringify(current)));
         scenarios[request.scenarioId].actions = s.undo.pop();
@@ -68,7 +69,8 @@ export const actionsHandlers = {
     const s = getStack(key);
     if (!s.redo.length) { sendResponse({ success: false }); return; }
     if (request.scenarioId) {
-      getScenarios().then(async (scenarios) => {
+      runExclusive(async () => {
+        const scenarios = await getScenarios();
         const current = scenarios[request.scenarioId]?.actions || [];
         s.undo.push(JSON.parse(JSON.stringify(current)));
         scenarios[request.scenarioId].actions = s.redo.pop();

@@ -6,11 +6,12 @@
  * onMessage listener returns: `true` while sendResponse is still to come.
  */
 
-import { getScenarios, setScenarios, getFolders, setFolders, generateId } from '../storage.js';
+import { getScenarios, setScenarios, getFolders, setFolders, generateId, runExclusive } from '../storage.js';
 
 export const foldersHandlers = {
   MOVE_TO_FOLDER(request, sender, sendResponse) {
-    getScenarios().then(async (scenarios) => {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
       if (scenarios[request.scenarioId]) {
         scenarios[request.scenarioId].folderId = request.folderId || null;
         await setScenarios(scenarios);
@@ -27,7 +28,8 @@ export const foldersHandlers = {
   },
 
   CREATE_FOLDER(request, sender, sendResponse) {
-    getFolders().then(async (folders) => {
+    runExclusive(async () => {
+      const folders = await getFolders();
       const id = generateId();
       folders[id] = { name: request.name, createdAt: Date.now() };
       await setFolders(folders);
@@ -37,7 +39,8 @@ export const foldersHandlers = {
   },
 
   RENAME_FOLDER(request, sender, sendResponse) {
-    getFolders().then(async (folders) => {
+    runExclusive(async () => {
+      const folders = await getFolders();
       if (folders[request.folderId]) {
         folders[request.folderId].name = request.name;
         await setFolders(folders);
@@ -48,7 +51,8 @@ export const foldersHandlers = {
   },
 
   DELETE_FOLDER(request, sender, sendResponse) {
-    Promise.all([getFolders(), getScenarios()]).then(async ([folders, scenarios]) => {
+    runExclusive(async () => {
+      const [folders, scenarios] = await Promise.all([getFolders(), getScenarios()]);
       delete folders[request.folderId];
       Object.values(scenarios).forEach((s) => {
         if (s.folderId === request.folderId) s.folderId = null;
