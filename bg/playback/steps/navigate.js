@@ -16,6 +16,7 @@ const NAV_TIMEOUT_MS = 30_000;
 export async function runNavigate(ctx, i, action) {
   const { tabId, fail } = ctx;
   let navSuccess = true;
+  let navError = null; // why Chrome refused the URL, when it did
   const targetUrl = action.value || action.url;
   let initialTabUrl = null;
   try {
@@ -24,6 +25,8 @@ export async function runNavigate(ctx, i, action) {
   } catch (_) { /* tab already gone: initialTabUrl stays null */ }
   await new Promise((resolve) => {
     let resolved = false;
+    let spaPoller = null;
+    let navTimeout = null;
     const done = (success = true) => {
       if (resolved) return;
       resolved = true;
@@ -43,15 +46,12 @@ export async function runNavigate(ctx, i, action) {
     chrome.tabs.onUpdated.addListener(listener);
     chrome.tabs.onRemoved.addListener(removedListener);
 
-    try { chrome.tabs.update(tabId, { url: targetUrl }); }
-    catch (e) { done(false); return; }
-
     // SPA fallback: some single-page apps never fire status='complete' on
     // in-app navigation.  Poll the tab URL every 200 ms instead.
     // Only accept an exact or prefix match in the target→current direction
     // to avoid false-positives when the current URL is a prefix of the
     // target (e.g. current="/", target="/checkout").
-    const spaPoller = setInterval(async () => {
+    spaPoller = setInterval(async () => {
       if (resolved) { clearInterval(spaPoller); return; }
       try {
         const tab = await new Promise(r => chrome.tabs.get(tabId, r));
@@ -62,11 +62,21 @@ export async function runNavigate(ctx, i, action) {
       } catch (_) { /* tab closed between polls: onRemoved or the timeout ends the wait */ }
     }, SPA_POLL_MS);
 
-    const navTimeout = setTimeout(() => done(false), NAV_TIMEOUT_MS);
+    navTimeout = setTimeout(() => done(false), NAV_TIMEOUT_MS);
+
+    // With a callback, a URL Chrome refuses (malformed, a chrome:// page) comes
+    // back at once as lastError, not as an unhandled rejection and a 30 s wait.
+    try {
+      chrome.tabs.update(tabId, { url: targetUrl }, () => {
+        const err = chrome.runtime.lastError?.message;
+        if (err) { navError = err; done(false); }
+      });
+    } catch (e) { navError = e?.message || String(e); done(false); }
   });
 
   if (!navSuccess) {
-    const next = await fail(i, action, 'Navigation timed out or tab was closed', 'Navigation timed out');
+    const reason = navError ? `Navigation failed: ${navError}` : 'Navigation timed out or tab was closed';
+    const next = await fail(i, action, reason, navError ? 'Navigation failed' : 'Navigation timed out');
     if (next === FAIL_RETRY) return i - 1;
     if (next === FAIL_STOP) return STOP;
   }
