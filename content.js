@@ -1628,11 +1628,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           break;
         }
         default:
-          result = true; // unknown type → pass
+          // A type this version does not know (a newer export, an edited import)
+          // is not a check that passed: the run reports it.
+          sendResponse({ result: false, error: `Unknown condition type "${conditionType}"` });
+          return;
       }
     } catch (e) {
-      console.error('[CONTENT] CHECK_CONDITION error:', e);
-      result = true; // error → pass (match 22/05 behaviour)
+      // Reported, not passed: the run asks retry / skip / stop.
+      sendResponse({ result: false, error: e?.message || String(e) });
+      return;
     }
     sendResponse({ result });
   }

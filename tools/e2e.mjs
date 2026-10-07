@@ -29,6 +29,8 @@
  *   schedule      a schedule's alarm opens its start URL in a new tab and plays there,
  *                 not on the tab that was active
  *   record-overlay  clicks and typing inside a [data-ext-overlay] box are not recorded
+ *   condition-unknown  a Condition whose type the page does not know brings up the
+ *                 failure prompt instead of passing and running what it guards
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -321,18 +323,39 @@ async function checkFileInput(ctx) {
   const id = await makeScenario(ctx, 'e2e file input played', [
     { type: 'input', selector: '#upload', selectors: { css: '#upload' }, value: 'C:\\fakepath\\a.pdf' },
   ]);
+  const { prompt, seconds } = await playUntilPrompt(ctx, id);
+  check(prompt && seconds < 4, 'an Input action on a file input fails at once', { prompt, seconds });
+}
+
+/**
+ * Play a scenario until the failed-action prompt shows on the test page (or the
+ * run ends, or 15 s pass), then stop it. Whether the prompt showed, and after how long.
+ */
+async function playUntilPrompt(ctx, scenarioId) {
   await ctx.web.bringToFront();
   const started = Date.now();
-  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: id });
+  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId });
   let prompt = false;
   while (!prompt && Date.now() - started < 15_000) {
     await sleep(POLL_MS);
     prompt = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].some((e) => /failed/i.test(e.textContent))`);
+    if (!prompt && Date.now() - started > 2_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing) break;
   }
   const seconds = (Date.now() - started) / 1000;
   await ctx.send({ type: 'STOP_PLAYBACK' });
   await sleep(SETTLE_MS);
-  check(prompt && seconds < 4, 'an Input action on a file input fails at once', { prompt, seconds });
+  return { prompt, seconds };
+}
+
+async function checkConditionUnknown(ctx) {
+  await reloadTestPage(ctx);
+  const id = await makeScenario(ctx, 'e2e unknown condition', [
+    { type: 'condition', conditionType: 'bogus', selector: '#bg1', selectors: { css: '#bg1' }, skipCount: 1 },
+    { type: 'click', selector: '#bg2', selectors: { css: '#bg2' } },
+  ]);
+  const { prompt } = await playUntilPrompt(ctx, id);
+  const clicked = await ctx.web.evaluate(`__log.filter((e) => e.startsWith('bg2 '))`);
+  check(prompt && clicked.length === 0, 'a Condition of an unknown type stops on the failure prompt instead of passing', { prompt, clicked });
 }
 
 async function checkHotkeys(ctx) {
@@ -421,6 +444,7 @@ const CHECKS = [
   ['hotkeys', 'Record hotkeys: activated tabs only, macOS Option', checkHotkeys],
   ['schedule', 'A scheduled run on its start URL', checkSchedule],
   ['record-overlay', 'Recording ignores the extension overlays', checkRecordOverlay],
+  ['condition-unknown', 'A Condition of an unknown type', checkConditionUnknown],
 ];
 
 async function main() {
