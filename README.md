@@ -645,7 +645,7 @@ All hotkeys are configurable in the **Settings** tab and synced via `chrome.stor
 │  content.js  (Page Context — Execution Layer, all frames)   │
 │  DOM event capture · Selector generation (8 candidates)     │
 │  Action execution · Condition evaluation · Hotkey listener  │
-│  Highlight engine (selection, restore, URL patterns)        │
+│  + content-highlight.js: highlights (selection, restore)    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -1023,7 +1023,7 @@ Naming:
 | Files | kebab-case (`full-page.js`, `failure-prompt.js`). |
 | Functions | camelCase, starting with a verb (`takeElementScreenshot`, `resetZoomTo100`). |
 | Constants | UPPER_SNAKE, named for what the value means: `NAV_TIMEOUT_MS`, `DETACH_SETTLE_MS` — two equal numbers that mean different things are two constants. |
-| Private | In an ES module, private means not exported — exported names carry no `_`. A leading `_` on a module-internal name is optional. In the classic scripts, where everything shares one scope, the `_hl*`, `_ext*`, `_rd*` prefixes of `content.js` act as namespaces and stay. |
+| Private | In an ES module, private means not exported — exported names carry no `_`. A leading `_` on a module-internal name is optional. In the classic scripts, where everything shares one scope, the `_hl*`, `_ext*`, `_rd*` prefixes of `content.js` and `content-highlight.js` act as namespaces and stay. |
 | Abbreviations | Not for anything used beyond a few lines (`effectiveScale`, not `es`; `nameBytes`, not `nb`). |
 
 ### Development checks

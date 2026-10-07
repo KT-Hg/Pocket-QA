@@ -33,7 +33,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*", "file://*/*"],
-      "js": ["content.js"],
+      "js": ["content.js", "content-highlight.js"],
       "run_at": "document_idle",
       "all_frames": true
     },

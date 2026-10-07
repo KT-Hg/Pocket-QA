@@ -1,6 +1,6 @@
 /**
  * highlight.js — Popup module for the Highlight tab.
- * Communicates with content.js via chrome.tabs.sendMessage for the active tab.
+ * Communicates with content-highlight.js via chrome.tabs.sendMessage for the active tab.
  * For non-active URLs, reads/writes chrome.storage.local directly.
  */
 
@@ -90,7 +90,7 @@ export function initHighlight() {
   let builderSegs             = []; // path segments
   let builderStates           = []; // 'exact' | 'any' | 'end' per path segment
 
-  // ── URL normalisation (mirrors content.js logic) ──
+  // ── URL normalisation (mirrors content-highlight.js logic) ──
   // Supports * in both path segments AND subdomain (e.g. *.myapp.com/path)
   // A bare #anchor jumps within the same document, so it must not fork the
   // storage key. A #/route (or #!/route) hash is a router path and does name a

@@ -22,7 +22,7 @@ export default [
       'complexity': ['warn', 20],
     },
   },
-  { files: ['content.js', 'editor.js', 'dbtools/boot.js'], languageOptions: { sourceType: 'script' } },
+  { files: ['content.js', 'content-highlight.js', 'editor.js', 'dbtools/boot.js'], languageOptions: { sourceType: 'script' } },
   // Parsers: the complexity is the nature of the code (state machines, case analysis),
   // and splitting a lexer or a recursive-descent method only scatters it.
   { files: ['sqlcases/tokenizer.js', 'sqlcases/parser.js'], rules: { complexity: 'off', 'max-depth': 'off', 'max-lines-per-function': 'off' } },
