@@ -9,6 +9,32 @@ import { loadSchedules } from './schedule.js';
 /* === Custom Schedule Time Picker === */
 export let resetScheduleTimePicker = null;
 
+/** The schedule the form describes, or null (after a toast) when it is incomplete. */
+function _scheduleFromForm() {
+  const scenarioId = document.getElementById("scheduleScenarioSelect")?.value;
+  const time = document.getElementById("scheduleTime")?.value;
+  const label = document.getElementById("scheduleLabel")?.value?.trim() || "";
+  const repeat = document.getElementById("scheduleRepeat")?.checked || false;
+
+  if (!scenarioId) {
+    showToast("Select a scenario first", "error");
+    return null;
+  }
+  if (!time) {
+    showToast("Select a time first", "error");
+    return null;
+  }
+
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    scenarioId,
+    time,
+    label,
+    repeat,
+    enabled: true,
+  };
+}
+
 /** A 12-hour clock hour as 24-hour: 12 AM is hour 0, 12 PM hour 12, other PM hours add 12. */
 function to24h(h12, pm) {
   if (pm) return h12 === 12 ? 12 : h12 + 12;
@@ -56,28 +82,8 @@ export function initTimePicker() {
     syncHidden(); // init hidden value
   })();
   document.getElementById("addSchedule")?.addEventListener("click", () => {
-    const scenarioId = document.getElementById("scheduleScenarioSelect")?.value;
-    const time = document.getElementById("scheduleTime")?.value;
-    const label = document.getElementById("scheduleLabel")?.value?.trim() || "";
-    const repeat = document.getElementById("scheduleRepeat")?.checked || false;
-
-    if (!scenarioId) {
-      showToast("Select a scenario first", "error");
-      return;
-    }
-    if (!time) {
-      showToast("Select a time first", "error");
-      return;
-    }
-
-    const schedule = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-      scenarioId,
-      time,
-      label,
-      repeat,
-      enabled: true,
-    };
+    const schedule = _scheduleFromForm();
+    if (!schedule) return;
 
     const isEditing = !!ui.editingScheduleId;
     const saveAction = () => {
