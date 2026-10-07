@@ -27,7 +27,7 @@ import {
   backupName, backupCreateSql, backupRestoreSql, backupDropSql,
 } from './snapshot.js';
 import {
-  quoteIdent, quoteValue, quoteTable, looksNumeric, whereClause,
+  quoteIdent, quoteValue, quoteTable, whereClause,
   buildUpdate, buildInsert, buildDelete, engineOf, joinStatements,
 } from './sqlquote.js';
 import {
@@ -124,8 +124,8 @@ function eq(name, actual, expected) {
 }
 
 /* ---------------------------------------------------------------------
- * 2. Quoting — per engine, and the numeric shortcut that must not fire
- *    on text that only looks numeric.
+ * 2. Quoting — per engine. Every value is quoted, numbers too: a form
+ *    value carries no column type (see quoteValue).
  * ------------------------------------------------------------------- */
 {
   eq('mysql identifier', quoteIdent('a`b', 'mysql'), '`a``b`');
@@ -139,19 +139,21 @@ function eq(name, actual, expected) {
   eq('null is NULL', quoteValue(null, 'mysql'), 'NULL');
   eq('the empty string is not NULL', quoteValue('', 'mysql'), "''");
 
-  check('plain integers are unquoted', looksNumeric('42') && looksNumeric('-7') && looksNumeric('0'));
-  check('a leading zero stays text', !looksNumeric('007'), 'a zip code or account number would be mangled');
-  check('exponent notation stays text', !looksNumeric('1e5'));
-  check('a padded number stays text', !looksNumeric(' 1 '));
-  check('a plus sign stays text', !looksNumeric('+1'));
+  eq('an integer is quoted', quoteValue('42', 'mysql'), "'42'");
+  eq('a negative decimal is quoted', quoteValue('-7.5', 'pgsql'), "'-7.5'");
   eq('code 007 is quoted', quoteValue('007', 'mysql'), "'007'");
+  eq('mssql strings are Unicode', quoteValue('Việt', 'mssql'), "N'Việt'");
+  eq('mssql numbers are quoted the same way', quoteValue('42', 'mssql'), "N'42'");
+  eq('mssql doubles a quote inside N', quoteValue("O'Brien", 'mssql'), "N'O''Brien'");
+  eq('mssql null is NULL', quoteValue(null, 'mssql'), 'NULL');
+  eq('no N prefix outside mssql', quoteValue('Việt', 'pgsql'), "'Việt'");
 
   eq('null in a predicate is IS NULL', whereClause({ a: null }, 'mysql'), '`a` IS NULL');
   eq('empty string in a predicate is an equality', whereClause({ a: '' }, 'mysql'), "`a` = ''");
   eq('an empty map yields no clause', whereClause({}, 'mysql'), '');
 
   eq('delete takes a limit guard only where it is legal',
-    buildDelete('t', { a: '1' }, 'pgsql', '', 1), 'DELETE FROM "t" WHERE "a" = 1');
+    buildDelete('t', { a: '1' }, 'pgsql', '', 1), 'DELETE FROM "t" WHERE "a" = \'1\'');
   check('mysql delete accepts the limit guard',
     buildDelete('t', { a: '1' }, 'mysql', '', 1).endsWith('LIMIT 1'));
 
@@ -172,7 +174,7 @@ function eq(name, actual, expected) {
   eq('a plain update is undoable', blockingReason(update), '');
   eq('it restores both columns by the recorded key',
     undoStatements(update, 'mysql')[0],
-    "UPDATE `m_generic` SET `value` = 'A', `note` = NULL WHERE `id` = 42");
+    "UPDATE `m_generic` SET `value` = 'A', `note` = NULL WHERE `id` = '42'");
 
   // The case the whole `undoWhere` exists for.
   const movedKey = {
@@ -182,7 +184,7 @@ function eq(name, actual, expected) {
   eq('an edit that moved the key is looked up by its new value',
     undoWhere(movedKey.rows[0], movedKey.keyCols).id, '2');
   check('and it sets the old key back',
-    undoStatements(movedKey, 'mysql')[0] === "UPDATE `t` SET `id` = 1, `v` = 'a' WHERE `id` = 2",
+    undoStatements(movedKey, 'mysql')[0] === "UPDATE `t` SET `id` = '1', `v` = 'a' WHERE `id` = '2'",
     undoStatements(movedKey, 'mysql')[0]);
 
   // A non-key column with the same name as a key column elsewhere must not be
@@ -212,11 +214,11 @@ function eq(name, actual, expected) {
     rows: [{ where: { id: '9' }, before: { id: '9', a: 'z', b: null }, after: null }],
   };
   eq('a delete is undone by re-inserting the whole row',
-    undoStatements(del, 'pgsql')[0], 'INSERT INTO "t" ("id", "a", "b") VALUES (9, \'z\', NULL)');
+    undoStatements(del, 'pgsql')[0], 'INSERT INTO "t" ("id", "a", "b") VALUES (\'9\', \'z\', NULL)');
 
   const ins = { op: 'insert', table: 't', keyCols: ['id'], rows: [{ where: { id: '5' }, before: null, after: {} }] };
   eq('an insert is undone by deleting the new row',
-    undoStatements(ins, 'mysql')[0], 'DELETE FROM `t` WHERE `id` = 5');
+    undoStatements(ins, 'mysql')[0], 'DELETE FROM `t` WHERE `id` = \'5\'');
 
   // Refusals.
   eq('a keyless table is refused',
@@ -242,7 +244,7 @@ function eq(name, actual, expected) {
   eq('a bulk capture is undoable without an after', blockingReason(bulk), '');
   eq('it restores only the columns the statement wrote',
     undoStatements(bulk, 'mysql').join('\n'),
-    "UPDATE `m_generic` SET `value` = 'A' WHERE `id` = 1\nUPDATE `m_generic` SET `value` = 'B' WHERE `id` = 2");
+    "UPDATE `m_generic` SET `value` = 'A' WHERE `id` = '1'\nUPDATE `m_generic` SET `value` = 'B' WHERE `id` = '2'");
   eq('columnsToRestore ignores a named column the row never had',
     columnsToRestore({ restoreCols: ['value', 'missing'] }, bulk.rows[0]).length, 1);
   eq('a named column with nothing recorded is refused',
@@ -289,28 +291,28 @@ function eq(name, actual, expected) {
   eq('a recorded update can be applied again', redoBlockingReason(update), '');
   eq('it writes the values the test gave, by the recorded key',
     redoStatements(update, 'mysql')[0],
-    "UPDATE `m_generic` SET `value` = 'B', `note` = 'x' WHERE `id` = 42");
+    "UPDATE `m_generic` SET `value` = 'B', `note` = 'x' WHERE `id` = '42'");
 
   const movedKey = {
     op: 'update', table: 't', keyCols: ['id'],
     rows: [{ where: { id: '1' }, before: { id: '1', v: 'a' }, after: { id: '2', v: 'b' } }],
   };
   eq('an edit that moved the key is redone on the old key, which the row has again',
-    redoStatements(movedKey, 'mysql')[0], "UPDATE `t` SET `id` = 2, `v` = 'b' WHERE `id` = 1");
+    redoStatements(movedKey, 'mysql')[0], "UPDATE `t` SET `id` = '2', `v` = 'b' WHERE `id` = '1'");
 
   const del = {
     op: 'delete', table: 't', keyCols: ['id'],
     rows: [{ where: { id: '9' }, before: { id: '9', a: 'z', b: null }, after: null }],
   };
   eq('a delete is redone by deleting the row the rollback put back',
-    redoStatements(del, 'mysql')[0], 'DELETE FROM `t` WHERE `id` = 9');
+    redoStatements(del, 'mysql')[0], 'DELETE FROM `t` WHERE `id` = \'9\'');
 
   const ins = {
     op: 'insert', table: 't', keyCols: ['id'],
     rows: [{ where: { id: '5' }, before: null, after: { id: '5', a: 'new' } }],
   };
   eq('an insert is redone by putting the row back, key and all',
-    redoStatements(ins, 'pgsql')[0], 'INSERT INTO "t" ("id", "a") VALUES (5, \'new\')');
+    redoStatements(ins, 'pgsql')[0], 'INSERT INTO "t" ("id", "a") VALUES (\'5\', \'new\')');
 
   // The refusal that matters: a bulk statement typed on the SQL page records the
   // old values but never reads the new ones, so it can be undone and cannot be
@@ -371,11 +373,11 @@ function eq(name, actual, expected) {
     upd('c2', 2, { id: '1' }, { v: 'B' }, { v: 'C' }),
   );
   const undo = compactPlan(abc);
-  eq('two edits of one row are undone in one statement', sql(undo), "UPDATE `t` SET `v` = 'A' WHERE `id` = 1");
+  eq('two edits of one row are undone in one statement', sql(undo), "UPDATE `t` SET `v` = 'A' WHERE `id` = '1'");
   eq('where step by step takes two', undo.steps, 2);
   eq('both changes take part', undo.units[0].parts.length, 2);
   eq('and a redo goes straight to the last value',
-    sql(compactPlan(abc, { dir: 'redo', includeApplied: true })), "UPDATE `t` SET `v` = 'C' WHERE `id` = 1");
+    sql(compactPlan(abc, { dir: 'redo', includeApplied: true })), "UPDATE `t` SET `v` = 'C' WHERE `id` = '1'");
 
   const back = compactPlan(sess(
     upd('c1', 1, { id: '1' }, { v: 'A' }, { v: 'B' }),
@@ -389,7 +391,7 @@ function eq(name, actual, expected) {
     upd('c2', 2, { id: '1' }, { v: 'B' }, { v: 'A' }),
   ));
   eq('only the columns that did not come back are written, NULL kept apart from empty',
-    sql(twoCols), 'UPDATE `t` SET `w` = NULL WHERE `id` = 1');
+    sql(twoCols), 'UPDATE `t` SET `w` = NULL WHERE `id` = \'1\'');
 
   // The key moved on the first edit; the second reached the row by its new key.
   const moved = sess(
@@ -397,16 +399,16 @@ function eq(name, actual, expected) {
     upd('c2', 2, { id: '2' }, { v: 'b' }, { v: 'c' }),
   );
   eq('a row is followed through a key change and found by the key it has now',
-    sql(compactPlan(moved)), "UPDATE `t` SET `id` = 1, `v` = 'a' WHERE `id` = 2");
+    sql(compactPlan(moved)), "UPDATE `t` SET `id` = '1', `v` = 'a' WHERE `id` = '2'");
   eq('a redo reaches it by the key it had at the start',
-    sql(compactPlan(moved, { dir: 'redo', includeApplied: true })), "UPDATE `t` SET `id` = 2, `v` = 'c' WHERE `id` = 1");
+    sql(compactPlan(moved, { dir: 'redo', includeApplied: true })), "UPDATE `t` SET `id` = '2', `v` = 'c' WHERE `id` = '1'");
 
   const ins = { id: 'i', seq: 1, op: 'insert', table: 't', keyCols: ['id'],
     rows: [{ where: { id: '5' }, before: null, after: { id: '5', a: 'x' } }] };
   const insEdit = sess(ins, upd('u', 2, { id: '5' }, { a: 'x' }, { a: 'y' }));
-  eq('a row inserted and then edited is simply deleted', sql(compactPlan(insEdit)), 'DELETE FROM `t` WHERE `id` = 5');
+  eq('a row inserted and then edited is simply deleted', sql(compactPlan(insEdit)), 'DELETE FROM `t` WHERE `id` = \'5\'');
   eq('and redone as one INSERT of the row as the test left it',
-    sql(compactPlan(insEdit, { dir: 'redo', includeApplied: true })), "INSERT INTO `t` (`id`, `a`) VALUES (5, 'y')");
+    sql(compactPlan(insEdit, { dir: 'redo', includeApplied: true })), "INSERT INTO `t` (`id`, `a`) VALUES ('5', 'y')");
 
   const del9 = (seq, before) => ({ id: `d${seq}`, seq, op: 'delete', table: 't', keyCols: ['id'],
     rows: [{ where: { id: '9' }, before, after: null }] });
@@ -419,9 +421,9 @@ function eq(name, actual, expected) {
 
   const editDel = sess(upd('u', 1, { id: '9' }, { a: 'z' }, { a: 'w' }), del9(2, { id: '9', a: 'w', b: null }));
   eq('a row edited and then deleted comes back as it was before the edit',
-    sql(compactPlan(editDel)), "INSERT INTO `t` (`id`, `a`, `b`) VALUES (9, 'z', NULL)");
+    sql(compactPlan(editDel)), "INSERT INTO `t` (`id`, `a`, `b`) VALUES ('9', 'z', NULL)");
   eq('and a redo just deletes it', sql(compactPlan(editDel, { dir: 'redo', includeApplied: true })),
-    'DELETE FROM `t` WHERE `id` = 9');
+    'DELETE FROM `t` WHERE `id` = \'9\'');
 
   // Deleted, then inserted under the same key: what that INSERT wrote over was
   // never read, so the row is run change by change, newest first.
@@ -431,7 +433,7 @@ function eq(name, actual, expected) {
   ));
   eq('a row deleted and inserted again is not folded', delIns.units.map((u) => u.net).join(), 'steps,steps');
   eq('its changes run as the step-by-step rollback runs them', sql(delIns),
-    "DELETE FROM `t` WHERE `id` = 9\nINSERT INTO `t` (`id`, `a`) VALUES (9, 'old')");
+    "DELETE FROM `t` WHERE `id` = '9'\nINSERT INTO `t` (`id`, `a`) VALUES ('9', 'old')");
 
   // A fold stops at a change that is not part of the run.
   const three = sess(
@@ -441,7 +443,7 @@ function eq(name, actual, expected) {
   );
   eq('a fold never reaches across a change that was not picked',
     sql(compactPlan(three, { changeIds: ['c1', 'c3'] })),
-    "UPDATE `t` SET `v` = 'C' WHERE `id` = 1\nUPDATE `t` SET `v` = 'A' WHERE `id` = 1");
+    "UPDATE `t` SET `v` = 'C' WHERE `id` = '1'\nUPDATE `t` SET `v` = 'A' WHERE `id` = '1'");
   eq('nor across a keyless one that may have written the same row',
     compactPlan(sess(three.changes[0], upd('k', 2, {}, { v: 'B' }, { v: 'C' }), three.changes[2])).units.length, 2);
   eq('nor across one already rolled back',
@@ -463,17 +465,17 @@ function eq(name, actual, expected) {
       rows: [{ where: { id: '1' }, before: { id: '1', value: 'A' }, after: {} }] },
     upd('e', 2, { id: '1' }, { value: 'B' }, { value: 'C' }),
   );
-  eq('a typed statement folds with the edit after it', sql(compactPlan(typed)), "UPDATE `t` SET `value` = 'A' WHERE `id` = 1");
+  eq('a typed statement folds with the edit after it', sql(compactPlan(typed)), "UPDATE `t` SET `value` = 'A' WHERE `id` = '1'");
   const typedRedo = compactPlan(typed, { dir: 'redo', includeApplied: true });
   eq('but a redo cannot repeat it and says why', typedRedo.skipped.map((s) => s.reason).join(), 'redo-no-after');
-  eq('and repeats only the edit it could read', sql(typedRedo), "UPDATE `t` SET `value` = 'C' WHERE `id` = 1");
+  eq('and repeats only the edit it could read', sql(typedRedo), "UPDATE `t` SET `value` = 'C' WHERE `id` = '1'");
   const unread = compactPlan(sess(
     upd('e', 1, { id: '1' }, { value: 'A' }, { value: 'B' }),
     { id: 'b', seq: 2, op: 'update', table: 't', keyCols: ['id'], restoreCols: ['value'],
       rows: [{ where: { id: '1' }, before: { id: '1', value: 'B' }, after: {} }] },
   ));
   eq('a last value never read back is written anyway, even if it may have come back',
-    sql(unread), "UPDATE `t` SET `value` = 'A' WHERE `id` = 1");
+    sql(unread), "UPDATE `t` SET `value` = 'A' WHERE `id` = '1'");
 
   const bulk = compactPlan(sess(
     { id: 'b', seq: 1, op: 'update', table: 't', keyCols: ['id'], rows: [
@@ -487,8 +489,8 @@ function eq(name, actual, expected) {
   eq('a blocked change is left out and named',
     compactPlan(sess(upd('k', 1, {}, { v: 'A' }, { v: 'B' }))).skipped[0].reason, 'no-key');
   eq('quoting follows the session engine',
-    sql(compactPlan({ conn: { driver: 'pgsql' }, changes: abc.changes })), 'UPDATE "t" SET "v" = \'A\' WHERE "id" = 1');
-  eq('the folded export script is the plan', compactUndoScript(abc).join(), "UPDATE `t` SET `v` = 'A' WHERE `id` = 1");
+    sql(compactPlan({ conn: { driver: 'pgsql' }, changes: abc.changes })), 'UPDATE "t" SET "v" = \'A\' WHERE "id" = \'1\'');
+  eq('the folded export script is the plan', compactUndoScript(abc).join(), "UPDATE `t` SET `v` = 'A' WHERE `id` = '1'");
 
   // Drift is checked once per row, against the row's last recorded values.
   const unit = undo.units[0];
@@ -630,7 +632,7 @@ function eq(name, actual, expected) {
   const ins = { op: 'insert', table: 'm_generic', keyCols: ['id'],
     rows: [{ where: { id: '7' }, before: null, after: { id: '7', code: 'X', value: null } }] };
   eq('an insert with its key is undone by deleting exactly that row',
-    undoStatements(ins, 'mysql')[0], 'DELETE FROM `m_generic` WHERE `id` = 7');
+    undoStatements(ins, 'mysql')[0], 'DELETE FROM `m_generic` WHERE `id` = \'7\'');
   eq('and nothing blocks it', blockingReason(ins), '');
   eq('an insert whose key was never found says so, in its own words',
     blockingReason({ op: 'insert', table: 't', keyCols: [], rows: [{ where: {}, before: null, after: { a: '1' } }] }),
@@ -680,7 +682,7 @@ function eq(name, actual, expected) {
   const sql = restoreStatements(diff, 'm_generic', 'mysql');
   check('deletes run first, then updates, then inserts — so unique values are free when needed',
     sql[0].startsWith('DELETE') && sql[1].startsWith('UPDATE') && sql[2].startsWith('INSERT'), sql.join(' | '));
-  eq('the restored row keeps its NULL', sql[1], 'UPDATE `m_generic` SET `note` = NULL WHERE `id` = 1');
+  eq('the restored row keeps its NULL', sql[1], 'UPDATE `m_generic` SET `note` = NULL WHERE `id` = \'1\'');
   check('an unchanged table needs nothing', diffIsEmpty(diffSnapshot(snap, { ...snap })));
 
   eq('no key, no diff', diffSnapshot({ ...snap, keyCols: [] }, now).reason, 'no-key');

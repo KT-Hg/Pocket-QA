@@ -9,11 +9,10 @@
  * backslash, so doubling it there would corrupt the value being restored.
  *
  * Values captured from an edit form are always strings (or `null`). That loses
- * the column's type, which does not matter as much as it looks: an unquoted-type
- * literal `'42'` is coerced to the column type by every engine here. Numbers are
- * still emitted unquoted where it is unambiguous, because a quoted literal can
- * defeat an index on a numeric column in MySQL — but never for text that merely
- * looks numeric (`007`, `1e5`, `+1`), where unquoting would change the value.
+ * the column's type, so every value is written as a quoted literal: `'42'` is
+ * coerced to a numeric column's type by every engine here, while a bare `42`
+ * against a text column fails in PostgreSQL and matches the wrong rows in MySQL
+ * (see quoteValue).
  *
  * Everything here is pure string arithmetic, so it runs the same under Node as
  * it does in the page and is covered by dbtools/selftest.mjs.
@@ -47,28 +46,26 @@ export function quoteTable(table, engine = 'mysql', schema = '') {
 }
 
 /**
- * Safe to emit without quotes?
+ * One value → a SQL literal. `null` and `undefined` both become NULL.
  *
- * Deliberately narrow: an optional minus, digits, an optional fractional part,
- * and no leading zero unless the value *is* zero. `007` stays a string because
- * the column it came from may well be text, and `1e5`/`+1`/` 1 ` are rejected
- * for the same reason.
+ * Always quoted, numbers included. A value from an edit form is a string, so
+ * the column's type is unknown: an unquoted `1` compared with a text column is
+ * an error in PostgreSQL and, in MySQL, a numeric comparison that also matches
+ * '01', '1.0' and '1abc' — an undo DELETE or UPDATE would hit those rows too.
+ * A quoted `'42'` is coerced to a numeric column's type by every engine here
+ * and still uses its index.
  */
-export function looksNumeric(text) {
-  return /^-?(0|[1-9]\d*)(\.\d+)?$/.test(text);
-}
-
-/** One value → a SQL literal. `null` and `undefined` both become NULL. */
 export function quoteValue(value, engine = 'mysql') {
   if (value === null || value === undefined) return 'NULL';
   const raw = String(value);
-  if (looksNumeric(raw)) return raw;
 
   // Single quotes are doubled everywhere. Backslash is an escape only in MySQL
   // (and SQLite treats it literally, like PostgreSQL).
   let body = raw.replace(/'/g, "''");
   if (engine === 'mysql') body = body.replace(/\\/g, '\\\\');
-  return `'${body}'`;
+  // SQL Server reads a plain '…' in the database's code page: anything outside
+  // it (Vietnamese, CJK…) arrives as '?'. N'…' keeps it as Unicode.
+  return engine === 'mssql' ? `N'${body}'` : `'${body}'`;
 }
 
 /** `col = value`, or `col IS NULL` — the distinction an undo predicate lives on. */
