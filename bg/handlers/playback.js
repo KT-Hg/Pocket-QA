@@ -12,9 +12,9 @@ import { startPlayback, startPlaybackFromCheckpoint, startSequence } from '../pl
 
 export const playbackHandlers = {
   RESUME_PLAYBACK(request, sender, sendResponse) {
-    const { scenarioId, actionIndex, tabId } = request;
+    const { scenarioId, actionIndex, tabId, nested } = request;
     chrome.storage.local.remove("playbackCheckpoint");
-    startPlaybackFromCheckpoint(scenarioId, actionIndex + 1, tabId);
+    startPlaybackFromCheckpoint(scenarioId, actionIndex + 1, tabId, Array.isArray(nested) ? nested : null);
     sendResponse({ started: true });
     return;
   },

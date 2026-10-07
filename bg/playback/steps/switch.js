@@ -109,7 +109,7 @@ export async function runSwitch(ctx, i, action) {
       // came back empty.
       //
       // endIdx limits the branch to a range of the target when the case has one.
-      const nestedVars = await ctx.playNested(targetScenario.actions, { ...resolvedVars }, startIdx, endIdx);
+      const nestedVars = await ctx.playNested(targetScenario.actions, { ...resolvedVars }, startIdx, endIdx, matched.scenarioId);
       Object.assign(resolvedVars, nestedVars);
       // Back in this scenario: progress counts its actions again, not the branch's.
       state.playback.scenarioName = parentName;

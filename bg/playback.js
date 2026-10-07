@@ -16,7 +16,7 @@ import { getActiveTabId } from './tabs.js';
 import { STEPS, runOnPage, STOP } from './playback/steps/index.js';
 import { ssWrite, ssClear, csvResultWrite, csvResultClear } from './idb-screenshots.js';
 import { beginDbGuard, endDbGuard } from './dbguard.js';
-import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, resumeSegments } from '../shared/switch-blocks.js';
+import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, continueIndex, resumeSegments } from '../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
 import { pickStrings } from '../shared/dropdown-pick.js';
 import { isAnyPlaybackActive, runClaimed } from './run-state.js';
@@ -100,13 +100,31 @@ async function _getSsSettings() {
 /* ── Playback Core ──────────────────────────────────────────────────────────── */
 
 /**
+ * The checkpoint the popup offers to resume from (startPlaybackFromCheckpoint).
+ * Inside another scenario a Switch went into, actionIndex stays on that Switch
+ * and `nested` says where in the other scenario(s) the run is.
+ */
+function _saveCheckpoint(frames, tabId) {
+  if (!state.playback.scenarioId) return;
+  const [root, ...nested] = frames;
+  chrome.storage.local.set({
+    playbackCheckpoint: {
+      scenarioId: state.playback.scenarioId,
+      actionIndex: root.actionIndex, tabId,
+      timestamp: Date.now(),
+      ...(nested.length ? { nested: nested.map((f) => ({ ...f })) } : {}),
+    },
+  });
+}
+
+/**
  * Play `actions` from `startFromIndex`. `endAtIndex` (0-based, inclusive) stops
  * the run early — a Switch block case plays only its own range this way, then
  * the caller moves on to the block's continueAt (see shared/switch-blocks.js).
  */
 export async function playActionsOnTab(tabId, actions, {
   vars = null, screenshotsResult = null, forceAutoSave = false, skipDownload = false,
-  startFromIndex = 0, failedActions = null, depth = 0, endAtIndex = null,
+  startFromIndex = 0, failedActions = null, depth = 0, endAtIndex = null, frames = null,
 } = {}) {
   if (depth > 10) {
     console.error('[PLAYBACK] Max switch/nested-scenario depth (10) exceeded — aborting branch');
@@ -115,6 +133,12 @@ export async function playActionsOnTab(tabId, actions, {
   }
 
   const resolvedVars = resolveRandomVars(vars !== null ? vars : await getVariables());
+
+  // Where the run is, for the checkpoint: the scenario it started from, then each
+  // other scenario a Switch case went into, innermost last. A block case plays
+  // in its own scenario, so it shares its caller's frames.
+  const _frames = frames || [{ actionIndex: startFromIndex }];
+  const _frame = _frames[_frames.length - 1];
 
   // The run, as every step sees it (bg/playback/steps/). tabClosed and selfJumps
   // (Switch → "this scenario" hops taken in this run) change as it goes.
@@ -155,9 +179,11 @@ export async function playActionsOnTab(tabId, actions, {
     layout: _layout, fail, stickFallbacks: _stickFallbacks, getSsSettings: _getSsSettings,
     // A Switch case played as a run of its own, one level deeper. It shares this
     // run's screenshots, save options and failure list; its variables are a copy.
-    playNested: (acts, nestedVars, start, end) => playActionsOnTab(tabId, acts, {
+    // `scenarioId`: the case plays another scenario (a new checkpoint frame).
+    playNested: (acts, nestedVars, start, end, scenarioId = null) => playActionsOnTab(tabId, acts, {
       vars: nestedVars, screenshotsResult, forceAutoSave, skipDownload, startFromIndex: start,
       failedActions, depth: depth + 1, endAtIndex: end,
+      frames: scenarioId ? [..._frames, { scenarioId, actionIndex: start, endAtIndex: end }] : _frames,
     }),
   });
 
@@ -170,15 +196,8 @@ export async function playActionsOnTab(tabId, actions, {
 
       // Persist a checkpoint after every action so the popup can offer resume
       // if the tab reloads mid-playback (e.g. from a navigate action).
-      if (state.playback.scenarioId) {
-        chrome.storage.local.set({
-          playbackCheckpoint: {
-            scenarioId: state.playback.scenarioId,
-            actionIndex: i, tabId,
-            timestamp: Date.now(),
-          },
-        });
-      }
+      _frame.actionIndex = i;
+      _saveCheckpoint(_frames, tabId);
 
       try {
         const action = interpolateAction(actions[i], resolvedVars);
@@ -214,17 +233,53 @@ export async function playActionsOnTab(tabId, actions, {
 
 /* ── Single Scenario Playback ───────────────────────────────────────────────── */
 
-/** Resume a scenario from a saved checkpoint after a tab reload mid-playback. */
-export async function startPlaybackFromCheckpoint(scenarioId, fromIndex, tabId) {
+/**
+ * Resume a scenario from a saved checkpoint after a tab reload mid-playback.
+ * `fromIndex` is the checkpoint's actionIndex + 1; `nested` its other scenarios
+ * a Switch went into, when the run was inside one.
+ */
+export async function startPlaybackFromCheckpoint(scenarioId, fromIndex, tabId, nested = null) {
   if (refuseIfRecording()) return;
   // Guard: never start a checkpoint resume while CSV (or any other) playback is
   // active.  CSV has its own per-row resume path; running startPlaybackFromCheckpoint
   // on top of an active CSV run would bypass forceAutoSave/skipDownload and cause
   // screenshot save-as dialogs instead of accumulating results for the zip.
-  if (!(await runClaimed(() => _resumeScenario(scenarioId, fromIndex, tabId)))) _notifyAlreadyRunning();
+  if (!(await runClaimed(() => _resumeScenario(scenarioId, fromIndex, tabId, nested)))) _notifyAlreadyRunning();
 }
 
-async function _resumeScenario(scenarioId, fromIndex, tabId) {
+// Where playback goes on once the Switch at `i` has played another scenario:
+// the next action, or a block Switch's continueAt (as steps/switch.js does).
+function _afterSwitch(actions, i) {
+  return hasBlock(actions[i]) ? continueIndex(actions, i) : i + 1;
+}
+
+/**
+ * Resume inside the other scenarios a Switch went into (`nested`, innermost
+ * last): the innermost from the action after its checkpoint, then each outer
+ * one after the Switch that entered the next. Variables carry over.
+ */
+async function _resumeNested(tabId, scenarios, rootSwitchIdx, nested, failedActions) {
+  let vars = null;
+  for (let k = nested.length - 1; k >= 0; k--) {
+    const { scenarioId, actionIndex, endAtIndex = null } = nested[k];
+    const acts = scenarios[scenarioId]?.actions;
+    if (!acts?.length) continue;
+    const from = k === nested.length - 1 ? actionIndex + 1 : _afterSwitch(acts, actionIndex);
+    const outer = [{ actionIndex: rootSwitchIdx }, ...nested.slice(0, k).map((f) => ({ ...f }))];
+    for (const seg of resumeSegments(acts, from)) {
+      const end = endAtIndex == null ? seg.end : Math.min(seg.end ?? endAtIndex, endAtIndex);
+      if (!state.playback.active || seg.start >= acts.length || (end != null && seg.start > end)) break;
+      vars = await playActionsOnTab(tabId, acts, {
+        vars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
+        startFromIndex: seg.start, failedActions, depth: k + 1, endAtIndex: end,
+        frames: [...outer, { scenarioId, actionIndex: seg.start, endAtIndex }],
+      });
+    }
+  }
+  return vars;
+}
+
+async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
   const scenarios = await getScenarios();
   const scenario  = scenarios[scenarioId];
   if (!scenario) return;
@@ -247,6 +302,12 @@ async function _resumeScenario(scenarioId, fromIndex, tabId) {
     // block's continueAt (and each enclosing block's) rather than running the
     // other cases. Without blocks this is a single segment from fromIndex.
     let vars = null;
+    // Stopped inside another scenario a Switch went into: finish that first,
+    // then go on here where the Switch (at the checkpoint's actionIndex) would.
+    if (nested?.length) {
+      vars = await _resumeNested(tabId, scenarios, fromIndex - 1, nested, failedActions);
+      fromIndex = _afterSwitch(actions, fromIndex - 1);
+    }
     for (const seg of resumeSegments(actions, fromIndex)) {
       if (!state.playback.active || seg.start >= actions.length) break;
       vars = await playActionsOnTab(tabId, actions, {
