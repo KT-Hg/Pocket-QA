@@ -31,16 +31,28 @@ export function showFieldError(inputEl, message) {
   }, FIELD_ERROR_MS);
 }
 
-/** How many locators a pick kept (textTag only qualifies the text one). */
-function _locatorCount(selectors) {
-  return Object.entries(selectors).filter(([type, v]) => type !== 'textTag' && typeof v === 'string' && v).length;
+// Locators a pick keeps that the selector-type menu does not list; playback still tries them.
+const EXTRA_LOCATORS = { testId: 'Test ID', dataId: 'Data ID' };
+
+/**
+ * What a pick kept: how many of the menu's types (its options), and the extra
+ * locators by name. textTag only qualifies the text one.
+ */
+function _locatorSummary(selectors) {
+  const has = (type) => typeof selectors[type] === 'string' && selectors[type] !== '';
+  const listed = [...(selectorType?.options || [])].filter((o) => has(o.value)).length;
+  const extras = Object.keys(EXTRA_LOCATORS).filter(has).map((type) => EXTRA_LOCATORS[type]);
+  return { listed, extras };
 }
 
 function _renderSelectorPanel(selectors, { infoEl, wrapEl, clearBtnId, onClear }) {
   if (!selectors || !infoEl || !wrapEl) return;
-  const n = _locatorCount(selectors);
-  infoEl.textContent = `🎯 Picked · ${n} locator${n === 1 ? '' : 's'} saved, tried in turn on playback`;
-  infoEl.title = 'Each one is listed in the selector type menu (▾)';
+  const { listed, extras } = _locatorSummary(selectors);
+  const plus = extras.map((name) => ` + ${name}`).join('');
+  infoEl.textContent = `🎯 Picked · ${listed} locator${listed === 1 ? '' : 's'}${plus} saved, tried in turn on playback`;
+  infoEl.title = extras.length
+    ? `The ${listed} are listed in the selector type menu (▾); ${extras.join(' and ')} ${extras.length === 1 ? 'is' : 'are'} tried too`
+    : 'Each one is listed in the selector type menu (▾)';
   wrapEl.style.display = 'flex';
 
   const clearBtn = document.getElementById(clearBtnId);
