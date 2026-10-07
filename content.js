@@ -1113,10 +1113,6 @@ function _extRegisterThemed(apply) {
 function _extApplyTheme() {
   const t = _extTokens();
   _extThemed.forEach((e) => { try { e.apply(t); } catch (_) { /* one broken surface must not stop the others repainting */ } });
-  // Overlay surfaces are repainted by their own registry entry above; this
-  // repaints the highlight panels' inner parts (swatches, note field, arrow),
-  // which the template has no way to know about.
-  try { _hlApplyTipTheme(); } catch (_) { /* highlight tooltip not built yet: nothing to repaint */ }
 }
 
 // Load the popup's theme once, up front. Owned here rather than by the
@@ -1130,6 +1126,12 @@ try {
       _extTheme = res?.popupTheme === 'dark' ? 'dark' : 'light';
       _extApplyTheme();
     } catch (_) { /* context invalidated mid-callback: keep the current theme */ }
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.popupTheme) {
+      _extTheme = changes.popupTheme.newValue === 'dark' ? 'dark' : 'light';
+      _extApplyTheme();
+    }
   });
 } catch (_) { /* extension context invalidated: keep the default theme */ }
 
@@ -2265,7 +2267,7 @@ function _hlInit() {
   } catch (_) { _hlSetEnabled(true); }
 }
 
-// Keep patterns + theme in sync when popup changes them
+// Keep patterns in sync when the popup changes them
 try {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes[_HL_PATTERNS_KEY]) {
@@ -2274,12 +2276,8 @@ try {
       // hl_v1 re-group written alongside the patterns lands first.
       _hlRefreshForPatterns();
     }
-    if (area === 'local' && changes.popupTheme) {
-      _extTheme = changes.popupTheme.newValue === 'dark' ? 'dark' : 'light';
-      _extApplyTheme();
-    }
   });
-} catch (_) { /* extension context invalidated: no live theme updates */ }
+} catch (_) { /* extension context invalidated: no live pattern updates */ }
 
 function _hlGetAll(cb) {
   try {
@@ -2333,10 +2331,6 @@ let _hlDelBtn     = null;
 let _hlNoteBtn    = null;
 let _hlTipLabel   = null;
 let _hlNotePop    = null;   // small bubble showing a highlight's note on hover
-
-// Tooltip colour palettes — shared with every other injected overlay so the
-// highlight UI and the capture chrome stay on one palette. See _EXT_THEMES.
-const _HL_TIP_THEMES = _EXT_THEMES;
 
 // Solid swatch colour of each highlight colour: the tooltip's colour dots and the
 // note bubble's accent.
@@ -2501,9 +2495,9 @@ function _hlTipEl() {
 
 // ── Apply the current theme's palette to the tooltip + note bubble ──
 // Only the inner parts: both panels' surfaces are painted by their overlay
-// template registration, which already runs on every theme change.
-function _hlApplyTipTheme() {
-  const t = _HL_TIP_THEMES[_extTheme] || _HL_TIP_THEMES.dark;
+// template registration. The palette is the overlays' own (_EXT_THEMES), so the
+// highlight UI and the capture chrome stay on one palette.
+function _hlApplyTipTheme(t = _extTokens()) {
   if (_hlTipLabel)  _hlTipLabel.style.color = t.sub;
   if (_hlNoteHint)  _hlNoteHint.style.color = t.sub;
   if (_hlNoteInput) {
@@ -2514,7 +2508,7 @@ function _hlApplyTipTheme() {
   if (_hlNoteBtn) _hlNoteBtn.style.borderColor = t.btnBorder;
   if (_hlNotePop) {
     if (_hlNotePop._dot) _hlNotePop._dot.style.boxShadow =
-      `0 0 0 2px ${_extTheme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)'}`;
+      `0 0 0 2px ${t === _EXT_THEMES.light ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)'}`;
     if (_hlNotePop._arrow) {
       const arrow = _hlNotePop._arrow;
       arrow.style.background = t.bg;
@@ -2523,6 +2517,7 @@ function _hlApplyTipTheme() {
     }
   }
 }
+_extRegisterThemed(_hlApplyTipTheme);
 
 function _hlPositionTip(rect) {
   const tt = _hlTip;
