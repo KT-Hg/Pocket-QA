@@ -636,6 +636,26 @@ await run('script: no debugger session', play([{ type: 'script', code: 'document
   },
   teardown: () => { chrome.debugger.attach = saved.attach; chrome.debugger.sendCommand = saved.sendCommand; },
 });
+// Inside another scenario a Switch went into, the checkpoint stays on the Switch
+// and says where in the other scenario the run is; a resume finishes that
+// scenario, then goes on after the Switch.
+const toTarget = { type: 'switch', switchVar: '', cases: [{ value: '__default__', scenarioId: 'tgt', scenarioName: 'Target' }] };
+await run('checkpoint inside another scenario', play([toTarget, hover('#after')], {}, { scenarioId: 'sNest' }));
+await run('resume: inside another scenario', () => startPlaybackFromCheckpoint('sNest', 1, 1, [{ scenarioId: 'tgt', actionIndex: 0, endAtIndex: null }]), {
+  setup: () => { fake.data.local.scenarios.sNest = { name: 'Nest', actions: [toTarget, hover('#after')] }; },
+});
+const _callsOf = (step) => transcript.find((e) => e.step === step)?.calls || [];
+test('a checkpoint inside another scenario stays on the Switch and names that scenario', () => {
+  const inTarget = _callsOf('checkpoint inside another scenario')
+    .filter((c) => c.startsWith('storage.local.set') && c.includes('"nested"'))
+    .map((c) => JSON.parse(c.slice(c.indexOf(' ') + 1))[0].playbackCheckpoint)
+    .map((cp) => [cp.actionIndex, cp.nested[0].scenarioId, cp.nested[0].actionIndex]);
+  assert.deepEqual(inTarget, [[0, 'tgt', 0], [0, 'tgt', 1], [0, 'tgt', 2]]);
+});
+test('a resume inside another scenario finishes it, then goes on after the Switch', () => {
+  const played = _callsOf('resume: inside another scenario').filter((c) => c.includes('"PLAY_ACTION"')).map((c) => /"selector":"([^"]+)"/.exec(c)?.[1]);
+  assert.deepEqual(played, ['#t2', '#t3', '#after']);
+});
 const _failedOf = (step) => JSON.stringify(transcript.find((e) => e.step === step)?.result?.failed);
 test('a Script that throws fails its action', () => assert.match(_failedOf('script: throws'), /boom/));
 test('a Script with no debugger session fails its action', () => assert.match(_failedOf('script: no debugger session'), /not attached/));
