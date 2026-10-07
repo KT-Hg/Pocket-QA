@@ -129,123 +129,148 @@ function validateActionForm(type, selector, delayVal) {
   return { valid: true };
 }
 
+/** The element the action plays on: its selector and the locators to try for it. */
+function _setSelector(action, selector) {
+  action.selector = selector;
+  if (selectorIsPicked(selector)) {
+    action.selectors = ui.currentPickedSelectors;
+    // A type chosen from the menu is played first (content.js); left as it
+    // came, the usual order applies and the action stays as it always was.
+    if (selectorType?.dataset.chosen === "1") action.selectorType = selectorType.value;
+    // Still the element that was picked → play it in the frame it was picked in.
+    if (ui.currentPickedFrameId != null) action.frameId = ui.currentPickedFrameId;
+  } else {
+    // Typed selector differs from the picked element's — playback prefers
+    // `selectors`, so it must describe the typed selector only.
+    if (ui.currentPickedSelectors) clearPickedSelectorsPanel();
+    action.selectors = { [selectorType?.value || 'css']: selector };
+  }
+}
+
+/** A Child Condition, when one of its fields is filled in. */
+function _addChildCondition(action) {
+  const filled = CHILD_COND_FIELDS
+    .map((f) => [f.prop, document.getElementById(f.id)?.value?.trim()])
+    .filter(([, v]) => v);
+  if (filled.length) {
+    const mode = document.querySelector('input[name="condChildMatchMode"]:checked')?.value || "any";
+    action.conditions = { matchMode: mode, ...Object.fromEntries(filled) };
+  }
+}
+
+function _buildReaddom(action) {
+  if (readdomMode() === "part") {
+    // Each ${name} of the pattern is a variable — shared/text-pattern.js.
+    const pattern = document.getElementById("readdomPattern")?.value?.trim() || "";
+    if (patternError(pattern)) { showToast("A pattern with ${name} is required for Part of the text", "error"); return false; }
+    action.pattern = pattern;
+    if (document.getElementById("readdomMatchCase")?.checked) action.matchCase = true;
+  } else {
+    // Saved without ${ } so `${name}` in later steps finds it.
+    const varName = normalizeVarName(document.getElementById("readdomVarName")?.value);
+    if (!varName) { showToast("Variable name is required for Read DOM action", "error"); return false; }
+    action.varName = varName;
+  }
+  action.readFrom = document.getElementById("readdomReadFrom")?.value || "text";
+  const attrName  = document.getElementById("readdomAttrName")?.value?.trim();
+  if (action.readFrom === "attr") {
+    if (!attrName) { showToast("Attribute name is required when reading an attribute", "error"); return false; }
+    action.attrName = attrName;
+  }
+}
+
+function _buildScreenshotToVar(action, selector) {
+  const varName = normalizeVarName(document.getElementById("screenshotTovarVarName")?.value);
+  if (!varName) { showToast("Variable name is required for Screenshot → Variable", "error"); return false; }
+  action.varName = varName;
+  action.target  = document.getElementById("screenshotTovarTarget")?.value || "page";
+  if (action.target === "element") {
+    if (!selector) { showToast("Selector is required for the Element target", "error"); return false; }
+    action.selector = selector;
+  }
+}
+
+function _buildDragdrop(action) {
+  const target = document.getElementById("dragdropTarget")?.value?.trim();
+  if (!target) { showToast("Drop target selector is required for Drag & Drop action", "error"); return false; }
+  action.targetSelector  = target;
+  const dtSelect         = document.getElementById("dragdropTargetSelectorType");
+  const dtSelectorType   = dtSelect?.value || "css";
+  action.targetSelectors = ui.currentPickedDragdropTargetSelectors || { [dtSelectorType]: target };
+  if (ui.currentPickedDragdropTargetSelectors && dtSelect?.dataset.chosen === "1") action.targetSelectorType = dtSelectorType;
+}
+
+/** "Choose item #" only; a plain Dropdown just opens. */
+function _buildDropdown(action) {
+  if (document.getElementById("dropdownPickMode")?.value !== "index") return;
+  // Saved as written: a ${var} is replaced when it plays.
+  action.pick = { by: "index", index: document.getElementById("dropdownPickIndex")?.value?.trim() || "" };
+  const itemSelector = document.getElementById("dropdownItemSelector")?.value?.trim();
+  if (itemSelector) action.pick.itemSelector = itemSelector;
+}
+
+function _buildUploadFile(action) {
+  action.uploadMode = document.getElementById("uploadMode")?.value || "input";
+  action.folderPath = document.getElementById("uploadFolderPath")?.value?.trim() || "";
+  action.fileNames  = (document.getElementById("uploadFileNames")?.value || "")
+    .split("\n").map(s => s.trim()).filter(Boolean);
+}
+
+function _buildCondition(action) {
+  action.conditionType = conditionType?.value || "elementExists";
+  action.expectedValue = conditionExpectedValue?.value?.trim() || "";
+  // "0" = guards nothing: stored as `empty` since older code reads a skipCount of 0 as 1.
+  const skip = parseInt(conditionSkipCount?.value, 10);
+  action.skipCount     = skip || 1;
+  if (skip === 0) action.empty = true;
+}
+
+function _buildSwitch(action) {
+  // A bare `role` is saved as `${role}`: only a `${…}` reference is substituted.
+  // Always mode saves no variable: then only its default case can match.
+  const always    = switchMode() === "always";
+  const switchVar = always ? "" : normalizeVarRef(document.getElementById("switchVar")?.value);
+  // A case typed into the editor but not added yet is added now, not lost.
+  if (!always && !commitPendingCase()) return false;
+  const alwaysErr = alwaysSwitchError();
+  if (alwaysErr)        { showToast(alwaysErr, "error"); return false; }
+  if (!always && !switchVar) { showToast("Variable is required for Switch action, e.g. ${role}", "error"); return false; }
+  if (!ui._switchCases.length) { showToast("Add at least one case to the Switch", "error"); return false; }
+  action.switchVar = switchVar;
+  action.cases     = ui._switchCases.map(c => ({ ...c }));
+  // Only a Switch with a block has somewhere to continue; left out when
+  // automatic, so an untouched old Switch saves exactly as it was.
+  if (ui._switchContinueAt != null && action.cases.some(isBlockCase)) action.continueAt = ui._switchContinueAt;
+  const { errors } = validateSwitch(candidateActions({ ...action }), switchSelfIdx());
+  if (errors.length) { showToast(errors[0], "error"); return false; }
+}
+
+/**
+ * What each type adds from its own fields. A builder returns false, after its
+ * toast, when a field it needs is missing. They run before the Child Condition
+ * (only Read DOM has both), which keeps every action's keys in the order they
+ * have always been saved in.
+ */
+const TYPE_BUILDERS = new Map([
+  ["readdom",          _buildReaddom],
+  ["screenshot_tovar", _buildScreenshotToVar],
+  ["dragdrop",         _buildDragdrop],
+  ["dropdown",         _buildDropdown],
+  ["uploadFile",       _buildUploadFile],
+  ["condition",        _buildCondition],
+  ["switch",           _buildSwitch],
+]);
+
 function buildActionFromForm(type, selector, value, delayVal) {
   const action = { type };
-
-  if (selector) {
-    action.selector = selector;
-    if (selectorIsPicked(selector)) {
-      action.selectors = ui.currentPickedSelectors;
-      // A type chosen from the menu is played first (content.js); left as it
-      // came, the usual order applies and the action stays as it always was.
-      if (selectorType?.dataset.chosen === "1") action.selectorType = selectorType.value;
-      // Still the element that was picked → play it in the frame it was picked in.
-      if (ui.currentPickedFrameId != null) action.frameId = ui.currentPickedFrameId;
-    } else {
-      // Typed selector differs from the picked element's — playback prefers
-      // `selectors`, so it must describe the typed selector only.
-      if (ui.currentPickedSelectors) clearPickedSelectorsPanel();
-      action.selectors = { [selectorType?.value || 'css']: selector };
-    }
-  }
+  if (selector) _setSelector(action, selector);
 
   const valueBox = VALUE_BOX.get(type);
   if (valueBox && value) action[valueBox.prop] = value;
 
-  if (type === "readdom") {
-    if (readdomMode() === "part") {
-      // Each ${name} of the pattern is a variable — shared/text-pattern.js.
-      const pattern = document.getElementById("readdomPattern")?.value?.trim() || "";
-      if (patternError(pattern)) { showToast("A pattern with ${name} is required for Part of the text", "error"); return null; }
-      action.pattern = pattern;
-      if (document.getElementById("readdomMatchCase")?.checked) action.matchCase = true;
-    } else {
-      // Saved without ${ } so `${name}` in later steps finds it.
-      const varName = normalizeVarName(document.getElementById("readdomVarName")?.value);
-      if (!varName) { showToast("Variable name is required for Read DOM action", "error"); return null; }
-      action.varName = varName;
-    }
-    action.readFrom = document.getElementById("readdomReadFrom")?.value || "text";
-    const attrName  = document.getElementById("readdomAttrName")?.value?.trim();
-    if (action.readFrom === "attr") {
-      if (!attrName) { showToast("Attribute name is required when reading an attribute", "error"); return null; }
-      action.attrName = attrName;
-    }
-  }
-
-  if (type === "screenshot_tovar") {
-    const varName = normalizeVarName(document.getElementById("screenshotTovarVarName")?.value);
-    if (!varName) { showToast("Variable name is required for Screenshot → Variable", "error"); return null; }
-    action.varName = varName;
-    action.target  = document.getElementById("screenshotTovarTarget")?.value || "page";
-    if (action.target === "element") {
-      if (!selector) { showToast("Selector is required for the Element target", "error"); return null; }
-      action.selector = selector;
-    }
-  }
-
-  if (TYPES_CHILD_CONDITION.includes(type)) {
-    const filled = CHILD_COND_FIELDS
-      .map((f) => [f.prop, document.getElementById(f.id)?.value?.trim()])
-      .filter(([, v]) => v);
-    if (filled.length) {
-      const mode = document.querySelector('input[name="condChildMatchMode"]:checked')?.value || "any";
-      action.conditions = { matchMode: mode, ...Object.fromEntries(filled) };
-    }
-  }
-
-  if (type === "dragdrop") {
-    const target = document.getElementById("dragdropTarget")?.value?.trim();
-    if (!target) { showToast("Drop target selector is required for Drag & Drop action", "error"); return null; }
-    action.targetSelector  = target;
-    const dtSelect         = document.getElementById("dragdropTargetSelectorType");
-    const dtSelectorType   = dtSelect?.value || "css";
-    action.targetSelectors = ui.currentPickedDragdropTargetSelectors || { [dtSelectorType]: target };
-    if (ui.currentPickedDragdropTargetSelectors && dtSelect?.dataset.chosen === "1") action.targetSelectorType = dtSelectorType;
-  }
-
-  if (type === "dropdown" && document.getElementById("dropdownPickMode")?.value === "index") {
-    // Saved as written: a ${var} is replaced when it plays.
-    action.pick = { by: "index", index: document.getElementById("dropdownPickIndex")?.value?.trim() || "" };
-    const itemSelector = document.getElementById("dropdownItemSelector")?.value?.trim();
-    if (itemSelector) action.pick.itemSelector = itemSelector;
-  }
-
-  if (type === "uploadFile") {
-    action.uploadMode = document.getElementById("uploadMode")?.value || "input";
-    action.folderPath = document.getElementById("uploadFolderPath")?.value?.trim() || "";
-    action.fileNames  = (document.getElementById("uploadFileNames")?.value || "")
-      .split("\n").map(s => s.trim()).filter(Boolean);
-  }
-
-  if (type === "condition") {
-    action.conditionType = conditionType?.value || "elementExists";
-    action.expectedValue = conditionExpectedValue?.value?.trim() || "";
-    // "0" = guards nothing: stored as `empty` since older code reads a skipCount of 0 as 1.
-    const skip = parseInt(conditionSkipCount?.value, 10);
-    action.skipCount     = skip || 1;
-    if (skip === 0) action.empty = true;
-  }
-
-  if (type === "switch") {
-    // A bare `role` is saved as `${role}`: only a `${…}` reference is substituted.
-    // Always mode saves no variable: then only its default case can match.
-    const always    = switchMode() === "always";
-    const switchVar = always ? "" : normalizeVarRef(document.getElementById("switchVar")?.value);
-    // A case typed into the editor but not added yet is added now, not lost.
-    if (!always && !commitPendingCase()) return null;
-    const alwaysErr = alwaysSwitchError();
-    if (alwaysErr)        { showToast(alwaysErr, "error"); return null; }
-    if (!always && !switchVar) { showToast("Variable is required for Switch action, e.g. ${role}", "error"); return null; }
-    if (!ui._switchCases.length) { showToast("Add at least one case to the Switch", "error"); return null; }
-    action.switchVar = switchVar;
-    action.cases     = ui._switchCases.map(c => ({ ...c }));
-    // Only a Switch with a block has somewhere to continue; left out when
-    // automatic, so an untouched old Switch saves exactly as it was.
-    if (ui._switchContinueAt != null && action.cases.some(isBlockCase)) action.continueAt = ui._switchContinueAt;
-    const { errors } = validateSwitch(candidateActions({ ...action }), switchSelfIdx());
-    if (errors.length) { showToast(errors[0], "error"); return null; }
-  }
+  const build = TYPE_BUILDERS.get(type);
+  if (build && build(action, selector) === false) return null;
+  if (TYPES_CHILD_CONDITION.includes(type)) _addChildCondition(action);
 
   if (delayVal) {
     const d = parseInt(delayVal, 10);
