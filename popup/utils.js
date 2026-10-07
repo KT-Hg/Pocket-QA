@@ -1,5 +1,6 @@
 import { normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
 import { pickStrings } from '../shared/dropdown-pick.js';
+import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { trapFocus } from './ui/focus.js';
 /* === HTML Escape === */
 
@@ -285,7 +286,6 @@ export function getReadVarNames(actions) {
     'selector', 'value', 'url', 'code', 'expectedValue',
     'folderPath', 'fileName',
   ];
-  const C_FIELDS = ['valueEquals', 'textContains', 'idContains', 'classContains', 'typeEquals'];
 
   const scan = (v) => {
     if (typeof v !== 'string') return;
@@ -306,7 +306,7 @@ export function getReadVarNames(actions) {
     if (Array.isArray(action.fileNames)) action.fileNames.forEach(scan);
     pickStrings(action).forEach(scan);
     if (action.conditions && typeof action.conditions === 'object') {
-      for (const f of C_FIELDS) scan(action.conditions[f]);
+      for (const f of CHILD_COND_KEYS) scan(action.conditions[f]);
     }
   }
   return used;

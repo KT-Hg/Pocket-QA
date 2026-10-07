@@ -4,6 +4,7 @@ import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip
 import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
+import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
@@ -292,7 +293,6 @@ def _pick_item(el, raw, item_sel, timeout):
     items[k].click()`.split('\n').slice(1);
 }
 
-const COND_FIELDS = ['valueEquals', 'textContains', 'idContains', 'classContains', 'typeEquals'];
 
 /**
  * The _find_child() runtime helper, mirroring _findChild in the JS bookmarklet
@@ -315,7 +315,7 @@ function _findChildHelperPy() {
     '    empty candidate is a Blank: it matches a child whose field is empty.',
     '    """',
     '    fb_field, fb_values = None, None',
-    '    for _f in ("valueEquals", "textContains", "idContains", "classContains", "typeEquals"):',
+    `    for _f in (${CHILD_COND_KEYS.map((k) => `"${k}"`).join(', ')}):`,
     '        _m = _FALLBACK_RE.match(str(cond.get(_f, "")))',
     '        if _m:',
     '            fb_field = _f',
@@ -393,7 +393,7 @@ function _buildChildCondPy(conditions, elVar, tout, selPy, stepNum) {
   const lines = [];
 
   const parts = [];
-  for (const f of COND_FIELDS) {
+  for (const f of CHILD_COND_KEYS) {
     if (cond[f] != null && String(cond[f]) !== '') {
       parts.push(`"${f}": ${valueToPy(String(cond[f]))}`);
     }

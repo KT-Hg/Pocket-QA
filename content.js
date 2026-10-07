@@ -463,6 +463,7 @@ function findElementByCondition(root, conditions) {
   const resolvedFallbacks = {};
 
   // Detect the first condition field that contains a fallback spec.
+  // CHILD_COND_KEYS in shared/child-cond.js (a classic script cannot import it).
   const FALLBACK_FIELDS = ['valueEquals', 'textContains', 'idContains', 'classContains', 'typeEquals'];
   let fbField = null, fbVals = null;
   for (const f of FALLBACK_FIELDS) {

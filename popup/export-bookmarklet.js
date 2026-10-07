@@ -4,6 +4,7 @@ import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip
 import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
+import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -176,9 +177,8 @@ function _conditionsToJS(cond) {
   if (!cond) return '{}';
   const parts = [];
   if (cond.matchMode) parts.push(`matchMode: ${JSON.stringify(cond.matchMode)}`);
-  const strFields = ['valueEquals', 'textContains', 'idContains', 'classContains', 'typeEquals'];
   const FALLBACK_RE = /^\{fallback:(.+)\}$/;
-  for (const f of strFields) {
+  for (const f of CHILD_COND_KEYS) {
     if (cond[f] != null && cond[f] !== '') {
       const v = String(cond[f]);
       // {fallback:...} is passed as a plain string literal — _findChild iterates at runtime.
@@ -542,7 +542,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   // a Blank: it matches a child whose field is empty (see content.js).
   out.push('  const _findChild = (parent, cond) => {');
   out.push("    const _fbRe = /^\\{fallback:(.+)\\}$/;");
-  out.push("    const _fbField = ['valueEquals','textContains','idContains','classContains','typeEquals'].find(f => cond[f] != null && _fbRe.test(String(cond[f])));");
+  out.push(`    const _fbField = ${JSON.stringify(CHILD_COND_KEYS).replace(/"/g, "'")}.find(f => cond[f] != null && _fbRe.test(String(cond[f])));`);
   out.push("    const _fbVals  = _fbField ? String(cond[_fbField]).match(_fbRe)[1].split('|').map(s=>s.trim()) : null;");
   out.push("    const _tryFind = (c, blankField) => {");
   out.push("      const mode = c.matchMode || 'any';");

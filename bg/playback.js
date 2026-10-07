@@ -19,6 +19,7 @@ import { beginDbGuard, endDbGuard } from './dbguard.js';
 import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, continueIndex, resumeSegments } from '../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
 import { pickStrings } from '../shared/dropdown-pick.js';
+import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { isAnyPlaybackActive, runClaimed } from './run-state.js';
 import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
 import { notifyActionFailed, onActionFailed, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
@@ -511,7 +512,6 @@ function collectRelevantKeys(actions) {
     'selector', 'value', 'url', 'code', 'expectedValue',
     'folderPath', 'fileName',
   ];
-  const C_FIELDS = ['valueEquals', 'textContains', 'idContains', 'classContains', 'typeEquals'];
 
   const scan = (v) => {
     if (typeof v !== 'string') return;
@@ -528,7 +528,7 @@ function collectRelevantKeys(actions) {
     if (Array.isArray(a.fileNames)) a.fileNames.forEach(scan);
     pickStrings(a).forEach(scan);
     if (a.conditions && typeof a.conditions === 'object') {
-      for (const f of C_FIELDS) scan(a.conditions[f]);
+      for (const f of CHILD_COND_KEYS) scan(a.conditions[f]);
     }
     // readdom and screenshot_tovar produce variables that are also "relevant".
     for (const vn of writtenVarNames(a)) keys.add(vn);
