@@ -36,6 +36,8 @@
  *   shadow-dom    buttons in a shadow root are clicked, one added there mid-wait
  *                 included, on a page whose light DOM never stops changing
  *   select-type   a Child Condition "Type is: select" finds a <select multiple>
+ *   form-roundtrip  one action of every type, put in the Add Manual Action form
+ *                 with Edit and saved twice, comes back as it was each time
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -502,6 +504,74 @@ async function checkSelectType(ctx) {
   check(!prompt && clicked.join() === 'forms multiSel', 'Child Condition "Type is: select" finds a <select multiple>', { prompt, clicked });
 }
 
+// One action of every type (and each Read DOM mode) as the form saves it.
+const ROUNDTRIP_LOCATORS = { css: '#go', xpath: '//*[@id="go"]', fullXpath: '/html/body/button[1]', id: 'go' };
+const roundtripFixtures = (otherId) => [
+  { type: 'click', selector: '#go', selectors: ROUNDTRIP_LOCATORS, delay: 500, label: 'Go' },
+  { type: 'click', selector: '#list', selectors: { css: '#list' }, delay: 500, conditions: { matchMode: 'all', textContains: 'John', classContains: 'row', typeEquals: 'select' } },
+  { type: 'input', selector: '#name', selectors: { css: '#name' }, value: 'Ann ${x}', delay: 300 },
+  { type: 'hover', selector: '#go', selectors: ROUNDTRIP_LOCATORS, selectorType: 'id', delay: 500 },
+  { type: 'navigate', url: 'https://example.com/login', delay: 1000 },
+  { type: 'wait', delay: 2000 },
+  { type: 'script', code: "document.title = 'x';", delay: 500 },
+  { type: 'screenshot', value: 'page-${n}', delay: 500 },
+  { type: 'screenshot_full', delay: 500 },
+  { type: 'screenshot_element', selector: '#go', selectors: ROUNDTRIP_LOCATORS, value: 'go.png', delay: 500 },
+  { type: 'screenshot_tovar', varName: 'shot', target: 'element', selector: '#go', selectors: ROUNDTRIP_LOCATORS, delay: 500 },
+  { type: 'readdom', selector: '#title', selectors: { css: '#title' }, varName: 'title', readFrom: 'text', delay: 500 },
+  { type: 'readdom', selector: '#title', selectors: { css: '#title' }, pattern: 'Hello ${who}!', matchCase: true, readFrom: 'text', delay: 500 },
+  { type: 'readdom', selector: '#link', selectors: { css: '#link' }, varName: 'href', readFrom: 'attr', attrName: 'href', delay: 500 },
+  { type: 'dragdrop', selector: '#a', selectors: { css: '#a' }, targetSelector: '#b', targetSelectors: { css: '#b' }, delay: 500 },
+  { type: 'dropdown', selector: '#sel', selectors: { css: '#sel' }, pick: { by: 'index', index: '-1', itemSelector: '.menu li' }, delay: 500 },
+  { type: 'uploadFile', selector: '#file', selectors: { css: '#file' }, uploadMode: 'input', folderPath: 'C:\\data', fileNames: ['a.pdf', '${f}'], delay: 500 },
+  { type: 'condition', conditionType: 'textContains', selector: '#title', selectors: { css: '#title' }, expectedValue: 'Hi', skipCount: 2, delay: 500 },
+  { type: 'condition', conditionType: 'urlContains', expectedValue: '/login', skipCount: 1, delay: 500 },
+  { type: 'switch', switchVar: '${role}', cases: [{ value: 'admin', scenarioId: otherId, scenarioName: 'e2e rt other' }, { value: '__default__', scenarioId: otherId, scenarioName: 'e2e rt other' }], delay: 500 },
+];
+
+/** JSON with every object's keys sorted: chrome.storage hands nested objects back sorted. */
+const canonical = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x)
+  ? Object.fromEntries(Object.keys(x).sort().map((key) => [key, x[key]])) : x));
+
+async function checkFormRoundtrip(ctx) {
+  const other = await makeScenario(ctx, 'e2e rt other', [{ type: 'wait', delay: 100 }]);
+  const fixtures = roundtripFixtures(other);
+  const id = await makeScenario(ctx, 'e2e roundtrip', fixtures);
+  const popup = await openPopup(ctx);
+  await popup.evaluate(`(() => {
+    document.querySelector('.tab-btn[data-tab="tabRecord"]').click();
+    const s = document.getElementById('scenarioList'); s.value = ${JSON.stringify(id)}; s.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await sleep(SETTLE_MS);
+  const actionAt = (i) => popup.evaluate(`new Promise((r) => chrome.storage.local.get(['scenarios'], (x) => r(x.scenarios[${JSON.stringify(id)}].actions[${i}])))`);
+  // Edit → Save the action at i through the form; its saved copy.
+  const editSave = async (i) => {
+    const before = await actionAt(i);
+    await popup.evaluate(`(async () => {
+      const { startEdit } = await import('./popup/record/action-form.js');
+      startEdit(${i}, ${JSON.stringify(before)});
+      await new Promise((r) => setTimeout(r, 100));
+      // Saved once the form leaves edit mode (storage.onChanged does not fire for
+      // a value written back unchanged, which is the point here).
+      const button = document.getElementById('addManualAction');
+      button.click();
+      for (let t = 0; button.textContent !== 'Add Action' && t < 100; t++) await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 100));
+    })()`, 10_000);
+    return actionAt(i);
+  };
+  const bad = [];
+  for (let i = 0; i < fixtures.length; i++) {
+    const a1 = await editSave(i);
+    const a2 = await editSave(i);
+    if (canonical(a1) !== canonical(fixtures[i])) bad.push({ i, type: fixtures[i].type, saved: a1 });
+    else if (JSON.stringify(a2) !== JSON.stringify(a1)) bad.push({ i, type: fixtures[i].type, secondSave: a2 });
+  }
+  check(!bad.length, `every action type (${fixtures.length} fixtures) comes back from Edit → Save as it was`, bad);
+  if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  await popup.close();
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -519,6 +589,7 @@ const CHECKS = [
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
   ['select-type', 'Child Condition type "select"', checkSelectType],
+  ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
 ];
 
 async function main() {
