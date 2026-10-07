@@ -19,7 +19,7 @@ import { beginDbGuard, endDbGuard } from './dbguard.js';
 import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, resumeSegments } from '../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
 import { pickStrings } from '../shared/dropdown-pick.js';
-import { isAnyPlaybackActive } from './run-state.js';
+import { isAnyPlaybackActive, runClaimed } from './run-state.js';
 import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
 import { notifyActionFailed, onActionFailed, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
 
@@ -221,7 +221,10 @@ export async function startPlaybackFromCheckpoint(scenarioId, fromIndex, tabId) 
   // active.  CSV has its own per-row resume path; running startPlaybackFromCheckpoint
   // on top of an active CSV run would bypass forceAutoSave/skipDownload and cause
   // screenshot save-as dialogs instead of accumulating results for the zip.
-  if (isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
+  if (!(await runClaimed(() => _resumeScenario(scenarioId, fromIndex, tabId)))) _notifyAlreadyRunning();
+}
+
+async function _resumeScenario(scenarioId, fromIndex, tabId) {
   const scenarios = await getScenarios();
   const scenario  = scenarios[scenarioId];
   if (!scenario) return;
@@ -266,7 +269,10 @@ export async function startPlaybackFromCheckpoint(scenarioId, fromIndex, tabId) 
 
 export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0) {
   if (refuseIfRecording()) return;
-  if (isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
+  if (!(await runClaimed(() => _playScenario(scenarioId, loopCount, loopDelay)))) _notifyAlreadyRunning();
+}
+
+async function _playScenario(scenarioId, loopCount, loopDelay) {
   _ssSettings = null; // reset screenshot settings cache for this run
 
   const scenarios = await getScenarios();
@@ -330,7 +336,10 @@ export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0) {
 
 export async function startSequence(runList) {
   if (refuseIfRecording()) return;
-  if (isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
+  if (!(await runClaimed(() => _playSequence(runList)))) _notifyAlreadyRunning();
+}
+
+async function _playSequence(runList) {
   _ssSettings = null;
 
   state.sequencePlayback = { active: true, runList, currentIndex: 0 };
@@ -464,7 +473,10 @@ function collectRelevantKeys(actions) {
 // Results go to IndexedDB one row at a time (O(1)/row vs the previous O(n²) array-rewrite approach).
 export async function startCsvPlayback(scenarioId, rows, delayBetween, exportFormat = 'csv', startRowIndex = 0) {
   if (refuseIfRecording()) return;
-  if (isAnyPlaybackActive()) { _notifyAlreadyRunning(); return; }
+  if (!(await runClaimed(() => _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIndex)))) _notifyAlreadyRunning();
+}
+
+async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIndex) {
   _ssSettings = null;
 
   // xlsx/html/zip formats post-process screenshots client-side — skip downloading
