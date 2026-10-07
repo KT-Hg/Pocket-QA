@@ -856,19 +856,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       return;
     }
 
-    /* ── script — content-script fallback (CDP is preferred; used when debugger unavailable) ── */
-    if (action.type === 'script') {
-      try {
-        const code = (action.code || '').replace(/^javascript:/i, '').trim();
-        const fn = new Function('window', 'document', code);
-        fn.call(window, window, document);
-      } catch (err) {
-        console.error('[CONTENT] Script error:', err);
-      }
-      _ok();
-      return;
-    }
-
     /* ── Resolve target element ── */
     const actionTimeout = (action.timeout && action.timeout > 0) ? action.timeout : 5000;
     let target;

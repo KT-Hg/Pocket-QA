@@ -49,10 +49,9 @@ export function applyVars(str, vars) {
 /**
  * Interpolate variables into a `script` action's source.
  *
- * Script code is handed to Runtime.evaluate (CDP) or `new Function` (content-script
- * fallback), so a raw substitution lets any quote in a variable value terminate the
- * surrounding string literal — at best a SyntaxError the CDP path swallows silently,
- * at worst arbitrary code from a CSV cell running with the extension's privileges.
+ * Script code is handed to Runtime.evaluate (CDP), so a raw substitution lets any
+ * quote in a variable value terminate the surrounding string literal — at best a
+ * SyntaxError that fails the action, at worst code from a CSV cell running in the page.
  * Escaping here keeps the value a value. Backslash goes first so the escapes this
  * function adds are not themselves re-escaped.
  *
