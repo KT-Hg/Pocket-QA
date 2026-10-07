@@ -9,8 +9,9 @@
  * The button shows its value, the menu sets it, and lists the picked element's
  * locator for each type (or an example when nothing is picked).
  *
- * Typing //… or /html… switches to XPath / Full XPath on its own ("auto"), and
- * back to CSS when that text goes; a type chosen by hand stays as chosen.
+ * Typing //… or /html… under CSS switches to XPath / Full XPath on its own
+ * ("auto"), and back to CSS when that text goes; any other type chosen by hand
+ * stays as chosen.
  *
  * The button is as wide as its longest label whichever type is shown — every
  * label sits in the same grid cell and only the current one is visible — so
@@ -184,7 +185,10 @@ function _wire({ select, input, button, menu, picked }) {
 
   field.addEventListener('input', () => {
     const detected = _detectXPath(field.value);
-    if (detected && sel.value !== detected) setAuto(detected, true);
+    // Only from CSS (which never starts with "/") or a type it set itself: a
+    // Text "/api/users" chosen by hand stays Text.
+    const mayDetect = sel.value === 'css' || group.dataset.auto === '1';
+    if (detected && mayDetect && sel.value !== detected) setAuto(detected, true);
     else if (!detected && group.dataset.auto === '1') setAuto('css', false);
   });
 

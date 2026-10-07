@@ -3,10 +3,11 @@
  * reopen.
  */
 
-import { addManualAction, cancelEdit, manualActionType } from '../dom.js';
+import { manualActionType } from '../dom.js';
+import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { debounce } from '../utils.js';
-import { applyManualFormState, collectManualFormState } from './form-state.js';
+import { applyManualFormState, collectManualFormState, setEditing } from './form-state.js';
 
 /* === DRAFT: persist Add Manual Action card across popup close/reopen === */
 
@@ -38,11 +39,7 @@ export function restoreDraft(draft) {
   if (!draft) return;
 
   // Restore editing state
-  if (draft.editing) {
-    ui.editing = draft.editing;
-    addManualAction.textContent = "Save Edit";
-    cancelEdit.style.display = "inline-block";
-  }
+  if (draft.editing) setEditing(draft.editing);
 
   // Restore scenario
   if (draft.scenarioId) {
@@ -53,10 +50,7 @@ export function restoreDraft(draft) {
   applyManualFormState(draft);
 
   // Open card
-  if (draft.cardOpen || draft.editing) {
-    const card = document.getElementById("addManualActionCard");
-    if (card?.classList.contains("collapsed")) card.classList.remove("collapsed");
-  }
+  if (draft.cardOpen || draft.editing) setCardOpen(document.getElementById("addManualActionCard"), true);
 }
 
 // Save draft continuously (debounced) so Chrome popup close doesn't lose async writes

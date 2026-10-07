@@ -13,19 +13,13 @@ import { debounce, isEligibleTab, safeSendTabMessage, showToast } from '../utils
 import { addVariableRow, newVariableConfig } from '../variables.js';
 import { saveDraft } from './draft.js';
 import { DEFAULT_DELAY_MS, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
-import { collectManualFormState } from './form-state.js';
+import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, fillField } from './form-table.js';
 import { clearPickedSelectorsPanel, selectorIsPicked, showFieldError, updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 import { renderConditionRunTo, previewActions } from './preview.js';
 import { alwaysSwitchError, candidateActions, commitPendingCase, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, switchSelfIdx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 import { applyValueBox, resetManualValueMemory, seedManualValueMemory } from './value-memory.js';
-
-/** The card's title: "Add Manual Action", or which action is being edited. */
-function _setCardTitle(text) {
-  const el = document.getElementById("manualCardTitle");
-  if (el) el.textContent = text;
-}
 
 /* === DELAY PRESET HELPER === */
 export function setManualDelayUI(ms) {
@@ -382,25 +376,19 @@ export function startEdit(index, action) {
   if (manualLabelEl) manualLabelEl.value = action.label || "";
   if (manualLabelWrapper) manualLabelWrapper.style.display = "block";
 
-  ui.editing = { scenarioId: scenarioList.value || null, index };
-  _setCardTitle(`Edit Action #${index + 1}`);
-  addManualAction.textContent = "Save Edit";
-  cancelEdit.style.display = "inline-block";
+  setEditing({ scenarioId: scenarioList.value || null, index });
   updateStepLabels();
   saveDraft();
 }
 
 export function clearEditState() {
-  ui.editing = null;
+  setEditing(null);
   manualSelector.value = "";
   manualActionType.value = "";
   manualValue.value = "";
   resetManualValueMemory();
   setManualDelayUI(DEFAULT_DELAY_MS);
   manualValue.style.display = "none";
-  addManualAction.textContent = "Add Action";
-  _setCardTitle("Add Manual Action");
-  cancelEdit.style.display = "none";
   ui.currentPickedSelectors = null;
   ui.currentPickedFrameId = null;
   updateFrameNote();

@@ -3,7 +3,7 @@
  * back (for the draft and for editing).
  */
 
-import { manualActionType, manualSelector, manualValue } from '../dom.js';
+import { addManualAction, cancelEdit, manualActionType, manualSelector, manualValue } from '../dom.js';
 import { ui } from '../ui-state.js';
 import { hasChildCondData, setChildCondExpanded, updateChildCondBadge, setManualDelayUI } from './action-form.js';
 import { DEFAULT_DELAY_MS, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
@@ -61,6 +61,19 @@ export function collectManualFormState() {
     ...draftFields("uploadFile"),
     ...draftFields("dropdown"),
   };
+}
+
+/**
+ * Edit mode on (`{ scenarioId, index }`) or off (null): ui.editing and what the
+ * card shows for it — its title, Save Edit / Add Action, Cancel. Every way into
+ * an edit comes through here: Edit on an action, a restored draft, a pick.
+ */
+export function setEditing(editing) {
+  ui.editing = editing;
+  const title = document.getElementById("manualCardTitle");
+  if (title) title.textContent = editing ? `Edit Action #${editing.index + 1}` : "Add Manual Action";
+  addManualAction.textContent = editing ? "Save Edit" : "Add Action";
+  cancelEdit.style.display = editing ? "inline-block" : "none";
 }
 
 export function applyManualFormState(state) {

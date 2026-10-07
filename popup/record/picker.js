@@ -2,10 +2,11 @@
  * record/picker.js — picking an element on the page for the form.
  */
 
-import { addManualAction, cancelEdit, manualSelector, pickElement, selectorType } from '../dom.js';
+import { manualSelector, pickElement, selectorType } from '../dom.js';
+import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { restoreDraft } from './draft.js';
-import { applyManualFormState } from './form-state.js';
+import { applyManualFormState, setEditing } from './form-state.js';
 import { updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 
 export function initPicker() {
@@ -42,20 +43,12 @@ export function initPicker() {
     if (res?.pendingEdit) {
       const pe = res.pendingEdit;
       // Only restore as edit if it was an existing action (has index)
-      if (!pe.isNew && pe.index != null) {
-        ui.editing = { scenarioId: pe.scenarioId, index: pe.index };
-        addManualAction.textContent = "Save Edit";
-        cancelEdit.style.display = "inline-block";
-      }
+      if (!pe.isNew && pe.index != null) setEditing({ scenarioId: pe.scenarioId, index: pe.index });
       // Restores every field + all wrapper visibility (also handles the legacy
       // actionValue/actionDelay shape written by older versions).
       applyManualFormState(pe);
 
-      // Open the collapsible card
-      const card = document.getElementById("addManualActionCard");
-      if (card && card.classList.contains("collapsed")) {
-        card.classList.remove("collapsed");
-      }
+      setCardOpen(document.getElementById("addManualActionCard"), true);
 
       chrome.storage.local.remove("pendingEdit");
     }
@@ -85,14 +78,8 @@ export function initPicker() {
         const ddTarget = document.getElementById("dragdropTarget");
         if (ddTarget) ddTarget.value = ddPickedSelectors[targetType] || picked;
       }
-      if (st.editingIndex != null) {
-        ui.editing = { scenarioId: st.scenarioId, index: st.editingIndex };
-        addManualAction.textContent = "Save Edit";
-        cancelEdit.style.display = "inline-block";
-      }
-      // Open the action card
-      const card = document.getElementById("addManualActionCard");
-      if (card?.classList.contains("collapsed")) card.classList.remove("collapsed");
+      if (st.editingIndex != null) setEditing({ scenarioId: st.scenarioId, index: st.editingIndex });
+      setCardOpen(document.getElementById("addManualActionCard"), true);
       return;
     }
 

@@ -13,7 +13,10 @@
  *      web_accessible_resources without "failed to load";
  *   5. the popup on an activated http page: the status bar says Active and offers
  *      Remove, and the Now Playing bar (wired by popup/connection.js) opens its panel;
- *   6. with --shots <dir>: screenshots of every popup tab and the other pages, light
+ *   6. Add Manual Action: typing an XPath under CSS switches the selector type, a
+ *      type chosen by hand stays; an edit restored from its draft reopens a card
+ *      remembered closed with its chevron, title and Save Edit in step;
+ *   7. with --shots <dir>: screenshots of every popup tab and the other pages, light
  *      and dark, for a before/after comparison of a CSS change.
  *
  * The browser is $CHROMIUM_PATH, or the usual Edge / Chromium install.
@@ -83,6 +86,7 @@ async function main() {
     if (swErrors.length) fail(`service worker errors: ${swErrors.join(' | ')}`);
     else ok('service worker: no uncaught errors');
     const popup = await checkActivatedPopup(browser, extUrl, base);
+    await checkManualForm(popup);
     if (SHOTS) await screenshots(browser, popup, extUrl);
   } finally {
     await browser.close();
@@ -181,6 +185,39 @@ async function checkActivatedPopup(browser, extUrl, base) {
   else fail(`Now Playing bar: ${JSON.stringify(panel)}`);
   if (popup.errors().length) fail(`popup (activated): ${popup.errors().join(' | ')}`);
   return popup;
+}
+
+/** The selector type's auto-detect, and an edit restored from its draft (record/selector-type-menu.js, form-state.js). */
+async function checkManualForm(popup) {
+  console.log('Add Manual Action');
+  // The type the selector field ends on: `type` set as if chosen, then `text` typed.
+  const typeAfter = (type, text) => popup.evaluate(`(() => {
+    const sel = document.getElementById('selectorType'), f = document.getElementById('manualSelector');
+    sel.value = ${JSON.stringify(type)};
+    f.value = ${JSON.stringify(text)}; f.dispatchEvent(new Event('input', { bubbles: true }));
+    const got = sel.value; f.value = ''; sel.value = 'css'; return got;
+  })()`);
+  const detected = await typeAfter('css', "//button[text()='Save']");
+  if (detected === 'xpath') ok('an XPath typed under CSS switches the type to XPath');
+  else fail(`XPath typed under CSS: type is '${detected}'`);
+  const kept = await typeAfter('text', '/api/users');
+  if (kept === 'text') ok('a type chosen by hand stays when the text starts with "/"');
+  else fail(`Text chosen, "/api/users" typed: type is '${kept}'`);
+
+  await popup.evaluate(`new Promise((res) => chrome.storage.local.set({
+    collapsibleStates: { addManualActionCard: 'closed' },
+    manualFormDraft: { actionType: 'click', selector: '#a', cardOpen: true, editing: { scenarioId: null, index: 2 } },
+  }, res))`);
+  await popup.reload();
+  await sleep(POPUP_SETTLE_MS);
+  const card = await popup.evaluate(`(() => { const c = document.getElementById('addManualActionCard');
+    return { open: !c.classList.contains('collapsed'), expanded: c.querySelector('h3').getAttribute('aria-expanded'),
+      title: document.getElementById('manualCardTitle').textContent, button: document.getElementById('addManualAction').textContent }; })()`);
+  await popup.evaluate(`new Promise((res) => chrome.storage.local.remove(['collapsibleStates', 'manualFormDraft'], res))`);
+  if (card.open && card.expanded === 'true' && card.title === 'Edit Action #3' && card.button === 'Save Edit') {
+    ok('an edit restored from its draft: card open, chevron, title and Save Edit in step');
+  } else fail(`edit restored from its draft: ${JSON.stringify(card)}`);
+  if (popup.errors().length) fail(`popup (Add Manual Action): ${popup.errors().join(' | ')}`);
 }
 
 async function screenshots(browser, popup, extUrl) {

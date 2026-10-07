@@ -19,8 +19,12 @@ function saveCollapsibleState(cardId, isOpen) {
   });
 }
 
-/** Open or close a card. Its header's aria-expanded turns the chevron (.chev). */
-function _setCardOpen(card, open) {
+/**
+ * Open or close a card. Its header's aria-expanded turns the chevron (.chev),
+ * so code that opens a card (a restored draft, a pick) goes through here too.
+ */
+export function setCardOpen(card, open) {
+  if (!card) return;
   card.classList.toggle("collapsed", !open);
   card.querySelector("h3")?.setAttribute("aria-expanded", String(open));
 }
@@ -28,7 +32,7 @@ function _setCardOpen(card, open) {
 function _toggleCollapsibleCard(h3) {
   const card = h3.closest(".card.collapsible");
   const isExpanded = card.classList.contains("collapsed");
-  _setCardOpen(card, isExpanded);
+  setCardOpen(card, isExpanded);
 
   if (card.id) {
     saveCollapsibleState(card.id, isExpanded);
@@ -49,7 +53,7 @@ export function initCollapsible() {
     document.querySelectorAll(".card.collapsible").forEach((card) => {
       const saved = card.id ? states[card.id] : undefined;
       if (saved !== "open" && saved !== "closed") return;
-      _setCardOpen(card, saved === "open");
+      setCardOpen(card, saved === "open");
 
       // Trigger specific logic for opened cards
       if (saved === "open" && card.querySelector("#manualActionType")) {
