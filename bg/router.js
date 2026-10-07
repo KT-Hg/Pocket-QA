@@ -52,6 +52,29 @@ const PLAYBACK_START_TYPES = new Set([
   'START_CSV_PLAYBACK', 'RESUME_CSV_PLAYBACK', 'RESUME_PLAYBACK',
 ]);
 
+/**
+ * What a content script sends. It runs in its page's renderer, which a hostile
+ * page could compromise, so a message from a web page is only taken when it is
+ * one of these — Chrome's advice is to treat content-script messages as
+ * untrusted. Without it, a page could ask for GET_ALL_DATA, RESTORE_ALL_DATA or
+ * IMPORT_SCENARIO (whose script actions run through CDP). The popup and the
+ * other extension pages are not limited. dbtools' content script, on Adminer
+ * pages, sends its own kebab-case `dbtools-…` messages.
+ */
+const CONTENT_SCRIPT_TYPES = new Set([
+  'REGISTER_FRAME', 'CONTENT_READY', 'IS_TAB_ACTIVATED', 'RECORDED_ACTION',
+  'START_RECORD', 'STOP_RECORD', 'ELEMENT_PICKED', 'STOP_PICK_MODE', 'HL_UPDATED',
+  'TAKE_SCREENSHOT', 'TAKE_SCREENSHOT_FULL', 'TAKE_SCREENSHOT_SCROLL_V', 'TAKE_SCREENSHOT_SCROLL_H',
+  'HOTKEY_SCREENSHOT_ELEMENT', 'HOTKEY_SEG_START', 'CAPTURE_SEGMENT',
+  'CANCEL_FULL_SCREENSHOT', 'CANCEL_SEGMENT_CAPTURE',
+]);
+
+/** Sent from a web page, and not something its content script sends. */
+function _refusedFromPage(type, sender) {
+  if (String(sender?.url || '').startsWith(chrome.runtime.getURL(''))) return false;
+  return !CONTENT_SCRIPT_TYPES.has(type) && !(typeof type === 'string' && type.startsWith('dbtools-'));
+}
+
 /** Message type → handler. A Map, so a type like "toString" finds nothing. */
 const HANDLERS = new Map(Object.entries({
   ...recordingHandlers,
@@ -69,6 +92,8 @@ const HANDLERS = new Map(Object.entries({
 }));
 
 export function routeMessage(request, sender, sendResponse) {
+  // Not answered, like an unknown type.
+  if (_refusedFromPage(request?.type, sender)) return;
   if (!LOCKED_MESSAGE_TYPES.has(request?.type)) {
     return handleMessage(request, sender, sendResponse);
   }
