@@ -329,6 +329,22 @@ const storageAfterRefused = JSON.stringify(fake.data);
 await send('from a web page: REGISTER_FRAME answered', { type: 'REGISTER_FRAME' }, { sender: PAGE_SENDER });
 const _stepOf = (step) => transcript.find((e) => e.step === step);
 
+// Two pages save their highlights at once (one from a web page's content
+// script): both are kept.
+{
+  const responses = [];
+  const saves = [
+    [{ type: 'HL_SAVE_PAGE', url: 'example.com/a', list: [{ id: 'h1', text: 'alpha' }] }, PAGE_SENDER],
+    [{ type: 'HL_SAVE_PAGE', url: 'example.com/b', list: [{ id: 'h2', text: 'beta' }] }, SENDER],
+  ];
+  for (const [request, sender] of saves) {
+    for (const fn of [...fake.events['runtime.onMessage']]) fn(request, sender, (p) => responses.push(p));
+  }
+  await fake.settle();
+  snapshot({ step: 'two pages save highlights at once', responses });
+}
+const savedHighlights = fake.data.local.hl_v1 || {};
+
 // A schedule with a start URL runs in a new tab on it, not on the active tab.
 fake.data.local.schedules = [...fake.data.local.schedules, { id: 'scUrl', scenarioId: 's2', time: '08:00', enabled: true, repeat: true, url: 'https://example.com/start' }];
 await alarm('sched_scUrl');
@@ -354,6 +370,9 @@ test('a schedule with a start URL opens it in a new tab, and plays nothing on th
   const calls = _stepOf('alarm sched_scUrl')?.calls || [];
   assert.ok(calls.some((c) => c.startsWith('tabs.create') && c.includes('"url":"https://example.com/start"')), 'tabs.create with the URL');
   assert.ok(!calls.some((c) => c.startsWith('tabs.sendMessage [1,')), 'nothing sent to tab 1');
+});
+test('two pages saving highlights at once both keep them', () => {
+  assert.deepEqual(Object.keys(savedHighlights).filter((k) => k.startsWith('example.com/')).sort(), ['example.com/a', 'example.com/b']);
 });
 test('a web page still gets what its content script sends answered', () => {
   assert.equal(_stepOf('from a web page: REGISTER_FRAME answered')?.responses.length, 1);
