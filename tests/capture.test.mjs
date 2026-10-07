@@ -402,6 +402,10 @@ await call('element: save dialog cancelled', () => shot.takeElementScreenshot(1,
 await call('element: download fails', () => shot.takeElementScreenshot(1, { selector: '#el', saveMode: 'auto', prefix: 'cap' }), {
   setup: () => { fake.zoom[1] = 1; download = () => ({ __lastError: 'Invalid filename' }); },
 });
+// A Screenshot (Element) action's Filename: used as given, no "_elem" tag.
+await call('element: named', () => shot.takeElementScreenshot(1, { selector: '#el', saveMode: 'auto', prefix: 'cap', requestedFilename: 'login-page' }), {
+  setup: () => { fake.zoom[1] = 1; },
+});
 
 // ── queue ───────────────────────────────────────────────────────────────────
 await call('queue: captures on one tab run one after another', () => Promise.all([
