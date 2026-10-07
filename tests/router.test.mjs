@@ -308,6 +308,13 @@ async function sendAtOnce(label, requests) {
 const ARRAY_IMPORT = ['Array A', 'Array B', 'Array C'];
 await sendAtOnce('import 3 scenarios at once', ARRAY_IMPORT.map((name) => ({ type: 'IMPORT_SCENARIO', scenario: { name, actions: [] } })));
 const savedNames = Object.values(fake.data.local.scenarios || {}).map((s) => s.name);
+// Two handlers editing one scenario at once (scenarios.js and mutateScenarioActions).
+const arrayAId = Object.keys(fake.data.local.scenarios).find((id) => fake.data.local.scenarios[id].name === 'Array A');
+await sendAtOnce('rename and add an action at once', [
+  { type: 'RENAME_SCENARIO', scenarioId: arrayAId, newName: 'Array A renamed' },
+  { type: 'ADD_MANUAL_ACTION', scenarioId: arrayAId, action: { type: 'click', selector: '#both' } },
+]);
+const arrayA = fake.data.local.scenarios[arrayAId];
 
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
@@ -321,6 +328,10 @@ function stringify(v, depth = 3, pad = '') {
 
 test('three IMPORT_SCENARIO at once save all three', () => {
   assert.deepEqual(ARRAY_IMPORT.filter((n) => !savedNames.includes(n)), []);
+});
+test('a rename and an added action on one scenario at once both stay', () => {
+  assert.equal(arrayA?.name, 'Array A renamed');
+  assert.deepEqual(arrayA?.actions, [{ type: 'click', selector: '#both' }]);
 });
 
 if (UPDATE) {
