@@ -4013,5 +4013,67 @@
   ],
   "console": [],
   "pendingTimers": 0
+ },
+ {
+  "step": "script: throws",
+  "done": true,
+  "result": {
+   "vars": {},
+   "failed": [{"index":1,"type":"script","label":"","reason":"Script error: Error: boom"}],
+   "shots": null
+  },
+  "calls": [
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "debugger.attach [{\"tabId\":1},\"1.3\"]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"throw new Error(\\\"boom\\\")\",\"awaitPromise\":false}]",
+   "debugger.detach [{\"tabId\":1}]",
+   "runtime.sendMessage [{\"type\":\"ACTION_FAILED\",\"index\":0,\"action\":{\"type\":\"script\",\"code\":\"throw new Error(\\\"boom\\\")\"},\"reason\":\"Script error: Error: boom\"}]",
+   "action.setBadgeText [{\"text\":\"!\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#f59e0b\"}]",
+   "tabs.sendMessage [1,{\"type\":\"ACTION_FAILED_PROMPT\",\"index\":0,\"total\":2,\"reason\":\"Script error: Error: boom\",\"actionType\":\"script\",\"label\":\"\",\"scenarioName\":\"Direct\",\"row\":null,\"rows\":null},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"1/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "action.setBadgeText [{\"text\":\"2/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#after\"}},{\"frameId\":0}]"
+  ],
+  "console": [],
+  "state": {
+   "playback": {"active":true,"tabId":1,"scenarioId":null,"scenarioName":"Direct","originalScenarioName":"Direct","actionIndex":1,"totalActions":2,"failPrompt":false},
+   "sequencePlayback": {"active":false},
+   "csvPlayback": {"active":false},
+   "csvInterrupted": null,
+   "recording": false
+  },
+  "pendingTimers": 0
+ },
+ {
+  "step": "script: no debugger session",
+  "done": true,
+  "result": {
+   "vars": {},
+   "failed": [{"index":1,"type":"script","label":"","reason":"Script error: Debugger is not attached to the tab with id: 1."}],
+   "shots": null
+  },
+  "calls": [
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "debugger.attach [{\"tabId\":1},\"1.3\"]",
+   "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"document.title\",\"awaitPromise\":false}]",
+   "runtime.sendMessage [{\"type\":\"ACTION_FAILED\",\"index\":0,\"action\":{\"type\":\"script\",\"code\":\"document.title\"},\"reason\":\"Script error: Debugger is not attached to the tab with id: 1.\"}]",
+   "action.setBadgeText [{\"text\":\"!\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#f59e0b\"}]",
+   "tabs.sendMessage [1,{\"type\":\"ACTION_FAILED_PROMPT\",\"index\":0,\"total\":2,\"reason\":\"Script error: Debugger is not attached to the tab with id: 1.\",\"actionType\":\"script\",\"label\":\"\",\"scenarioName\":\"Direct\",\"row\":null,\"rows\":null},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"1/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "action.setBadgeText [{\"text\":\"2/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#after\"}},{\"frameId\":0}]"
+  ],
+  "console": [],
+  "pendingTimers": 0
  }
 ]

@@ -72,6 +72,9 @@ installDebugger(fake, {
         return { result: { value: null } };
       }
       if (expr.includes("inp.type = 'file'")) return { result: { value: 'ok' } };
+      if (expr.includes('throw new Error')) {
+        return { result: { type: 'object', subtype: 'error' }, exceptionDetails: { text: 'Uncaught', exception: { description: 'Error: boom\n    at <anonymous>:1:7' } } };
+      }
       if (expr.includes('dragenter')) return { result: { value: expr.includes('#dz-missing') ? 'dropzone element not found for selector: "#dz-missing"' : 'ok' } };
       if (expr.includes('vpW: window.innerWidth')) return { result: { value: { x: 10, y: 900, width: 300, height: 200, dpr: 1, vpW: 800, vpH: 600 } } };
       return {};
@@ -610,6 +613,32 @@ test('Play twice at once plays the scenario once', () => {
 test('Resume twice at once resumes once', () => {
   assert.equal(_countCalls('resume: twice at once', 'PLAYBACK_ALREADY_RUNNING'), 1);
 });
+
+// A Script that throws, or that finds no debugger session, fails its action
+// (it used to pass whatever happened).
+await run('script: throws', play([{ type: 'script', code: 'throw new Error("boom")' }, hover('#after')], {}), {
+  setup: () => { choices = ['skip']; },
+});
+await run('script: no debugger session', play([{ type: 'script', code: 'document.title' }, hover('#after')], {}), {
+  setup: () => {
+    choices = ['skip'];
+    saved.attach = chrome.debugger.attach;
+    saved.sendCommand = chrome.debugger.sendCommand;
+    const withError = (base, message) => (...args) => {
+      const cb = args.pop();
+      base(...args, (...r) => {
+        fake.setLastError({ message });
+        try { cb(...r); } finally { fake.setLastError(undefined); }
+      });
+    };
+    chrome.debugger.attach = withError(saved.attach, 'Cannot attach to this target.');
+    chrome.debugger.sendCommand = withError(saved.sendCommand, 'Debugger is not attached to the tab with id: 1.');
+  },
+  teardown: () => { chrome.debugger.attach = saved.attach; chrome.debugger.sendCommand = saved.sendCommand; },
+});
+const _failedOf = (step) => JSON.stringify(transcript.find((e) => e.step === step)?.result?.failed);
+test('a Script that throws fails its action', () => assert.match(_failedOf('script: throws'), /boom/));
+test('a Script with no debugger session fails its action', () => assert.match(_failedOf('script: no debugger session'), /not attached/));
 
 // ── compare ─────────────────────────────────────────────────────────────────
 function stringify(v, depth = 3, pad = '') {
