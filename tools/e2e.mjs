@@ -38,6 +38,8 @@
  *   select-type   a Child Condition "Type is: select" finds a <select multiple>
  *   form-roundtrip  one action of every type, put in the Add Manual Action form
  *                 with Edit and saved twice, comes back as it was each time
+ *   highlight     a text selection opens the highlight tooltip, which follows the
+ *                 popup theme; a colour saves the highlight, and a reload paints it again
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -572,6 +574,45 @@ async function checkFormRoundtrip(ctx) {
   await popup.close();
 }
 
+async function checkHighlight(ctx) {
+  const url = `${ctx.base}/page?hl`; // its own page, so no mark lands in #johnCell elsewhere
+  await ctx.web.goto(url);
+  await sleep(PAGE_SETTLE_MS);
+  // "John" selected; the engine reads the selection on mouseup.
+  await ctx.web.evaluate(`(() => {
+    const r = document.createRange();
+    r.selectNodeContents(document.getElementById('johnCell'));
+    getSelection().removeAllRanges(); getSelection().addRange(r);
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  })()`);
+  await sleep(SETTLE_MS);
+  const labelIn = async (theme) => {
+    await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.set({ popupTheme: '${theme}' }, r))`);
+    await sleep(SETTLE_MS);
+    return ctx.web.evaluate(`(() => {
+      const l = [...document.querySelectorAll('[data-hl-ui] div')].find((d) => d.textContent === 'Highlight color:');
+      return l ? getComputedStyle(l).color : null;
+    })()`);
+  };
+  const colours = { dark: await labelIn('dark'), light: await labelIn('light') };
+  check(colours.dark?.includes('205, 214, 244') && colours.light?.includes('60, 60, 70'),
+    'a selection opens the highlight tooltip, and it follows the popup theme', colours);
+  await ctx.web.evaluate(`document.querySelector('[data-hl-ui] button[title="Yellow"]').click()`);
+  await sleep(SETTLE_MS);
+  const saved = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('hl_v1', (x) => r(x.hl_v1?.[${JSON.stringify(url)}] || [])))`);
+  check(saved.length === 1 && saved[0].text === 'John', 'picking a colour saves the highlight', saved);
+  await ctx.web.reload();
+  let painted = null;
+  for (let waited = 0; !painted && waited < 5_000; waited += POLL_MS) {
+    await sleep(POLL_MS);
+    painted = await ctx.web.evaluate(`document.querySelector('mark[data-hl-id]')?.textContent || null`);
+  }
+  check(painted === 'John', 'a reload paints it again', painted);
+  await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.remove(['hl_v1', 'popupTheme'], r))`);
+  await ctx.web.goto(`${ctx.base}/page`);
+  await sleep(PAGE_SETTLE_MS);
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -590,6 +631,7 @@ const CHECKS = [
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
   ['select-type', 'Child Condition type "select"', checkSelectType],
   ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
+  ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
 ];
 
 async function main() {
