@@ -31,6 +31,16 @@ test('interpolateAction: bare switchVar and typeEquals are substituted', () => {
   assert.equal(interpolateAction({ type: 'switch', switchVar: 'role' }, {}).switchVar, '${role}');
 });
 
+// Script code is escaped, not plain-substituted (_applyVarsToCode): a value
+// from a CSV cell or read off the page must stay a value inside a string literal.
+test('interpolateAction: a Script variable stays one string inside any quotes', () => {
+  const tricky = `it's "quoted" \`tick\` back\\slash \${x} line1\nline2\r`;
+  for (const q of ["'", '"', '`']) {
+    const { code } = interpolateAction({ type: 'script', code: `return ${q}\${v}${q};` }, { v: tricky });
+    assert.equal(new Function(code)(), tricky, `inside ${q}…${q}`);
+  }
+});
+
 test('getReadVarNames / getUsedVarNames', () => {
   const actions = [
     { type: 'switch', switchVar: 'role' },
