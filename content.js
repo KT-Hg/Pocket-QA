@@ -265,6 +265,9 @@ function querySelectorDeep(selector, root = document) {
    ELEMENT FINDER
 ───────────────────────────────────────────────────────────────────────────── */
 
+// While waiting for an element, how often the shadow-DOM walk may run.
+const DEEP_SCAN_INTERVAL_MS = 250;
+
 /**
  * Run `cb` on the next animation frame, or on the next task when the tab is
  * hidden: Chrome runs no requestAnimationFrame callback in a background tab, so
@@ -282,6 +285,7 @@ function nextFrame(cb) {
 function findElementWithFallback(selectors, timeout = 5000, prefer = null) {
   return new Promise((resolve, reject) => {
     if (typeof selectors === 'string') selectors = { css: selectors };
+    let deepSkipped = false; // the last try left out the shadow-DOM walk (interval)
 
     // Priority: fullXpath first (absolute position — most precise for recorded actions),
     // then id (unique by spec), xpath (id-anchored), css, shadow DOM pierce,
@@ -291,7 +295,18 @@ function findElementWithFallback(selectors, timeout = 5000, prefer = null) {
     if (selectors.id)       strategies.push({ type: 'id',       fn: () => document.getElementById(selectors.id) });
     if (selectors.xpath)    strategies.push({ type: 'xpath',    fn: () => document.evaluate(selectors.xpath,    document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue });
     if (selectors.css)      strategies.push({ type: 'css',      fn: () => document.querySelector(selectors.css) });
-    if (selectors.css)      strategies.push({ type: 'cssShadow', fn: () => querySelectorDeep(selectors.css) });
+    if (selectors.css) {
+      // A walk of every element and shadow root: run on the first try, then at
+      // most every DEEP_SCAN_INTERVAL_MS while waiting, not on every animation
+      // frame a busy page mutates in.
+      let lastDeepScan = -Infinity;
+      strategies.push({ type: 'cssShadow', fn: () => {
+        deepSkipped = Date.now() - lastDeepScan < DEEP_SCAN_INTERVAL_MS;
+        if (deepSkipped) return null;
+        lastDeepScan = Date.now();
+        return querySelectorDeep(selectors.css);
+      } });
+    }
     if (selectors.testId)   strategies.push({ type: 'testId',   fn: () => document.querySelector(`[data-testid="${CSS.escape(selectors.testId)}"]`) });
     if (selectors.dataId)   strategies.push({ type: 'dataId',   fn: () => document.querySelector(`[data-id="${CSS.escape(selectors.dataId)}"]`) });
     if (selectors.name)     strategies.push({ type: 'name',     fn: () => document.querySelector(`[name="${CSS.escape(selectors.name)}"]`) });
@@ -323,20 +338,31 @@ function findElementWithFallback(selectors, timeout = 5000, prefer = null) {
     // CSS class/style update which would make this very hot.
     let found = false;
     let rafQueued = false;
+    // A shadow-DOM walk skipped for the interval runs once it is over: changes
+    // inside a shadow root do not reach the observer, so no later mutation may
+    // come to try again.
+    let trailing = null;
+
+    const check = () => {
+      if (found) return;
+      const foundEl = tryStrategies();
+      if (foundEl) {
+        found = true;
+        observer.disconnect();
+        clearTimeout(timer);
+        clearTimeout(trailing);
+        resolve(foundEl);
+      } else if (deepSkipped && !trailing) {
+        trailing = setTimeout(() => { trailing = null; check(); }, DEEP_SCAN_INTERVAL_MS);
+      }
+    };
 
     const observer = new MutationObserver(() => {
       if (found || rafQueued) return;
       rafQueued = true;
       nextFrame(() => {
         rafQueued = false;
-        if (found) return;
-        const foundEl = tryStrategies();
-        if (foundEl) {
-          found = true;
-          observer.disconnect();
-          clearTimeout(timer);
-          resolve(foundEl);
-        }
+        check();
       });
     });
 
@@ -345,6 +371,8 @@ function findElementWithFallback(selectors, timeout = 5000, prefer = null) {
 
     const timer = setTimeout(() => {
       if (found) return;
+      found = true;
+      clearTimeout(trailing);
       observer.disconnect();
       reject(new Error(`Timeout: Element not found with any selector strategy`));
     }, timeout);

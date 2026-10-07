@@ -33,6 +33,8 @@
  *                 failure prompt instead of passing and running what it guards
  *   selector-choice  an action's selectorType is tried first; without one, Full XPath
  *                 still comes first
+ *   shadow-dom    buttons in a shadow root are clicked, one added there mid-wait
+ *                 included, on a page whose light DOM never stops changing
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -89,6 +91,26 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
   logClick(document.getElementById('bg2'));
   logClick(document.getElementById('choiceA'));
   logClick(document.getElementById('choiceB'));
+  // shadow-dom (?shadow only): buttons in a shadow root, one added late, and a
+  // ticker that keeps the light DOM changing as a busy app does.
+  if (location.search.includes('shadow')) {
+    customElements.define('shadow-box', class extends HTMLElement {
+      constructor() { super(); this.attachShadow({ mode: 'open' }); }
+    });
+    const host = document.createElement('shadow-box');
+    document.body.append(host);
+    const addShadowButton = (id) => {
+      const b = document.createElement('button');
+      b.id = id;
+      b.addEventListener('click', () => __log.push('shadow ' + id));
+      host.shadowRoot.append(b);
+    };
+    addShadowButton('shadowBtn');
+    setTimeout(() => addShadowButton('lateShadowBtn'), 700);
+    const ticker = document.createElement('span');
+    document.body.append(ticker);
+    setInterval(() => { ticker.textContent = String(Date.now() % 1000); }, 50);
+  }
   // hotkeys: every Alt+key the page sees, and whether the extension kept it.
   window.addEventListener('keydown', (e) => { if (e.altKey) __log.push('key ' + e.code + ' ' + (e.defaultPrevented ? 'prevented' : 'free')); });
   // child-condition: which element under #people a Child Condition clicked.
@@ -450,6 +472,21 @@ async function checkSelectorChoice(ctx) {
   check(clicked[1] === 'choiceA', 'without one, the usual order (Full XPath first) applies', clicked);
 }
 
+async function checkShadowDom(ctx) {
+  await ctx.web.goto(`${ctx.base}/page?shadow`);
+  await sleep(PAGE_SETTLE_MS);
+  const id = await makeScenario(ctx, 'e2e shadow dom', [
+    { type: 'click', selector: '#shadowBtn', selectors: { css: '#shadowBtn' }, delay: 0 },
+    { type: 'click', selector: '#lateShadowBtn', selectors: { css: '#lateShadowBtn' }, delay: 0 },
+  ]);
+  const r = await play(ctx, id);
+  await ctx.web.goto(`${ctx.base}/page`);
+  await sleep(PAGE_SETTLE_MS);
+  const clicked = r.log.filter((e) => e.startsWith('shadow '));
+  check(clicked.join() === 'shadow shadowBtn,shadow lateShadowBtn',
+    'elements in a shadow root are found, one added there while the run waits too', { clicked, timedOut: r.timedOut });
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -465,6 +502,7 @@ const CHECKS = [
   ['record-overlay', 'Recording ignores the extension overlays', checkRecordOverlay],
   ['condition-unknown', 'A Condition of an unknown type', checkConditionUnknown],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
+  ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
 ];
 
 async function main() {
