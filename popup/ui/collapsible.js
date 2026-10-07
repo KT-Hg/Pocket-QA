@@ -31,14 +31,15 @@ export function setCardOpen(card, open) {
 
 function _toggleCollapsibleCard(h3) {
   const card = h3.closest(".card.collapsible");
-  const isExpanded = card.classList.contains("collapsed");
-  setCardOpen(card, isExpanded);
+  // A collapsed card is about to open, and the other way round.
+  const open = card.classList.contains("collapsed");
+  setCardOpen(card, open);
 
   if (card.id) {
-    saveCollapsibleState(card.id, isExpanded);
+    saveCollapsibleState(card.id, open);
   }
 
-  if (isExpanded && card.querySelector("#manualActionType")) {
+  if (open && card.querySelector("#manualActionType")) {
     setTimeout(() => { manualActionType.dispatchEvent(new Event("change")); }, AFTER_OPEN_MS);
   }
 }
