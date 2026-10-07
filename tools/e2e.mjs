@@ -16,6 +16,8 @@
  *   suggest       typing ${g in the popup lists the matching variables; Enter inserts one
  *   switch-draft  the popup reopened on a Switch draft lists the scenarios in the
  *                 case editor; a scenario picked there survives a reload of the list
+ *   background-tab  a run keeps going once its tab is sent to the background, and
+ *                 finds an element added there (Chrome runs no rAF in a hidden tab)
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -55,8 +57,19 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
 <div id="2nd:dd">id that needs escaping</div>
 <div class="xp">known only by XPath</div>
 <input id="out"><input id="big">
+<button id="bg1">bg1</button><button id="bg2">bg2</button>
 <script>
   window.__log = [];
+  // background-tab: #bg1 adds #late a moment later; every click logs whether the tab was visible.
+  const logClick = (el) => el.addEventListener('click', () => __log.push(el.id + ' ' + document.visibilityState));
+  logClick(document.getElementById('bg1'));
+  logClick(document.getElementById('bg2'));
+  document.getElementById('bg1').addEventListener('click', () => setTimeout(() => {
+    const late = document.createElement('button');
+    late.id = 'late';
+    logClick(late);
+    document.body.append(late);
+  }, 500));
   const dd = document.getElementById('dd'), menu = document.getElementById('menu');
   dd.addEventListener('click', () => { menu.classList.add('open'); __log.push('dd open'); });
   menu.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => {
@@ -87,10 +100,14 @@ async function makeScenario(ctx, name, actions) {
   return id;
 }
 
-/** Play a scenario on the test tab (it must be the active tab) and return the page's state. */
-async function play(ctx, scenarioId) {
+/**
+ * Play a scenario on the test tab (it must be the active tab) and return the page's state.
+ * `away`: a page brought to the front once the run has started, which hides the test tab.
+ */
+async function play(ctx, scenarioId, { away = null } = {}) {
   await ctx.web.bringToFront();
   await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId });
+  if (away) await away.bringToFront();
   await sleep(SETTLE_MS);
   let running = true;
   for (let waited = 0; running && waited < PLAY_TIMEOUT_MS; waited += POLL_MS) {
@@ -208,12 +225,24 @@ async function checkSwitchDraft(ctx) {
   await popup.close();
 }
 
+async function checkBackgroundTab(ctx) {
+  await reloadTestPage(ctx);
+  const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` }, delay: 200 });
+  const id = await makeScenario(ctx, 'e2e background tab', [click('bg1'), click('late'), click('bg2')]);
+  const r = await play(ctx, id, { away: ctx.ext });
+  await ctx.web.bringToFront();
+  check(r.log.some((e) => e.endsWith(' hidden')), 'the test tab was hidden during the run', r.log);
+  check(!r.timedOut && r.log.length === 3, 'every click plays with the tab in the background', r);
+  check(r.log.some((e) => e.startsWith('late ')), 'an element added while the tab is hidden is found', r.log);
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
   ['capture', 'Two visible screenshots in a row', checkCapture],
   ['suggest', 'Variable suggestions in the popup', checkSuggest],
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
+  ['background-tab', 'A run in a background tab', checkBackgroundTab],
 ];
 
 async function main() {

@@ -257,6 +257,16 @@ function querySelectorDeep(selector, root = document) {
    ELEMENT FINDER
 ───────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * Run `cb` on the next animation frame, or on the next task when the tab is
+ * hidden: Chrome runs no requestAnimationFrame callback in a background tab, so
+ * a playback waiting on one stalls the moment the user switches tabs.
+ */
+function nextFrame(cb) {
+  if (document.hidden) setTimeout(cb, 0);
+  else requestAnimationFrame(cb);
+}
+
 function findElementWithFallback(selectors, timeout = 5000) {
   return new Promise((resolve, reject) => {
     if (typeof selectors === 'string') selectors = { css: selectors };
@@ -303,7 +313,7 @@ function findElementWithFallback(selectors, timeout = 5000) {
     const observer = new MutationObserver(() => {
       if (found || rafQueued) return;
       rafQueued = true;
-      requestAnimationFrame(() => {
+      nextFrame(() => {
         rafQueued = false;
         if (found) return;
         const foundEl = tryStrategies();
@@ -435,7 +445,7 @@ function waitForElement(selector, timeout = 5000) {
     const observer = new MutationObserver(() => {
       if (resolved || rafQueued) return;
       rafQueued = true;
-      requestAnimationFrame(() => {
+      nextFrame(() => {
         rafQueued = false;
         if (resolved) return;
         const foundEl = document.querySelector(selector);
@@ -813,7 +823,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     // Virtualized lists (React-Window, AG-Grid) unmount and remount rows during
     // scroll — the original `target` reference may be stale after scrolling.
     target.scrollIntoView({ behavior: 'auto', block: 'center' });
-    await new Promise(r => requestAnimationFrame(r));
+    await new Promise(nextFrame);
     if (action.selectors && typeof action.selectors === 'object') {
       try {
         const requeried = await findElementWithFallback(action.selectors, 500);
