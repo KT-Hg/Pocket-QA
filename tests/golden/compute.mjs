@@ -226,7 +226,9 @@ async function _compute() {
   const resultExport = await import('../../popup/csv/result-export.js');
   const { ZipWriter } = await import('../../popup/lib/zip-writer.js');
   const CSVS = ['', 'a', 'a,b\n1,2', '﻿name,age\r\nAnn,3\r\nBob,4\r\n', 'h1,h2\n"x, y","multi\nline"\n" pad ",  trim  \n',
-    'a,b\n\n1,2\n\n', 'a\n""\n', 'a,b,c\n1\n1,2,3,4\n', 'q\n"he said ""hi"""\n', 'x,y\r\n"open quote\r\n'];
+    'a,b\n\n1,2\n\n', 'a\n""\n', 'a,b,c\n1\n1,2,3,4\n', 'q\n"he said ""hi"""\n', 'x,y\r\n"open quote\r\n',
+    // Excel in a comma-decimal locale (vi-VN) saves semicolons; a pasted table has Tabs.
+    'ten;so tien\r\nAn;1,5\r\nBinh;"2;3"\r\n', 'a\tb\n1\t2\n', '"x,y";z\n1;2\n', 'a,b;c\n1,2;3\n'];
   P.parseCSV = CSVS.map((c) => run(() => parseCSV(c)));
   const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const csvHeaders = ['user', 'pass', 'shot'];

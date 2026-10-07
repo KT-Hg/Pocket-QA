@@ -5075,6 +5075,43 @@
    "rows": [
     {"x":"open quote\r\n","y":""}
    ]
+  },
+  {
+   "headers": [
+    "ten",
+    "so tien"
+   ],
+   "rows": [
+    {"ten":"An","so tien":"1,5"},
+    {"ten":"Binh","so tien":"2;3"}
+   ]
+  },
+  {
+   "headers": [
+    "a",
+    "b"
+   ],
+   "rows": [
+    {"a":"1","b":"2"}
+   ]
+  },
+  {
+   "headers": [
+    "x,y",
+    "z"
+   ],
+   "rows": [
+    {"x,y":"1","z":"2"}
+   ]
+  },
+  {
+   "headers": [
+    "a",
+    "b;c"
+   ],
+   "rows": [
+    {"a":"1","b;c":"2;3"}
+   ]
   }
  ],
  "generateResultCsv": "\"user\",\"pass\",\"shot\",\"extra\",\"read\",\"Action Failed\"\r\n\"a\",\"1\",\"\",\"x\",\"\",\"\"\r\n\"b \"\"q\"\"\",\"<2>\",\"\",\"\",\"\",\"[3] click \"\"Go\"\"; [5] input\"\r\n\"Đức\",\"&\",\"f.png\",\"\",\"1\",\"\"",
