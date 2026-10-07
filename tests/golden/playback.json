@@ -3923,5 +3923,95 @@
    "recording": false
   },
   "pendingTimers": 0
+ },
+ {
+  "step": "startPlayback: twice at once",
+  "done": true,
+  "result": [
+   null,
+   null
+  ],
+  "calls": [
+   "storage.local.get [[\"scenarios\"]]",
+   "runtime.sendMessage [{\"type\":\"PLAYBACK_ALREADY_RUNNING\"}]",
+   "storage.sync.get [[\"notifyOnError\"]]",
+   "tabs.query [{\"active\":true,\"currentWindow\":true}]",
+   "notifications.create [\"already_running\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⚠ Already Running\",\"message\":\"Playback is already running — stop it first\"}]",
+   "storage.session.set [{\"_lastActiveTabId\":1}]",
+   "storage.local.get [\"dbtoolsSettings\"]",
+   "action.setBadgeText [{\"text\":\"1/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.update [1,{\"autoDiscardable\":false}]",
+   "alarms.create [\"playback-keepalive\",{\"when\":1768467805194}]",
+   "action.setBadgeText [{\"text\":\"1/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.set [{\"playbackCheckpoint\":{\"scenarioId\":\"sBasic\",\"actionIndex\":0,\"tabId\":1,\"timestamp\":1768467785194}}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#a\"}},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"2/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.set [{\"playbackCheckpoint\":{\"scenarioId\":\"sBasic\",\"actionIndex\":1,\"tabId\":1,\"timestamp\":1768467785194}}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"readdom\",\"selector\":\"#loop\",\"varName\":\"${n}\"}},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"3/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.set [{\"playbackCheckpoint\":{\"scenarioId\":\"sBasic\",\"actionIndex\":2,\"tabId\":1,\"timestamp\":1768467785194}}]",
+   "alarms.clear [\"playback-keepalive\"]",
+   "tabs.update [1,{\"autoDiscardable\":true}]",
+   "action.setBadgeText [{\"text\":\"\"}]",
+   "storage.local.remove [\"playbackCheckpoint\"]",
+   "storage.sync.get [[\"notifyOnComplete\"]]",
+   "notifications.create [\"complete_1768467785294\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Playback complete\",\"message\":\"\\\"Basic\\\" finished\"}]"
+  ],
+  "console": [],
+  "state": {
+   "playback": {"active":false,"tabId":1,"scenarioId":"sBasic","scenarioName":"Basic","originalScenarioName":"Basic","actionIndex":2,"totalActions":3,"loopCurrent":1,"loopTotal":1},
+   "sequencePlayback": {"active":false},
+   "csvPlayback": {"active":false},
+   "csvInterrupted": null,
+   "recording": false
+  },
+  "pendingTimers": 0
+ },
+ {
+  "step": "resume: twice at once",
+  "done": true,
+  "result": [
+   null,
+   null
+  ],
+  "calls": [
+   "storage.local.get [[\"scenarios\"]]",
+   "runtime.sendMessage [{\"type\":\"PLAYBACK_ALREADY_RUNNING\"}]",
+   "storage.sync.get [[\"notifyOnError\"]]",
+   "action.setBadgeText [{\"text\":\"1/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.update [1,{\"autoDiscardable\":false}]",
+   "alarms.create [\"playback-keepalive\",{\"when\":1768467805294}]",
+   "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
+   "notifications.create [\"already_running\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⚠ Already Running\",\"message\":\"Playback is already running — stop it first\"}]",
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.set [{\"playbackCheckpoint\":{\"scenarioId\":\"sBasic\",\"actionIndex\":0,\"tabId\":1,\"timestamp\":1768467785294}}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#a\"}},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"2/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.set [{\"playbackCheckpoint\":{\"scenarioId\":\"sBasic\",\"actionIndex\":1,\"tabId\":1,\"timestamp\":1768467785294}}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"readdom\",\"selector\":\"#loop\",\"varName\":\"${n}\"}},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"3/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.set [{\"playbackCheckpoint\":{\"scenarioId\":\"sBasic\",\"actionIndex\":2,\"tabId\":1,\"timestamp\":1768467785294}}]",
+   "alarms.clear [\"playback-keepalive\"]",
+   "tabs.update [1,{\"autoDiscardable\":true}]",
+   "action.setBadgeText [{\"text\":\"\"}]",
+   "storage.local.remove [\"playbackCheckpoint\"]",
+   "storage.sync.get [[\"notifyOnComplete\"]]",
+   "notifications.create [\"complete_1768467785394\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Playback complete\",\"message\":\"\\\"Basic\\\" resumed & finished\"}]"
+  ],
+  "console": [],
+  "pendingTimers": 0
  }
 ]

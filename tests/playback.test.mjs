@@ -598,6 +598,19 @@ await run('switch: always plays its scenario', play([
   hover('#after3'),
 ], { blank: '', role: '__default__' }), { setup: () => { choices = ['skip']; } });
 
+// Play pressed twice before the first run has marked itself active: one run,
+// and the second press told so. Last, so nothing above changes in the golden.
+await run('startPlayback: twice at once', () => Promise.all([startPlayback('sBasic'), startPlayback('sBasic')]));
+await run('resume: twice at once', () => Promise.all([startPlaybackFromCheckpoint('sBasic', 0, 1), startPlaybackFromCheckpoint('sBasic', 0, 1)]));
+const _countCalls = (step, text) => transcript.find((e) => e.step === step)?.calls.filter((c) => c.includes(text)).length;
+test('Play twice at once plays the scenario once', () => {
+  assert.equal(_countCalls('startPlayback: twice at once', '"PLAY_ACTION"'), _countCalls('startPlayback: one loop, fractional count', '"PLAY_ACTION"'));
+  assert.equal(_countCalls('startPlayback: twice at once', 'PLAYBACK_ALREADY_RUNNING'), 1);
+});
+test('Resume twice at once resumes once', () => {
+  assert.equal(_countCalls('resume: twice at once', 'PLAYBACK_ALREADY_RUNNING'), 1);
+});
+
 // ── compare ─────────────────────────────────────────────────────────────────
 function stringify(v, depth = 3, pad = '') {
   if (depth === 0 || v === null || typeof v !== 'object' || !Object.keys(v).length) return JSON.stringify(v);
