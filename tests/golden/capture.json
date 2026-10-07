@@ -2,7 +2,7 @@
  {
   "step": "startup",
   "listeners": {
-   "runtime.onMessage": ["(request, sender) => { if (request?.type !== 'CANCEL_FULL_SCREENSHOT') return; const tabId","(request, sender, sendResponse) => { if (!ALL_SS_TYPES.includes(request.type)) return; // ","(request, sender, sendResponse) => { if (!WINDOW_CAPTURE_TYPES.includes(request?.type)) re","(msg, _sender, sendResponse) => { if (!msg || msg.type !== MESSAGE) return undefined; cons","function routeMessage(request, sender, sendResponse) { if (!LOCKED_MESSAGE_TYPES.has(reque","function openDbtoolsManager(request, _sender, sendResponse) { if (request?.type !== \"dbtoo"],
+   "runtime.onMessage": ["(request, sender) => { if (request?.type !== 'CANCEL_FULL_SCREENSHOT') return; const tabId","(request, sender, sendResponse) => { if (!ALL_SS_TYPES.includes(request.type)) return; // ","(request, sender, sendResponse) => { if (!WINDOW_CAPTURE_TYPES.includes(request?.type)) re","(msg, _sender, sendResponse) => { if (!msg || msg.type !== MESSAGE) return undefined; cons","function routeMessage(request, sender, sendResponse) { // Not answered, like an unknown ty","function openDbtoolsManager(request, _sender, sendResponse) { if (request?.type !== \"dbtoo"],
    "tabs.onRemoved": ["(tabId) => { _openSessions.delete(tabId); }","(tabId) => { _screenshotQueues.delete(tabId); }","(tabId) => { cancelledCaptures.delete(tabId); }"],
    "debugger.onDetach": ["(source, reason) => { if (source.tabId == null) return; markSessionClosed(source.tabId); i"],
    "windows.onRemoved": ["(windowId) => { const token = _cropWindows.get(windowId); if (!token) return; _pendingCrop","(windowId) => { if (windowId === _captureWindowId) _captureWindowId = null; }"],
@@ -3126,9 +3126,7 @@
    "‹undefined›",
    "‹undefined›"
   ],
-  "responses": [
-   {"recording":false,"recordingScenarioId":null,"playing":false,"sequencePlaying":false,"csvPlaying":false,"csvCurrentRow":0,"csvTotalRows":0,"csvScenarioName":null,"actionIndex":0,"totalActions":0,"loopCurrent":1,"loopTotal":1,"scenarioName":null,"originalScenarioName":null,"currentScenarioIndex":0,"totalScenarios":0,"csvInterrupted":null}
-  ],
+  "responses": [],
   "calls": [],
   "console": [],
   "zoom": {

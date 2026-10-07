@@ -319,6 +319,16 @@ await sendAtOnce('rename and add an action at once', [
 ]);
 const arrayA = fake.data.local.scenarios[arrayAId];
 
+// A web page's content script may only send what content.js and dbtools send.
+const PAGE_SENDER = { tab: { id: 1, url: 'https://example.com/page' }, url: 'https://example.com/page', frameId: 0 };
+const storageBefore = JSON.stringify(fake.data);
+await send('from a web page: GET_ALL_DATA refused', { type: 'GET_ALL_DATA' }, { sender: PAGE_SENDER });
+await send('from a web page: IMPORT_SCENARIO refused', { type: 'IMPORT_SCENARIO', scenario: { name: 'Page', actions: [{ type: 'script', code: '1' }] } }, { sender: PAGE_SENDER });
+await send('from a web page: RESTORE_ALL_DATA refused', { type: 'RESTORE_ALL_DATA', data: { scenarios: {} } }, { sender: PAGE_SENDER });
+const storageAfterRefused = JSON.stringify(fake.data);
+await send('from a web page: REGISTER_FRAME answered', { type: 'REGISTER_FRAME' }, { sender: PAGE_SENDER });
+const _stepOf = (step) => transcript.find((e) => e.step === step);
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -328,6 +338,17 @@ function stringify(v, depth = 3, pad = '') {
   if (Array.isArray(v)) return '[\n' + v.map((x) => inner + stringify(x, depth - 1, inner)).join(',\n') + '\n' + pad + ']';
   return '{\n' + Object.keys(v).map((k) => inner + JSON.stringify(k) + ': ' + stringify(v[k], depth - 1, inner)).join(',\n') + '\n' + pad + '}';
 }
+
+
+test('a web page is refused what its content script never sends', () => {
+  for (const step of ['GET_ALL_DATA', 'IMPORT_SCENARIO', 'RESTORE_ALL_DATA']) {
+    assert.deepEqual(_stepOf(`from a web page: ${step} refused`)?.responses, [], step);
+  }
+  assert.equal(storageAfterRefused, storageBefore);
+});
+test('a web page still gets what its content script sends answered', () => {
+  assert.equal(_stepOf('from a web page: REGISTER_FRAME answered')?.responses.length, 1);
+});
 
 test('three IMPORT_SCENARIO at once save all three', () => {
   assert.deepEqual(ARRAY_IMPORT.filter((n) => !savedNames.includes(n)), []);

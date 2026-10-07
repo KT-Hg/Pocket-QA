@@ -2,7 +2,7 @@
  {
   "step": "startup",
   "listeners": {
-   "runtime.onMessage": ["(request, sender) => { if (request?.type !== 'CANCEL_FULL_SCREENSHOT') return; const tabId","(request, sender, sendResponse) => { if (!ALL_SS_TYPES.includes(request.type)) return; // ","(request, sender, sendResponse) => { if (!WINDOW_CAPTURE_TYPES.includes(request?.type)) re","(msg, _sender, sendResponse) => { if (!msg || msg.type !== MESSAGE) return undefined; cons","function routeMessage(request, sender, sendResponse) { if (!LOCKED_MESSAGE_TYPES.has(reque","function openDbtoolsManager(request, _sender, sendResponse) { if (request?.type !== \"dbtoo"],
+   "runtime.onMessage": ["(request, sender) => { if (request?.type !== 'CANCEL_FULL_SCREENSHOT') return; const tabId","(request, sender, sendResponse) => { if (!ALL_SS_TYPES.includes(request.type)) return; // ","(request, sender, sendResponse) => { if (!WINDOW_CAPTURE_TYPES.includes(request?.type)) re","(msg, _sender, sendResponse) => { if (!msg || msg.type !== MESSAGE) return undefined; cons","function routeMessage(request, sender, sendResponse) { // Not answered, like an unknown ty","function openDbtoolsManager(request, _sender, sendResponse) { if (request?.type !== \"dbtoo"],
    "tabs.onRemoved": ["(tabId) => { _openSessions.delete(tabId); }","(tabId) => { _screenshotQueues.delete(tabId); }","(tabId) => { cancelledCaptures.delete(tabId); }"],
    "tabs.onUpdated": [],
    "debugger.onDetach": ["(source, reason) => { if (source.tabId == null) return; markSessionClosed(source.tabId); i"],
