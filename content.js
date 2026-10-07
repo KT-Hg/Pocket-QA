@@ -526,6 +526,9 @@ const INPUT_DEBOUNCE_MS = 400;
 document.addEventListener('input', (event) => {
   if (!_isRecording || pickerMode) return;
   const el = event.target;
+  // A file input's value cannot be typed back (setting it throws); choosing files
+  // is the Upload File action's job.
+  if (el.type === 'file') return;
   const selectors = getAllSelectors(el);
   if (!selectors) return;
 
@@ -1003,7 +1006,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
 
     _ok();
-  })();
+  })().catch((e) => {
+    // Answer at once: unanswered, the worker waits out its reply timeout and then
+    // reports the page as unreachable instead of what went wrong.
+    sendResponse({ failed: true, error: e?.message || String(e) });
+  });
 
   return true; // async
 });

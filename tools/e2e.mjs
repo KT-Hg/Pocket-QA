@@ -22,6 +22,8 @@
  *                 playing it leaves the box checked
  *   child-condition  "Text contains" clicks the innermost element holding the text,
  *                 and ALL needs every condition
+ *   file-input    choosing a file while recording adds no Input action, and an old
+ *                 Input action on a file input fails at once (it timed out after 10 s)
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -63,6 +65,7 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
 <input id="out"><input id="big">
 <button id="bg1">bg1</button><button id="bg2">bg2</button>
 <label for="agree" id="agreeLabel">Agree</label><input type="checkbox" id="agree"><label id="plainLabel">Just text</label>
+<input type="file" id="upload">
 <table id="people"><tbody>
   <tr><td id="aliceCell">Alice</td><td><button id="edit1" class="edit">Edit</button></td></tr>
   <tr><td id="johnCell">John</td><td><button id="edit2" class="edit special">Edit</button></td></tr>
@@ -296,6 +299,34 @@ async function checkChildCondition(ctx) {
   check(clicked[1] === 'edit2', 'ALL clicks the one element matching every condition', clicked);
 }
 
+async function checkFileInput(ctx) {
+  await reloadTestPage(ctx);
+  const { actions } = await record(ctx, 'e2e file input', async () => {
+    const { root } = await ctx.web.send('DOM.getDocument');
+    const { nodeId } = await ctx.web.send('DOM.querySelector', { nodeId: root.nodeId, selector: '#upload' });
+    await ctx.web.send('DOM.setFileInputFiles', { nodeId, files: [fileURLToPath(import.meta.url)] });
+    await sleep(600); // past the recorder's input debounce
+  });
+  check(!actions.some((a) => a.type === 'input'), 'choosing a file while recording adds no Input action', actions);
+
+  await reloadTestPage(ctx);
+  const id = await makeScenario(ctx, 'e2e file input played', [
+    { type: 'input', selector: '#upload', selectors: { css: '#upload' }, value: 'C:\\fakepath\\a.pdf' },
+  ]);
+  await ctx.web.bringToFront();
+  const started = Date.now();
+  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: id });
+  let prompt = false;
+  while (!prompt && Date.now() - started < 15_000) {
+    await sleep(POLL_MS);
+    prompt = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].some((e) => /failed/i.test(e.textContent))`);
+  }
+  const seconds = (Date.now() - started) / 1000;
+  await ctx.send({ type: 'STOP_PLAYBACK' });
+  await sleep(SETTLE_MS);
+  check(prompt && seconds < 4, 'an Input action on a file input fails at once', { prompt, seconds });
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -305,6 +336,7 @@ const CHECKS = [
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],
+  ['file-input', 'A file input, recorded and played', checkFileInput],
 ];
 
 async function main() {
