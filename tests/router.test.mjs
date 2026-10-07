@@ -73,7 +73,10 @@ await import('../background.js');
 await fake.settle(5_000);
 snapshot({ step: 'startup', onMessageListeners: fake.events['runtime.onMessage'].length });
 
-const SENDER = { tab: { id: 1, url: 'https://example.com/page' }, frameId: 0 };
+// The popup's messages and the content script's share this sender (tab 1), so the
+// handlers that fall back on sender.tab see a tab; its url is an extension page,
+// which the router does not hold to the content-script messages.
+const SENDER = { tab: { id: 1, url: 'https://example.com/page' }, url: 'chrome-extension://testextensionid/popup.html', frameId: 0 };
 
 async function send(label, request, { sender = SENDER, setup } = {}) {
   if (setup) setup();
