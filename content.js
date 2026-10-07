@@ -420,7 +420,8 @@ function _findElementSingle(root, conditions, normalize, blankField = null) {
   }
   if (idContains    != null && idContains    !== '') { const n = normalize(idContains);    checks.push(el => normalize(el.id).includes(n)); }
   if (classContains != null && classContains !== '') { const n = normalize(classContains); checks.push(el => normalize(el.className).includes(n)); }
-  if (typeEquals    != null && typeEquals    !== '') checks.push(el => el.type === typeEquals);
+  // "select" is any <select>: its type is "select-one" or "select-multiple".
+  if (typeEquals    != null && typeEquals    !== '') checks.push(el => (typeEquals === 'select' ? el.tagName === 'SELECT' : el.type === typeEquals));
   if (blankField) checks.push(_blankCheck(blankField, normalize));
   if (checks.length === 0) return null;
   const test = matchMode === 'all' ? el => checks.every(fn => fn(el)) : el => checks.some(fn => fn(el));

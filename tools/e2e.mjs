@@ -35,6 +35,7 @@
  *                 still comes first
  *   shadow-dom    buttons in a shadow root are clicked, one added there mid-wait
  *                 included, on a page whose light DOM never stops changing
+ *   select-type   a Child Condition "Type is: select" finds a <select multiple>
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -78,6 +79,7 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
 <label for="agree" id="agreeLabel">Agree</label><input type="checkbox" id="agree"><label id="plainLabel">Just text</label>
 <input type="file" id="upload">
 <button id="choiceA">choiceA</button><button id="choiceB">choiceB</button>
+<div id="forms"><input id="formText"><select id="multiSel" multiple><option>m1</option></select></div>
 <div data-ext-overlay="test"><button id="overlayBtn">overlay</button><input id="overlayNote"></div>
 <table id="people"><tbody>
   <tr><td id="aliceCell">Alice</td><td><button id="edit1" class="edit">Edit</button></td></tr>
@@ -113,6 +115,8 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
   }
   // hotkeys: every Alt+key the page sees, and whether the extension kept it.
   window.addEventListener('keydown', (e) => { if (e.altKey) __log.push('key ' + e.code + ' ' + (e.defaultPrevented ? 'prevented' : 'free')); });
+  // select-type: which element under #forms a Child Condition clicked.
+  document.getElementById('forms').addEventListener('click', (e) => __log.push('forms ' + e.target.id));
   // child-condition: which element under #people a Child Condition clicked.
   document.getElementById('people').addEventListener('click', (e) => __log.push('people ' + (e.target.id || e.target.tagName)));
   document.getElementById('bg1').addEventListener('click', () => setTimeout(() => {
@@ -487,6 +491,17 @@ async function checkShadowDom(ctx) {
     'elements in a shadow root are found, one added there while the run waits too', { clicked, timedOut: r.timedOut });
 }
 
+async function checkSelectType(ctx) {
+  await reloadTestPage(ctx);
+  // "Type is: select" as saved before 20464f1, against a <select multiple>.
+  const id = await makeScenario(ctx, 'e2e select type', [
+    { type: 'click', selector: '#forms', selectors: { css: '#forms' }, conditions: { matchMode: 'any', typeEquals: 'select' }, delay: 0 },
+  ]);
+  const { prompt } = await playUntilPrompt(ctx, id);
+  const clicked = await ctx.web.evaluate(`__log.filter((e) => e.startsWith('forms '))`);
+  check(!prompt && clicked.join() === 'forms multiSel', 'Child Condition "Type is: select" finds a <select multiple>', { prompt, clicked });
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -503,6 +518,7 @@ const CHECKS = [
   ['condition-unknown', 'A Condition of an unknown type', checkConditionUnknown],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
+  ['select-type', 'Child Condition type "select"', checkSelectType],
 ];
 
 async function main() {

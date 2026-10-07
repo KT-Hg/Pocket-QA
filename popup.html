@@ -304,8 +304,10 @@
               <option value="radio">radio</option>
               <option value="submit">submit</option>
               <option value="button">button</option>
-              <!-- A <select>'s type is "select-one", never "select" -->
-              <option value="select-one">select</option>
+              <!-- "select": any <select> (single or multiple) — playback and both exporters match it by tag -->
+              <option value="select">select</option>
+              <!-- What 20464f1 saved for "select": kept so editing such an action keeps its condition -->
+              <option value="select-one" hidden>select (single)</option>
               <option value="textarea">textarea</option>
               <option value="hidden">hidden</option>
               <option value="number">number</option>

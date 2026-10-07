@@ -552,7 +552,8 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push("      if (c.textContains  != null && c.textContains  !== '') { const n = norm(c.textContains);  checks.push(el => norm(el.textContent).includes(n)); }");
   out.push("      if (c.idContains    != null && c.idContains    !== '') { const n = norm(c.idContains);    checks.push(el => norm(el.id).includes(n)); }");
   out.push("      if (c.classContains != null && c.classContains !== '') { const n = norm(c.classContains); checks.push(el => norm(el.className).includes(n)); }");
-  out.push("      if (c.typeEquals    != null && c.typeEquals    !== '') checks.push(el => el.type === c.typeEquals);");
+  // "select" is any <select> (its type is select-one / select-multiple), as in content.js.
+  out.push("      if (c.typeEquals    != null && c.typeEquals    !== '') checks.push(el => (c.typeEquals === 'select' ? el.tagName === 'SELECT' : el.type === c.typeEquals));");
   out.push("      if (blankField) checks.push(el => {");
   out.push("        if (blankField === 'valueEquals')   return el.value !== undefined && String(el.value) === '';");
   out.push("        if (blankField === 'textContains')  return norm(el.textContent) === '';");
