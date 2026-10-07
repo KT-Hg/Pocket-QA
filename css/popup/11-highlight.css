@@ -157,6 +157,12 @@
   outline: 2px solid color-mix(in srgb, var(--primary) 40%, transparent);
   outline-offset: 1px;
 }
+/* Chrome 109–110 (109 is the last on Windows 7/8.1) have no color-mix(). A
+   color-mix() over var() then becomes unset instead of being skipped, so a plain
+   colour written above it would never show; this cue gets one here instead. */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .hl-toggle-switch:focus-within .hl-toggle-slider { outline: 2px solid var(--primary); }
+}
 
 /* ── Stats grid (3 separate raised pills) ── */
 .hl-stats-grid {

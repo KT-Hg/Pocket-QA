@@ -531,4 +531,10 @@
   background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 .actions li.sw-case-head.drop-target { background: color-mix(in srgb, var(--sw-color) 12%, transparent); }
+/* Chrome 109–110 (109 is the last on Windows 7/8.1) have no color-mix(). A
+   color-mix() over var() then becomes unset instead of being skipped, so a plain
+   colour written above it would never show; this cue gets one here instead. */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .actions li.sw-case-head.drop-target { outline: 1px dashed var(--sw-color); outline-offset: -1px; }
+}
 

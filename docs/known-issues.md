@@ -17,3 +17,10 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   việc này, nhưng làm hỏng dbtools: Chrome từ chối các `import` tĩnh giữa các module dbtools, và panel không còn được
   gắn vào trang Adminer (đã thử trên Edge, 2026-10-07). Chỉ sửa được khi dbtools được gộp thành một classic content
   script, tức là cần bundler — trái với quy tắc "không có build step".
+- **Chrome 109–110 không có `color-mix()`.** `minimum_chrome_version` giữ 109 (bản cuối trên Windows 7/8.1). Khoảng
+  100 khai báo CSS của popup, editor và SQL cases dùng `color-mix()` cho nền nhạt, viền, bóng và vòng focus. Trên
+  109–110, khai báo đó thành `unset`: nền trong suốt, viền và bóng mất; chữ, layout và thông tin vẫn đủ. Hai tín
+  hiệu trạng thái chỉ hiện bằng màu đó có màu thay thế trong `@supports not (color: color-mix(…))`: case header
+  đang là chỗ thả khi kéo action (`02-action-list.css`) và vòng focus của công tắc Highlight (`11-highlight.css`).
+  Màu dự phòng phải đặt trong `@supports`: viết ngay phía trên thì không có tác dụng, vì khai báo dùng `var()` không
+  bị bỏ qua lúc parse.
