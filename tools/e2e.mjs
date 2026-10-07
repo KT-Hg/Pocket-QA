@@ -26,6 +26,8 @@
  *                 Input action on a file input fails at once (it timed out after 10 s)
  *   hotkeys       Alt+R on a tab that is not activated reaches the page; on an
  *                 activated tab, Option+R as macOS types it ("®") starts recording
+ *   schedule      a schedule's alarm opens its start URL in a new tab and plays there,
+ *                 not on the tab that was active
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -365,6 +367,32 @@ async function checkHotkeys(ctx) {
   await activate(false);
 }
 
+async function checkSchedule(ctx) {
+  await reloadTestPage(ctx);
+  const id = await makeScenario(ctx, 'e2e scheduled', [{ type: 'click', selector: '#bg2', selectors: { css: '#bg2' }, delay: 0 }]);
+  const url = `${ctx.base}/page?scheduled`;
+  // The schedule's alarm, fired half a second from now (an unpacked extension
+  // is not held to the 30 s minimum).
+  await ctx.ext.evaluate(`new Promise((res) => chrome.storage.local.set({ schedules: [
+    { id: 'e2eSched', scenarioId: '${id}', time: '00:00', enabled: true, repeat: true, url: ${JSON.stringify(url)} },
+  ] }, () => { chrome.alarms.create('sched_e2eSched', { when: Date.now() + 500 }); res(); }))`);
+  let found = null;
+  for (let waited = 0; !found?.log?.length && waited < 20_000; waited += POLL_MS) {
+    await sleep(POLL_MS);
+    found = await ctx.ext.evaluate(`new Promise((res) => chrome.tabs.query({ url: ${JSON.stringify(`${url}*`)} }, async ([tab]) => {
+      if (!tab) return res(null);
+      const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: 'MAIN', func: () => window.__log }).catch(() => [{}]);
+      res({ tabId: tab.id, log: r?.result || [] });
+    }))`);
+  }
+  await ctx.ext.evaluate(`new Promise((res) => chrome.alarms.clear('sched_e2eSched', () => chrome.storage.local.set({ schedules: [] }, res)))`);
+  if (found?.tabId) await ctx.ext.evaluate(`chrome.tabs.remove(${found.tabId})`);
+  check(!!found?.tabId && found.tabId !== ctx.webTabId, 'a schedule with a start URL opens a new tab on it', found);
+  check(!!found?.log?.some((e) => e.startsWith('bg2 ')), 'and plays its scenario there', found);
+  const onTestTab = await ctx.web.evaluate(`__log.filter((e) => e.startsWith('bg2 '))`);
+  check(onTestTab.length === 0, 'not on the tab that was active', onTestTab);
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -376,6 +404,7 @@ const CHECKS = [
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],
   ['file-input', 'A file input, recorded and played', checkFileInput],
   ['hotkeys', 'Record hotkeys: activated tabs only, macOS Option', checkHotkeys],
+  ['schedule', 'A scheduled run on its start URL', checkSchedule],
 ];
 
 async function main() {

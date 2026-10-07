@@ -15,6 +15,7 @@ function _scheduleFromForm() {
   const time = document.getElementById("scheduleTime")?.value;
   const label = document.getElementById("scheduleLabel")?.value?.trim() || "";
   const repeat = document.getElementById("scheduleRepeat")?.checked || false;
+  const url = document.getElementById("scheduleUrl")?.value?.trim() || "";
 
   if (!scenarioId) {
     showToast("Select a scenario first", "error");
@@ -22,6 +23,10 @@ function _scheduleFromForm() {
   }
   if (!time) {
     showToast("Select a time first", "error");
+    return null;
+  }
+  if (url && !/^https?:\/\//i.test(url)) {
+    showToast("The start URL must begin with http:// or https://", "error");
     return null;
   }
 
@@ -32,7 +37,22 @@ function _scheduleFromForm() {
     label,
     repeat,
     enabled: true,
+    ...(url ? { url } : {}),
   };
+}
+
+/**
+ * The start URL starts as this tab's address when that is a web page, the page
+ * the scenario was most likely made on. `force` replaces what is there (the form
+ * reset after a save); otherwise only an empty field is filled.
+ */
+function prefillScheduleUrl(force = false) {
+  const field = document.getElementById("scheduleUrl");
+  if (!field || (!force && field.value)) return;
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    const url = tab?.url || "";
+    field.value = /^https?:\/\//i.test(url) ? url : "";
+  });
 }
 
 /** A 12-hour clock hour as 24-hour: 12 AM is hour 0, 12 PM hour 12, other PM hours add 12. */
@@ -93,6 +113,7 @@ export function initTimePicker() {
         resetScheduleTimePicker?.();
         document.getElementById("scheduleLabel").value = "";
         document.getElementById("scheduleRepeat").checked = false;
+        prefillScheduleUrl(true);
         loadSchedules();
         // The row is saved either way, but without an alarm it will never fire —
         // say so rather than let it sit in the list looking armed.
@@ -110,5 +131,6 @@ export function initTimePicker() {
       saveAction();
     }
   });
+  prefillScheduleUrl();
   loadSchedules();
 }

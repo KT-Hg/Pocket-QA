@@ -56,6 +56,11 @@ function formatTime12h(timeStr) {
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+/** The host of a start URL, for the list; the text as it is when it does not parse. */
+function _hostOf(url) {
+  try { return new URL(url).host; } catch (_) { return url; } // not a URL: show what was saved
+}
+
 function renderScheduleList(schedules) {
   currentSchedules = schedules;
   const container = document.getElementById("scheduleList");
@@ -76,11 +81,15 @@ function renderScheduleList(schedules) {
     const timeDisplay = formatTime12h(s.time);
     const repeatText = s.repeat ? " 🔁" : "";
     const labelText = s.label ? ` · ${s.label}` : "";
+    // Where the run plays: its start URL's host, or (saved before there was one)
+    // whatever tab is active — say so, it is worth an Edit.
+    const whereText = s.url ? ` · ${_hostOf(s.url)}` : " · ⚠ active tab";
+    const whereTitle = s.url || "No start URL: each run plays on whatever tab is active. Edit to add one.";
 
     li.innerHTML = `
       <span class="index">${index + 1}.</span>
       <span class="type" title="${escHtml(scheduledName)}" style="text-transform:none;">${escHtml(scheduledName)}</span>
-      <span class="value">${escHtml(timeDisplay)}${repeatText}${escHtml(labelText)}</span>
+      <span class="value" title="${escHtml(whereTitle)}">${escHtml(timeDisplay)}${repeatText}${escHtml(labelText)}${escHtml(whereText)}</span>
     `;
 
     li.addEventListener("dragstart", (e) => {
@@ -122,6 +131,7 @@ function renderScheduleList(schedules) {
       document.getElementById("scheduleScenarioSelect").value = s.scenarioId;
       _setScheduleTimePicker(s.time);
       document.getElementById("scheduleLabel").value = s.label || "";
+      document.getElementById("scheduleUrl").value = s.url || "";
       document.getElementById("scheduleRepeat").checked = !!s.repeat;
       document.getElementById("addSchedule").textContent = "✔ Save";
       setCardOpen(document.getElementById("scheduledPlaybackCard"), true);

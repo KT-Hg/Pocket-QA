@@ -9,12 +9,15 @@
 
 import { startPlayback } from './playback.js';
 import { sendScheduleNotification } from './notify.js';
+import { waitForTabLoad } from './tabs.js';
 import { ensureLockState, notifyLocked } from './update-check.js';
 
 /* === SCHEDULING (per-schedule chrome.alarms) === */
 
 const ALARM_PREFIX = "sched_";
 const MINUTE_MS = 60_000;
+// How long a scheduled run's new tab gets to load its start URL.
+const SCHEDULE_TAB_LOAD_MS = 30_000;
 
 /**
  * Compute milliseconds until the next wall-clock occurrence of a "HH:MM" string.
@@ -69,6 +72,23 @@ export function reregisterScheduleAlarms() {
   });
 }
 
+/**
+ * Play the schedule's scenario in a new tab on its start URL. Unattended, the
+ * active tab could be any page at all: a run on it would click, type and run
+ * scripts there.
+ */
+function _playInNewTab(s, schedName) {
+  chrome.tabs.create({ url: s.url, active: true }, async (tab) => {
+    const failed = chrome.runtime.lastError?.message || (tab?.id == null ? 'no tab' : null);
+    const loaded = !failed && await waitForTabLoad(tab.id, SCHEDULE_TAB_LOAD_MS);
+    if (!loaded) {
+      sendScheduleNotification('⚠ Scheduled run not started', `"${schedName}": could not open ${s.url}`, 'schedule_start');
+      return;
+    }
+    startPlayback(s.scenarioId, 1, 0, tab.id);
+  });
+}
+
 /** A "sched_<id>" alarm: start that schedule's scenario. Other alarms are ignored. */
 export function runScheduleAlarm(alarm) {
   if (!alarm.name.startsWith(ALARM_PREFIX)) return;
@@ -92,7 +112,9 @@ export function runScheduleAlarm(alarm) {
         s.label ? `${s.label} — "${schedName}"` : `"${schedName}"`,
         "schedule_start",
       );
-      startPlayback(s.scenarioId);
+      if (s.url) _playInNewTab(s, schedName);
+      // Saved before schedules had a start URL: the active tab, as it always was.
+      else startPlayback(s.scenarioId);
       // A one-shot schedule burns itself only when it actually ran; a slot skipped
       // by the lock stays armed for the next occurrence.
       if (!s.repeat) {

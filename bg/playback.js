@@ -330,19 +330,20 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
   }
 }
 
-export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0) {
+/** `tabId`: play on that tab (a scheduled run's own); otherwise on the active tab. */
+export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0, tabId = null) {
   if (refuseIfRecording()) return;
-  if (!(await runClaimed(() => _playScenario(scenarioId, loopCount, loopDelay)))) _notifyAlreadyRunning();
+  if (!(await runClaimed(() => _playScenario(scenarioId, loopCount, loopDelay, tabId)))) _notifyAlreadyRunning();
 }
 
-async function _playScenario(scenarioId, loopCount, loopDelay) {
+async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
   _ssSettings = null; // reset screenshot settings cache for this run
 
   const scenarios = await getScenarios();
   const scenario  = scenarios[scenarioId];
   if (!scenario) return;
 
-  const tabId = await getActiveTabId();
+  const tabId = givenTabId ?? await getActiveTabId();
   if (!tabId) {
     chrome.runtime.sendMessage({ type: 'PLAYBACK_NO_TAB' }).catch(() => {});
     sendAlertNotification('⚠ No Active Tab', 'No active tab found — open a tab and try again', 'no_tab');
