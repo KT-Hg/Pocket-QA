@@ -199,7 +199,7 @@ export function initHighlight() {
   if (statsDetailBtn && statsDetail) {
     statsDetailBtn.addEventListener('click', () => {
       const open = statsDetail.classList.toggle('open');
-      statsDetailBtn.textContent = open ? '▴ Details' : '▾ Details';
+      statsDetailBtn.setAttribute('aria-expanded', String(open));
     });
   }
 
@@ -308,7 +308,7 @@ export function initHighlight() {
     chrome.storage.local.get('hl_pattern_open', res => {
       if (res.hl_pattern_open) {
         patternBody.style.display = 'block';
-        patternCaret?.classList.add('hl-pattern-caret--open');
+        patternCaret?.classList.add('chev--open');
       }
     });
 
@@ -316,7 +316,7 @@ export function initHighlight() {
       if (e.target.closest('#hlPatternCopyAll')) return;
       const open = patternBody.style.display !== 'none';
       patternBody.style.display = open ? 'none' : 'block';
-      patternCaret?.classList.toggle('hl-pattern-caret--open', !open);
+      patternCaret?.classList.toggle('chev--open', !open);
       chrome.storage.local.set({ hl_pattern_open: !open });
     });
   }

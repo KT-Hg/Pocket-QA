@@ -273,24 +273,159 @@
   padding: 10px;
 }
 
-/* === Form grid: label column + field column (Read DOM, Condition) === */
+/* === Form grid: label column + field column — every labelled row of Add
+   Manual Action (Condition, Dropdown, Read DOM, Screenshot → Variable, Upload,
+   Child Condition; the Switch case editor matches it) === */
 .form-grid {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 8px;
   align-items: start;
 }
 .form-label {
   display: flex;
   align-items: center;
-  min-height: 30px;
+  min-height: 32px;   /* the height of the field beside it */
   margin: 0;
   font-size: 12px;
   color: var(--muted);
 }
 #readdomModeLabel { min-height: 28px; }
 .form-grid input:not([type="checkbox"]):not([type="radio"]),
-.form-grid select { margin: 0; }
+.form-grid select,
+.form-grid textarea { margin: 0; }
+
+/* Add Manual Action: a selector field with its type inside it, [CSS ▾ | …].
+   The button stands for a hidden <select> (record/selector-type-menu.js). */
+.sel-group {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  margin-top: 6px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+.sel-group:focus-within { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); }
+.sel-group input { flex: 1 1 auto; min-width: 0; margin: 0; border: 0; border-radius: 0 6px 6px 0; background: transparent; }
+.sel-group-type {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  padding: 0 7px 0 10px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 6px 0 0 6px;
+  background: var(--secondary-bg);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.sel-group-type:hover:not(:disabled) { background: var(--border); color: var(--text); }
+/* Every label in one cell: the button is as wide as the longest ("Full XPath")
+   whichever is shown, so switching ID ↔ Full XPath never moves the field. */
+.sel-type-labels { display: inline-grid; text-align: left; }
+.sel-type-labels > span { grid-area: 1 / 1; visibility: hidden; }
+.sel-type-labels > span.on { visibility: visible; }
+/* "auto" (a type read from what was typed) floats on the top border, so it
+   takes no width either. */
+.sel-group-type .auto {
+  position: absolute;
+  top: -8px;
+  left: 6px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--primary);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 12px;
+}
+/* The type menu: exactly as wide as the field — left/right -2px reach past its border. */
+.sel-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: -2px;
+  right: -2px;
+  z-index: 5;
+  padding: 4px;
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+.sel-menu-head {
+  padding: 4px 8px 2px;
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.sel-menu button {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 400;
+}
+.sel-menu button:hover:not(:disabled),
+.sel-menu button:focus-visible,
+.sel-menu button[aria-checked="true"] { background: var(--secondary-bg); }
+.sel-menu button[aria-checked="true"] .t { color: var(--primary); font-weight: 600; }
+.sel-menu .v {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.sel-menu .v.ex { font-style: italic; opacity: 0.8; }
+/* The card's sections each animate in, which stacks them: the one holding an
+   open menu has to sit above the sections after it. */
+#selectorSection { position: relative; z-index: 4; }
+#dragdropWrapper { position: relative; z-index: 3; }
+
+/* A small text button: "✕ Clear" after a pick */
+.link-btn { width: auto; margin: 0; padding: 0 2px; border: 0; background: none; color: var(--primary); font-size: 11px; font-weight: 500; }
+.link-btn:hover:not(:disabled) { background: none; text-decoration: underline; }
+
+/* Child Condition: ANY / ALL */
+.cond-match-row { display: flex; gap: 4px; }
+.cond-match-sub { font-size: 10px; color: var(--muted); }
+
+/* The Value box takes the shape of what it holds (VALUE_BOX kind): one line
+   for a URL or a filename, a few lines of text, a code block for Run JS. */
+#manualValue { display: block; height: 56px; }
+#manualValue[data-kind="url"],
+#manualValue[data-kind="file"] { height: 32px; resize: none; overflow: hidden; white-space: pre; }
+#manualValue[data-kind="code"] {
+  height: 120px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
+  font-size: 12px;
+}
+
+/* Parts of the card that follow the chosen action type alone, so every way the
+   type gets set (choosing it, editing an action, a restored draft) agrees. */
+#useTabUrl { display: none; padding: 3px 10px; font-size: 12px; }
+#addManualActionCard:has(#manualActionType option[value="navigate"]:checked) #useTabUrl { display: inline-block; }
+#addManualActionCard:has(#manualActionType option[value="condition"]:checked) #conditionIfWrapper,
+#addManualActionCard:has(#manualActionType option[value="screenshot_tovar"]:checked) #ssTovarTargetWrapper { display: block; }
+#addManualActionCard:has(#manualActionType option[value=""]:checked) #manualActionButtons { display: none; }
 .form-inline { display: flex; gap: 6px; }
 .form-inline select { flex: 1; min-width: 0; }
 .form-inline input { flex: 0 0 96px; width: 96px; }

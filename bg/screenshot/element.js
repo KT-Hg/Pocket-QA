@@ -39,6 +39,7 @@ const SCROLL_SETTLE_MS = 150;
  * @param {boolean}     options.returnBase64  - Embed base64 in result.
  * @param {boolean}     options.skipDownload  - Capture without saving.
  * @param {object|null} options.selectors     - Preferred locator set {fullXpath, xpath, id}.
+ * @param {string|null} options.requestedFilename - Override filename, or null for auto.
  * @returns {Promise<{success?: boolean, filename?: string, base64?: string, error?: string}>}
  */
 export function takeElementScreenshot(tabId, options = {}) {
@@ -47,8 +48,10 @@ export function takeElementScreenshot(tabId, options = {}) {
 
 async function _takeElementScreenshot(tabId, {
   selector, saveMode, prefix, crop = false, returnBase64 = false, skipDownload = false, selectors = null,
+  requestedFilename = null,
 }) {
-  const filename = buildScreenshotFilename(prefix, null, (await typeTagEnabled()) ? '_elem' : '');
+  const tag = !requestedFilename && (await typeTagEnabled()) ? '_elem' : '';
+  const filename = buildScreenshotFilename(prefix, requestedFilename, tag);
 
   const rect0 = await tabMsg(tabId, { type: 'GET_ELEMENT_RECT', selector, selectors });
   if (!rect0 || rect0.error) return { error: rect0?.error || 'Could not get element rect' };

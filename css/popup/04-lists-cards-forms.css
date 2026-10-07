@@ -89,23 +89,6 @@
   background: var(--border);
 }
 
-.card.collapsible .caret {
-  font-size: 14px;
-  transition: transform 0.2s ease, color 0.2s ease;
-  color: var(--primary);
-  opacity: 0.7;
-}
-
-.card.collapsible h3:hover .caret {
-  opacity: 1;
-}
-
-.card.collapsible:not(.collapsed) .caret {
-  transform: rotate(90deg);
-  color: var(--primary);
-  opacity: 1;
-}
-
 .card.collapsible.collapsed > *:not(h3) {
   display: none !important;
 }
@@ -118,6 +101,48 @@
 .card.collapsible:not(.collapsed) > *:not(h3) {
   animation: fadeSlideIn 0.18s ease forwards;
 }
+
+/* === Disclosure chevron ===
+   Every expand / collapse arrow in the popup is one `.chev`: one glyph in a
+   fixed square, so it turns about its own centre and has the same size and
+   colour everywhere. ▸ points right while closed and down when open; a
+   menu-style trigger (.chev--menu, ▾) flips to point up instead. The state
+   comes from the control's aria-expanded, from details[open], or — where a
+   script owns it — from .chev--open on the chevron itself. */
+.chev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+:hover > .chev { color: var(--text); }
+
+[aria-expanded="true"] > .chev,
+details[open] > summary > .chev,
+.chev.chev--open {
+  transform: rotate(90deg);
+}
+
+[aria-expanded="true"] > .chev--menu,
+.open > .chev--menu {
+  transform: rotate(180deg);
+}
+
+/* A <summary> with a .chev shows that instead of the browser's own marker. */
+summary:has(> .chev) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+}
+summary:has(> .chev)::-webkit-details-marker { display: none; }
 
 /* === Hidden Elements === */
 .hidden-by-default {
@@ -147,46 +172,19 @@
   animation: fadeSlideIn 0.15s ease forwards;
 }
 
-/* === Picked Selectors / Dragdrop Target Panel (shared) === */
+/* === Picked element: one line under the selector (shared with the drop target).
+   Its locators are listed in the type menu (record/selector-type-menu.js). === */
 #pickedSelectorsWrap,
 #pickedDragdropTargetWrap {
   margin-top: 4px;
-  flex-direction: column;
-  gap: 4px;
+  align-items: baseline;
+  gap: 6px;
 }
 
 #pickedSelectorsInfo,
 #pickedDragdropTargetInfo {
-  padding: 6px;
-  background: var(--list-bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 10px;
-  max-height: 100px;
-  overflow-y: auto;
-}
-
-#pickedSelectorsInfo .selector-option,
-#pickedDragdropTargetInfo .selector-option {
-  cursor: pointer;
-  padding: 2px 4px;
-  margin: 2px 0;
-  border-radius: 3px;
-  transition: background 0.15s;
-}
-
-#pickedDragdropTargetInfo .selector-option:hover {
-  background: var(--secondary-bg);
-}
-
-#clearPickedSelectorsBtn,
-#clearDragdropTargetBtn {
-  align-self: flex-end;
   font-size: 11px;
-  padding: 2px 10px;
-  height: 24px;
-  border-radius: 4px;
-  opacity: 0.75;
+  color: var(--muted);
 }
 
 #clearPickedSelectorsBtn:hover:not(:disabled),
@@ -247,16 +245,6 @@
 
 .child-cond-toggle:hover {
   background: color-mix(in srgb, var(--primary) 8%, var(--secondary-bg));
-}
-
-.child-cond-caret {
-  font-size: 10px;
-  transition: transform .2s;
-  flex: 0 0 auto;
-}
-
-.child-cond-toggle[aria-expanded="true"] .child-cond-caret {
-  transform: rotate(90deg);
 }
 
 .child-cond-subtitle {

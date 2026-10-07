@@ -16,7 +16,7 @@ export async function runElementScreenshot(ctx, i, action) {
   const prefix   = settings.screenshotPrefix || 'screenshot';
   const result   = await takeElementScreenshot(tabId, {
     selector: action.selector, saveMode, prefix, crop: false, returnBase64: false, skipDownload,
-    selectors: action.selectors,
+    selectors: action.selectors, requestedFilename: action.value || null,
   })
     .catch(e => ({ error: e.message }));
   if (result?.error) {

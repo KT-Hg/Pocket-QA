@@ -271,7 +271,7 @@ function _caseHeadLi(s, k, actions, layout, empty) {
   if (keys.cases) li.dataset.cases = keys.cases;
   const c = actions[s].cases[k];
   const toggle = empty ? ""
-    : `<span class="sw-toggle sw-case-toggle" role="button" tabindex="0" data-switch="${s}" data-case="${k}" aria-label="Collapse or expand case ${escHtml(caseLabel(c))}" aria-expanded="true">▾</span>`;
+    : `<span class="sw-toggle sw-case-toggle" role="button" tabindex="0" data-switch="${s}" data-case="${k}" aria-label="Collapse or expand case ${escHtml(caseLabel(c))}" aria-expanded="true"><span class="chev" aria-hidden="true">▸</span></span>`;
   li.innerHTML = `<span class="sw-case-head-label">case ${escHtml(caseLabel(c))}</span>`
     + toggle
     + (empty ? `<span class="sw-case-empty" title="This case has no actions — it does nothing">(empty) ⚠</span>` : "")
@@ -362,7 +362,6 @@ function _applyCollapsed() {
     const open = t.dataset.case != null
       ? !_previewCaseCollapsed.has(`${s}:${t.dataset.case}`)
       : !_previewCollapsed.has(s);
-    t.textContent = open ? "▾" : "▸";
     t.setAttribute("aria-expanded", String(open));
   });
   // A collapsed Switch / Condition says how many actions it hides.
@@ -466,7 +465,7 @@ function createActionListItem(a, i, scenarioId, view = null) {
     : "";
 
   const toggleHtml = hasToggle
-    ? `<span class="sw-toggle" role="button" tabindex="0" data-switch="${i}" aria-label="Collapse or expand the ${isBlockSwitch ? "Switch cases and block" : "actions this Condition guards"}" aria-expanded="true">▾</span>`
+    ? `<span class="sw-toggle" role="button" tabindex="0" data-switch="${i}" aria-label="Collapse or expand the ${isBlockSwitch ? "Switch cases and block" : "actions this Condition guards"}" aria-expanded="true"><span class="chev" aria-hidden="true">▸</span></span>`
     : "";
 
   li.innerHTML = `

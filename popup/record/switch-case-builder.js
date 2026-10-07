@@ -154,7 +154,7 @@ function _fillRangeSelects(fromEl, toEl, c) {
   } else if (self + 1 < candidateActions().length) {
     from = self + 1;
   }
-  let fromHtml = `<option value="none">— nothing (do nothing) —</option>` + _actionOptions(from, layout, { skip: self });
+  let fromHtml = `<option value="none">— nothing —</option>` + _actionOptions(from, layout, { skip: self });
   if (typeof from === "number" && from >= candidateActions().length) {
     fromHtml += `<option value="${from}" selected>#${from + 1} (missing)</option>`;
   }
@@ -343,7 +343,8 @@ function _renderSwitchValidation() {
   const list = candidateActions();
   const self = switchSelfIdx();
   const { errors, warnings } = validateSwitch(list, self);
-  const alwaysErr = alwaysSwitchError();
+  // An Always Switch with no scenario picked yet is not an error until it is saved.
+  const alwaysErr = ui._switchCases.length ? alwaysSwitchError() : null;
   if (alwaysErr) errors.push(alwaysErr);
   for (const c of ui._switchCases) {
     const err = validateExternalCase(c, ui.scenariosCache?.[c.scenarioId]?.actions);
@@ -359,7 +360,9 @@ function _renderSwitchValidation() {
 export function populateSwitchScenarioSelect() {
   const sel = document.getElementById("switchCaseScenario");
   if (!sel) return;
-  sel.innerHTML = "";
+  // Nothing picked to start with: a scenario is a choice, and the first one in
+  // the list (often this very scenario) is not a sensible default.
+  sel.innerHTML = `<option value="">— choose a scenario —</option>`;
   const scenarios = ui.scenariosCache || {};
   const folders = ui.foldersCache || {};
   Object.entries(scenarios)
@@ -385,7 +388,7 @@ export function populateSwitchScenarioSelect() {
 export function refreshSwitchScenarioSelect() {
   const sel = document.getElementById("switchCaseScenario");
   if (!sel) return;
-  const emptyButLoaded = !sel.options.length && Object.keys(ui.scenariosCache || {}).length > 0;
+  const emptyButLoaded = sel.options.length <= 1 && Object.keys(ui.scenariosCache || {}).length > 0;
   if (switchMode() === "always" || emptyButLoaded) populateSwitchScenarioSelect();
 }
 
@@ -447,6 +450,47 @@ export function renderSwitchCaseList() {
   });
 }
 
+/** Add the case in the editor, or save the one being edited. False (after a toast) when it cannot be. */
+function _commitCase() {
+  const valEl  = document.getElementById("switchCaseValue");
+  const selEl  = document.getElementById("switchCaseScenario");
+  const isSelf = _caseMode() === "self";
+  if (!isSelf && !selEl?.value) { showToast("Select a scenario for this case", "error"); return false; }
+  const rawVal  = valEl?.value?.trim();
+  const caseVal = rawVal === "" ? "__default__" : rawVal;
+  if (ui._switchCases.some((c, i) => i !== _switchEditIdx && c.value === caseVal)) {
+    showToast(`Case "${caseVal === "__default__" ? "default" : caseVal}" already exists`, "error"); return false;
+  }
+  const target = isSelf
+    ? _switchSelfTarget(document.getElementById("switchCaseFrom")?.value, document.getElementById("switchCaseTo")?.value)
+    : _switchCaseTarget(selEl.value, selEl.options[selEl.selectedIndex]?.textContent || selEl.value,
+        document.getElementById("switchCaseStart")?.value, document.getElementById("switchCaseEnd")?.value);
+  const next = { value: caseVal, ...target };
+  if (_switchEditIdx >= 0) {
+    const old = ui._switchCases[_switchEditIdx];
+    // Unchanged → keep the saved case as it was (same JSON on save).
+    ui._switchCases[_switchEditIdx] = _sameCaseTarget(old, next) ? old : next;
+  } else {
+    ui._switchCases.push(next);
+  }
+  resetCaseEditor();
+  refreshSwitchForm();
+  debouncedSaveDraft?.();
+  return true;
+}
+
+/**
+ * Add Action on a Switch: a case left in the editor — one being edited, a value
+ * typed, or another scenario picked — is added first rather than dropped.
+ * False when that case cannot be added (the toast says why).
+ */
+export function commitPendingCase() {
+  const typed  = document.getElementById("switchCaseValue")?.value?.trim();
+  const picked = _caseMode() === "other" && document.getElementById("switchCaseScenario")?.value;
+  if (_switchEditIdx < 0 && !typed && !picked) return true;
+  return _commitCase();
+}
+
 export function initSwitchCaseBuilder() {
   document.querySelectorAll('input[name="switchCaseMode"]').forEach(r => r.addEventListener("change", _syncAddRowMode));
   document.getElementById("switchContinueAt")?.addEventListener("change", (e) => {
@@ -455,32 +499,7 @@ export function initSwitchCaseBuilder() {
     _renderSwitchValidation();
     debouncedSaveDraft?.();
   });
-  document.getElementById("switchAddCase")?.addEventListener("click", () => {
-    const valEl  = document.getElementById("switchCaseValue");
-    const selEl  = document.getElementById("switchCaseScenario");
-    const isSelf = _caseMode() === "self";
-    if (!isSelf && !selEl?.value) { showToast("Select a scenario for this case", "error"); return; }
-    const rawVal  = valEl?.value?.trim();
-    const caseVal = rawVal === "" ? "__default__" : rawVal;
-    if (ui._switchCases.some((c, i) => i !== _switchEditIdx && c.value === caseVal)) {
-      showToast(`Case "${caseVal === "__default__" ? "default" : caseVal}" already exists`, "error"); return;
-    }
-    const target = isSelf
-      ? _switchSelfTarget(document.getElementById("switchCaseFrom")?.value, document.getElementById("switchCaseTo")?.value)
-      : _switchCaseTarget(selEl.value, selEl.options[selEl.selectedIndex]?.textContent || selEl.value,
-          document.getElementById("switchCaseStart")?.value, document.getElementById("switchCaseEnd")?.value);
-    const next = { value: caseVal, ...target };
-    if (_switchEditIdx >= 0) {
-      const old = ui._switchCases[_switchEditIdx];
-      // Unchanged → keep the saved case as it was (same JSON on save).
-      ui._switchCases[_switchEditIdx] = _sameCaseTarget(old, next) ? old : next;
-    } else {
-      ui._switchCases.push(next);
-    }
-    resetCaseEditor();
-    refreshSwitchForm();
-    debouncedSaveDraft?.();
-  });
+  document.getElementById("switchAddCase")?.addEventListener("click", _commitCase);
   document.getElementById("switchCaseCancel")?.addEventListener("click", () => {
     resetCaseEditor();
     refreshSwitchForm();

@@ -60,7 +60,7 @@
       <span class="now-playing-icon" id="nowPlayingIcon">▶</span>
       <span class="now-playing-name" id="nowPlayingName"></span>
       <span class="now-playing-step" id="nowPlayingStep"></span>
-      <span class="now-playing-caret" id="nowPlayingCaret">▾</span>
+      <span class="chev chev--menu" id="nowPlayingCaret" aria-hidden="true">▾</span>
     </div>
     <!-- Mini panel dropdown -->
     <div class="playback-panel" id="playbackPanel" style="display:none;">
@@ -154,7 +154,7 @@
 
     <!-- ADD MANUAL ACTION -->
     <div class="card collapsible" id="addManualActionCard">
-      <h3 role="button" tabindex="0" aria-expanded="true" style="display:flex;align-items:center;">Add Manual Action <span class="caret">▾</span><button class="card-help-btn" data-card="addManual" title="Manual action guide" style="margin-left:auto;">?</button></h3>
+      <h3 role="button" tabindex="0" aria-expanded="true" style="display:flex;align-items:center;"><span id="manualCardTitle">Add Manual Action</span> <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="addManual" title="Manual action guide" style="margin-left:auto;">?</button></h3>
 
       <!-- Action Type — always first -->
       <div class="step-label">Action Type</div>
@@ -169,12 +169,12 @@
         </optgroup>
         <optgroup label="Navigation &amp; Code">
           <option value="navigate">Navigate</option>
-          <option value="wait">Wait (ms)</option>
+          <option value="wait">Wait</option>
           <option value="script">Run JS</option>
         </optgroup>
         <optgroup label="Logic">
           <option value="condition">Condition (If)</option>
-          <option value="switch">Switch (Variable → Scenario)</option>
+          <option value="switch">Switch (branch)</option>
           <option value="readdom">Read DOM → Variable</option>
         </optgroup>
         <optgroup label="Screenshots">
@@ -188,32 +188,143 @@
         </optgroup>
       </select>
 
+      <!-- CONDITION "If" — ahead of the selector, which a URL condition hides, so
+           choosing the type never moves the field just used. Shown for the
+           condition type by CSS (02-action-list.css); the rest of the Condition
+           is #conditionWrapper, after the selector. -->
+      <div class="hidden-by-default" id="conditionIfWrapper">
+        <div class="step-label" id="conditionStepLabel">Condition</div>
+        <div class="form-grid">
+          <label class="form-label" for="conditionType">If</label>
+          <div class="form-inline">
+            <select id="conditionType">
+              <optgroup label="Element">
+                <option value="elementExists">Element exists</option>
+                <option value="elementNotExists">Element does not exist</option>
+                <option value="elementVisible">Element is visible</option>
+                <option value="elementHidden">Element is hidden</option>
+              </optgroup>
+              <optgroup label="Text &amp; value">
+                <option value="textContains">Text contains</option>
+                <option value="textEquals">Text equals</option>
+                <option value="valueContains">Value contains</option>
+                <option value="valueEquals">Value equals</option>
+              </optgroup>
+              <optgroup label="Page URL">
+                <option value="urlContains">URL contains</option>
+                <option value="urlEquals">URL equals</option>
+              </optgroup>
+              <optgroup label="Class &amp; attribute">
+                <option value="hasClass">Has class</option>
+                <option value="hasAttribute">Has attribute</option>
+              </optgroup>
+            </select>
+            <button id="conditionHelpBtn" class="card-help-btn" type="button" title="Condition types guide" aria-label="Condition types guide">?</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREENSHOT → VARIABLE target — ahead of the selector, which only the
+           Element target shows. Shown for screenshot_tovar by CSS. -->
+      <div class="hidden-by-default" id="ssTovarTargetWrapper">
+        <div class="step-label">Screenshot</div>
+        <div class="form-grid">
+          <label class="form-label" for="screenshotTovarTarget">Target</label>
+          <select id="screenshotTovarTarget">
+            <option value="page">Visible (viewport)</option>
+            <option value="full">Full Page (scroll)</option>
+            <option value="element">Element</option>
+          </select>
+        </div>
+      </div>
+
       <!-- SELECTOR SECTION — shown only when selected type needs a selector -->
       <div class="hidden-by-default" id="selectorSection">
         <div class="step-label" id="selectorStepLabel">Selector</div>
+        <!-- [type ▾ | selector] 🎯 — the button stands for the hidden #selectorType
+             (record/selector-type-menu.js), which every other part of the form reads -->
         <div class="row" id="selectorRow">
-          <select id="selectorType" class="w-100" style="font-size: 11px;">
+          <div class="sel-group">
+            <button type="button" class="sel-group-type" id="selectorTypeBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="selectorTypeMenu"></button>
+            <input id="manualSelector" />
+            <div class="sel-menu" id="selectorTypeMenu" role="menu" aria-label="Selector type" hidden></div>
+          </div>
+          <select id="selectorType" hidden>
             <option value="css">CSS</option>
             <option value="xpath">XPath</option>
+            <option value="fullXpath">Full XPath</option>
             <option value="id">ID</option>
             <option value="name">Name</option>
             <option value="text">Text</option>
-            <option value="fullXpath">Full XPath</option>
           </select>
-          <input id="manualSelector" class="flex-1" placeholder="Selector (e.g., #btn, .class, //div)" />
           <button id="pickElement" class="secondary w-auto" aria-label="Pick element on page" title="Pick element"><span aria-hidden="true">🎯</span></button>
         </div>
         <span id="pickedFrameNote" class="helper-text sw-frame-note" style="display:none;"></span>
         <div id="pickedSelectorsWrap" class="hidden-by-default">
-          <div id="pickedSelectorsInfo"></div>
-          <button id="clearPickedSelectorsBtn" class="secondary w-auto" title="Clear picked selector">✕ Clear</button>
+          <span id="pickedSelectorsInfo"></span>
+          <button id="clearPickedSelectorsBtn" class="link-btn" type="button" title="Forget the picked element">✕ Clear</button>
+        </div>
+      </div>
+
+      <!-- CHILD CONDITION (optional, collapsible) — click / input / hover / readdom,
+           right under the selector it narrows down -->
+      <div class="hidden-by-default child-cond-outer" id="childConditionWrapper" style="margin-top:8px;">
+        <button type="button" class="child-cond-toggle" id="childConditionToggle" aria-expanded="false">
+          <span class="chev" aria-hidden="true">▸</span>
+          Child Condition
+          <span class="child-cond-subtitle" id="childConditionSubtitle">(optional — find child element to act on)</span>
+          <span class="child-cond-badge" id="childConditionBadge" style="display:none;">●</span>
+        </button>
+        <div class="child-cond-body" id="childConditionBody" style="display:none;">
+          <div class="form-grid">
+            <span class="form-label">Match</span>
+            <div class="cond-match-row">
+              <label class="cond-match-label" id="condMatchLabelAny">
+                <input type="radio" name="condChildMatchMode" id="condChildMatchAny" value="any" checked />
+                ANY <span class="cond-match-sub">(OR)</span>
+              </label>
+              <label class="cond-match-label" id="condMatchLabelAll">
+                <input type="radio" name="condChildMatchMode" id="condChildMatchAll" value="all" />
+                ALL <span class="cond-match-sub">(AND)</span>
+              </label>
+            </div>
+            <label class="form-label" for="condChildValueEquals">Value is</label>
+            <input id="condChildValueEquals" placeholder="e.g. 2 or ${myVar}" />
+            <label class="form-label" for="condChildTextContains">Text has</label>
+            <input id="condChildTextContains" placeholder="e.g. Edit or ${myVar}" />
+            <label class="form-label" for="condChildIdContains">ID has</label>
+            <input id="condChildIdContains" placeholder="e.g. submit-btn" />
+            <label class="form-label" for="condChildClassContains">Class has</label>
+            <input id="condChildClassContains" placeholder="e.g. active" />
+            <label class="form-label" for="condChildType">Type is</label>
+            <select id="condChildType">
+              <option value="">(any)</option>
+              <option value="text">text</option>
+              <option value="checkbox">checkbox</option>
+              <option value="radio">radio</option>
+              <option value="submit">submit</option>
+              <option value="button">button</option>
+              <!-- A <select>'s type is "select-one", never "select" -->
+              <option value="select-one">select</option>
+              <option value="textarea">textarea</option>
+              <option value="hidden">hidden</option>
+              <option value="number">number</option>
+              <option value="email">email</option>
+              <option value="password">password</option>
+              <option value="file">file</option>
+              <option value="date">date</option>
+              <option value="url">url</option>
+              <option value="range">range</option>
+            </select>
+          </div>
+          <span class="form-hint">The selector above is the parent; the first child that matches is used. <code>${varName}</code> and CSV columns work.</span>
         </div>
       </div>
 
       <!-- DROPDOWN — shown for dropdown type: open it only, or choose item #.
            data-mode ("" | index) shows the item fields; see updateDropdownForm. -->
       <div class="hidden-by-default" id="dropdownWrapper" data-mode="" style="margin-top:6px;">
-        <div class="step-label" id="dropdownStepLabel">Dropdown Item</div>
+        <div class="step-label" id="dropdownStepLabel">Dropdown</div>
         <div class="form-grid">
           <label class="form-label" for="dropdownPickMode">Then</label>
           <select id="dropdownPickMode">
@@ -223,14 +334,16 @@
 
           <label class="form-label dd-pick" for="dropdownPickIndex">Item #</label>
           <div class="dd-pick">
-            <input id="dropdownPickIndex" placeholder="e.g. 2, -1, random, ${row}" spellcheck="false" autocomplete="off" />
-            <span class="form-hint">Counts from 1 as the list shows it, a "-- Select --" line included. <code>-1</code> = last, <code>random</code> = any enabled item.</span>
+            <input id="dropdownPickIndex" placeholder="e.g. 2, -1, random, ${row}" spellcheck="false" autocomplete="off"
+                   title="Counts from 1 as the list shows it, a &quot;-- Select --&quot; line included. -1 = last, random = any enabled item." />
+            <span class="form-hint">From 1, as the list shows it · <code>-1</code> = last · <code>random</code> = any</span>
           </div>
 
           <label class="form-label dd-pick" for="dropdownItemSelector">Items</label>
           <div class="dd-pick">
-            <input id="dropdownItemSelector" placeholder="optional, e.g. .menu li" spellcheck="false" autocomplete="off" />
-            <span class="form-hint">A <code>&lt;select&gt;</code> needs nothing here. Any other dropdown is opened, then the item clicked; its items are found by <code>role="option"</code> unless you give their CSS selector.</span>
+            <input id="dropdownItemSelector" placeholder="optional, e.g. .menu li" spellcheck="false" autocomplete="off"
+                   title="A &lt;select&gt; needs nothing here. Any other dropdown is opened, then the item clicked; its items are found by role=&quot;option&quot; unless you give their CSS selector." />
+            <span class="form-hint">Leave empty for a <code>&lt;select&gt;</code> or a <code>role="option"</code> list.</span>
           </div>
         </div>
       </div>
@@ -278,98 +391,66 @@
         </div>
       </div>
 
-      <!-- SCREENSHOT → VARIABLE SETTINGS — shown for screenshot_tovar type -->
+      <!-- SCREENSHOT → VARIABLE: where the capture goes (its target is above) -->
       <div class="hidden-by-default" id="screenshotTovarWrapper" style="margin-top:6px;">
-        <div class="step-label" id="screenshotTovarStepLabel">Screenshot Settings</div>
-        <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
-          <label style="font-size:12px; color:var(--muted); white-space:nowrap; width:80px;">Target</label>
-          <select id="screenshotTovarTarget" style="flex:1; margin:0;">
-            <option value="page">Visible (viewport)</option>
-            <option value="full">Full Page (scroll)</option>
-            <option value="element">Element (CSS selector)</option>
-          </select>
+        <div class="step-label" id="screenshotTovarStepLabel">Save as</div>
+        <div class="form-grid">
+          <label class="form-label" for="screenshotTovarVarName">Variable</label>
+          <div>
+            <input id="screenshotTovarVarName" placeholder="e.g. screenshot_col" spellcheck="false" autocomplete="off" />
+            <span class="form-hint">Saved to disk; the variable gets the filename and the image goes into the HTML / XLSX export.</span>
+          </div>
         </div>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <label style="font-size:12px; color:var(--muted); white-space:nowrap; width:80px;">Variable name</label>
-          <input id="screenshotTovarVarName" placeholder="screenshot_col" style="flex:1; margin:0;" />
-        </div>
-        <span class="helper-text">Image saved to disk + stored in variable for HTML/XLSX export</span>
       </div>
 
-      <!-- DROP TARGET — shown for dragdrop type (after source selector) -->
+      <!-- DROP TARGET — shown for dragdrop type (after the source selector) -->
       <div class="hidden-by-default" id="dragdropWrapper" style="margin-top:6px;">
-        <div class="step-label" id="dragdropStepLabel">Drop Target</div>
+        <div class="step-label" id="dragdropStepLabel">Drop on</div>
         <div class="row" id="dragdropTargetRow">
-          <select id="dragdropTargetSelectorType" class="w-100" style="font-size: 11px;">
+          <div class="sel-group">
+            <button type="button" class="sel-group-type" id="dragdropTargetTypeBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="dragdropTargetTypeMenu"></button>
+            <input id="dragdropTarget" />
+            <div class="sel-menu" id="dragdropTargetTypeMenu" role="menu" aria-label="Drop target selector type" hidden></div>
+          </div>
+          <select id="dragdropTargetSelectorType" hidden>
             <option value="css">CSS</option>
             <option value="xpath">XPath</option>
+            <option value="fullXpath">Full XPath</option>
             <option value="id">ID</option>
             <option value="name">Name</option>
             <option value="text">Text</option>
-            <option value="fullXpath">Full XPath</option>
           </select>
-          <input id="dragdropTarget" class="flex-1" placeholder="CSS selector of drop target" />
           <button id="dragdropTargetPick" class="secondary w-auto" title="Pick drop target element on page" aria-label="Pick drop target element on page"><span aria-hidden="true">🎯</span></button>
         </div>
         <div id="pickedDragdropTargetWrap" class="hidden-by-default">
-          <div id="pickedDragdropTargetInfo"></div>
-          <button id="clearDragdropTargetBtn" class="secondary w-auto" title="Clear picked drop target">✕ Clear</button>
+          <span id="pickedDragdropTargetInfo"></span>
+          <button id="clearDragdropTargetBtn" class="link-btn" type="button" title="Forget the picked drop target">✕ Clear</button>
         </div>
-        <span class="helper-text">Source = main selector above. Target = where to drop.</span>
       </div>
 
       <!-- UPLOAD FILE SETTINGS — shown for uploadFile type -->
       <div class="hidden-by-default" id="uploadFileWrapper" style="margin-top:6px;">
         <div class="step-label" id="uploadFileStepLabel">File to Upload</div>
-        <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
-          <label style="font-size:12px; color:var(--muted); white-space:nowrap; width:80px;">Upload mode</label>
-          <select id="uploadMode" style="flex:1; margin:0;">
-            <option value="input">File Input (&lt;input type="file"&gt;)</option>
-            <option value="dropzone">DropZone (drag-and-drop area)</option>
+        <div class="form-grid">
+          <label class="form-label" for="uploadMode">Mode</label>
+          <select id="uploadMode">
+            <option value="input">File input field</option>
+            <option value="dropzone">Drop zone (drag &amp; drop area)</option>
           </select>
+          <label class="form-label" for="uploadFolderPath">Folder</label>
+          <input id="uploadFolderPath" placeholder="e.g. C:\Data\Uploads" />
+          <label class="form-label" for="uploadFileNames">Files</label>
+          <div>
+            <textarea id="uploadFileNames" rows="3" placeholder="invoice_001.pdf&#10;report_${date}.xlsx&#10;${filename}"></textarea>
+            <span class="form-hint">One name per line. <code>${variable}</code> works, so a CSV run can upload a different file per row.</span>
+          </div>
         </div>
-        <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
-          <label style="font-size:12px; color:var(--muted); white-space:nowrap; width:80px;">Folder path</label>
-          <input id="uploadFolderPath" placeholder="e.g. C:\Data\Uploads" style="flex:1; margin:0;" />
-        </div>
-        <div style="display:flex; gap:6px; align-items:flex-start;">
-          <label style="font-size:12px; color:var(--muted); white-space:nowrap; width:80px; padding-top:4px;">File name(s)</label>
-          <textarea id="uploadFileNames" rows="3" placeholder="invoice_001.pdf&#10;report_${date}.xlsx&#10;${filename}" style="flex:1; margin:0; resize:vertical; font-family:inherit; font-size:inherit;"></textarea>
-        </div>
-        <span class="helper-text">One file name per line. Each name supports <code>${variable}</code>. Combine with CSV to upload different files per row.</span>
       </div>
 
-      <!-- CONDITION SETTINGS — shown for condition type -->
-      <div class="hidden-by-default" id="conditionWrapper">
-        <div class="step-label" id="conditionStepLabel">Condition</div>
+      <!-- CONDITION: what the condition compares and what it guards. Its "If" is
+           #conditionIfWrapper, before the selector. -->
+      <div class="hidden-by-default" id="conditionWrapper" style="margin-top:8px;">
         <div class="form-grid">
-          <label class="form-label" for="conditionType">If</label>
-          <div class="form-inline">
-            <select id="conditionType">
-              <optgroup label="Element">
-                <option value="elementExists">Element exists</option>
-                <option value="elementNotExists">Element does not exist</option>
-                <option value="elementVisible">Element is visible</option>
-                <option value="elementHidden">Element is hidden</option>
-              </optgroup>
-              <optgroup label="Text &amp; value">
-                <option value="textContains">Text contains</option>
-                <option value="textEquals">Text equals</option>
-                <option value="valueContains">Value contains</option>
-                <option value="valueEquals">Value equals</option>
-              </optgroup>
-              <optgroup label="Page URL">
-                <option value="urlContains">URL contains</option>
-                <option value="urlEquals">URL equals</option>
-              </optgroup>
-              <optgroup label="Class &amp; attribute">
-                <option value="hasClass">Has class</option>
-                <option value="hasAttribute">Has attribute</option>
-              </optgroup>
-            </select>
-            <button id="conditionHelpBtn" class="card-help-btn" type="button" title="Condition types guide" aria-label="Condition types guide">?</button>
-          </div>
-
           <!-- display: contents — the label and field are grid cells hidden together -->
           <div id="conditionExpectedValueWrapper">
             <label class="form-label" id="conditionExpectedLabel" for="conditionExpectedValue">Value</label>
@@ -389,7 +470,7 @@
 
       <!-- SWITCH SETTINGS — shown for switch type -->
       <div class="hidden-by-default sw-form" id="switchWrapper" data-mode="var" style="margin-top:6px;">
-        <div class="step-label" id="switchStepLabel">Switch Variable</div>
+        <div class="step-label" id="switchStepLabel">Branch</div>
         <div class="sw-seg sw-mode" role="radiogroup" aria-label="Switch on">
           <label><input type="radio" name="switchMode" value="var" checked /><span>On a variable</span></label>
           <label><input type="radio" name="switchMode" value="always" /><span>Always</span></label>
@@ -408,7 +489,7 @@
         <div id="switchCaseEditor" class="sw-case-editor">
           <div class="sw-editor-title sw-var-only" id="switchCaseEditorTitle">+ New case</div>
           <label class="sw-field sw-var-only" for="switchCaseValue">
-            <span class="sw-field-label">When value is</span>
+            <span class="sw-field-label">Value</span>
             <input id="switchCaseValue" placeholder="e.g. admin — empty = default" />
           </label>
           <div class="sw-field sw-var-only">
@@ -448,7 +529,7 @@
         </div>
         <div id="switchValidation" class="sw-validation" style="display:none;"></div>
         <details class="sw-help">
-          <summary>How Switch works</summary>
+          <summary><span class="chev" aria-hidden="true">▸</span>How Switch works</summary>
           <ul>
             <li>Cases are checked top to bottom; the first whose value equals the variable runs. A case with an empty value is the <strong>default</strong> — it runs when nothing else matches.</li>
             <li><strong>↻ Run actions here</strong> — the case owns a block of this scenario's actions (<strong>Actions</strong> from / to). Only the matching case's block runs, then playback continues after the Switch. Drag the Switch above those actions first, then pick them.</li>
@@ -459,73 +540,12 @@
         </details>
       </div>
 
-      <!-- CHILD CONDITION (optional collapsible) — shown for click/input/hover -->
-      <div class="hidden-by-default child-cond-outer" id="childConditionWrapper" style="margin-top:8px;">
-        <button type="button" class="child-cond-toggle" id="childConditionToggle" aria-expanded="false">
-          <span class="child-cond-caret">▸</span>
-          Child Condition
-          <span class="child-cond-subtitle">(optional — find child element to act on)</span>
-          <span class="child-cond-badge" id="childConditionBadge" style="display:none;">●</span>
-        </button>
-        <div class="child-cond-body" id="childConditionBody" style="display:none;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border);">
-            <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Match</span>
-            <div style="display:flex;gap:4px;">
-              <label class="cond-match-label" id="condMatchLabelAny">
-                <input type="radio" name="condChildMatchMode" id="condChildMatchAny" value="any" checked />
-                ANY <span style="font-size:10px;color:var(--muted);">(OR)</span>
-              </label>
-              <label class="cond-match-label" id="condMatchLabelAll">
-                <input type="radio" name="condChildMatchMode" id="condChildMatchAll" value="all" />
-                ALL <span style="font-size:10px;color:var(--muted);">(AND)</span>
-              </label>
-            </div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
-            <label style="font-size:11px;color:var(--muted);white-space:nowrap;width:90px;">value equals</label>
-            <input id="condChildValueEquals" placeholder='e.g. 1, 2, ${myVar}' style="flex:1;margin:0;font-size:12px;" />
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
-            <label style="font-size:11px;color:var(--muted);white-space:nowrap;width:90px;">text contains</label>
-            <input id="condChildTextContains" placeholder='e.g. Abc, ${myVar}' style="flex:1;margin:0;font-size:12px;" />
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
-            <label style="font-size:11px;color:var(--muted);white-space:nowrap;width:90px;">id contains</label>
-            <input id="condChildIdContains" placeholder='e.g. submit-btn, ${myVar}' style="flex:1;margin:0;font-size:12px;" />
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
-            <label style="font-size:11px;color:var(--muted);white-space:nowrap;width:90px;">class contains</label>
-            <input id="condChildClassContains" placeholder='e.g. active, btn-primary' style="flex:1;margin:0;font-size:12px;" />
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <label style="font-size:11px;color:var(--muted);white-space:nowrap;width:90px;">type</label>
-            <select id="condChildType" style="flex:1;margin:0;font-size:12px;">
-              <option value="">(any)</option>
-              <option value="text">text</option>
-              <option value="checkbox">checkbox</option>
-              <option value="radio">radio</option>
-              <option value="submit">submit</option>
-              <option value="button">button</option>
-              <option value="select">select</option>
-              <option value="textarea">textarea</option>
-              <option value="hidden">hidden</option>
-              <option value="number">number</option>
-              <option value="email">email</option>
-              <option value="password">password</option>
-              <option value="file">file</option>
-              <option value="date">date</option>
-              <option value="url">url</option>
-              <option value="range">range</option>
-            </select>
-          </div>
-          <span class="helper-text" style="margin-top:6px;display:block;">Selector above = parent container. Child matching the condition will be acted on. Supports <code>${varName}</code> variables &amp; CSV columns.</span>
-        </div>
-      </div>
-
-      <!-- VALUE FIELD — shown for input/navigate/script/wait/screenshot/screenshot_full -->
+      <!-- VALUE FIELD — one box, a different thing per type (VALUE_BOX in
+           record/form-table.js): its data-kind sizes it — see 02-action-list.css -->
       <div class="hidden-by-default" id="manualValueWrapper">
         <div class="step-label" id="valueStepLabel">Value</div>
-        <textarea id="manualValue" placeholder="Value (for input/navigate) or JS code (for script)" style="width:100%; height:80px; margin-top:6px;"></textarea>
+        <textarea id="manualValue" spellcheck="false"></textarea>
+        <button id="useTabUrl" class="secondary w-auto" type="button" title="Fill in the URL of the tab this popup was opened on">Use this tab's URL</button>
       </div>
 
       <!-- DELAY -->
@@ -553,7 +573,8 @@
         <input id="manualLabel" placeholder="Short description for this action" />
       </div>
 
-      <div class="row">
+      <!-- Hidden until an action type is chosen (02-action-list.css) -->
+      <div class="row" id="manualActionButtons">
         <button id="addManualAction">Add Action</button>
         <button id="cancelEdit" class="secondary w-auto" style="display: none;">Cancel</button>
       </div>
@@ -655,7 +676,7 @@
 
     <!-- MANAGE FOLDERS -->
     <div class="card collapsible collapsed" id="manageFoldersCard">
-      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Manage Folders <span class="caret">▸</span><button class="card-help-btn" data-card="folders" title="Folder management guide" style="margin-left:auto;">?</button></h3>
+      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Manage Folders <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="folders" title="Folder management guide" style="margin-left:auto;">?</button></h3>
       <div class="row">
         <input id="newFolderInput" placeholder="Folder name..." />
         <button id="createFolderAction" class="secondary">Create</button>
@@ -667,7 +688,7 @@
 
     <!-- SEQUENCE PLAYBACK -->
     <div class="card collapsible collapsed" id="sequencePlaybackCard">
-      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Sequence Scenarios <span class="caret">▸</span><button class="card-help-btn" data-card="sequence" title="Sequence guide" style="margin-left:auto;">?</button></h3>
+      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Sequence Scenarios <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="sequence" title="Sequence guide" style="margin-left:auto;">?</button></h3>
       <div class="row">
         <select id="sequenceScenarioList" class="flex-1"></select>
         <button id="addToRunList" class="secondary w-auto">+ Add</button>
@@ -806,7 +827,7 @@
 
     <!-- SCHEDULED PLAYBACK -->
     <div class="card collapsible collapsed" id="scheduledPlaybackCard">
-      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Scheduled Playback <span class="caret">▸</span><button class="card-help-btn" data-card="schedule" title="Schedule guide" style="margin-left:auto;">?</button></h3>
+      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Scheduled Playback <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="schedule" title="Schedule guide" style="margin-left:auto;">?</button></h3>
       <div class="row equalize">
         <select id="scheduleScenarioSelect">
           <option value="">-- Select scenario --</option>
@@ -832,7 +853,7 @@
 
     <!-- CSV DATA-DRIVEN RUN -->
     <div class="card collapsible collapsed" id="csvRunCard">
-      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">CSV Data-Driven Run <span class="caret">▸</span><button class="card-help-btn" data-card="csv" title="CSV run guide" style="margin-left:auto;">?</button></h3>
+      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">CSV Data-Driven Run <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="csv" title="CSV run guide" style="margin-left:auto;">?</button></h3>
       <select id="csvScenarioSelect" style="margin-bottom: 6px;">
         <option value="">-- Select scenario --</option>
       </select>
@@ -1078,7 +1099,7 @@
           <span><span class="hl-stats-bar-val" id="hlStatTotal">0</span> total</span>
           <span class="hl-stats-bar-sep">·</span>
           <span><span class="hl-stats-bar-val" id="hlStatPages">—</span> pages</span>
-          <button class="hl-stats-detail-btn" id="hlStatsDetailBtn">▾ Details</button>
+          <button class="hl-stats-detail-btn" id="hlStatsDetailBtn" aria-expanded="false"><span class="chev" aria-hidden="true">▸</span>Details</button>
         </div>
         <!-- Expanded stats detail (hidden by default) -->
         <div class="hl-stats-detail" id="hlStatsDetail">
@@ -1150,7 +1171,7 @@
           <span class="hl-pattern-icon">🔗</span>
           <span class="hl-pattern-title">URL Patterns</span>
           <button class="hl-pattern-copy-all" id="hlPatternCopyAll" title="Copy all patterns to clipboard" style="display:none;">⧉ Copy all</button>
-          <span class="hl-pattern-caret" id="hlPatternCaret">▾</span>
+          <span class="chev" id="hlPatternCaret" aria-hidden="true">▸</span>
         </div>
         <div class="hl-pattern-body" id="hlPatternBody" style="display:none;">
           <!-- Build pattern from current tab URL -->
@@ -1158,7 +1179,7 @@
             <button class="hl-builder-trigger" id="hlBuilderTrigger" type="button">
               <span class="hl-builder-trigger-icon">🌐</span>
               <span class="hl-builder-trigger-host" id="hlBuilderHost"></span>
-              <span class="hl-builder-trigger-caret" id="hlBuilderCaret">▾</span>
+              <span class="chev chev--menu" id="hlBuilderCaret" aria-hidden="true">▾</span>
             </button>
             <div class="hl-builder-panel" id="hlBuilderPanel" style="display:none;">
               <div class="hl-builder-hint">Click <b>subdomain</b> to toggle exact↔* &nbsp;|&nbsp; Click <b>path</b>: <span class="hl-seg hl-seg--exact hl-seg--sm">exact</span> → <span class="hl-seg hl-seg--any hl-seg--sm">*</span> → <span class="hl-seg hl-seg--end hl-seg--sm">off</span></div>
@@ -1367,7 +1388,7 @@
 
     <!-- Import / Export card (collapsible) -->
     <div class="card collapsible collapsed" id="importExportCard">
-      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Import / Export <span class="caret">▸</span><button class="card-help-btn" data-card="importExport" title="Import / Export guide" style="margin-left:auto;">?</button></h3>
+      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Import / Export <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="importExport" title="Import / Export guide" style="margin-left:auto;">?</button></h3>
       <div class="row">
         <select id="exportScenarioSelect" class="flex-1">
           <option value="">-- Select scenario --</option>
@@ -1387,7 +1408,7 @@
 
     <!-- Backup / Restore card (collapsible) -->
     <div class="card collapsible collapsed" id="backupRestoreCard">
-      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Backup / Restore <span class="caret">▸</span><button class="card-help-btn" data-card="backup" title="Backup / Restore guide" style="margin-left:auto;">?</button></h3>
+      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Backup / Restore <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="backup" title="Backup / Restore guide" style="margin-left:auto;">?</button></h3>
       <input type="file" id="restoreFile" accept=".json" />
       <div class="row" style="gap:6px;">
         <button id="backupAll" class="secondary flex-1">⬇ Backup All Data</button>

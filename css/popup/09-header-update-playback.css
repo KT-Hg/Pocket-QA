@@ -228,17 +228,6 @@ body.update-locked .cap-edit-btn:hover { transform: none; }
   flex: 0 0 auto;
 }
 
-.now-playing-caret {
-  font-size: 11px;
-  color: var(--muted);
-  flex: 0 0 auto;
-  transition: transform .2s;
-}
-
-.now-playing-bar[aria-expanded="true"] .now-playing-caret {
-  transform: rotate(180deg);
-}
-
 /* === Playback mini panel === */
 .playback-panel {
   background: var(--card);

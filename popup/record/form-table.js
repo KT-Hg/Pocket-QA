@@ -16,17 +16,23 @@ import { readdomMode, setReaddomMode, setSwitchMode, switchMode } from './form-f
 
 /**
  * The Value box means something else for each type that shows it: the action
- * property it is saved as, its placeholder, and what an action opens with there
- * when that is not just the property.
+ * property it is saved as, its placeholder, its kind — which sizes the box
+ * (#manualValue[data-kind] in 02-action-list.css; url and file are one line) —
+ * and what an action opens with there when that is not just the property.
  */
+const FILENAME_BOX = { prop: "value", kind: "file", placeholder: "e.g. login-page.png — empty = automatic name, ${var} works" };
 export const VALUE_BOX = new Map([
   // Either type opens with whichever of value / url the action has.
-  ["input",           { prop: "value", placeholder: "Value to input",  fromAction: (a) => a.value || a.url || "" }],
-  ["navigate",        { prop: "url",   placeholder: "URL to navigate", fromAction: (a) => a.value || a.url || "" }],
-  ["script",          { prop: "code",  placeholder: "JavaScript code" }],
-  ["screenshot",      { prop: "value", placeholder: "Filename (optional, e.g. screenshot.png)" }],
-  ["screenshot_full", { prop: "value", placeholder: "Filename (optional, e.g. screenshot.png)" }],
+  ["input",              { prop: "value", kind: "text", placeholder: "Text to type — ${var} works", fromAction: (a) => a.value || a.url || "" }],
+  ["navigate",           { prop: "url",   kind: "url",  placeholder: "e.g. https://example.com/login", fromAction: (a) => a.value || a.url || "" }],
+  ["script",             { prop: "code",  kind: "code", placeholder: "JavaScript — runs in the page, e.g. document.title" }],
+  ["screenshot",         FILENAME_BOX],
+  ["screenshot_full",    FILENAME_BOX],
+  ["screenshot_element", FILENAME_BOX],
 ]);
+
+/** One-line kinds: Enter and pasted line breaks never get into them. */
+export const SINGLE_LINE_KINDS = new Set(["url", "file"]);
 
 /** Upload File's names, one per line; older actions have a single `fileName`. */
 function fileNamesText(action) {

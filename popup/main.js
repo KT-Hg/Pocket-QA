@@ -14,6 +14,7 @@ import { initNotices } from './notices.js';
 import { initCsvListeners } from './csv/csv-listeners.js';
 import { initResumeBanners } from './run/resume-banners.js';
 import { initPickedSelectors } from './record/picked-selectors.js';
+import { initSelectorTypeMenus } from './record/selector-type-menu.js';
 import { initPicker } from './record/picker.js';
 import { initTabActivation } from './tab-activation.js';
 import { initRecorder } from './record/recorder.js';
@@ -53,6 +54,7 @@ export function initMain() {
   initCsvListeners();
   initResumeBanners();
   initPickedSelectors();
+  initSelectorTypeMenus();
   initPicker();
   initTabActivation();
   initRecorder();

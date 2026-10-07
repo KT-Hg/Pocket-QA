@@ -19,11 +19,16 @@ function saveCollapsibleState(cardId, isOpen) {
   });
 }
 
+/** Open or close a card. Its header's aria-expanded turns the chevron (.chev). */
+function _setCardOpen(card, open) {
+  card.classList.toggle("collapsed", !open);
+  card.querySelector("h3")?.setAttribute("aria-expanded", String(open));
+}
+
 function _toggleCollapsibleCard(h3) {
   const card = h3.closest(".card.collapsible");
-  card.classList.toggle("collapsed");
-  const isExpanded = !card.classList.contains("collapsed");
-  h3.setAttribute("aria-expanded", String(isExpanded));
+  const isExpanded = card.classList.contains("collapsed");
+  _setCardOpen(card, isExpanded);
 
   if (card.id) {
     saveCollapsibleState(card.id, isExpanded);
@@ -39,16 +44,16 @@ export function initCollapsible() {
   chrome.storage.local.get([COLLAPSIBLE_STATE_KEY], (res) => {
     const states = res?.[COLLAPSIBLE_STATE_KEY] || {};
 
-    // Apply saved states to main cards
+    // Apply saved states to main cards — "closed" too: a card that starts open
+    // (Add Manual Action) would otherwise reopen every time the popup does.
     document.querySelectorAll(".card.collapsible").forEach((card) => {
-      const cardId = card.id;
-      if (cardId && states[cardId] === "open") {
-        card.classList.remove("collapsed");
+      const saved = card.id ? states[card.id] : undefined;
+      if (saved !== "open" && saved !== "closed") return;
+      _setCardOpen(card, saved === "open");
 
-        // Trigger specific logic for opened cards
-        if (card.querySelector("#manualActionType")) {
-          setTimeout(() => manualActionType?.dispatchEvent(new Event("change")), AFTER_OPEN_MS);
-        }
+      // Trigger specific logic for opened cards
+      if (saved === "open" && card.querySelector("#manualActionType")) {
+        setTimeout(() => manualActionType?.dispatchEvent(new Event("change")), AFTER_OPEN_MS);
       }
     });
   });

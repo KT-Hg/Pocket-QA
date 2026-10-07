@@ -115,6 +115,9 @@
 .sw-continue { margin-top: 10px; }
 .sw-help { margin-top: 8px; font-size: 11px; color: var(--muted); }
 .sw-help summary { cursor: pointer; font-weight: 600; user-select: none; }
+/* Case editor: a label column and the field, like .form-grid */
+.sw-case-editor .sw-field { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 8px; }
+.sw-case-editor .sw-field-label { font-size: 12px; font-weight: 400; }
 .sw-help ul { margin: 5px 0 0; padding-left: 16px; line-height: 1.45; }
 .sw-help li { margin-bottom: 3px; }
 .sw-field .sw-range-row { margin-top: 0; }

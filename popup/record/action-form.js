@@ -14,12 +14,18 @@ import { addVariableRow, newVariableConfig } from '../variables.js';
 import { saveDraft } from './draft.js';
 import { DEFAULT_DELAY_MS, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { collectManualFormState } from './form-state.js';
-import { CHILD_COND_FIELDS, TYPE_FIELDS, VALUE_BOX, clearField, fillField } from './form-table.js';
+import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, fillField } from './form-table.js';
 import { clearPickedSelectorsPanel, selectorIsPicked, showFieldError, updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 import { renderConditionRunTo, previewActions } from './preview.js';
-import { alwaysSwitchError, candidateActions, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, switchSelfIdx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
+import { alwaysSwitchError, candidateActions, commitPendingCase, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, switchSelfIdx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
-import { resetManualValueMemory, seedManualValueMemory } from './value-memory.js';
+import { applyValueBox, resetManualValueMemory, seedManualValueMemory } from './value-memory.js';
+
+/** The card's title: "Add Manual Action", or which action is being edited. */
+function _setCardTitle(text) {
+  const el = document.getElementById("manualCardTitle");
+  if (el) el.textContent = text;
+}
 
 /* === DELAY PRESET HELPER === */
 export function setManualDelayUI(ms) {
@@ -212,7 +218,7 @@ function buildActionFromForm(type, selector, value, delayVal) {
     action.varName = varName;
     action.target  = document.getElementById("screenshotTovarTarget")?.value || "page";
     if (action.target === "element") {
-      if (!selector) { showToast("Selector (①) is required for Element target", "error"); return null; }
+      if (!selector) { showToast("Selector is required for the Element target", "error"); return null; }
       action.selector = selector;
     }
   }
@@ -263,6 +269,8 @@ function buildActionFromForm(type, selector, value, delayVal) {
     // Always mode saves no variable: then only its default case can match.
     const always    = switchMode() === "always";
     const switchVar = always ? "" : normalizeVarRef(document.getElementById("switchVar")?.value);
+    // A case typed into the editor but not added yet is added now, not lost.
+    if (!always && !commitPendingCase()) return null;
     const alwaysErr = alwaysSwitchError();
     if (alwaysErr)        { showToast(alwaysErr, "error"); return null; }
     if (!always && !switchVar) { showToast("Variable is required for Switch action, e.g. ${role}", "error"); return null; }
@@ -322,12 +330,11 @@ export function startEdit(index, action) {
 
   // The Value box (clearEditState emptied it), then the type's own section and
   // fields — record/form-table.js
-  const valueBox = VALUE_BOX.get(action.type);
+  const valueBox = applyValueBox(action.type);
   if (manualValueWrapper) manualValueWrapper.style.display = valueBox ? "block" : "none";
   if (manualDelayWrapper) manualDelayWrapper.style.display = "block";
   if (valueBox) {
     manualValue.value = valueBox.fromAction ? valueBox.fromAction(action) : (action[valueBox.prop] || "");
-    manualValue.placeholder = valueBox.placeholder;
   }
   const section = TYPE_FIELDS.get(action.type);
   if (section) {
@@ -376,6 +383,7 @@ export function startEdit(index, action) {
   if (manualLabelWrapper) manualLabelWrapper.style.display = "block";
 
   ui.editing = { scenarioId: scenarioList.value || null, index };
+  _setCardTitle(`Edit Action #${index + 1}`);
   addManualAction.textContent = "Save Edit";
   cancelEdit.style.display = "inline-block";
   updateStepLabels();
@@ -391,6 +399,7 @@ export function clearEditState() {
   setManualDelayUI(DEFAULT_DELAY_MS);
   manualValue.style.display = "none";
   addManualAction.textContent = "Add Action";
+  _setCardTitle("Add Manual Action");
   cancelEdit.style.display = "none";
   ui.currentPickedSelectors = null;
   ui.currentPickedFrameId = null;
@@ -621,5 +630,25 @@ export function initActionForm() {
   cancelEdit.addEventListener('click', () => {
     clearEditState();
     chrome.storage.local.remove("manualFormDraft");
+  });
+
+  // Navigate: the URL of the tab the popup was opened on.
+  document.getElementById("useTabUrl")?.addEventListener("click", () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+      if (!tab?.url) return;
+      manualValue.value = tab.url;
+      manualValue.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  });
+
+  // A URL or a filename is one line, though it lives in the Value textarea.
+  // Enter is left alone when the variable suggestions just used it to pick.
+  manualValue.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.defaultPrevented && SINGLE_LINE_KINDS.has(manualValue.dataset.kind)) e.preventDefault();
+  });
+  manualValue.addEventListener("input", () => {
+    if (SINGLE_LINE_KINDS.has(manualValue.dataset.kind) && /[\r\n]/.test(manualValue.value)) {
+      manualValue.value = manualValue.value.replace(/[\r\n]+/g, "");
+    }
   });
 }

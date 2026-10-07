@@ -44,10 +44,8 @@ function _setPanelOpen(open) {
   _panelOpen = open;
   const panel = document.getElementById('playbackPanel');
   const bar   = document.getElementById('nowPlayingBar');
-  const caret = document.getElementById('nowPlayingCaret');
   if (panel) panel.style.display = open ? 'block' : 'none';
   if (bar)   bar.setAttribute('aria-expanded', String(open));
-  if (caret) caret.style.transform = open ? 'rotate(180deg)' : '';
 }
 
 function _updatePanel({ name = '', origName = '', progress = '', pct = 0, csvRow = 0, csvTotal = 0 } = {}) {

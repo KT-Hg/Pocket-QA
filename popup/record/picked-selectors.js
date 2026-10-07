@@ -1,11 +1,12 @@
 /**
- * record/picked-selectors.js — the panel of selector candidates for a picked
- * element (and a drag & drop target).
+ * record/picked-selectors.js — a picked element (and a drag & drop target): the
+ * line saying how many locators were kept, with Clear. The locators themselves
+ * are listed in the selector-type menu (record/selector-type-menu.js).
  */
 
 import { manualSelector, pickedSelectorsInfo, pickedSelectorsWrap, scenarioList, selectorType } from '../dom.js';
 import { ui } from '../ui-state.js';
-import { escHtml, isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
+import { isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
 import { collectManualFormState } from './form-state.js';
 
 // How long a field stays marked with its error.
@@ -30,30 +31,16 @@ export function showFieldError(inputEl, message) {
   }, FIELD_ERROR_MS);
 }
 
-const SELECTOR_LABELS = {
-  css: 'CSS', xpath: 'XPath', fullXpath: 'Full XPath',
-  id: 'ID', name: 'Name', text: 'Text', testId: 'Test ID', dataId: 'Data ID'
-};
-
-// Values come from the page under test (an element's text, id, name, data-*) or
-// from an imported scenario, so every one is escaped before it goes into HTML.
-function _buildSelectorOptionsHtml(selectors) {
-  let html = '<div style="color:var(--muted);margin-bottom:4px;font-weight:500;">📋 Available selectors (click to use):</div>';
-  for (const [type, value] of Object.entries(selectors)) {
-    if (type === 'textTag' || !value) continue;
-    const label = SELECTOR_LABELS[type] || type;
-    const displayValue = value.length > 60 ? value.substring(0, 60) + '…' : value;
-    html += `<div class="selector-option" data-type="${escHtml(type)}" data-value="${encodeURIComponent(value)}">
-      <strong style="color:var(--primary);">${escHtml(label)}:</strong>
-      <code style="font-size:9px;word-break:break-all;">${escHtml(displayValue)}</code>
-    </div>`;
-  }
-  return html;
+/** How many locators a pick kept (textTag only qualifies the text one). */
+function _locatorCount(selectors) {
+  return Object.entries(selectors).filter(([type, v]) => type !== 'textTag' && typeof v === 'string' && v).length;
 }
 
-function _renderSelectorPanel(selectors, { infoEl, wrapEl, clearBtnId, onSelect, onClear }) {
+function _renderSelectorPanel(selectors, { infoEl, wrapEl, clearBtnId, onClear }) {
   if (!selectors || !infoEl || !wrapEl) return;
-  infoEl.innerHTML = _buildSelectorOptionsHtml(selectors);
+  const n = _locatorCount(selectors);
+  infoEl.textContent = `🎯 Picked · ${n} locator${n === 1 ? '' : 's'} saved, tried in turn on playback`;
+  infoEl.title = 'Each one is listed in the selector type menu (▾)';
   wrapEl.style.display = 'flex';
 
   const clearBtn = document.getElementById(clearBtnId);
@@ -62,12 +49,6 @@ function _renderSelectorPanel(selectors, { infoEl, wrapEl, clearBtnId, onSelect,
     clearBtn.parentNode.replaceChild(newBtn, clearBtn);
     newBtn.addEventListener('click', (e) => { e.stopPropagation(); onClear(); });
   }
-
-  infoEl.querySelectorAll('.selector-option').forEach(opt => {
-    opt.addEventListener('click', () => onSelect(opt.dataset.type, decodeURIComponent(opt.dataset.value)));
-    opt.addEventListener('mouseover', () => { opt.style.background = 'var(--secondary-bg)'; });
-    opt.addEventListener('mouseout', () => { opt.style.background = 'transparent'; });
-  });
 }
 
 // Helper to display all available selectors
@@ -78,10 +59,6 @@ export function displayPickedSelectors(selectors) {
     infoEl: pickedSelectorsInfo,
     wrapEl: pickedSelectorsWrap,
     clearBtnId: 'clearPickedSelectorsBtn',
-    onSelect: (type, value) => {
-      selectorType.value = type;
-      manualSelector.value = value;
-    },
     onClear: () => {
       ui.currentPickedSelectors = null;
       ui.currentPickedFrameId = null;
@@ -129,12 +106,6 @@ export function displayPickedDragdropTargetSelectors(selectors) {
     infoEl: info,
     wrapEl: wrap,
     clearBtnId: 'clearDragdropTargetBtn',
-    onSelect: (type, value) => {
-      const dtType = document.getElementById('dragdropTargetSelectorType');
-      if (dtType) dtType.value = type;
-      const t = document.getElementById('dragdropTarget');
-      if (t) t.value = value;
-    },
     onClear: () => {
       ui.currentPickedDragdropTargetSelectors = null;
       const t = document.getElementById('dragdropTarget');

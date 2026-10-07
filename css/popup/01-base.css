@@ -163,6 +163,7 @@ textarea {
   padding: 5.5px 10px;
   border-radius: 8px;
   border: 2px solid var(--border);
+  font-family: inherit;
   font-size: 13px;
 }
 select:where(:not([multiple], [size])) {

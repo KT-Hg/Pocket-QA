@@ -32,27 +32,44 @@ export const DEFAULT_DELAY_MS = "500";
 /* === Types that never need a selector === */
 export const TYPES_NO_SELECTOR = new Set(["navigate", "wait", "script", "screenshot", "screenshot_full", "switch"]);
 
-/* === Step label renumbering after visibility changes === */
+/* === Step labels: their text, and whether they read as optional ===
+   The Condition and Screenshot → Variable sections ahead of the selector keep
+   fixed labels, so they are not listed here. */
 const _STEP_LABEL_TEXTS = {
   selectorStepLabel:       'Selector',
-  dropdownStepLabel:       'Dropdown Item',
+  dropdownStepLabel:       'Dropdown',
   readdomStepLabel:        'Read DOM Settings',
-  screenshotTovarStepLabel:'Screenshot Settings',
-  dragdropStepLabel:       'Drop Target',
-  conditionStepLabel:      'Condition',
-  switchStepLabel:         'Switch Variable',
+  screenshotTovarStepLabel:'Save as',
+  dragdropStepLabel:       'Drop on',
+  switchStepLabel:         'Branch',
   delayStepLabel:          'Delay',
   labelStepLabel:          'Label',
 };
 
-const _OPTIONAL_LABELS = new Set(['delayStepLabel', 'labelStepLabel']);
+// What the selector is for a type where "Selector" says too little.
+const _SELECTOR_LABEL_TEXTS = {
+  dragdrop:   () => 'Drag from',
+  uploadFile: () => (document.getElementById('uploadMode')?.value === 'dropzone' ? 'Drop zone' : 'File input'),
+};
 
 const _VALUE_LABEL_TEXTS = {
-  script:          'Code JS',
-  navigate:        'URL',
-  screenshot:      'Filename (optional)',
-  screenshot_full: 'Filename (optional)',
+  script:             'JavaScript',
+  navigate:           'URL',
+  screenshot:         'Filename',
+  screenshot_full:    'Filename',
+  screenshot_element: 'Filename',
 };
+
+// A screenshot's filename may be left empty; every other Value is the action's own.
+const _OPTIONAL_VALUE_TYPES = new Set(['screenshot', 'screenshot_full', 'screenshot_element']);
+
+/** Grey, and under the divider: Label, Delay (except a Wait's, which is the action), a screenshot's filename. */
+function _isOptionalStep(labelId, type) {
+  if (labelId === 'labelStepLabel') return true;
+  if (labelId === 'delayStepLabel') return type !== 'wait';
+  if (labelId === 'valueStepLabel') return _OPTIONAL_VALUE_TYPES.has(type);
+  return false;
+}
 
 // Ordered list of [stepLabelId, parentWrapperId] in DOM appearance order
 const _STEP_ORDER = [
@@ -61,7 +78,6 @@ const _STEP_ORDER = [
   ['readdomStepLabel',         'readdomWrapper'],
   ['screenshotTovarStepLabel', 'screenshotTovarWrapper'],
   ['dragdropStepLabel',        'dragdropWrapper'],
-  ['conditionStepLabel',       'conditionWrapper'],
   ['switchStepLabel',          'switchWrapper'],
   ['valueStepLabel',           'manualValueWrapper'],
   ['delayStepLabel',           'manualDelayWrapper'],
@@ -77,10 +93,11 @@ export function updateStepLabels() {
     if (!parent || !label) continue;
     const vis = parent.style.display !== '' && parent.style.display !== 'none';
     if (!vis) continue;
-    const isOptional = _OPTIONAL_LABELS.has(labelId);
+    const isOptional = _isOptionalStep(labelId, type);
     let text;
     if (labelId === 'valueStepLabel') text = _VALUE_LABEL_TEXTS[type] || 'Value';
-    else if (labelId === 'delayStepLabel' && type === 'wait') text = 'Duration (ms)';
+    else if (labelId === 'delayStepLabel' && type === 'wait') text = 'Duration';
+    else if (labelId === 'selectorStepLabel' && _SELECTOR_LABEL_TEXTS[type]) text = _SELECTOR_LABEL_TEXTS[type]();
     else text = _STEP_LABEL_TEXTS[labelId] || '';
     label.textContent = text;
     label.classList.toggle('step-label-optional', isOptional);
@@ -208,6 +225,8 @@ export function initFormFields() {
     document.getElementById(id)?.addEventListener("input", updateReaddomForm);
   });
   document.getElementById("readdomMatchCase")?.addEventListener("change", updateReaddomForm);
+  // An upload's selector label follows its mode.
+  document.getElementById("uploadMode")?.addEventListener("change", updateStepLabels);
   // For screenshot_tovar: show selector section only when target = element
   document.getElementById("screenshotTovarTarget")?.addEventListener("change", function() {
     const selectorSection = document.getElementById("selectorSection");

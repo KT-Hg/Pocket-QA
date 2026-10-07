@@ -6,6 +6,7 @@
 import { conditionType, conditionWrapper, manualActionType, manualValue, pickedSelectorsInfo, pickedSelectorsWrap } from '../dom.js';
 import { TYPES_CHILD_CONDITION } from './action-form.js';
 import { CONDITION_NO_SELECTOR, TYPES_NO_SELECTOR, updateDropdownForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
+import { VALUE_BOX } from './form-table.js';
 import { renderConditionRunTo } from './preview.js';
 import { refreshSwitchContext, refreshSwitchForm, populateSwitchScenarioSelect } from './switch-case-builder.js';
 
@@ -41,6 +42,19 @@ export function seedManualValueMemory(type, value, map) {
   if (map) Object.assign(valueByType, map);
   _valueMemoryType = type || "";
   if (type) valueByType[type] = value ?? "";
+}
+
+/**
+ * Shape the Value box for `type` (VALUE_BOX): its placeholder and its kind.
+ * Returns the type's box, or undefined when the type shows none.
+ */
+export function applyValueBox(type) {
+  const box = VALUE_BOX.get(type);
+  if (box) {
+    manualValue.placeholder = box.placeholder;
+    manualValue.dataset.kind = box.kind;
+  }
+  return box;
 }
 
 export function resetManualValueMemory() {
@@ -108,22 +122,14 @@ export function initValueMemory() {
     if (childConditionWrapper) {
       childConditionWrapper.style.display = TYPES_CHILD_CONDITION.includes(type) ? "block" : "none";
     }
+    const childSubtitle = document.getElementById("childConditionSubtitle");
+    if (childSubtitle) {
+      childSubtitle.textContent = `(optional — find child element to ${type === "readdom" ? "read" : "act on"})`;
+    }
 
     // --- Value field ---
-    const needsValue = ["input", "navigate", "script", "screenshot", "screenshot_full"].includes(type);
-    manualValueWrapper.style.display = needsValue ? "block" : "none";
+    manualValueWrapper.style.display = applyValueBox(type) ? "block" : "none";
     manualValue.style.display = "";
-
-    if (type === "screenshot" || type === "screenshot_full") {
-      manualValue.placeholder = "Filename (optional, e.g., my-screenshot.png)";
-      manualValue.style.height = "40px";
-    } else if (type === "script") {
-      manualValue.placeholder = "JavaScript code to execute";
-      manualValue.style.height = "80px";
-    } else {
-      manualValue.placeholder = "Value (for input/navigate)";
-      manualValue.style.height = "80px";
-    }
 
     // --- Delay & Label ---
     manualDelayWrapper.style.display = type ? "block" : "none";
