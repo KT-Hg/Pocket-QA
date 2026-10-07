@@ -1,5 +1,5 @@
 /**
- * ui/collapsible.js — collapsible cards and sub-cards, and their saved state.
+ * ui/collapsible.js — collapsible cards and their saved state.
  */
 
 import { manualActionType } from '../dom.js';
@@ -51,14 +51,6 @@ export function initCollapsible() {
         }
       }
     });
-
-    // Apply saved states to sub-cards
-    document.querySelectorAll(".sub-card").forEach((subCard) => {
-      const subCardId = subCard.querySelector("h4")?.textContent?.trim() || "";
-      if (subCardId && states[`sub-${subCardId}`] === "open") {
-        subCard.classList.remove("collapsed");
-      }
-    });
   });
   document.querySelectorAll(".card.collapsible h3").forEach((h3) => {
     // Ensure all collapsible headers are keyboard-focusable
@@ -77,33 +69,6 @@ export function initCollapsible() {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         _toggleCollapsibleCard(h3);
-      }
-    });
-  });
-  // Handle nested sub-card collapsible (Variables sub-card)
-  document.querySelectorAll(".sub-card h4").forEach((h4) => {
-    if (!h4.hasAttribute("tabindex")) h4.setAttribute("tabindex", "0");
-    h4.setAttribute("role", "button");
-    const subCard = h4.closest(".sub-card");
-    h4.setAttribute("aria-expanded", String(!subCard.classList.contains("collapsed")));
-
-    function _toggleSubCard() {
-      subCard.classList.toggle("collapsed");
-      const isExpanded = !subCard.classList.contains("collapsed");
-      h4.setAttribute("aria-expanded", String(isExpanded));
-      const subCardId = `sub-${h4.textContent?.trim() || ""}`;
-      saveCollapsibleState(subCardId, isExpanded);
-    }
-
-    h4.addEventListener("click", (e) => {
-      if (e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return;
-      _toggleSubCard();
-    });
-
-    h4.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        _toggleSubCard();
       }
     });
   });

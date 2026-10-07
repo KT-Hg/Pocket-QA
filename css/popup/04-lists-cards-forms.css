@@ -119,56 +119,6 @@
   animation: fadeSlideIn 0.18s ease forwards;
 }
 
-/* === Nested Collapsible Sub-cards === */
-.sub-card {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
-  margin: 8px 0;
-  background: var(--secondary-bg);
-}
-
-.sub-card h4 {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 4px;
-  margin: -4px -4px 8px;
-  border-radius: 4px;
-  transition: background 0.15s ease;
-}
-
-.sub-card h4:hover {
-  background: var(--border);
-}
-
-.sub-card .sub-caret {
-  font-size: 12px;
-  transition: transform 0.2s ease, color 0.2s ease;
-  color: var(--primary);
-  opacity: 0.6;
-}
-
-.sub-card h4:hover .sub-caret {
-  opacity: 1;
-}
-
-.sub-card:not(.collapsed) .sub-caret {
-  transform: rotate(90deg);
-  color: var(--primary);
-  opacity: 1;
-}
-
-.sub-card.collapsed > *:not(h4) {
-  display: none;
-}
-
 /* === Hidden Elements === */
 .hidden-by-default {
   display: none;
