@@ -1,6 +1,23 @@
 // csv-parse.js — CSV text of a data-driven run into { headers, rows }.
 
 /**
+ * The field separator: whichever of comma, semicolon and Tab the header row uses
+ * most outside quotes, comma on a tie or when it uses none. Excel in a locale
+ * whose decimal mark is a comma (vi-VN, most of Europe) saves "CSV" with
+ * semicolons, and a Tab-separated paste is common too.
+ */
+function _delimiterOf(text) {
+  const counts = { ',': 0, ';': 0, '\t': 0 };
+  let inQuote = false;
+  for (const ch of text) {
+    if (ch === '"') inQuote = !inQuote;
+    else if (!inQuote && (ch === '\n' || ch === '\r')) break;
+    else if (!inQuote && ch in counts) counts[ch]++;
+  }
+  return Object.keys(counts).reduce((best, d) => (counts[d] > counts[best] ? d : best), ',');
+}
+
+/**
  * Parse CSV text into { headers, rows }.
  *
  * Scans the whole document character by character rather than splitting on
@@ -19,6 +36,7 @@
 export function parseCSV(text) {
   if (typeof text !== 'string') return null;
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const delimiter = _delimiterOf(text);
 
   const records = [];
   let record  = [];
@@ -52,7 +70,7 @@ export function parseCSV(text) {
       continue;
     }
     if (ch === '"')       { inQuote = true; quoted = true; dirty = true; i++; }
-    else if (ch === ',')  { endField(); dirty = true; i++; }
+    else if (ch === delimiter) { endField(); dirty = true; i++; }
     else if (ch === '\r') { i++; if (text[i] === '\n') i++; endRecord(); }
     else if (ch === '\n') { i++; endRecord(); }
     else                  { field += ch; dirty = true; i++; }
