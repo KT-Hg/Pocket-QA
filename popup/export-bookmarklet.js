@@ -562,10 +562,16 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push("      });");
   out.push("      if (!checks.length) return null;");
   out.push("      const test = mode === 'all' ? el => checks.every(fn => fn(el)) : el => checks.some(fn => fn(el));");
-  out.push('      const walker = document.createTreeWalker(parent, NodeFilter.SHOW_ELEMENT);');
-  out.push('      let node = walker.nextNode();');
-  out.push('      while (node) { if (test(node)) return node; node = walker.nextNode(); }');
-  out.push('      return null;');
+  out.push('      const first = (root) => {');
+  out.push('        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);');
+  out.push('        for (let node = walker.nextNode(); node; node = walker.nextNode()) { if (test(node)) return node; }');
+  out.push('        return null;');
+  out.push('      };');
+  // Every wrapper's textContent holds the text too: like content.js, go down to
+  // the innermost element that still matches instead of stopping at the first.
+  out.push('      let hit = first(parent);');
+  out.push("      if (hit && c.textContains != null && c.textContains !== '') { for (let inner = first(hit); inner; inner = first(hit)) hit = inner; }");
+  out.push('      return hit;');
   out.push('    };');
   out.push("    if (_fbField && _fbVals) {");
   out.push("      for (const _fv of _fbVals) { const el = _tryFind({...cond, [_fbField]: _fv}, _fv === '' ? _fbField : null); if (el) return el; }");
