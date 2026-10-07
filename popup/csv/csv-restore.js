@@ -3,6 +3,7 @@
  * that is still running or finished.
  */
 
+import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { updateCsvBadges } from './csv-run.js';
 import { setCsvState, startCsvPoll } from './csv-state.js';
@@ -43,9 +44,7 @@ export function initCsvRestore() {
 
           if (previewEl) previewEl.textContent = `${session.rows.length} rows, columns: ${session.headers.join(", ")} ↩ restored`;
 
-          if (csvCard?.classList.contains("collapsed")) {
-            csvCard.classList.remove("collapsed");
-          }
+          setCardOpen(csvCard, true);
 
           if (isActive) {
             if (status) status.textContent = "";

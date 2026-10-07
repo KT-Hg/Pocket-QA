@@ -7,6 +7,7 @@ import { createFolderAction, createFolderBtn, doMoveToFolder, exportFolder, expo
 import { clearEditState } from '../record/action-form.js';
 import { showFieldError } from '../record/picked-selectors.js';
 import { previewActions } from '../record/preview.js';
+import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { showConfirm, showToast } from '../utils.js';
 import { toggleScenarioActions } from './scenario-actions.js';
@@ -203,7 +204,7 @@ export function initFolders() {
     createFolderBtn.onclick = () => {
       // Open and scroll to Manage Folders section
       if (manageFoldersCard) {
-        manageFoldersCard.classList.remove("collapsed");
+        setCardOpen(manageFoldersCard, true);
         manageFoldersCard.scrollIntoView({ behavior: "smooth", block: "start" });
 
         // Focus on the input field after scrolling

@@ -2,6 +2,7 @@
  * run/schedule.js — scheduled runs: the list, add and edit.
  */
 
+import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { escHtml, getDragAfterElement, showToast } from '../utils.js';
 import { resetScheduleTimePicker } from './time-picker.js';
@@ -123,8 +124,7 @@ function renderScheduleList(schedules) {
       document.getElementById("scheduleLabel").value = s.label || "";
       document.getElementById("scheduleRepeat").checked = !!s.repeat;
       document.getElementById("addSchedule").textContent = "✔ Save";
-      const card = document.getElementById("scheduledPlaybackCard");
-      if (card?.classList.contains("collapsed")) card.classList.remove("collapsed");
+      setCardOpen(document.getElementById("scheduledPlaybackCard"), true);
     };
 
     const delBtn = document.createElement("button");
