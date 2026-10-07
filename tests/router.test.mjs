@@ -329,6 +329,10 @@ const storageAfterRefused = JSON.stringify(fake.data);
 await send('from a web page: REGISTER_FRAME answered', { type: 'REGISTER_FRAME' }, { sender: PAGE_SENDER });
 const _stepOf = (step) => transcript.find((e) => e.step === step);
 
+// A schedule with a start URL runs in a new tab on it, not on the active tab.
+fake.data.local.schedules = [...fake.data.local.schedules, { id: 'scUrl', scenarioId: 's2', time: '08:00', enabled: true, repeat: true, url: 'https://example.com/start' }];
+await alarm('sched_scUrl');
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -345,6 +349,11 @@ test('a web page is refused what its content script never sends', () => {
     assert.deepEqual(_stepOf(`from a web page: ${step} refused`)?.responses, [], step);
   }
   assert.equal(storageAfterRefused, storageBefore);
+});
+test('a schedule with a start URL opens it in a new tab, and plays nothing on the active one', () => {
+  const calls = _stepOf('alarm sched_scUrl')?.calls || [];
+  assert.ok(calls.some((c) => c.startsWith('tabs.create') && c.includes('"url":"https://example.com/start"')), 'tabs.create with the URL');
+  assert.ok(!calls.some((c) => c.startsWith('tabs.sendMessage [1,')), 'nothing sent to tab 1');
 });
 test('a web page still gets what its content script sends answered', () => {
   assert.equal(_stepOf('from a web page: REGISTER_FRAME answered')?.responses.length, 1);
