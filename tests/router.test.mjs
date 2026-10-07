@@ -292,6 +292,23 @@ for (const reason of ['install', 'update', 'chrome_update']) {
   snapshot({ step: `onInstalled ${reason}` });
 }
 
+/** Send every request before any of them settles, as the popup does for a file of several scenarios. */
+async function sendAtOnce(label, requests) {
+  const responses = [];
+  for (const request of requests) {
+    for (const fn of [...fake.events['runtime.onMessage']]) {
+      fn(request, SENDER, (payload) => responses.push(JSON.parse(JSON.stringify(payload ?? null))));
+    }
+  }
+  await fake.settle();
+  snapshot({ step: label, types: requests.map((r) => r.type), responses });
+}
+
+// Last, so the scenarios it adds do not show up in the storage of every step above.
+const ARRAY_IMPORT = ['Array A', 'Array B', 'Array C'];
+await sendAtOnce('import 3 scenarios at once', ARRAY_IMPORT.map((name) => ({ type: 'IMPORT_SCENARIO', scenario: { name, actions: [] } })));
+const savedNames = Object.values(fake.data.local.scenarios || {}).map((s) => s.name);
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -301,6 +318,10 @@ function stringify(v, depth = 3, pad = '') {
   if (Array.isArray(v)) return '[\n' + v.map((x) => inner + stringify(x, depth - 1, inner)).join(',\n') + '\n' + pad + ']';
   return '{\n' + Object.keys(v).map((k) => inner + JSON.stringify(k) + ': ' + stringify(v[k], depth - 1, inner)).join(',\n') + '\n' + pad + '}';
 }
+
+test('three IMPORT_SCENARIO at once save all three', () => {
+  assert.deepEqual(ARRAY_IMPORT.filter((n) => !savedNames.includes(n)), []);
+});
 
 if (UPDATE) {
   writeFileSync(GOLDEN, stringify(actual) + '\n');
