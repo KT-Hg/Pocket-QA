@@ -41,7 +41,9 @@ export function resolveRandomVars(vars) {
 
 export function applyVars(str, vars) {
   if (typeof str !== 'string' || !vars) return str;
-  return str.replace(/\$\{([^}]+)\}/g, (_, k) => (k in vars ? vars[k] : `\${${k}}`));
+  // Own keys only: `in` also finds what every object inherits, and ${toString}
+  // became the source of Object.prototype.toString.
+  return str.replace(/\$\{([^}]+)\}/g, (_, k) => (Object.hasOwn(vars, k) ? vars[k] : `\${${k}}`));
 }
 
 /**
@@ -60,7 +62,7 @@ export function applyVars(str, vars) {
 function _applyVarsToCode(code, vars) {
   if (typeof code !== 'string' || !vars) return code;
   return code.replace(/\$\{([^}]+)\}/g, (match, k) => {
-    if (!(k in vars)) return match;
+    if (!Object.hasOwn(vars, k)) return match;
     return String(vars[k])
       .replace(/\\/g,  '\\\\')
       .replace(/"/g,   '\\"')

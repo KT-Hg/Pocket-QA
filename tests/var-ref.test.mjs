@@ -41,6 +41,13 @@ test('interpolateAction: a Script variable stays one string inside any quotes', 
   }
 });
 
+test('interpolateAction: a name every object inherits is not a variable', () => {
+  const a = interpolateAction({ type: 'input', value: '${toString}-${constructor}-${x}' }, { x: '1' });
+  assert.equal(a.value, '${toString}-${constructor}-1');
+  const s = interpolateAction({ type: 'script', code: "return '${toString}';" }, { x: '1' });
+  assert.equal(s.code, "return '${toString}';");
+});
+
 test('getReadVarNames / getUsedVarNames', () => {
   const actions = [
     { type: 'switch', switchVar: 'role' },
