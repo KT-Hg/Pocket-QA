@@ -466,8 +466,24 @@ function waitForElement(selector, timeout = 5000) {
    RECORDING
 ───────────────────────────────────────────────────────────────────────────── */
 
+// A click on a <label> makes the browser click its control too, in the same
+// task. Only the label click — what the user clicked, and visible even when a
+// styled checkbox hides its input — is recorded: playing both toggled the
+// checkbox twice, back to where it started.
+let _labelForwardTarget = null;
+
 document.addEventListener('click', (event) => {
   if (!_isRecording || pickerMode) return;
+  if (_labelForwardTarget && event.target === _labelForwardTarget) {
+    _labelForwardTarget = null;
+    return;
+  }
+  const label = event.target.closest?.('label');
+  if (label?.control && !label.control.contains(event.target)) {
+    _labelForwardTarget = label.control;
+    // A disabled control is not clicked: forget it once this task is over.
+    setTimeout(() => { _labelForwardTarget = null; }, 0);
+  }
 
   // Flush pending debounced input before recording the click.
   const activeEl = document.activeElement;

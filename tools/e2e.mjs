@@ -18,6 +18,8 @@
  *                 case editor; a scenario picked there survives a reload of the list
  *   background-tab  a run keeps going once its tab is sent to the background, and
  *                 finds an element added there (Chrome runs no rAF in a hidden tab)
+ *   label-click   a real click on a checkbox's <label>, recorded, is one action, and
+ *                 playing it leaves the box checked
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -58,6 +60,7 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
 <div class="xp">known only by XPath</div>
 <input id="out"><input id="big">
 <button id="bg1">bg1</button><button id="bg2">bg2</button>
+<label for="agree" id="agreeLabel">Agree</label><input type="checkbox" id="agree"><label id="plainLabel">Just text</label>
 <script>
   window.__log = [];
   // background-tab: #bg1 adds #late a moment later; every click logs whether the tab was visible.
@@ -124,6 +127,29 @@ async function play(ctx, scenarioId, { away = null } = {}) {
 }
 
 const reloadTestPage = async (ctx) => { await ctx.web.reload(); await sleep(PAGE_SETTLE_MS); };
+
+/** Record what `perform` does on the test tab into a new scenario; its id and the recorded actions. */
+async function record(ctx, name, perform) {
+  const id = await makeScenario(ctx, name, []);
+  await ctx.web.bringToFront();
+  await ctx.send({ type: 'START_RECORD', scenarioId: id, tabId: ctx.webTabId });
+  await sleep(SETTLE_MS);
+  await perform();
+  await sleep(SETTLE_MS);
+  const r = await ctx.send({ type: 'STOP_RECORD' });
+  return { id, actions: r?.actions || [] };
+}
+
+/** A real (trusted) mouse click in the middle of `selector` on the test tab. */
+async function clickAt(ctx, selector) {
+  const { x, y } = await ctx.web.evaluate(`(() => {
+    const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })()`);
+  for (const type of ['mousePressed', 'mouseReleased']) {
+    await ctx.web.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
+  }
+}
 
 async function checkDropdown(ctx) {
   await reloadTestPage(ctx);
@@ -236,6 +262,19 @@ async function checkBackgroundTab(ctx) {
   check(r.log.some((e) => e.startsWith('late ')), 'an element added while the tab is hidden is found', r.log);
 }
 
+async function checkLabelClick(ctx) {
+  await reloadTestPage(ctx);
+  const { id, actions } = await record(ctx, 'e2e label', () => clickAt(ctx, '#agreeLabel'));
+  check(actions.length === 1, 'a click on a <label> is recorded as one action', actions);
+  await reloadTestPage(ctx);
+  await play(ctx, id);
+  const checked = await ctx.web.evaluate(`document.getElementById('agree').checked`);
+  check(checked === true, 'played back, it leaves the checkbox checked', { checked, actions });
+  const direct = await record(ctx, 'e2e label direct', async () => { await clickAt(ctx, '#agree'); await clickAt(ctx, '#plainLabel'); });
+  check(direct.actions.map((a) => a.selector).join() === '#agree,#plainLabel',
+    'a click on the checkbox itself, and on a label with no control, are still recorded', direct.actions.map((a) => a.selector));
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -243,6 +282,7 @@ const CHECKS = [
   ['suggest', 'Variable suggestions in the popup', checkSuggest],
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
+  ['label-click', 'A click on a label, recorded and played', checkLabelClick],
 ];
 
 async function main() {
