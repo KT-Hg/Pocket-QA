@@ -4223,5 +4223,41 @@
    "recording": false
   },
   "pendingTimers": 0
+ },
+ {
+  "step": "condition: the page cannot evaluate it",
+  "done": true,
+  "result": {
+   "vars": {},
+   "failed": [{"index":1,"type":"condition","label":"","reason":"Condition: Unknown condition type \"bogus\""}],
+   "shots": null
+  },
+  "calls": [
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"CHECK_CONDITION\",\"conditionType\":\"bogus\",\"selector\":\"#bogus\",\"selectors\":null,\"expectedValue\":\"\"},{\"frameId\":0}]",
+   "runtime.sendMessage [{\"type\":\"ACTION_FAILED\",\"index\":0,\"action\":{\"type\":\"condition\",\"conditionType\":\"bogus\",\"selector\":\"#bogus\",\"skipCount\":1},\"reason\":\"Condition: Unknown condition type \\\"bogus\\\"\"}]",
+   "action.setBadgeText [{\"text\":\"!\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#f59e0b\"}]",
+   "tabs.sendMessage [1,{\"type\":\"ACTION_FAILED_PROMPT\",\"index\":0,\"total\":3,\"reason\":\"Condition: Unknown condition type \\\"bogus\\\"\",\"actionType\":\"condition\",\"label\":\"\",\"scenarioName\":\"Direct\",\"row\":null,\"rows\":null},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"1/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "action.setBadgeText [{\"text\":\"2/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#guarded\"}},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"3/3\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#after\"}},{\"frameId\":0}]"
+  ],
+  "console": [],
+  "state": {
+   "playback": {"active":true,"tabId":1,"scenarioId":null,"scenarioName":"Direct","originalScenarioName":"Direct","actionIndex":2,"totalActions":3,"failPrompt":false},
+   "sequencePlayback": {"active":false},
+   "csvPlayback": {"active":false},
+   "csvInterrupted": null,
+   "recording": false
+  },
+  "pendingTimers": 0
  }
 ]

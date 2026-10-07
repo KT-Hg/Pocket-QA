@@ -53,7 +53,11 @@ installTabMessages(fake, {
     if (typeof r === 'function') return r(msg);
     return r ?? {};
   },
-  CHECK_CONDITION: (msg) => ({ result: !!conditions[msg.selector] }),
+  // true / false, or the page's whole reply ({ result, error }).
+  CHECK_CONDITION: (msg) => {
+    const c = conditions[msg.selector];
+    return c && typeof c === 'object' ? c : { result: !!c };
+  },
   ACTION_FAILED_PROMPT: (msg) => {
     promptHook?.(msg);
     const c = choices.shift();
@@ -670,6 +674,18 @@ test('a run detaches the session a native <select> Dropdown left open', () => {
 const _failedOf = (step) => JSON.stringify(transcript.find((e) => e.step === step)?.result?.failed);
 test('a Script that throws fails its action', () => assert.match(_failedOf('script: throws'), /boom/));
 test('a Script with no debugger session fails its action', () => assert.match(_failedOf('script: no debugger session'), /not attached/));
+
+// A Condition the page cannot evaluate (an unknown type) is reported, not passed;
+// skipping it leaves the guarded action to run.
+await run('condition: the page cannot evaluate it', play([
+  { type: 'condition', conditionType: 'bogus', selector: '#bogus', skipCount: 1 }, hover('#guarded'), hover('#after'),
+], {}), {
+  setup: () => { conditions['#bogus'] = { result: false, error: 'Unknown condition type "bogus"' }; choices = ['skip']; },
+});
+test('a Condition the page cannot evaluate fails, and skip runs what it guards', () => {
+  assert.match(_failedOf('condition: the page cannot evaluate it'), /Unknown condition type/);
+  assert.ok(_callsOf('condition: the page cannot evaluate it').some((c) => c.includes('"selector":"#guarded"')));
+});
 
 // ── compare ─────────────────────────────────────────────────────────────────
 function stringify(v, depth = 3, pad = '') {
