@@ -233,6 +233,10 @@ export async function launchWithExtension(extDir, { headed = false } = {}) {
   const downloads = () => readdirSync(profile.downloads, { recursive: true }).map(String).filter((f) => /\.png$/i.test(f));
 
   async function close() {
+    // Killing the spawned process alone left Edge's browser process running on
+    // Windows, one per run; Browser.close shuts the whole browser down. Not
+    // waited on for long: a browser that goes without answering is handled by kill().
+    await Promise.race([conn.send('Browser.close').catch(() => { /* already gone */ }), sleep(EXIT_SETTLE_MS)]);
     conn.ws.close();
     proc.kill();
     await sleep(EXIT_SETTLE_MS);
