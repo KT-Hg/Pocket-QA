@@ -28,6 +28,7 @@
  *                 activated tab, Option+R as macOS types it ("®") starts recording
  *   schedule      a schedule's alarm opens its start URL in a new tab and plays there,
  *                 not on the tab that was active
+ *   record-overlay  clicks and typing inside a [data-ext-overlay] box are not recorded
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -70,6 +71,7 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
 <button id="bg1">bg1</button><button id="bg2">bg2</button>
 <label for="agree" id="agreeLabel">Agree</label><input type="checkbox" id="agree"><label id="plainLabel">Just text</label>
 <input type="file" id="upload">
+<div data-ext-overlay="test"><button id="overlayBtn">overlay</button><input id="overlayNote"></div>
 <table id="people"><tbody>
   <tr><td id="aliceCell">Alice</td><td><button id="edit1" class="edit">Edit</button></td></tr>
   <tr><td id="johnCell">John</td><td><button id="edit2" class="edit special">Edit</button></td></tr>
@@ -393,6 +395,19 @@ async function checkSchedule(ctx) {
   check(onTestTab.length === 0, 'not on the tab that was active', onTestTab);
 }
 
+async function checkRecordOverlay(ctx) {
+  await reloadTestPage(ctx);
+  // #overlayBtn / #overlayNote sit in a [data-ext-overlay] box, as the extension's own overlays do.
+  const { actions } = await record(ctx, 'e2e overlay', async () => {
+    await clickAt(ctx, '#overlayBtn');
+    await clickAt(ctx, '#overlayNote');
+    await ctx.web.send('Input.insertText', { text: 'a note' });
+    await sleep(600); // past the input debounce
+    await clickAt(ctx, '#bg1');
+  });
+  check(actions.map((a) => a.selector).join() === '#bg1', 'clicks and typing in an extension overlay are not recorded', actions.map((a) => `${a.type} ${a.selector}`));
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -405,6 +420,7 @@ const CHECKS = [
   ['file-input', 'A file input, recorded and played', checkFileInput],
   ['hotkeys', 'Record hotkeys: activated tabs only, macOS Option', checkHotkeys],
   ['schedule', 'A scheduled run on its start URL', checkSchedule],
+  ['record-overlay', 'Recording ignores the extension overlays', checkRecordOverlay],
 ];
 
 async function main() {

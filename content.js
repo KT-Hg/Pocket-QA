@@ -496,6 +496,9 @@ let _labelForwardTarget = null;
 
 document.addEventListener('click', (event) => {
   if (!_isRecording || pickerMode) return;
+  // The extension's own overlays (a prompt, a countdown, a highlight note) are
+  // not part of the page being tested.
+  if (_extIsOurChrome(event.target)) return;
   if (_labelForwardTarget && event.target === _labelForwardTarget) {
     _labelForwardTarget = null;
     return;
@@ -535,8 +538,9 @@ document.addEventListener('input', (event) => {
   if (!_isRecording || pickerMode) return;
   const el = event.target;
   // A file input's value cannot be typed back (setting it throws); choosing files
-  // is the Upload File action's job.
-  if (el.type === 'file') return;
+  // is the Upload File action's job. Text typed into an extension overlay (a
+  // highlight note) is not the page's.
+  if (el.type === 'file' || _extIsOurChrome(el)) return;
   const selectors = getAllSelectors(el);
   if (!selectors) return;
 
