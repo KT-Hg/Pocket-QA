@@ -95,13 +95,15 @@
    "‹undefined›",
    "‹undefined›",
    "‹undefined›",
-   "‹undefined›",
+   true,
    "‹undefined›"
   ],
   "responses": [
-   {"frameId":3,"recording":false}
+   {"frameId":3,"recording":false,"activated":true}
   ],
-  "calls": [],
+  "calls": [
+   "storage.local.get [[\"activatedTabs\"]]"
+  ],
   "console": []
  },
  {
@@ -3626,13 +3628,15 @@
    "‹undefined›",
    "‹undefined›",
    "‹undefined›",
-   "‹undefined›",
+   true,
    "‹undefined›"
   ],
   "responses": [
-   {"frameId":0,"recording":false}
+   {"frameId":0,"recording":false,"activated":true}
   ],
-  "calls": [],
+  "calls": [
+   "storage.local.get [[\"activatedTabs\"]]"
+  ],
   "console": []
  }
 ]
