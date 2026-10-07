@@ -2276,21 +2276,21 @@ function _hlGetAll(cb) {
   } catch (_) { /* extension context invalidated: highlights are not restored */ }
 }
 
+// Saved by the worker (HL_SAVE_PAGE), one page at a time: two tabs reading,
+// changing and writing back the whole store at once each wrote their own copy,
+// and one tab's highlights were lost.
 function _hlSavePage(list, cb) {
-  _hlGetAll(all => {
-    const key = _hlNormalizeUrl(location.href);
-    all[key] = list;
-    try {
-      if (!_hlCtxOk()) { cb?.(); return; }
-      chrome.storage.local.set({ [_HL_KEY]: all }, () => {
-        try {
-          void chrome.runtime.lastError;
-          safeSend({ type: 'HL_UPDATED', url: key });
-          cb?.();
-        } catch (_) { cb?.(); }
-      });
-    } catch (_) { cb?.(); }
-  });
+  const key = _hlNormalizeUrl(location.href);
+  try {
+    if (!_hlCtxOk()) { cb?.(); return; }
+    chrome.runtime.sendMessage({ type: 'HL_SAVE_PAGE', url: key, list }, () => {
+      try {
+        void chrome.runtime.lastError;
+        safeSend({ type: 'HL_UPDATED', url: key });
+        cb?.();
+      } catch (_) { cb?.(); }
+    });
+  } catch (_) { cb?.(); }
 }
 
 function _hlGetPage(cb) {

@@ -22,6 +22,7 @@ import { schedulesHandlers } from './handlers/schedules.js';
 import { captureHandlers } from './handlers/capture.js';
 import { pickerHandlers } from './handlers/picker.js';
 import { updateHandlers } from './handlers/update.js';
+import { highlightHandlers } from './handlers/highlight.js';
 
 /* === MAIN MESSAGE HANDLER === */
 
@@ -63,7 +64,7 @@ const PLAYBACK_START_TYPES = new Set([
  */
 const CONTENT_SCRIPT_TYPES = new Set([
   'REGISTER_FRAME', 'CONTENT_READY', 'IS_TAB_ACTIVATED', 'RECORDED_ACTION',
-  'START_RECORD', 'STOP_RECORD', 'ELEMENT_PICKED', 'STOP_PICK_MODE', 'HL_UPDATED',
+  'START_RECORD', 'STOP_RECORD', 'ELEMENT_PICKED', 'STOP_PICK_MODE', 'HL_UPDATED', 'HL_SAVE_PAGE',
   'TAKE_SCREENSHOT', 'TAKE_SCREENSHOT_FULL', 'TAKE_SCREENSHOT_SCROLL_V', 'TAKE_SCREENSHOT_SCROLL_H',
   'HOTKEY_SCREENSHOT_ELEMENT', 'HOTKEY_SEG_START', 'CAPTURE_SEGMENT',
   'CANCEL_FULL_SCREENSHOT', 'CANCEL_SEGMENT_CAPTURE',
@@ -89,6 +90,7 @@ const HANDLERS = new Map(Object.entries({
   ...captureHandlers,
   ...pickerHandlers,
   ...updateHandlers,
+  ...highlightHandlers,
 }));
 
 export function routeMessage(request, sender, sendResponse) {
