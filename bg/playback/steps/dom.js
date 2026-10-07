@@ -4,8 +4,7 @@
 
 import { tabMsg, getTabUrl, waitForTabLoad } from '../../tabs.js';
 import { pageReplyTimeout } from './page-reply.js';
-import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
-import { STOP } from './flow.js';
+import { afterFailure } from './flow.js';
 
 // A click or select that navigated: how long the new page gets to load.
 const NAV_LOAD_TIMEOUT_MS = 15_000;
@@ -34,9 +33,8 @@ export async function runOnPage(ctx, i, action) {
 
   if (result?.failed) {
     const reason = result._noContentScript ? 'Content script not reachable' : (result.error || 'Action failed');
-    const next = await fail(i, action, reason);
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, reason), i);
+    if (back !== null) return back;
   }
 
   // For succeeded click/select, also check for post-action navigation

@@ -7,8 +7,7 @@
 import { cssEscape } from '../../../shared/css-escape.js';
 import { openDropdownViaCdp } from '../../cdp/dropdown.js';
 import { tabMsg } from '../../tabs.js';
-import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
-import { STOP } from './flow.js';
+import { afterFailure } from './flow.js';
 import { pageReplyTimeout } from './page-reply.js';
 
 export async function runDropdown(ctx, i, action) {
@@ -55,9 +54,8 @@ async function _pickItem(ctx, i, action, cssSel) {
   }
   if (result.failed) {
     const reason = result._noContentScript ? 'Content script not reachable' : (result.error || 'Dropdown: no item chosen');
-    const next = await fail(i, action, reason);
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, reason), i);
+    if (back !== null) return back;
   }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;

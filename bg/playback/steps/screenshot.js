@@ -5,8 +5,7 @@
 
 import { normalizeVarName } from '../../../shared/var-name.js';
 import { takeVisibleScreenshot, takeFullPageScreenshot, takeElementScreenshot } from '../../screenshot.js';
-import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
-import { STOP } from './flow.js';
+import { afterFailure } from './flow.js';
 
 /** Element screenshot. */
 export async function runElementScreenshot(ctx, i, action) {
@@ -20,9 +19,8 @@ export async function runElementScreenshot(ctx, i, action) {
   })
     .catch(e => ({ error: e.message }));
   if (result?.error) {
-    const next = await fail(i, action, result.error);
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, result.error), i);
+    if (back !== null) return back;
   }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;
@@ -58,9 +56,8 @@ export async function runScreenshotToVar(ctx, i, action) {
     }
   } catch (e) {
     console.error('[PLAYBACK] screenshot_tovar failed:', e);
-    const next = await fail(i, action, e.message);
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, e.message), i);
+    if (back !== null) return back;
   }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;
@@ -83,9 +80,8 @@ export async function runScreenshot(ctx, i, action) {
     });
   const result = await task.catch(e => ({ error: e.message }));
   if (result?.error) {
-    const next = await fail(i, action, result.error);
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, result.error), i);
+    if (back !== null) return back;
   }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;

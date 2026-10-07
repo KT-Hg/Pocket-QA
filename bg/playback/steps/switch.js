@@ -9,8 +9,8 @@ import {
 import { state } from '../../state.js';
 import { getScenarios } from '../../storage.js';
 import { sendAlertNotification } from '../../notify.js';
-import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
-import { STOP } from './flow.js';
+import { FAIL_STOP } from '../failure-prompt.js';
+import { STOP, afterFailure } from './flow.js';
 
 // Switch case target meaning "the scenario currently playing": the case jumps to
 // its startAt action in place instead of running a nested scenario.
@@ -27,9 +27,8 @@ export async function runSwitch(ctx, i, action) {
     const { errors } = validateSwitch(actions, i, _layout);
     if (errors.length) {
       const more = errors.length > 1 ? ` (+${errors.length - 1} more)` : '';
-      const next = await fail(i, action, `Switch: ${errors[0]}${more}`, 'Invalid Switch block');
-      if (next === FAIL_RETRY) return i - 1;
-      if (next === FAIL_STOP) return STOP;
+      const back = afterFailure(await fail(i, action, `Switch: ${errors[0]}${more}`, 'Invalid Switch block'), i);
+      if (back !== null) return back;
       i = blockEnd(actions, i); // skipped: leave the block without running any of it
       return i;
     }
@@ -60,13 +59,11 @@ export async function runSwitch(ctx, i, action) {
     // A backward jump is a loop, so cap the hops — a case that always
     // matches would otherwise spin forever.
     if (startIdx >= actions.length) {
-      const next = await fail(i, action, `Switch: action #${startIdx + 1} does not exist (scenario has ${actions.length})`, 'Jump target out of range');
-      if (next === FAIL_RETRY) return i - 1;
-      if (next === FAIL_STOP) return STOP;
+      const back = afterFailure(await fail(i, action, `Switch: action #${startIdx + 1} does not exist (scenario has ${actions.length})`, 'Jump target out of range'), i);
+      if (back !== null) return back;
     } else if (++ctx.selfJumps > MAX_SELF_JUMPS) {
-      const next = await fail(i, action, `Switch: more than ${MAX_SELF_JUMPS} jumps — possible infinite loop, continuing without jumping`, 'Jump limit exceeded');
-      if (next === FAIL_RETRY) return i - 1;
-      if (next === FAIL_STOP) return STOP;
+      const back = afterFailure(await fail(i, action, `Switch: more than ${MAX_SELF_JUMPS} jumps — possible infinite loop, continuing without jumping`, 'Jump limit exceeded'), i);
+      if (back !== null) return back;
     } else {
       if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
       i = startIdx - 1; // the loop's i++ lands on startIdx
@@ -77,13 +74,11 @@ export async function runSwitch(ctx, i, action) {
     const targetScenario = scenarios[matched.scenarioId];
     const targetLen      = targetScenario?.actions?.length || 0;
     if (targetLen && startIdx >= targetLen) {
-      const next = await fail(i, action, `Switch: "${targetScenario.name || matched.scenarioId}" has no action #${startIdx + 1} (only ${targetLen})`, 'Switch start action out of range');
-      if (next === FAIL_RETRY) return i - 1;
-      if (next === FAIL_STOP) return STOP;
+      const back = afterFailure(await fail(i, action, `Switch: "${targetScenario.name || matched.scenarioId}" has no action #${startIdx + 1} (only ${targetLen})`, 'Switch start action out of range'), i);
+      if (back !== null) return back;
     } else if (targetLen && endIdx != null && (endIdx >= targetLen || endIdx < startIdx)) {
-      const next = await fail(i, action, `Switch: "${targetScenario.name || matched.scenarioId}" has no range #${startIdx + 1}–#${endIdx + 1} (only ${targetLen})`, 'Switch range out of range');
-      if (next === FAIL_RETRY) return i - 1;
-      if (next === FAIL_STOP) return STOP;
+      const back = afterFailure(await fail(i, action, `Switch: "${targetScenario.name || matched.scenarioId}" has no range #${startIdx + 1}–#${endIdx + 1} (only ${targetLen})`, 'Switch range out of range'), i);
+      if (back !== null) return back;
     } else if (targetLen) {
       const caseLabel    = matched.value === '__default__' ? 'default' : matched.value;
       const switchedName = targetScenario.name || matched.scenarioId;
@@ -115,15 +110,13 @@ export async function runSwitch(ctx, i, action) {
       state.playback.scenarioName = parentName;
       state.playback.totalActions = parentTotal;
     } else {
-      const next = await fail(i, action, `Switch: scenario "${matched.scenarioName || matched.scenarioId}" not found or has no actions`);
-      if (next === FAIL_RETRY) return i - 1;
-      if (next === FAIL_STOP) return STOP;
+      const back = afterFailure(await fail(i, action, `Switch: scenario "${matched.scenarioName || matched.scenarioId}" not found or has no actions`), i);
+      if (back !== null) return back;
     }
   } else if (!block) {
     // A block Switch with no matching case simply runs none of its cases.
-    const next = await fail(i, action, `Switch: no case matched value "${switchVal}" and no default case set`);
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, `Switch: no case matched value "${switchVal}" and no default case set`), i);
+    if (back !== null) return back;
   }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   if (block) {

@@ -6,8 +6,7 @@ import { normalizeVarName, writtenVarNames } from '../../../shared/var-name.js';
 import { extractWithPattern, patternMismatch } from '../../../shared/text-pattern.js';
 import { tabMsg } from '../../tabs.js';
 import { pageReplyTimeout } from './page-reply.js';
-import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
-import { STOP } from './flow.js';
+import { afterFailure } from './flow.js';
 
 export async function runReadDom(ctx, i, action) {
   const { tabId, fail, resolvedVars, stickFallbacks: _stickFallbacks } = ctx;
@@ -31,9 +30,8 @@ export async function runReadDom(ctx, i, action) {
     }
   }
   if (rdFailed) {
-    const next = await fail(i, action, rdError);
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, rdError), i);
+    if (back !== null) return back;
     // Skipped: in a looped run the variables would otherwise still hold the
     // previous iteration's values and later steps would use them silently.
     for (const n of writtenVarNames(action)) resolvedVars[n] = '';

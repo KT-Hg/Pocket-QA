@@ -5,8 +5,7 @@
 
 import { cssEscape } from '../../../shared/css-escape.js';
 import { setFileInputViaCdp, setFileDropZoneViaCdp } from '../../cdp/upload.js';
-import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
-import { STOP } from './flow.js';
+import { afterFailure } from './flow.js';
 
 export async function runUploadFile(ctx, i, action) {
   const { tabId, fail } = ctx;
@@ -21,9 +20,8 @@ export async function runUploadFile(ctx, i, action) {
   else rawNames = [];
 
   if (!cssSel || !folder || !rawNames.length) {
-    const next = await fail(i, action, 'uploadFile: missing selector, folderPath, or file name(s)');
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, 'uploadFile: missing selector, folderPath, or file name(s)'), i);
+    if (back !== null) return back;
   } else {
     const sep       = folder.includes('\\') ? '\\' : '/';
     const filePaths = rawNames.map(n => `${folder}${sep}${n}`);
@@ -34,9 +32,8 @@ export async function runUploadFile(ctx, i, action) {
         await setFileInputViaCdp(tabId, cssSel, filePaths);
       }
     } catch (e) {
-      const next = await fail(i, action, e.message);
-      if (next === FAIL_RETRY) return i - 1;
-      if (next === FAIL_STOP) return STOP;
+      const back = afterFailure(await fail(i, action, e.message), i);
+      if (back !== null) return back;
     }
   }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));

@@ -3,8 +3,7 @@
  */
 
 import { state } from '../../state.js';
-import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
-import { STOP } from './flow.js';
+import { afterFailure } from './flow.js';
 
 // After the page reports complete, a moment for it to settle.
 const NAV_SETTLE_MS = 500;
@@ -76,9 +75,8 @@ export async function runNavigate(ctx, i, action) {
 
   if (!navSuccess) {
     const reason = navError ? `Navigation failed: ${navError}` : 'Navigation timed out or tab was closed';
-    const next = await fail(i, action, reason, navError ? 'Navigation failed' : 'Navigation timed out');
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, reason, navError ? 'Navigation failed' : 'Navigation timed out'), i);
+    if (back !== null) return back;
   }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;

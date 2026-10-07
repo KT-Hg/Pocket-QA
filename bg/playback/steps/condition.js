@@ -4,8 +4,7 @@
 
 import { conditionSkipTarget, conditionSkip } from '../../../shared/switch-blocks.js';
 import { tabMsg } from '../../tabs.js';
-import { FAIL_RETRY, FAIL_STOP } from '../failure-prompt.js';
-import { STOP } from './flow.js';
+import { afterFailure } from './flow.js';
 
 // How long the page gets to evaluate the condition.
 const CHECK_TIMEOUT_MS = 10_000;
@@ -23,9 +22,8 @@ export async function runCondition(ctx, i, action) {
   // The page could not evaluate it (an unknown type, an exception): neither true
   // nor false. Skip leaves the guarded actions to run, as they always did then.
   if (condResult?.error) {
-    const next = await fail(i, action, `Condition: ${condResult.error}`);
-    if (next === FAIL_RETRY) return i - 1;
-    if (next === FAIL_STOP) return STOP;
+    const back = afterFailure(await fail(i, action, `Condition: ${condResult.error}`), i);
+    if (back !== null) return back;
     passed = true;
   }
   if (!passed) {
