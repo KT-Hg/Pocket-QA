@@ -172,7 +172,16 @@ await call('filenames', () => ({
   tagged: shot.buildScreenshotFilename('p', '', '_full'),
   named: shot.buildScreenshotFilename('p', 'mine'),
   png: shot.buildScreenshotFilename('p', 'mine.png', '_elem'),
+  // From a variable: characters Windows refuses, a backslash folder, "..", a leading "/".
+  unsafe: shot.buildScreenshotFilename('p', 'order:12?"x"|y*<z>'),
+  folders: shot.buildScreenshotFilename('p', '/..\\login\\step 1'),
+  prefix: shot.buildScreenshotFilename('a:b', null),
 }));
+test('screenshot names from variables are names Windows and chrome.downloads accept', () => {
+  assert.equal(shot.buildScreenshotFilename('p', 'order:12?"x"|y*<z>'), 'order_12__x__y__z_.png');
+  assert.equal(shot.buildScreenshotFilename('p', '/..\\login\\step 1'), '_/login/step 1.png');
+  assert.match(shot.buildScreenshotFilename('a:b', null), /^a_b_\d{4}-/);
+});
 await call('report result', () => {
   shot.reportCaptureResult({ success: true, filename: 'a.png' });
   shot.reportCaptureResult({ success: true, filename: 'b.png' }, { fromHotkey: true });
