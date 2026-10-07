@@ -656,6 +656,17 @@ test('a resume inside another scenario finishes it, then goes on after the Switc
   const played = _callsOf('resume: inside another scenario').filter((c) => c.includes('"PLAY_ACTION"')).map((c) => /"selector":"([^"]+)"/.exec(c)?.[1]);
   assert.deepEqual(played, ['#t2', '#t3', '#after']);
 });
+// A Dropdown on a native <select> keeps its CDP session open (detaching would
+// close the list); the run detaches it when it ends.
+await run('startPlayback: a native select left open is detached at the end', () => startPlayback('sSelect'), {
+  setup: () => { fake.data.local.scenarios.sSelect = { name: 'Select', actions: [{ type: 'dropdown', selector: '#native' }, hover('#after')] }; },
+});
+test('a run detaches the session a native <select> Dropdown left open', () => {
+  const calls = _callsOf('startPlayback: a native select left open is detached at the end');
+  const pressed = calls.findIndex((c) => c.includes('mousePressed'));
+  assert.ok(pressed >= 0);
+  assert.equal(calls.slice(pressed).filter((c) => c.startsWith('debugger.detach')).length, 1);
+});
 const _failedOf = (step) => JSON.stringify(transcript.find((e) => e.step === step)?.result?.failed);
 test('a Script that throws fails its action', () => assert.match(_failedOf('script: throws'), /boom/));
 test('a Script with no debugger session fails its action', () => assert.match(_failedOf('script: no debugger session'), /not attached/));
