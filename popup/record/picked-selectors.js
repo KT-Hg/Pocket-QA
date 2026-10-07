@@ -127,10 +127,6 @@ export function displayPickedDragdropTargetSelectors(selectors) {
 }
 
 export function initPickedSelectors() {
-  /* === SCREENSHOT BUTTONS === */
-
-  /* === Recording, Scenarios, Sequence, Playback === */
-
   // Typing a different selector drops the picked frame: the new selector is
   // looked up in the top page, as for any hand-written selector.
   manualSelector?.addEventListener("input", () => {
