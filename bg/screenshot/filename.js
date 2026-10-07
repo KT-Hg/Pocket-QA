@@ -37,6 +37,23 @@ export async function typeTagEnabled() {
  * @returns {string} Resolved filename.
  */
 export function buildScreenshotFilename(prefix, requestedName, typeTag = '') {
-  if (requestedName) return requestedName.endsWith('.png') ? requestedName : `${requestedName}.png`;
-  return `${prefix}${typeTag}_${formatStamp(new Date())}.png`;
+  if (requestedName) {
+    const name = _safeName(requestedName);
+    return name.endsWith('.png') ? name : `${name}.png`;
+  }
+  return _safeName(`${prefix}${typeTag}_${formatStamp(new Date())}.png`);
+}
+
+/**
+ * A name chrome.downloads will save. A name built from a variable can hold
+ * characters Windows refuses (: ? * " < > | and control characters), a ".."
+ * segment or a leading "/", and any of them fails the whole download. "\" is
+ * read as the folder separator a Windows user meant.
+ */
+function _safeName(name) {
+  return String(name)
+    .replace(/\\/g, '/')
+    .replace(/[<>:"|?*\p{Cc}]/gu, '_')
+    .replace(/(^|\/)\.\.(?=\/|$)/g, '$1_')
+    .replace(/^\/+/, '');
 }
