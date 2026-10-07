@@ -275,7 +275,11 @@ function nextFrame(cb) {
   else requestAnimationFrame(cb);
 }
 
-function findElementWithFallback(selectors, timeout = 5000) {
+/**
+ * `prefer`: the selector type the user chose in the form (action.selectorType).
+ * It is tried first; the rest keep the order below.
+ */
+function findElementWithFallback(selectors, timeout = 5000, prefer = null) {
   return new Promise((resolve, reject) => {
     if (typeof selectors === 'string') selectors = { css: selectors };
 
@@ -297,6 +301,8 @@ function findElementWithFallback(selectors, timeout = 5000) {
         fn: () => [...document.querySelectorAll(selectors.textTag)].find(el => el.textContent.trim() === selectors.text),
       });
     }
+    const chosen = prefer ? strategies.findIndex((s) => s.type === prefer) : -1;
+    if (chosen > 0) strategies.unshift(...strategies.splice(chosen, 1));
 
     const tryStrategies = () => {
       for (const strategy of strategies) {
@@ -635,7 +641,7 @@ async function readDomAction(action) {
 
   const resolvedFallbacks = {};
   try {
-    let el = await findElementWithFallback(sels, timeout);
+    let el = await findElementWithFallback(sels, timeout, action.selectorType);
     if (!el) return { failed: true, error: 'Read DOM: element not found' };
     if (action.conditions) {
       const found = findElementByCondition(el, action.conditions);
@@ -768,7 +774,7 @@ async function pickDropdownItem(action) {
   let trigger = null;
   if (!pick.itemSelector) {
     const sels = action.selectors && typeof action.selectors === 'object' ? action.selectors : { css: action.selector };
-    trigger = await findElementWithFallback(sels, 500).catch(() => null);
+    trigger = await findElementWithFallback(sels, 500, action.selectorType).catch(() => null);
   }
   const eligible = (items) => (k) => !_itemDisabled(items[k]) && items[k].textContent.trim() !== '';
   const deadline = Date.now() + DROPDOWN_ITEM_WAIT_MS;
@@ -842,7 +848,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const parent = await findElementWithFallback(
           action.selectors && typeof action.selectors === 'object'
             ? action.selectors : { css: action.selector },
-          actionTimeout,
+          actionTimeout, action.selectorType,
         );
         if (parent) {
           const { el, resolvedFallbacks } = findElementByCondition(parent, action.conditions);
@@ -850,7 +856,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           Object.assign(_rf, resolvedFallbacks);
         }
       } else if (action.selectors && typeof action.selectors === 'object') {
-        target = await findElementWithFallback(action.selectors, actionTimeout);
+        target = await findElementWithFallback(action.selectors, actionTimeout, action.selectorType);
       } else if (action.selector) {
         target = await findElementWithFallback({ css: action.selector }, actionTimeout);
       } else {
@@ -871,7 +877,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     await new Promise(nextFrame);
     if (action.selectors && typeof action.selectors === 'object') {
       try {
-        const requeried = await findElementWithFallback(action.selectors, 500);
+        const requeried = await findElementWithFallback(action.selectors, 500, action.selectorType);
         if (requeried) {
           if (action.conditions) {
             const { el: rechild, resolvedFallbacks: rf2 } = findElementByCondition(requeried, action.conditions);
@@ -903,7 +909,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (action.targetSelector) {
         const ts = (action.targetSelectors && typeof action.targetSelectors === 'object')
           ? action.targetSelectors : { css: action.targetSelector };
-        dropEl = await findElementWithFallback(ts, actionTimeout).catch(() => null);
+        dropEl = await findElementWithFallback(ts, actionTimeout, action.targetSelectorType).catch(() => null);
       }
       if (!dropEl) { sendResponse({ failed: true }); return; }
       const srcRect = target.getBoundingClientRect();

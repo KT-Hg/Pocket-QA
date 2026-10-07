@@ -172,6 +172,9 @@ function buildActionFromForm(type, selector, value, delayVal) {
     action.selector = selector;
     if (selectorIsPicked(selector)) {
       action.selectors = ui.currentPickedSelectors;
+      // A type chosen from the menu is played first (content.js); left as it
+      // came, the usual order applies and the action stays as it always was.
+      if (selectorType?.dataset.chosen === "1") action.selectorType = selectorType.value;
       // Still the element that was picked → play it in the frame it was picked in.
       if (ui.currentPickedFrameId != null) action.frameId = ui.currentPickedFrameId;
     } else {
@@ -231,8 +234,10 @@ function buildActionFromForm(type, selector, value, delayVal) {
     const target = document.getElementById("dragdropTarget")?.value?.trim();
     if (!target) { showToast("Drop target selector is required for Drag & Drop action", "error"); return null; }
     action.targetSelector  = target;
-    const dtSelectorType   = document.getElementById("dragdropTargetSelectorType")?.value || "css";
+    const dtSelect         = document.getElementById("dragdropTargetSelectorType");
+    const dtSelectorType   = dtSelect?.value || "css";
     action.targetSelectors = ui.currentPickedDragdropTargetSelectors || { [dtSelectorType]: target };
+    if (ui.currentPickedDragdropTargetSelectors && dtSelect?.dataset.chosen === "1") action.targetSelectorType = dtSelectorType;
   }
 
   if (type === "dropdown" && document.getElementById("dropdownPickMode")?.value === "index") {
@@ -308,6 +313,7 @@ export function startEdit(index, action) {
   if (action.selectors) {
     ui.currentPickedSelectors = action.selectors;
     displayPickedSelectors(action.selectors);
+    _restoreChosenType("selectorType", action.selectorType);
   } else {
     ui.currentPickedSelectors = null;
     if (pickedSelectorsInfo) {
@@ -460,6 +466,17 @@ export function clearEditState() {
 }
 
 /** startEdit: what a type needs once its fields are filled in. */
+/**
+ * A selector type the action was saved with (chosen from the menu) goes back on
+ * its select, still marked as chosen, so saving again keeps it.
+ */
+function _restoreChosenType(selectId, type) {
+  const select = document.getElementById(selectId);
+  if (!type || !select) return;
+  select.value = type;
+  select.dataset.chosen = "1";
+}
+
 function _afterFieldsFilled(action, selectorSection) {
   switch (action.type) {
     case "screenshot":
@@ -479,6 +496,7 @@ function _afterFieldsFilled(action, selectorSection) {
       // The picked drop target's selectors, if it was picked
       if (action.targetSelectors) {
         displayPickedDragdropTargetSelectors(action.targetSelectors);
+        _restoreChosenType("dragdropTargetSelectorType", action.targetSelectorType);
       } else {
         const pickedDdWrap = document.getElementById("pickedDragdropTargetWrap");
         if (pickedDdWrap) pickedDdWrap.style.display = "none";

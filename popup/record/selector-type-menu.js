@@ -139,13 +139,18 @@ function _wire({ select, input, button, menu, picked }) {
 
   // Every write to the select's value repaints the button — drafts, edits and
   // the picker set it directly, without a change event. A write from outside
-  // this module is a type somebody chose, so it is no longer "auto".
+  // this module is no longer "auto", nor the user's own choice from the menu
+  // (data-chosen: the action saves it as selectorType, played first — the code
+  // that restores a choice sets the mark again after its write).
   Object.defineProperty(sel, 'value', {
     configurable: true,
     get() { return SELECT_VALUE.get.call(this); },
     set(v) {
       SELECT_VALUE.set.call(this, v);
-      if (!settingAuto) delete group.dataset.auto;
+      if (!settingAuto) {
+        delete group.dataset.auto;
+        delete sel.dataset.chosen;
+      }
       paint();
     },
   });
@@ -177,6 +182,7 @@ function _wire({ select, input, button, menu, picked }) {
     const item = e.target.closest('button[data-type]');
     if (!item) return;
     sel.value = item.dataset.type;
+    sel.dataset.chosen = '1';
     // The existing listeners: swap in the picked locator of that type, save the draft.
     sel.dispatchEvent(new Event('change', { bubbles: true }));
     // A keyboard choice keeps focus on the button; a mouse one lets it go.

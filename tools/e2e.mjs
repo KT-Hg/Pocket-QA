@@ -31,6 +31,8 @@
  *   record-overlay  clicks and typing inside a [data-ext-overlay] box are not recorded
  *   condition-unknown  a Condition whose type the page does not know brings up the
  *                 failure prompt instead of passing and running what it guards
+ *   selector-choice  an action's selectorType is tried first; without one, Full XPath
+ *                 still comes first
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -73,6 +75,7 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
 <button id="bg1">bg1</button><button id="bg2">bg2</button>
 <label for="agree" id="agreeLabel">Agree</label><input type="checkbox" id="agree"><label id="plainLabel">Just text</label>
 <input type="file" id="upload">
+<button id="choiceA">choiceA</button><button id="choiceB">choiceB</button>
 <div data-ext-overlay="test"><button id="overlayBtn">overlay</button><input id="overlayNote"></div>
 <table id="people"><tbody>
   <tr><td id="aliceCell">Alice</td><td><button id="edit1" class="edit">Edit</button></td></tr>
@@ -84,6 +87,8 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
   const logClick = (el) => el.addEventListener('click', () => __log.push(el.id + ' ' + document.visibilityState));
   logClick(document.getElementById('bg1'));
   logClick(document.getElementById('bg2'));
+  logClick(document.getElementById('choiceA'));
+  logClick(document.getElementById('choiceB'));
   // hotkeys: every Alt+key the page sees, and whether the extension kept it.
   window.addEventListener('keydown', (e) => { if (e.altKey) __log.push('key ' + e.code + ' ' + (e.defaultPrevented ? 'prevented' : 'free')); });
   // child-condition: which element under #people a Child Condition clicked.
@@ -431,6 +436,20 @@ async function checkRecordOverlay(ctx) {
   check(actions.map((a) => a.selector).join() === '#bg1', 'clicks and typing in an extension overlay are not recorded', actions.map((a) => `${a.type} ${a.selector}`));
 }
 
+async function checkSelectorChoice(ctx) {
+  await reloadTestPage(ctx);
+  // Full XPath finds #choiceA, CSS finds #choiceB: which one plays shows which was tried first.
+  const selectors = { fullXpath: '//*[@id="choiceA"]', css: '#choiceB' };
+  const id = await makeScenario(ctx, 'e2e selector choice', [
+    { type: 'click', selector: '#choiceB', selectors, selectorType: 'css', delay: 100 },
+    { type: 'click', selector: '#choiceB', selectors, delay: 100 },
+  ]);
+  const r = await play(ctx, id);
+  const clicked = r.log.filter((e) => e.startsWith('choice')).map((e) => e.split(' ')[0]);
+  check(clicked[0] === 'choiceB', 'the selector type chosen in the form is tried first', clicked);
+  check(clicked[1] === 'choiceA', 'without one, the usual order (Full XPath first) applies', clicked);
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -445,6 +464,7 @@ const CHECKS = [
   ['schedule', 'A scheduled run on its start URL', checkSchedule],
   ['record-overlay', 'Recording ignores the extension overlays', checkRecordOverlay],
   ['condition-unknown', 'A Condition of an unknown type', checkConditionUnknown],
+  ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
 ];
 
 async function main() {

@@ -27,6 +27,9 @@ export function collectManualFormState() {
     actionType:  manualActionType.value,
     selector:    manualSelector.value?.trim() || "",
     selectorType: document.getElementById("selectorType")?.value || "css",
+    // Chosen from the menu (saved as selectorType / targetSelectorType).
+    selectorTypeChosen: document.getElementById("selectorType")?.dataset.chosen === "1",
+    dragdropTargetTypeChosen: document.getElementById("dragdropTargetSelectorType")?.dataset.chosen === "1",
     pickedSelectors: ui.currentPickedSelectors || null,
     pickedFrameId:   ui.currentPickedFrameId,
     value:       manualValue.value || "",
@@ -145,4 +148,8 @@ export function applyManualFormState(state) {
   setChildCondExpanded(state.childCondExpanded ?? hasChildCondData());
   updateChildCondBadge?.();
   updateStepLabels?.();
+  // Last: writing a select's value clears its mark.
+  const markChosen = (id, on) => { const el = document.getElementById(id); if (el && on) el.dataset.chosen = "1"; };
+  markChosen("selectorType", state.selectorTypeChosen);
+  markChosen("dragdropTargetSelectorType", state.dragdropTargetTypeChosen);
 }
