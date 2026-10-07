@@ -29,8 +29,9 @@
  *   FAILED-ACTION PROMPT           ACTION_FAILED_PROMPT: retry / skip / stop on the page
  *   PING / PONG                    liveness probe
  *   SEGMENT CAPTURE OVERLAY        START_SEGMENT_TAB: the bar and auto-scroll → CAPTURE_SEGMENT
- *   HANDOVER TO content-highlight.js  what the highlight engine (text highlights and
- *                                  notes, HL_* messages) uses from this file
+ *   HIGHLIGHT ENGINE LOADING       content-highlight.js (text highlights and notes, HL_*
+ *                                  messages): what it uses from here, and HL_LOAD while
+ *                                  highlighting is on
  *   NOTIFY READY                   CONTENT_READY to the worker
  */
 
@@ -2082,18 +2083,36 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   HANDOVER TO content-highlight.js
+   HIGHLIGHT ENGINE LOADING
 
-   The highlight engine is its own classic script, run right after this one in
-   the same isolated world (manifest content_scripts, CONTENT_SCRIPT_FILES).
-   Declarations inside the injection guard are not visible to another script,
-   so what it uses from this file is handed over here, and only that.
+   The highlight engine, content-highlight.js, is loaded only while highlighting
+   is on (hl_enabled is not false): this frame asks the worker to inject it
+   (HL_LOAD) when the page loads and when highlighting is turned on. A page with
+   highlighting off never runs it.
+
+   It runs in this same isolated world, but declarations inside the injection
+   guard are not visible to another script, so what it uses from this file is
+   handed over here, and only that.
 ───────────────────────────────────────────────────────────────────────────── */
 
 window.__pqaContent = {
   safeSend, getAllSelectors, findElementWithFallback, _isDynamicId, _DYNAMIC_ID_RE,
   _extOverlay, _extTokens, _extRegisterThemed, _EXT_THEMES, _EXT_ACCENT,
 };
+
+function _loadHighlightEngine() {
+  if (!window.__pqaHighlightInjected) safeSend({ type: 'HL_LOAD' });
+}
+
+try {
+  chrome.storage.local.get(['hl_enabled'], (res) => {
+    void chrome.runtime.lastError;
+    if (res?.hl_enabled !== false) _loadHighlightEngine();
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.hl_enabled && changes.hl_enabled.newValue !== false) _loadHighlightEngine();
+  });
+} catch (_) { /* extension context invalidated: no highlights on this page */ }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    NOTIFY READY

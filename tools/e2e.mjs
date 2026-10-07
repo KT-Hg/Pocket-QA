@@ -39,7 +39,9 @@
  *   form-roundtrip  one action of every type, put in the Add Manual Action form
  *                 with Edit and saved twice, comes back as it was each time
  *   highlight     a text selection opens the highlight tooltip, which follows the
- *                 popup theme; a colour saves the highlight, and a reload paints it again
+ *                 popup theme; a colour saves the highlight, and a reload paints it again.
+ *                 With Highlight off a page loads no highlight engine; turned on, the
+ *                 open page loads it and paints the highlight
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -601,14 +603,29 @@ async function checkHighlight(ctx) {
   await sleep(SETTLE_MS);
   const saved = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('hl_v1', (x) => r(x.hl_v1?.[${JSON.stringify(url)}] || [])))`);
   check(saved.length === 1 && saved[0].text === 'John', 'picking a colour saves the highlight', saved);
+  const mark = () => ctx.web.evaluate(`document.querySelector('mark[data-hl-id]')?.textContent || null`);
+  const markSoon = async () => {
+    let m = null;
+    for (let waited = 0; !m && waited < 5_000; waited += POLL_MS) { await sleep(POLL_MS); m = await mark(); }
+    return m;
+  };
   await ctx.web.reload();
-  let painted = null;
-  for (let waited = 0; !painted && waited < 5_000; waited += POLL_MS) {
-    await sleep(POLL_MS);
-    painted = await ctx.web.evaluate(`document.querySelector('mark[data-hl-id]')?.textContent || null`);
-  }
+  const painted = await markSoon();
   check(painted === 'John', 'a reload paints it again', painted);
-  await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.remove(['hl_v1', 'popupTheme'], r))`);
+
+  // Whether the engine is loaded, asked in the content scripts' world.
+  const engine = () => ctx.ext.evaluate(`chrome.scripting.executeScript({ target: { tabId: ${ctx.webTabId} },
+    func: () => !!window.__pqaHighlightInjected }).then(([r]) => r.result)`);
+  const setEnabled = (on) => ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.set({ hl_enabled: ${on} }, r))`);
+  await setEnabled(false);
+  await ctx.web.reload();
+  await sleep(PAGE_SETTLE_MS * 2);
+  const off = { engine: await engine(), mark: await mark() };
+  check(off.engine === false && off.mark === null, 'with Highlight off, a page loads no highlight engine', off);
+  await setEnabled(true);
+  const on = { mark: await markSoon(), engine: await engine() };
+  check(on.engine === true && on.mark === 'John', 'turned on, the open page loads it and paints the highlight', on);
+  await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.remove(['hl_v1', 'popupTheme', 'hl_enabled'], r))`);
   await ctx.web.goto(`${ctx.base}/page`);
   await sleep(PAGE_SETTLE_MS);
 }

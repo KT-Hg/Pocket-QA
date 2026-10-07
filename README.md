@@ -645,7 +645,7 @@ All hotkeys are configurable in the **Settings** tab and synced via `chrome.stor
 │  content.js  (Page Context — Execution Layer, all frames)   │
 │  DOM event capture · Selector generation (8 candidates)     │
 │  Action execution · Condition evaluation · Hotkey listener  │
-│  + content-highlight.js: highlights (selection, restore)    │
+│  + content-highlight.js: highlights, loaded only while on   │
 └──────────────────────────────────────────────────────────────┘
 ```
 

@@ -3,10 +3,11 @@
  * page (HL_* messages from the popup's Highlight tab): the tooltip, the marks,
  * restore on load and on page changes, URL patterns.
  *
- * A classic script, run right after content.js in the same isolated world
- * (manifest content_scripts, CONTENT_SCRIPT_FILES). What it uses from content.js
- * comes through window.__pqaContent (see HANDOVER there). Its own guard makes a
- * second injection do nothing.
+ * A classic script, not in the manifest: the worker injects it (HL_LOAD) into a
+ * frame whose content.js asks for it, which happens only while highlighting is
+ * on. It runs in content.js's isolated world, and what it uses from content.js
+ * comes through window.__pqaContent (see HIGHLIGHT ENGINE LOADING there). Its own
+ * guard makes a second injection do nothing.
  */
 
 if (!window.__pqaHighlightInjected && window.__pqaContent) {

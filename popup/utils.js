@@ -180,7 +180,7 @@ export function showPrompt(msg, onSubmit, { title = 'Enter Value', value = '', t
 
 // Must stay identical to the content_scripts entry in manifest.json: a tab opened
 // before the extension was installed gets the same script the manifest injects.
-export const CONTENT_SCRIPT_FILES = ['content.js', 'content-highlight.js'];
+export const CONTENT_SCRIPT_FILES = ['content.js'];
 
 export function safeSendTabMessage(tabId, payload) {
   chrome.tabs.sendMessage(tabId, payload, () => {

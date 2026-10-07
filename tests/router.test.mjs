@@ -349,6 +349,11 @@ const savedHighlights = fake.data.local.hl_v1 || {};
 fake.data.local.schedules = [...fake.data.local.schedules, { id: 'scUrl', scenarioId: 's2', time: '08:00', enabled: true, repeat: true, url: 'https://example.com/start' }];
 await alarm('sched_scUrl');
 
+// The highlight engine is injected into the frame that asks for it (content.js
+// does while highlighting is on); with no tab there is nothing to inject into.
+await send('highlight engine: HL_LOAD from a frame', { type: 'HL_LOAD' }, { sender: { ...PAGE_SENDER, frameId: 4 } });
+await send('highlight engine: HL_LOAD with no tab', { type: 'HL_LOAD' }, { sender: {} });
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
