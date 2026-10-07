@@ -87,8 +87,16 @@ export const recordingHandlers = {
   // reconnect after a crash) starts gated correctly instead of waiting for the
   // next RECORDING_STATE broadcast.
   REGISTER_FRAME(request, sender, sendResponse) {
-    sendResponse({ frameId: sender.frameId ?? 0, recording: state.recording });
-    return;
+    // `activated`: whether the record hotkeys act on this tab (content.js keeps
+    // the key from the page only there).
+    const tabId = sender.tab?.id;
+    chrome.storage.local.get(["activatedTabs"], (res) => {
+      sendResponse({
+        frameId: sender.frameId ?? 0, recording: state.recording,
+        activated: tabId != null && (res?.activatedTabs || []).includes(tabId),
+      });
+    });
+    return true;
   },
 
   /* --- Recording --- */

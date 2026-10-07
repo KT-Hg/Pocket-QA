@@ -97,7 +97,12 @@ function formatKeyEvent(e) {
   if (e.metaKey)  parts.push('Meta');
   const key = e.key;
   if (!['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
-    parts.push(key.length === 1 ? key.toUpperCase() : key);
+    // Option on macOS (and AltGr) types a symbol for Alt+letter, Alt+R being "®":
+    // name the physical key then, which content.js also matches (getKeyCombo).
+    const typedSymbol = e.altKey && key.length === 1 && !/^[a-z0-9]$/i.test(key);
+    const phys = typedSymbol && /^(?:Key([A-Z])|Digit([0-9]))$/.exec(e.code || '');
+    if (phys) parts.push(phys[1] || phys[2]);
+    else parts.push(key.length === 1 ? key.toUpperCase() : key);
   }
   return parts.join('+');
 }

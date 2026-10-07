@@ -73,6 +73,13 @@ let pickerMode = false;
  */
 let _isRecording = false;
 
+/**
+ * Whether this tab is activated: only there do the record hotkeys act, and only
+ * there do they keep the key from the page. Seeded from the REGISTER_FRAME reply
+ * and asked again when the activated tabs change (see HOTKEYS).
+ */
+let _tabActivated = false;
+
 // Background has access to sender.frameId; content scripts do not.  We ask for
 // it on load so every recorded action can embed the frameId and be replayed in
 // the correct iframe.  Defaults to 0 (main frame) on error.
@@ -82,6 +89,7 @@ try {
     if (chrome.runtime.lastError || !res) return;
     if (res.frameId != null) _myFrameId = res.frameId;
     _isRecording = !!res.recording;
+    _tabActivated = !!res.activated;
   });
 } catch (_) { /* extension context invalidated: keep frame 0, not recording */ }
 
@@ -1656,7 +1664,12 @@ try {
   });
 } catch (_) { /* extension context invalidated: no live hotkey updates */ }
 
-function getKeyCombo(e) {
+/**
+ * The combo as the hotkey settings write it. `byCode` names a letter or digit
+ * by its physical key: Option on macOS (and AltGr) types a symbol for Alt+R,
+ * "®", which would never match "Alt+R" (popup/settings.js stores that form).
+ */
+function getKeyCombo(e, byCode = false) {
   const parts = [];
   if (e.ctrlKey)  parts.push('Ctrl');
   if (e.altKey)   parts.push('Alt');
@@ -1665,10 +1678,23 @@ function getKeyCombo(e) {
   const key = e.key;
   if (!key) return parts.join('+');
   if (!['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
-    parts.push(key.length === 1 ? key.toUpperCase() : key);
+    const phys = byCode && /^(?:Key([A-Z])|Digit([0-9]))$/.exec(e.code || '');
+    if (phys) parts.push(phys[1] || phys[2]);
+    else parts.push(key.length === 1 ? key.toUpperCase() : key);
   }
   return parts.join('+');
 }
+
+// _tabActivated (STATE) follows a change to the activated tabs.
+try {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.activatedTabs) return;
+    chrome.runtime.sendMessage({ type: 'IS_TAB_ACTIVATED' }, (res) => {
+      if (chrome.runtime.lastError) return;
+      _tabActivated = !!res?.activated;
+    });
+  });
+} catch (_) { /* extension context invalidated: the record hotkeys stay as they were */ }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    VISIBLE SCREENSHOT COUNTDOWN
@@ -1808,23 +1834,27 @@ document.addEventListener('keydown', (e) => {
   if (['INPUT', 'TEXTAREA'].includes(tag)) return;
   if (document.activeElement?.isContentEditable) return;
 
-  const combo = getKeyCombo(e);
+  // As typed, and with a letter or digit named by its physical key (macOS Option).
+  const combos = new Set([getKeyCombo(e), getKeyCombo(e, true)]);
+  const is = (hotkey) => !!hotkey && combos.has(hotkey);
 
-  if (combo === activeHotkeys.startRecord || combo === activeHotkeys.stopRecord) {
+  if (is(activeHotkeys.startRecord) || is(activeHotkeys.stopRecord)) {
+    // Not an activated tab: the hotkey does nothing here, so the page keeps the key.
+    if (!_tabActivated) return;
     e.preventDefault();
-    _hotkeyRecord(combo);
-  } else if (combo === activeHotkeys.screenshot) {
+    _hotkeyRecord(is(activeHotkeys.startRecord) ? activeHotkeys.startRecord : activeHotkeys.stopRecord);
+  } else if (is(activeHotkeys.screenshot)) {
     e.preventDefault();
     _hotkeyScreenshot();
-  } else if (combo === activeHotkeys.screenshotFull)   { e.preventDefault(); safeSend({ type: 'TAKE_SCREENSHOT_FULL', crop: true, fromHotkey: true }); }
-  else if (activeHotkeys.screenshotScrollV && combo === activeHotkeys.screenshotScrollV) { e.preventDefault(); safeSend({ type: 'TAKE_SCREENSHOT_SCROLL_V', fromHotkey: true }); }
-  else if (activeHotkeys.screenshotScrollH && combo === activeHotkeys.screenshotScrollH) { e.preventDefault(); safeSend({ type: 'TAKE_SCREENSHOT_SCROLL_H', fromHotkey: true }); }
-  else if (activeHotkeys.segV && combo === activeHotkeys.segV)   { e.preventDefault(); safeSend({ type: 'HOTKEY_SEG_START', dir: 'vertical'   }); }
-  else if (activeHotkeys.segH && combo === activeHotkeys.segH)   { e.preventDefault(); safeSend({ type: 'HOTKEY_SEG_START', dir: 'horizontal' }); }
-  else if (activeHotkeys.segStop && combo === activeHotkeys.segStop) {
+  } else if (is(activeHotkeys.screenshotFull))    { e.preventDefault(); safeSend({ type: 'TAKE_SCREENSHOT_FULL', crop: true, fromHotkey: true }); }
+  else if (is(activeHotkeys.screenshotScrollV)) { e.preventDefault(); safeSend({ type: 'TAKE_SCREENSHOT_SCROLL_V', fromHotkey: true }); }
+  else if (is(activeHotkeys.screenshotScrollH)) { e.preventDefault(); safeSend({ type: 'TAKE_SCREENSHOT_SCROLL_H', fromHotkey: true }); }
+  else if (is(activeHotkeys.segV))              { e.preventDefault(); safeSend({ type: 'HOTKEY_SEG_START', dir: 'vertical'   }); }
+  else if (is(activeHotkeys.segH))              { e.preventDefault(); safeSend({ type: 'HOTKEY_SEG_START', dir: 'horizontal' }); }
+  else if (is(activeHotkeys.segStop)) {
     e.preventDefault();
     _segCapture?.capture();
-  } else if (activeHotkeys.screenshotElement && combo === activeHotkeys.screenshotElement) {
+  } else if (is(activeHotkeys.screenshotElement)) {
     e.preventDefault(); safeSend({ type: 'HOTKEY_SCREENSHOT_ELEMENT' });
   }
 }, true);

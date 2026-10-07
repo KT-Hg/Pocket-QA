@@ -24,6 +24,8 @@
  *                 and ALL needs every condition
  *   file-input    choosing a file while recording adds no Input action, and an old
  *                 Input action on a file input fails at once (it timed out after 10 s)
+ *   hotkeys       Alt+R on a tab that is not activated reaches the page; on an
+ *                 activated tab, Option+R as macOS types it ("®") starts recording
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -76,6 +78,8 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
   const logClick = (el) => el.addEventListener('click', () => __log.push(el.id + ' ' + document.visibilityState));
   logClick(document.getElementById('bg1'));
   logClick(document.getElementById('bg2'));
+  // hotkeys: every Alt+key the page sees, and whether the extension kept it.
+  window.addEventListener('keydown', (e) => { if (e.altKey) __log.push('key ' + e.code + ' ' + (e.defaultPrevented ? 'prevented' : 'free')); });
   // child-condition: which element under #people a Child Condition clicked.
   document.getElementById('people').addEventListener('click', (e) => __log.push('people ' + (e.target.id || e.target.tagName)));
   document.getElementById('bg1').addEventListener('click', () => setTimeout(() => {
@@ -327,6 +331,40 @@ async function checkFileInput(ctx) {
   check(prompt && seconds < 4, 'an Input action on a file input fails at once', { prompt, seconds });
 }
 
+async function checkHotkeys(ctx) {
+  await reloadTestPage(ctx);
+  // Alt+R as the page gets it; `key` is what the keyboard typed ("®" for Option+R on macOS).
+  const pressAltR = async (key) => {
+    await ctx.web.bringToFront();
+    for (const type of ['keyDown', 'keyUp']) {
+      await ctx.web.send('Input.dispatchKeyEvent', { type, key, code: 'KeyR', modifiers: 1, windowsVirtualKeyCode: 82 });
+    }
+    await sleep(SETTLE_MS);
+  };
+  const lastKey = async () => (await ctx.web.evaluate(`__log.filter((e) => e.startsWith('key '))`)).at(-1);
+  const recording = async () => !!(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.recording;
+  const activate = async (on) => {
+    await ctx.ext.evaluate(`chrome.storage.local.set({ activatedTabs: ${on ? `[${ctx.webTabId}]` : '[]'} })`);
+    await sleep(SETTLE_MS);
+  };
+
+  await activate(false);
+  await pressAltR('r');
+  const off = { key: await lastKey(), recording: await recording() };
+  check(off.key === 'key KeyR free' && !off.recording, 'on a tab that is not activated, Alt+R reaches the page and records nothing', off);
+
+  await activate(true);
+  await pressAltR('®');
+  const on = { key: await lastKey(), recording: await recording() };
+  if (on.recording) await ctx.send({ type: 'STOP_RECORD' });
+  check(on.key === 'key KeyR prevented' && on.recording, 'on an activated tab, Option+R (typed as "®") starts recording', on);
+  await pressAltR('r');
+  const plain = { key: await lastKey(), recording: await recording() };
+  if (plain.recording) await ctx.send({ type: 'STOP_RECORD' });
+  check(plain.key === 'key KeyR prevented' && plain.recording, 'and a plain Alt+R still does', plain);
+  await activate(false);
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -337,6 +375,7 @@ const CHECKS = [
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],
   ['file-input', 'A file input, recorded and played', checkFileInput],
+  ['hotkeys', 'Record hotkeys: activated tabs only, macOS Option', checkHotkeys],
 ];
 
 async function main() {
