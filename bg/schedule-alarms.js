@@ -61,8 +61,9 @@ export function unregisterScheduleAlarm(id) {
   chrome.alarms.clear(ALARM_PREFIX + id);
 }
 
-// On SW startup: re-register alarms that were cleared when the SW was terminated.
-// chrome.alarms are persistent but the in-memory alarm list is lost on SW restart.
+// On worker start: register every enabled schedule's alarm again. Chrome keeps
+// alarms while the worker sleeps, but may drop them on a browser restart or an
+// extension update; creating one again under the same name just replaces it.
 export function reregisterScheduleAlarms() {
   chrome.storage.local.get(["schedules"], (res) => {
     const schedules = res.schedules || [];

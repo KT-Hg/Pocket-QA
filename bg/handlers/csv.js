@@ -61,7 +61,7 @@ export const csvHandlers = {
 
   DISMISS_CSV_RESUME(request, sender, sendResponse) {
     state.csvInterrupted = null;
-    import('../state.js').then(m => m.clearCsvState()).catch(() => {});
+    clearCsvState().catch(() => {});
     sendResponse({ ok: true });
     return;
   },
