@@ -5,7 +5,7 @@
 
 import { addManualAction, cancelEdit, manualActionType, manualSelector, manualValue } from '../dom.js';
 import { ui } from '../ui-state.js';
-import { hasChildCondData, setChildCondExpanded, updateChildCondBadge, setManualDelayUI } from './action-form.js';
+import { hasChildCondData, setChildCondExpanded, updateChildCondBadge, setManualDelayUI } from './form-widgets.js';
 import { DEFAULT_DELAY_MS, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { CHILD_COND_FIELDS, TYPE_FIELDS, applyDraftValue, draftFields } from './form-table.js';
 import { updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';

@@ -4,8 +4,7 @@
  */
 
 import { conditionType, conditionWrapper, manualActionType, manualValue, pickedSelectorsInfo, pickedSelectorsWrap } from '../dom.js';
-import { TYPES_CHILD_CONDITION } from './action-form.js';
-import { CONDITION_NO_SELECTOR, TYPES_NO_SELECTOR, updateDropdownForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
+import { CONDITION_NO_SELECTOR, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, updateDropdownForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { VALUE_BOX } from './form-table.js';
 import { renderConditionRunTo } from './preview.js';
 import { refreshSwitchContext, refreshSwitchForm, populateSwitchScenarioSelect } from './switch-case-builder.js';

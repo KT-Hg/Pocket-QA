@@ -12,7 +12,7 @@ import { ui } from '../ui-state.js';
 import { debounce, isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
 import { addVariableRow, newVariableConfig } from '../variables.js';
 import { saveDraft } from './draft.js';
-import { DEFAULT_DELAY_MS, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
+import { DEFAULT_DELAY_MS, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, fillField } from './form-table.js';
 import { clearPickedSelectorsPanel, selectorIsPicked, showFieldError, updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
@@ -20,40 +20,7 @@ import { renderConditionRunTo, previewActions } from './preview.js';
 import { alwaysSwitchError, candidateActions, commitPendingCase, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, switchSelfIdx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 import { applyValueBox, resetManualValueMemory, seedManualValueMemory } from './value-memory.js';
-
-/* === DELAY PRESET HELPER === */
-export function setManualDelayUI(ms) {
-  const preset = document.getElementById("manualDelayPreset");
-  const custom = document.getElementById("manualDelay");
-  if (!preset || !custom) return;
-  const s = ms != null && ms !== "" ? String(ms) : "";
-  const presetMatch = Array.from(preset.options).some(o => o.value === s && o.value !== "custom");
-  if (!s) {
-    preset.value = ""; custom.style.display = "none"; custom.value = "";
-  } else if (presetMatch) {
-    preset.value = s; custom.style.display = "none"; custom.value = "";
-  } else {
-    preset.value = "custom"; custom.style.display = ""; custom.value = s;
-  }
-}
-
-/* === Child Condition toggle === */
-export function hasChildCondData() {
-  return CHILD_COND_FIELDS.some((f) => document.getElementById(f.id)?.value?.trim());
-}
-
-export function updateChildCondBadge() {
-  const badge = document.getElementById("childConditionBadge");
-  if (badge) badge.style.display = hasChildCondData() ? "" : "none";
-}
-
-export function setChildCondExpanded(expanded) {
-  const toggle = document.getElementById("childConditionToggle");
-  const body   = document.getElementById("childConditionBody");
-  if (!toggle || !body) return;
-  toggle.setAttribute("aria-expanded", String(expanded));
-  body.style.display = expanded ? "block" : "none";
-}
+import { setChildCondExpanded, setManualDelayUI, updateChildCondBadge } from './form-widgets.js';
 
 // Update badge when any child condition input changes
 const _debouncedUpdateChildCondBadge = debounce(updateChildCondBadge, 120);
@@ -105,9 +72,6 @@ const TYPES_NO_SELECTOR_REQUIRED = new Set([
   "script", "navigate", "screenshot", "screenshot_full",
   "screenshot_tovar", "wait", "switch"
 ]);
-
-// Types whose Selector can be a parent searched with a Child Condition.
-export const TYPES_CHILD_CONDITION = ["click", "input", "hover", "readdom"];
 
 function validateActionForm(type, selector, delayVal) {
   if (!type) {

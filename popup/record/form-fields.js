@@ -32,6 +32,9 @@ export const DEFAULT_DELAY_MS = "500";
 /* === Types that never need a selector === */
 export const TYPES_NO_SELECTOR = new Set(["navigate", "wait", "script", "screenshot", "screenshot_full", "switch"]);
 
+// Types whose Selector can be a parent searched with a Child Condition.
+export const TYPES_CHILD_CONDITION = ["click", "input", "hover", "readdom"];
+
 /* === Step labels: their text, and whether they read as optional ===
    The Condition and Screenshot → Variable sections ahead of the selector keep
    fixed labels, so they are not listed here. */
