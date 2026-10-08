@@ -280,55 +280,63 @@ function nextFrame(cb) {
 }
 
 /**
- * `prefer`: the selector type the user chose in the form (action.selectorType).
- * It is tried first; the rest keep the order below.
+ * The ways to find the element `selectors` describes, in the order they are
+ * tried: fullXpath first (absolute position — most precise for recorded actions),
+ * then id (unique by spec), xpath (id-anchored), css, shadow DOM pierce,
+ * testId/dataId, name, text (most ambiguous). `prefer`, the selector type the
+ * user chose in the form (action.selectorType), is tried first; the rest keep
+ * that order. Each is { type, fn }: fn returns the element or null, or throws on
+ * a selector it cannot parse. `deep` is the shadow-DOM walk.
  */
+function _locators(selectors, prefer = null, deep = querySelectorDeep) {
+  if (typeof selectors === 'string') selectors = { css: selectors };
+  const strategies = [];
+  if (selectors.fullXpath) strategies.push({ type: 'fullXpath', fn: () => document.evaluate(selectors.fullXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue });
+  if (selectors.id)       strategies.push({ type: 'id',       fn: () => document.getElementById(selectors.id) });
+  if (selectors.xpath)    strategies.push({ type: 'xpath',    fn: () => document.evaluate(selectors.xpath,    document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue });
+  if (selectors.css)      strategies.push({ type: 'css',      fn: () => document.querySelector(selectors.css) });
+  if (selectors.css)      strategies.push({ type: 'cssShadow', fn: () => deep(selectors.css) });
+  if (selectors.testId)   strategies.push({ type: 'testId',   fn: () => document.querySelector(`[data-testid="${CSS.escape(selectors.testId)}"]`) });
+  if (selectors.dataId)   strategies.push({ type: 'dataId',   fn: () => document.querySelector(`[data-id="${CSS.escape(selectors.dataId)}"]`) });
+  if (selectors.name)     strategies.push({ type: 'name',     fn: () => document.querySelector(`[name="${CSS.escape(selectors.name)}"]`) });
+  if (selectors.text && selectors.textTag) {
+    strategies.push({
+      type: 'text',
+      fn: () => [...document.querySelectorAll(selectors.textTag)].find(el => el.textContent.trim() === selectors.text),
+    });
+  }
+  const chosen = prefer ? strategies.findIndex((s) => s.type === prefer) : -1;
+  if (chosen > 0) strategies.unshift(...strategies.splice(chosen, 1));
+  return strategies;
+}
+
+/** The element the first strategy that finds one returns, or null. */
+function _firstLocated(strategies) {
+  for (const strategy of strategies) {
+    try {
+      const el = strategy.fn();
+      if (el) { return el; }
+    } catch (_) { /* selector invalid for this strategy: try the next one */ }
+  }
+  return null;
+}
+
+/** `prefer`: the selector type the user chose in the form (action.selectorType) — see _locators. */
 function findElementWithFallback(selectors, timeout = 5000, prefer = null) {
   return new Promise((resolve, reject) => {
-    if (typeof selectors === 'string') selectors = { css: selectors };
+    // A walk of every element and shadow root: run on the first try, then at
+    // most every DEEP_SCAN_INTERVAL_MS while waiting, not on every animation
+    // frame a busy page mutates in.
     let deepSkipped = false; // the last try left out the shadow-DOM walk (interval)
-
-    // Priority: fullXpath first (absolute position — most precise for recorded actions),
-    // then id (unique by spec), xpath (id-anchored), css, shadow DOM pierce,
-    // testId/dataId, name, text (most ambiguous).
-    const strategies = [];
-    if (selectors.fullXpath) strategies.push({ type: 'fullXpath', fn: () => document.evaluate(selectors.fullXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue });
-    if (selectors.id)       strategies.push({ type: 'id',       fn: () => document.getElementById(selectors.id) });
-    if (selectors.xpath)    strategies.push({ type: 'xpath',    fn: () => document.evaluate(selectors.xpath,    document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue });
-    if (selectors.css)      strategies.push({ type: 'css',      fn: () => document.querySelector(selectors.css) });
-    if (selectors.css) {
-      // A walk of every element and shadow root: run on the first try, then at
-      // most every DEEP_SCAN_INTERVAL_MS while waiting, not on every animation
-      // frame a busy page mutates in.
-      let lastDeepScan = -Infinity;
-      strategies.push({ type: 'cssShadow', fn: () => {
-        deepSkipped = Date.now() - lastDeepScan < DEEP_SCAN_INTERVAL_MS;
-        if (deepSkipped) return null;
-        lastDeepScan = Date.now();
-        return querySelectorDeep(selectors.css);
-      } });
-    }
-    if (selectors.testId)   strategies.push({ type: 'testId',   fn: () => document.querySelector(`[data-testid="${CSS.escape(selectors.testId)}"]`) });
-    if (selectors.dataId)   strategies.push({ type: 'dataId',   fn: () => document.querySelector(`[data-id="${CSS.escape(selectors.dataId)}"]`) });
-    if (selectors.name)     strategies.push({ type: 'name',     fn: () => document.querySelector(`[name="${CSS.escape(selectors.name)}"]`) });
-    if (selectors.text && selectors.textTag) {
-      strategies.push({
-        type: 'text',
-        fn: () => [...document.querySelectorAll(selectors.textTag)].find(el => el.textContent.trim() === selectors.text),
-      });
-    }
-    const chosen = prefer ? strategies.findIndex((s) => s.type === prefer) : -1;
-    if (chosen > 0) strategies.unshift(...strategies.splice(chosen, 1));
-
-    const tryStrategies = () => {
-      for (const strategy of strategies) {
-        try {
-          const el = strategy.fn();
-          if (el) { return el; }
-        } catch (_) { /* selector invalid for this strategy: try the next one */ }
-      }
-      return null;
+    let lastDeepScan = -Infinity;
+    const deep = (css) => {
+      deepSkipped = Date.now() - lastDeepScan < DEEP_SCAN_INTERVAL_MS;
+      if (deepSkipped) return null;
+      lastDeepScan = Date.now();
+      return querySelectorDeep(css);
     };
+    const strategies = _locators(selectors, prefer, deep);
+    const tryStrategies = () => _firstLocated(strategies);
 
     const el = tryStrategies();
     if (el) return resolve(el);
