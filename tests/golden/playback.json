@@ -4593,5 +4593,64 @@
    "recording": false
   },
   "pendingTimers": 0
+ },
+ {
+  "step": "click through: a covered Dropdown trigger",
+  "done": true,
+  "result": {
+   "vars": {},
+   "failed": [{"index":1,"type":"dropdown","label":"","reason":"Element is covered by div#cover"}],
+   "shots": null
+  },
+  "calls": [
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"MARK_ELEMENT\",\"selectors\":\"‹undefined›\",\"selector\":\"#covered\",\"timeout\":\"‹undefined›\",\"strict\":true},{\"frameId\":0}]",
+   "runtime.sendMessage [{\"type\":\"ACTION_FAILED\",\"index\":0,\"action\":{\"type\":\"dropdown\",\"selector\":\"#covered\",\"clickThrough\":false},\"reason\":\"Element is covered by div#cover\"}]",
+   "action.setBadgeText [{\"text\":\"!\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#f59e0b\"}]",
+   "tabs.sendMessage [1,{\"type\":\"ACTION_FAILED_PROMPT\",\"index\":0,\"total\":2,\"reason\":\"Element is covered by div#cover\",\"actionType\":\"dropdown\",\"label\":\"\",\"scenarioName\":\"Direct\",\"row\":null,\"rows\":null},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"1/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "action.setBadgeText [{\"text\":\"2/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#after\"}},{\"frameId\":0}]"
+  ],
+  "console": [],
+  "state": {
+   "playback": {"active":true,"tabId":1,"scenarioId":null,"scenarioName":"Direct","originalScenarioName":"Direct","actionIndex":1,"totalActions":2,"failPrompt":false},
+   "sequencePlayback": {"active":false},
+   "csvPlayback": {"active":false},
+   "csvInterrupted": null,
+   "recording": false
+  },
+  "pendingTimers": 0
+ },
+ {
+  "step": "click through: Upload File into a disabled input",
+  "done": true,
+  "result": {
+   "vars": {},
+   "failed": [{"index":1,"type":"uploadFile","label":"","reason":"Element is disabled"}],
+   "shots": null
+  },
+  "calls": [
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"MARK_ELEMENT\",\"selectors\":\"‹undefined›\",\"selector\":\"#disabledFile\",\"timeout\":\"‹undefined›\",\"strict\":true,\"disabledOnly\":true},{\"frameId\":0}]",
+   "runtime.sendMessage [{\"type\":\"ACTION_FAILED\",\"index\":0,\"action\":{\"type\":\"uploadFile\",\"selector\":\"#disabledFile\",\"folderPath\":\"C:\\\\data\",\"fileNames\":[\"a.csv\"],\"clickThrough\":false},\"reason\":\"Element is disabled\"}]",
+   "action.setBadgeText [{\"text\":\"!\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#f59e0b\"}]",
+   "tabs.sendMessage [1,{\"type\":\"ACTION_FAILED_PROMPT\",\"index\":0,\"total\":2,\"reason\":\"Element is disabled\",\"actionType\":\"uploadFile\",\"label\":\"\",\"scenarioName\":\"Direct\",\"row\":null,\"rows\":null},{\"frameId\":0}]",
+   "action.setBadgeText [{\"text\":\"1/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "action.setBadgeText [{\"text\":\"2/2\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"PLAY_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#after\"}},{\"frameId\":0}]"
+  ],
+  "console": [],
+  "pendingTimers": 0
  }
 ]
