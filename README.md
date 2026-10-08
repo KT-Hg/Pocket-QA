@@ -668,7 +668,8 @@ Playback is `bg/playback.js` (the loop over the actions and the single / resume 
 with one step per action type in `bg/playback/steps/`, the keep-alive in `bg/playback/keepalive.js` and the
 failed-action prompt in `bg/playback/failure-prompt.js`. Shared by all of them: `bg/badge.js`, `bg/notify.js`
 (notification categories), `bg/interpolate.js` (variables into actions), `bg/tabs.js` (active tab, wait for
-load, message with timeout) and `bg/cdp/` (debugger sessions; dropdown, script and upload through CDP).
+load, message with timeout), `bg/sender.js` (whether a message came from an extension page or from a content
+script in a web page) and `bg/cdp/` (debugger sessions; dropdown, script and upload through CDP).
 
 `shared/*.js` holds the pure modules (no `chrome.*`) that both sides use and the Node tests import directly:
 variable names (`var-name`), variable ordering (`var-order`), Read DOM patterns (`text-pattern`), Switch block

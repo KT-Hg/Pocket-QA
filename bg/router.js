@@ -9,6 +9,7 @@
  */
 
 import { refuseIfRecording } from './playback.js';
+import { fromExtensionPage } from './sender.js';
 import { ensureLockState, notifyLocked } from './update-check.js';
 import { recordingHandlers } from './handlers/recording.js';
 import { actionsHandlers } from './handlers/actions.js';
@@ -72,7 +73,7 @@ const CONTENT_SCRIPT_TYPES = new Set([
 
 /** Sent from a web page, and not something its content script sends. */
 function _refusedFromPage(type, sender) {
-  if (String(sender?.url || '').startsWith(chrome.runtime.getURL(''))) return false;
+  if (fromExtensionPage(sender)) return false;
   return !CONTENT_SCRIPT_TYPES.has(type) && !(typeof type === 'string' && type.startsWith('dbtools-'));
 }
 
