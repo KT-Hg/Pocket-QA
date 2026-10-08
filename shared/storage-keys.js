@@ -16,3 +16,6 @@ export const THEME_KEY = 'popupTheme';
 
 /** Text highlights, keyed by normalized page URL (content.js writes through HL_SAVE_PAGE). */
 export const HIGHLIGHTS_KEY = 'hl_v1';
+
+/** URL patterns that group pages under one highlight key (popup Highlight tab). */
+export const HIGHLIGHT_PATTERNS_KEY = 'hl_patterns_v1';

@@ -5,6 +5,7 @@
 
 import { markSessionClosed } from '../cdp/session.js';
 import { restorePageDom } from './page-scripts.js';
+import { fromExtensionPage } from '../sender.js';
 
 /* ── Cancellation ───────────────────────────────────────────────────────────────
  * A full-page capture can be aborted two ways, both of which must end the SAME
@@ -29,7 +30,8 @@ export class CaptureCancelled extends Error {
 
 chrome.runtime.onMessage.addListener((request, sender) => {
   if (request?.type !== 'CANCEL_FULL_SCREENSHOT') return;
-  const tabId = request.tabId || sender.tab?.id;
+  const tabId = (fromExtensionPage(sender) && request.tabId) || sender.tab?.id;
+  // ↑ A web page cancels its own tab's capture only (as in bg/screenshot.js).
   if (tabId != null) cancelledCaptures.add(tabId);
 });
 

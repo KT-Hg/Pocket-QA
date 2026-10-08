@@ -23,6 +23,7 @@
  */
 
 import { tabMsg } from './tabs.js';
+import { fromExtensionPage } from './sender.js';
 import { ensureLockState, notifyLocked } from './update-check.js';
 import { readCaptureSettings } from './screenshot/settings.js';
 import { reportCaptureResult } from './screenshot/report.js';
@@ -66,7 +67,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 function handleScreenshotRequest(request, sender, sendResponse) {
-  const tabId = request.tabId || sender.tab?.id;
+  // A web page's content script captures its own tab; only an extension page
+  // (the popup) names another — a compromised renderer could otherwise have any
+  // open tab captured to disk.
+  const tabId = (fromExtensionPage(sender) && request.tabId) || sender.tab?.id;
   if (!tabId) { sendResponse({ error: 'No tab ID' }); return; }
 
   if (request.type === 'TAKE_SCREENSHOT' && request.countdown > 0) {

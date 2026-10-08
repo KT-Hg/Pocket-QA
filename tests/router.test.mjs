@@ -334,7 +334,7 @@ const _stepOf = (step) => transcript.find((e) => e.step === step);
 {
   const responses = [];
   const saves = [
-    [{ type: 'HL_SAVE_PAGE', url: 'example.com/a', list: [{ id: 'h1', text: 'alpha' }] }, PAGE_SENDER],
+    [{ type: 'HL_SAVE_PAGE', url: 'https://example.com/page', list: [{ id: 'h1', text: 'alpha' }] }, PAGE_SENDER],
     [{ type: 'HL_SAVE_PAGE', url: 'example.com/b', list: [{ id: 'h2', text: 'beta' }] }, SENDER],
   ];
   for (const [request, sender] of saves) {
@@ -422,6 +422,17 @@ await send('schedules: a restore arms them', { type: 'RESTORE_ALL_DATA', data: {
   schedules: [{ id: 'scRestored', scenarioId: 's1', time: '05:30', enabled: true, repeat: true }],
 } });
 
+// From a web page, HL_SAVE_PAGE writes the page's own highlights only: its own
+// URL (fragment dropped unless it is a route), or a pattern the user grouped
+// pages under — not another page's.
+await send('highlights: a web page saves another page', { type: 'HL_SAVE_PAGE', url: 'https://bank.example/', list: [] }, { sender: PAGE_SENDER });
+await send('highlights: a web page saves its own, fragment dropped', { type: 'HL_SAVE_PAGE', url: 'https://example.com/page', list: [{ id: 'h3', text: 'own' }] }, {
+  sender: { ...PAGE_SENDER, url: 'https://example.com/page#section-2' },
+});
+await send('highlights: a web page saves under a pattern', { type: 'HL_SAVE_PAGE', url: 'example.com/*', list: [{ id: 'h4', text: 'grouped' }] }, {
+  sender: PAGE_SENDER, setup: () => { fake.data.local.hl_patterns_v1 = ['example.com/*']; },
+});
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -477,6 +488,12 @@ test('schedules saved at once, or while a one-shot alarm fires, all stay', () =>
 test('a restore arms the schedules it brings back', () => {
   assert.ok(_stepOf('schedules: a restore arms them')?.calls.some((c) => c.startsWith('alarms.create ["sched_scRestored"')));
 });
+test('a web page saves its own highlights only', () => {
+  assert.deepEqual(_stepOf('highlights: a web page saves another page')?.responses, [{ ok: false }]);
+  assert.deepEqual(_stepOf('highlights: a web page saves its own, fragment dropped')?.responses, [{ ok: true }]);
+  assert.deepEqual(_stepOf('highlights: a web page saves under a pattern')?.responses, [{ ok: true }]);
+  assert.ok(!('https://bank.example/' in fake.data.local.hl_v1));
+});
 test('a web page is refused what its content script never sends', () => {
   for (const step of ['GET_ALL_DATA', 'IMPORT_SCENARIO', 'RESTORE_ALL_DATA']) {
     assert.deepEqual(_stepOf(`from a web page: ${step} refused`)?.responses, [], step);
@@ -489,7 +506,7 @@ test('a schedule with a start URL opens it in a new tab, and plays nothing on th
   assert.ok(!calls.some((c) => c.startsWith('tabs.sendMessage [1,')), 'nothing sent to tab 1');
 });
 test('two pages saving highlights at once both keep them', () => {
-  assert.deepEqual(Object.keys(savedHighlights).filter((k) => k.startsWith('example.com/')).sort(), ['example.com/a', 'example.com/b']);
+  assert.deepEqual(Object.keys(savedHighlights).filter((k) => k.includes('example.com/')).sort(), ['example.com/b', 'https://example.com/page']);
 });
 test('a web page still gets what its content script sends answered', () => {
   assert.equal(_stepOf('from a web page: REGISTER_FRAME answered')?.responses.length, 1);

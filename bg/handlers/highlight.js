@@ -6,8 +6,22 @@
  * onMessage listener returns: `true` while sendResponse is still to come.
  */
 
-import { HIGHLIGHTS_KEY } from '../../shared/storage-keys.js';
+import { HIGHLIGHTS_KEY, HIGHLIGHT_PATTERNS_KEY } from '../../shared/storage-keys.js';
 import { runExclusive } from '../storage.js';
+import { fromExtensionPage } from '../sender.js';
+
+/**
+ * The key a page's highlights go under, as content-highlight.js works it out
+ * (_hlCanonicalUrl): the URL without its fragment, unless the fragment is a route
+ * (#/… or #!…). A copy — that file is a classic script and cannot import it.
+ */
+function _canonicalPageUrl(url) {
+  const s = String(url || '');
+  const i = s.indexOf('#');
+  if (i === -1) return s;
+  const first = s[i + 1];
+  return (first === '/' || first === '!') ? s : s.slice(0, i);
+}
 
 export const highlightHandlers = {
   /**
@@ -35,6 +49,13 @@ export const highlightHandlers = {
       return;
     }
     runExclusive(async () => {
+      // From a web page, only its own highlights: its own URL, or a pattern the
+      // user grouped pages under (content-highlight.js _hlNormalizeUrl). A
+      // compromised renderer could otherwise overwrite any page's.
+      if (!fromExtensionPage(sender) && url !== _canonicalPageUrl(sender?.url)) {
+        const patterns = (await chrome.storage.local.get(HIGHLIGHT_PATTERNS_KEY))[HIGHLIGHT_PATTERNS_KEY] || [];
+        if (!patterns.includes(url)) { sendResponse({ ok: false }); return; }
+      }
       const all = (await chrome.storage.local.get(HIGHLIGHTS_KEY))[HIGHLIGHTS_KEY] || {};
       all[url] = list;
       await chrome.storage.local.set({ [HIGHLIGHTS_KEY]: all });

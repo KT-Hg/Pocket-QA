@@ -428,7 +428,7 @@ await call('queue: a failed capture does not block the next', () => Promise.all(
   shot.takeVisibleScreenshot(1, { saveMode: 'auto', prefix: 'q2', requestedFilename: null }),
 ]), { setup: () => { fake.zoom[1] = 1; cdp.attachError = 'nope'; } });
 await call('tab closed: queue and cancel marks dropped', () => {
-  for (const fn of [...fake.events['runtime.onMessage']]) fn({ type: 'CANCEL_FULL_SCREENSHOT', tabId: 1 }, {}, () => {});
+  for (const fn of [...fake.events['runtime.onMessage']]) fn({ type: 'CANCEL_FULL_SCREENSHOT', tabId: 1 }, { url: 'chrome-extension://testextensionid/popup.html' }, () => {});
   for (const fn of [...fake.events['tabs.onRemoved']]) fn(1, { windowId: 1, isWindowClosing: false });
   return shot.takeFullPageScreenshot(1, { saveMode: 'auto', prefix: 'after-close', requestedFilename: null });
 }, { setup: () => { fake.zoom[1] = 1; } });
@@ -481,7 +481,7 @@ await call('crop: window fails to open', async () => {
 
 // ── messages ────────────────────────────────────────────────────────────────
 await send('TAKE_SCREENSHOT', { type: 'TAKE_SCREENSHOT' });
-await send('TAKE_SCREENSHOT from the popup with a tab id', { type: 'TAKE_SCREENSHOT', tabId: 3, crop: true }, { sender: {} });
+await send('TAKE_SCREENSHOT from the popup with a tab id', { type: 'TAKE_SCREENSHOT', tabId: 3, crop: true }, { sender: { url: 'chrome-extension://testextensionid/popup.html' } });
 await send('TAKE_SCREENSHOT, no tab', { type: 'TAKE_SCREENSHOT' }, { sender: {} });
 await send('TAKE_SCREENSHOT, countdown drawn by the page', { type: 'TAKE_SCREENSHOT', countdown: 3 }, {
   setup: () => { page.countdown = { ok: true }; },
@@ -558,6 +558,21 @@ await send('locked: TAKE_SCREENSHOT_FULL', { type: 'TAKE_SCREENSHOT_FULL' }, {
 });
 await send('locked: OPEN_WINDOW_CAPTURE', { type: 'OPEN_WINDOW_CAPTURE' });
 await send('locked: WINDOW_CAPTURE_RESULT still saves', { type: 'WINDOW_CAPTURE_RESULT', dataUrl: png(10, 10, 'w') }, { sender: {} });
+
+// A web page's content script names another tab: its own is captured.
+await send('TAKE_SCREENSHOT from a web page naming another tab', { type: 'TAKE_SCREENSHOT', tabId: 3 }, {
+  sender: { ...SENDER, url: 'https://example.com/start' },
+  setup: () => {
+    delete fake.data.local.remoteConfig;
+    fake.data.local.lastUpdateAt = fake.now;
+    delete fake.data.local.updateAvailableSince;
+    for (const fn of fake.events['storage.onChanged']) fn({ remoteConfig: { newValue: undefined }, lastUpdateAt: { newValue: fake.now } }, 'local');
+  },
+});
+test("a web page's capture request takes its own tab, whatever tab it names", () => {
+  const calls = transcript.find((e) => e.step === 'TAKE_SCREENSHOT from a web page naming another tab')?.calls || [];
+  assert.ok(calls.includes('tabs.get [1]') && !calls.some((c) => c.startsWith('tabs.get [3]')), JSON.stringify(calls.slice(0, 5)));
+});
 
 // ── compare ─────────────────────────────────────────────────────────────────
 function stringify(v, depth = 3, pad = '') {
