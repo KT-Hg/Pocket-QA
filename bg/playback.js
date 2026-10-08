@@ -282,6 +282,7 @@ async function _resumeNested(tabId, scenarios, rootSwitchIdx, nested, failedActi
 }
 
 async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
+  _ssSettings = null; // read again, like every other entry point: they may have changed since
   const scenarios = await getScenarios();
   const scenario  = scenarios[scenarioId];
   if (!scenario) return;

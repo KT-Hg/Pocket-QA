@@ -701,6 +701,23 @@ test('a Condition the page cannot evaluate fails, and skip runs what it guards',
   assert.ok(_callsOf('condition: the page cannot evaluate it').some((c) => c.includes('"selector":"#guarded"')));
 });
 
+// A resumed run reads the screenshot settings again: the ones an earlier run in
+// the same worker had read were kept, and it saved with the old save mode.
+await run('screenshot settings: a run with Save As', () => startPlayback('sShot'), {
+  setup: () => {
+    fake.data.local.scenarios.sShot = { name: 'Shot', actions: [{ type: 'screenshot', delay: 0 }] };
+    fake.data.sync.screenshotSaveMode = 'ask';
+  },
+});
+await run('screenshot settings: resumed after switching to auto save', () => startPlaybackFromCheckpoint('sShot', 0, 1), {
+  setup: () => { fake.data.sync.screenshotSaveMode = 'auto'; },
+});
+test('a resumed run saves screenshots with the save mode set now', () => {
+  const saveAs = (step) => _callsOf(step).filter((c) => c.startsWith('downloads.download')).map((c) => /"saveAs":(true|false)/.exec(c)?.[1]);
+  assert.deepEqual(saveAs('screenshot settings: a run with Save As'), ['true']);
+  assert.deepEqual(saveAs('screenshot settings: resumed after switching to auto save'), ['false']);
+});
+
 // ── compare ─────────────────────────────────────────────────────────────────
 function stringify(v, depth = 3, pad = '') {
   if (depth === 0 || v === null || typeof v !== 'object' || !Object.keys(v).length) return JSON.stringify(v);
