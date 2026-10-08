@@ -44,6 +44,8 @@
  *                 open page loads it and paints the highlight
  *   import-warning  importing a scenario with Upload File and Run JS actions warns
  *                 about both, and names the folder the upload reads
+ *   typed-text    a Text selector typed in the form (no textTag) clicks the element
+ *                 holding that text, surrounding spaces ignored
  *   select-missing  an Input of an option the <select> does not have brings up the
  *                 failure prompt and leaves the choice alone; one it has is chosen
  *   export-file-name  a Selenium script exported from a scenario named in Vietnamese
@@ -673,6 +675,18 @@ async function checkImportWarning(ctx) {
   }
 }
 
+async function checkTypedText(ctx) {
+  await reloadTestPage(ctx);
+  // As the form saves a Text selector typed by hand: no textTag beside it.
+  const id = await makeScenario(ctx, 'e2e typed text', [
+    { type: 'click', selector: 'choiceA', selectors: { text: 'choiceA' }, selectorType: 'text', timeout: 2000, delay: 0 },
+    { type: 'click', selector: ' choiceB ', selectors: { text: ' choiceB ' }, selectorType: 'text', timeout: 2000, delay: 0 },
+  ]);
+  const r = await play(ctx, id);
+  const clicked = r.log.filter((e) => e.startsWith('choice')).map((e) => e.split(' ')[0]);
+  check(clicked.join() === 'choiceA,choiceB' && !r.timedOut, 'a Text selector typed in the form finds its element', { clicked, timedOut: r.timedOut });
+}
+
 async function checkSelectMissing(ctx) {
   await reloadTestPage(ctx);
   await ctx.web.evaluate(`document.getElementById('sel').value = 'b'`);
@@ -806,6 +820,7 @@ const CHECKS = [
   ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
   ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
   ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
+  ['typed-text', 'A Text selector typed in the form', checkTypedText],
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],

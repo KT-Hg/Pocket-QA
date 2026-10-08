@@ -299,15 +299,38 @@ function _locators(selectors, prefer = null, deep = querySelectorDeep) {
   if (selectors.testId)   strategies.push({ type: 'testId',   fn: () => document.querySelector(`[data-testid="${CSS.escape(selectors.testId)}"]`) });
   if (selectors.dataId)   strategies.push({ type: 'dataId',   fn: () => document.querySelector(`[data-id="${CSS.escape(selectors.dataId)}"]`) });
   if (selectors.name)     strategies.push({ type: 'name',     fn: () => document.querySelector(`[name="${CSS.escape(selectors.name)}"]`) });
-  if (selectors.text && selectors.textTag) {
+  if (selectors.text) {
     strategies.push({
       type: 'text',
-      fn: () => [...document.querySelectorAll(selectors.textTag)].find(el => el.textContent.trim() === selectors.text),
+      fn: () => (selectors.textTag
+        ? [...document.querySelectorAll(selectors.textTag)].find(el => el.textContent.trim() === selectors.text)
+        : _innermostWithText(selectors.text)),
     });
   }
   const chosen = prefer ? strategies.findIndex((s) => s.type === prefer) : -1;
   if (chosen > 0) strategies.unshift(...strategies.splice(chosen, 1));
   return strategies;
+}
+
+/**
+ * What a Text selector typed in the form finds: the first element whose text,
+ * trimmed, is exactly `text`, then the deepest one inside it that still is (the
+ * <span> in <button><span>OK</span></button>). A picked element also records its
+ * tag (textTag) and is looked up by it; a typed one has none, and used to match
+ * nothing. Only subtrees that hold the text are walked into.
+ */
+function _innermostWithText(text) {
+  const want = String(text).trim();
+  const holds = (el) => el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE' && el.textContent.trim() === want;
+  const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (el) => (el.textContent.includes(want) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+  });
+  let hit = null;
+  for (let el = walker.nextNode(); el; el = walker.nextNode()) {
+    if (hit && !hit.contains(el)) break;
+    if (holds(el)) hit = el;
+  }
+  return hit;
 }
 
 /** The element the first strategy that finds one returns, or null. */
