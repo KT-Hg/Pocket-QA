@@ -401,6 +401,27 @@ await send('click through: scenario back on', { type: 'SET_SCENARIO_CLICK_THROUG
 const ctOn = JSON.parse(JSON.stringify(fake.data.local.scenarios.sCt));
 await send('click through: unknown scenario', { type: 'SET_SCENARIO_CLICK_THROUGH', scenarioId: 'zz', allowed: false });
 
+// Schedules are read, changed and written back too: saved at once they all
+// stay, a one-shot alarm that fires while another is saved keeps both changes,
+// and a restore arms the schedules it brings back.
+await sendAtOnce('schedules: three saved at once', ['scA', 'scB', 'scC'].map((id) => (
+  { type: 'SAVE_SCHEDULE', schedule: { id, scenarioId: 's1', time: '06:00', enabled: true, repeat: true } })));
+const schedulesSavedAtOnce = (fake.data.local.schedules || []).map((s) => s.id);
+{
+  fake.data.local.schedules = [...(fake.data.local.schedules || []), { id: 'scOnce', scenarioId: 's1', time: '07:00', enabled: true, repeat: false }];
+  const responses = [];
+  for (const fn of [...fake.events['alarms.onAlarm']]) fn({ name: 'sched_scOnce', scheduledTime: fake.now });
+  for (const fn of [...fake.events['runtime.onMessage']]) {
+    fn({ type: 'SAVE_SCHEDULE', schedule: { id: 'scNew', scenarioId: 's1', time: '09:00', enabled: true } }, SENDER, (p) => responses.push(p));
+  }
+  await fake.settle();
+  snapshot({ step: 'schedules: a one-shot alarm and a save at once', responses });
+}
+const schedulesAfterAlarm = JSON.parse(JSON.stringify(fake.data.local.schedules));
+await send('schedules: a restore arms them', { type: 'RESTORE_ALL_DATA', data: {
+  schedules: [{ id: 'scRestored', scenarioId: 's1', time: '05:30', enabled: true, repeat: true }],
+} });
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -447,6 +468,14 @@ test("a scenario's Click through changes the scenario only, and Duplicate keeps 
   assert.equal(fake.data.local.scenarios[ctCopyId]?.clickThrough, false);
   assert.deepEqual(_stepOf('click through: from a web page refused')?.responses, []);
   assert.deepEqual(_stepOf('click through: unknown scenario')?.responses, [{ success: false }]);
+});
+test('schedules saved at once, or while a one-shot alarm fires, all stay', () => {
+  assert.ok(['scA', 'scB', 'scC'].every((id) => schedulesSavedAtOnce.includes(id)), JSON.stringify(schedulesSavedAtOnce));
+  assert.ok(schedulesAfterAlarm.some((s) => s.id === 'scNew'), 'the schedule saved meanwhile is kept');
+  assert.equal(schedulesAfterAlarm.find((s) => s.id === 'scOnce')?.enabled, false, 'the one-shot is spent');
+});
+test('a restore arms the schedules it brings back', () => {
+  assert.ok(_stepOf('schedules: a restore arms them')?.calls.some((c) => c.startsWith('alarms.create ["sched_scRestored"')));
 });
 test('a web page is refused what its content script never sends', () => {
   for (const step of ['GET_ALL_DATA', 'IMPORT_SCENARIO', 'RESTORE_ALL_DATA']) {

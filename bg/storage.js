@@ -97,6 +97,23 @@ export function setFolders(folders) {
   });
 }
 
+/* === Schedules ===
+ * Changed through runExclusive like the scenarios: the popup saving one, and a
+ * one-shot schedule's alarm turning itself off, each wrote back its own copy.
+ */
+
+export function getSchedules() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['schedules'], (res) => resolve(res.schedules || []));
+  });
+}
+
+export function setSchedules(schedules) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ schedules }, resolve);
+  });
+}
+
 /* === Variables ===
  * chrome.storage hands an object back with its keys sorted, so the order the
  * user dragged the Variables table into is kept beside it, in `variableOrder`,

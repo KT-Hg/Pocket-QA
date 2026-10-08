@@ -11,6 +11,7 @@ import { startPlayback } from './playback.js';
 import { sendScheduleNotification } from './notify.js';
 import { waitForTabLoad } from './tabs.js';
 import { ensureLockState, notifyLocked } from './update-check.js';
+import { getSchedules, setSchedules, runExclusive } from './storage.js';
 
 /* === SCHEDULING (per-schedule chrome.alarms) === */
 
@@ -74,6 +75,20 @@ export function reregisterScheduleAlarms() {
 }
 
 /**
+ * After a restore has put a backup's schedules in place: drop every schedule
+ * alarm (a schedule the backup does not have must not fire), then arm the ones
+ * it brought. Without this they waited for the worker's next start.
+ */
+export function rearmScheduleAlarms() {
+  chrome.alarms.getAll((alarms) => {
+    for (const a of alarms || []) {
+      if (a.name.startsWith(ALARM_PREFIX)) chrome.alarms.clear(a.name);
+    }
+    reregisterScheduleAlarms();
+  });
+}
+
+/**
  * Play the schedule's scenario in a new tab on its start URL. Unattended, the
  * active tab could be any page at all: a run on it would click, type and run
  * scripts there.
@@ -119,8 +134,15 @@ export function runScheduleAlarm(alarm) {
       // A one-shot schedule burns itself only when it actually ran; a slot skipped
       // by the lock stays armed for the next occurrence.
       if (!s.repeat) {
-        s.enabled = false;
-        chrome.storage.local.set({ schedules });
+        // Read again in the queue: the list read above can be stale by now — a
+        // schedule saved from the popup meanwhile was lost when it was written back.
+        runExclusive(async () => {
+          const now = await getSchedules();
+          const own = now.find((x) => x.id === id);
+          if (!own) return;
+          own.enabled = false;
+          await setSchedules(now);
+        });
         unregisterScheduleAlarm(id);
       }
     });

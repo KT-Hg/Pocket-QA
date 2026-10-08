@@ -9,6 +9,7 @@
 import { state } from '../state.js';
 import { getScenarios, setScenarios, getFolders, setFolders, generateId, runExclusive } from '../storage.js';
 import { broadcastRecordingState } from './recording.js';
+import { rearmScheduleAlarms } from '../schedule-alarms.js';
 
 /**
  * Shape check shared by both import paths. Previously anything JSON-shaped was
@@ -217,6 +218,7 @@ export const dataIoHandlers = {
       return Promise.all([writeLocal, writeSync]);
     }).then(([localErr, syncErr]) => {
       if (localErr) { sendResponse({ success: false, error: localErr }); return; }
+      if (sanitized.schedules !== undefined) rearmScheduleAlarms();
       state.recording = false;
       state.currentActions = [];
       broadcastRecordingState(false);
