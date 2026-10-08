@@ -44,6 +44,8 @@
  *                 open page loads it and paints the highlight
  *   import-warning  importing a scenario with Upload File and Run JS actions warns
  *                 about both, and names the folder the upload reads
+ *   export-file-name  a Selenium script exported from a scenario named in Vietnamese
+ *                 is saved under that name, letters kept, and the file holds the code
  *   record-untrusted  a click and an input event the page's own script dispatches
  *                 are not recorded; a real click is
  *   record-checkbox  ticking a checkbox records the click only, not an Input of its
@@ -669,6 +671,34 @@ async function checkImportWarning(ctx) {
   }
 }
 
+async function checkExportFileName(ctx) {
+  const id = await makeScenario(ctx, 'Đăng nhập "admin"', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  const popup = await openPopup(ctx);
+  try {
+    // The download's name, and whether its blob can still be read once the browser gets to it.
+    await popup.evaluate(`(() => {
+      window.__dl = [];
+      HTMLAnchorElement.prototype.click = function () {
+        const entry = { name: this.download };
+        window.__dl.push(entry);
+        setTimeout(() => fetch(this.href).then((r) => r.text()).then((t) => { entry.bytes = t.length; }, () => { entry.bytes = 0; }), 50);
+      };
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+      document.getElementById('exportSelenium').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    await popup.evaluate(`[...document.querySelectorAll('#exportSeleniumModal button')].find((b) => /\\.py/.test(b.textContent)).click()`);
+    await sleep(SETTLE_MS);
+    const dl = await popup.evaluate('window.__dl[0] || null');
+    check(dl?.name === 'đăng_nhập__admin__selenium.py' && dl.bytes > 0,
+      'an exported file keeps the letters of the scenario name, and holds the code', dl);
+  } finally {
+    await popup.close();
+  }
+}
+
 async function checkRecordUntrusted(ctx) {
   await reloadTestPage(ctx);
   const { actions } = await record(ctx, 'e2e record untrusted', async () => {
@@ -758,6 +788,7 @@ const CHECKS = [
   ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
   ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
   ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
+  ['export-file-name', 'The file name of an exported script', checkExportFileName],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],
   ['record-input-order', 'Typing, then a click at once', checkRecordInputOrder],

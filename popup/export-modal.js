@@ -13,6 +13,14 @@ import { trapFocus } from './ui/focus.js';
 import { isAlwaysSwitch } from '../shared/switch-blocks.js';
 import { normalizeVarName } from '../shared/var-name.js';
 import { activeValue, parseRandomSpec, parsePickSpec, previewRandom } from '../shared/var-spec.js';
+import { downloadBlob, safeFileName } from './lib/download.js';
+
+/**
+ * The file name a scenario's code is saved as, before the suffix: its name with
+ * what a file name cannot hold replaced and spaces as underscores. Letters
+ * outside a–z stay — keeping only [a-z0-9] turned "Đăng nhập" into "__ng_nh_p".
+ */
+const exportFileBase = (scenarioName) => safeFileName(scenarioName).replace(/\s+/g, '_').toLowerCase();
 
 // How long the Copy button says "Copied".
 const COPIED_LABEL_MS = 1500;
@@ -63,8 +71,7 @@ export function initExportModal(cfg) {
   };
 
   const render = (scenarioName, result, variables) => {
-    const safe = scenarioName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const filename = `${safe}${cfg.fileSuffix}`;
+    const filename = `${exportFileBase(scenarioName)}${cfg.fileSuffix}`;
 
     // Header
     byId('Title').textContent = `${cfg.title} — ${scenarioName}`;
@@ -172,13 +179,10 @@ export function initExportModal(cfg) {
 
   const download = () => {
     if (!run.code) return;
-    const safe = run.scenarioName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const { text, type } = cfg.file(run.code);
-    const blob  = new Blob([text], { type });
-    const url   = URL.createObjectURL(blob);
-    const a     = Object.assign(document.createElement('a'), { href: url, download: `${safe}${cfg.fileSuffix}` });
-    a.click();
-    URL.revokeObjectURL(url);
+    // Through downloadBlob, which revokes the URL a moment later: revoked right
+    // after click() it can go before the browser has read the file.
+    downloadBlob(new Blob([text], { type }), `${exportFileBase(run.scenarioName)}${cfg.fileSuffix}`);
   };
 
   const showRegenerated = (result, variables) => {
