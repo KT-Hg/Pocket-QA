@@ -550,29 +550,37 @@ document.addEventListener('click', (event) => {
     setTimeout(() => { _labelForwardTarget = null; }, 0);
   }
 
-  // Flush pending debounced input before recording the click.
-  const activeEl = document.activeElement;
-  if (activeEl && _inputDebounceTimers.has(activeEl)) {
-    clearTimeout(_inputDebounceTimers.get(activeEl));
-    _inputDebounceTimers.delete(activeEl);
-    const pendingSelectors = getAllSelectors(activeEl);
-    if (pendingSelectors) {
-      safeSend({
-        type: 'RECORDED_ACTION',
-        action: { type: 'input', selector: pendingSelectors.css, selectors: pendingSelectors, value: activeEl.value, frameId: _myFrameId },
-      });
-    }
-  }
+  // What was typed before this click comes before it. Not only the focused
+  // field's: focus has moved to the clicked button by now, so typing a name and
+  // clicking Submit within the debounce recorded the Submit first, and playback
+  // sent the form empty.
+  _flushPendingInputs();
 
   const selectors = getAllSelectors(event.target);
   if (!selectors) return;
   safeSend({ type: 'RECORDED_ACTION', action: { type: 'click', selector: selectors.css, selectors, frameId: _myFrameId } });
 }, true);
 
-// WeakMap keyed by element so timers are GC'd when their element is removed
-// from the DOM without needing an explicit cleanup step.
-const _inputDebounceTimers = new WeakMap();
+// Inputs typed into but not recorded yet (the debounce below): element →
+// { timer, selectors }, in the order they were last typed into. An entry leaves
+// when it is recorded, so the map holds an element for 400 ms at most.
+const _pendingInputs = new Map();
 const INPUT_DEBOUNCE_MS = 400;
+
+function _recordInput(el, selectors) {
+  safeSend({
+    type: 'RECORDED_ACTION',
+    action: { type: 'input', selector: selectors.css, selectors, value: el.value, frameId: _myFrameId },
+  });
+}
+
+function _flushPendingInputs() {
+  for (const [el, { timer, selectors }] of _pendingInputs) {
+    clearTimeout(timer);
+    _recordInput(el, selectors);
+  }
+  _pendingInputs.clear();
+}
 
 document.addEventListener('input', (event) => {
   if (!_isRecording || pickerMode || !event.isTrusted) return;
@@ -589,17 +597,15 @@ document.addEventListener('input', (event) => {
   // 400 ms debounce: records the final value after typing pauses rather than
   // one action per keystroke.  This keeps the action list readable and reduces
   // the number of recorded actions for long inputs.
-  if (_inputDebounceTimers.has(el)) clearTimeout(_inputDebounceTimers.get(el));
-  _inputDebounceTimers.set(el, setTimeout(() => {
-    _inputDebounceTimers.delete(el);
+  clearTimeout(_pendingInputs.get(el)?.timer);
+  _pendingInputs.delete(el); // set again below: last typed into, last recorded
+  _pendingInputs.set(el, { selectors, timer: setTimeout(() => {
+    _pendingInputs.delete(el);
     // Re-checked on fire: the user may have stopped recording during the 400 ms
     // window, and the pending value must not outlive the session.
     if (!_isRecording) return;
-    safeSend({
-      type: 'RECORDED_ACTION',
-      action: { type: 'input', selector: selectors.css, selectors, value: el.value, frameId: _myFrameId },
-    });
-  }, INPUT_DEBOUNCE_MS));
+    _recordInput(el, selectors);
+  }, INPUT_DEBOUNCE_MS) });
 }, true);
 
 /* ─────────────────────────────────────────────────────────────────────────────

@@ -48,6 +48,8 @@
  *                 are not recorded; a real click is
  *   record-checkbox  ticking a checkbox records the click only, not an Input of its
  *                 value ("on") as well
+ *   record-input-order  text typed into a field and a click on a button right after
+ *                 (within the input debounce) are recorded in that order
  *   record-other-tab  typing in another tab while recording is not recorded; the
  *                 recording tab still is
  *   record-restart  a recording whose worker stopped before the first action (it
@@ -691,6 +693,17 @@ async function checkRecordCheckbox(ctx) {
     'ticking a checkbox records the click only, not an Input of its value', actions.map((a) => `${a.type} ${a.selector} ${a.value ?? ''}`));
 }
 
+async function checkRecordInputOrder(ctx) {
+  await reloadTestPage(ctx);
+  const { actions } = await record(ctx, 'e2e record input order', async () => {
+    await clickAt(ctx, '#out');
+    await ctx.web.send('Input.insertText', { text: 'Alice' });
+    await clickAt(ctx, '#bg1'); // within the input debounce
+  });
+  check(actions.map((a) => `${a.type} ${a.selector}`).join() === 'click #out,input #out,click #bg1',
+    'text typed just before a click is recorded before it', actions.map((a) => `${a.type} ${a.selector} ${a.value ?? ''}`));
+}
+
 async function checkRecordOtherTab(ctx) {
   await reloadTestPage(ctx);
   const other = await ctx.browser.openPage(`${ctx.base}/page?other`, { width: 1000, height: 700 });
@@ -747,6 +760,7 @@ const CHECKS = [
   ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],
+  ['record-input-order', 'Typing, then a click at once', checkRecordInputOrder],
   ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
   ['record-restart', 'A recording across a worker restart', checkRecordRestart],
 ];
