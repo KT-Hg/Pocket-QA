@@ -4334,5 +4334,93 @@
    "recording": false
   },
   "pendingTimers": 0
+ },
+ {
+  "step": "screenshot settings: a run with Save As",
+  "done": true,
+  "result": null,
+  "calls": [
+   "storage.local.get [[\"scenarios\"]]",
+   "tabs.query [{\"active\":true,\"currentWindow\":true}]",
+   "storage.session.set [{\"_lastActiveTabId\":1}]",
+   "storage.local.get [\"dbtoolsSettings\"]",
+   "action.setBadgeText [{\"text\":\"1/1\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.update [1,{\"autoDiscardable\":false}]",
+   "alarms.create [\"playback-keepalive\",{\"when\":1768467808694}]",
+   "action.setBadgeText [{\"text\":\"1/1\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/1\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.set [{\"playbackCheckpoint\":{\"scenarioId\":\"sShot\",\"actionIndex\":0,\"tabId\":1,\"timestamp\":1768467788694}}]",
+   "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
+   "tabs.get [1]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
+   "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible26\\\"}›\",\"filename\":\"pb_2026-01-15_09-03-08.png\",\"saveAs\":true}]",
+   "alarms.clear [\"playback-keepalive\"]",
+   "tabs.update [1,{\"autoDiscardable\":true}]",
+   "action.setBadgeText [{\"text\":\"\"}]",
+   "storage.local.remove [\"playbackCheckpoint\"]",
+   "storage.sync.get [[\"notifyOnComplete\"]]",
+   "notifications.create [\"complete_1768467788774\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Playback complete\",\"message\":\"\\\"Shot\\\" finished\"}]"
+  ],
+  "console": [],
+  "storage": {
+   "local": {"scenarios":{"tgt":{"name":"Target","actions":[{"type":"hover","selector":"#t1"},{"type":"hover","selector":"#t2"},{"type":"hover","selector":"#t3"}]},"empty":{"name":"Empty","actions":[]},"sBasic":{"name":"Basic","actions":[{"type":"hover","selector":"#a"},{"type":"readdom","selector":"#loop","varName":"${n}"},{"type":"wait","delay":100}]},"sFail":{"name":"Fails","actions":[{"type":"click","selector":"#fail"},{"type":"hover","selector":"#ok"}]},"sBlocks":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${a}","cases":[{"value":"1","scenarioId":"__self__","startAt":2,"endAt":3},{"value":"2","scenarioId":"__self__","startAt":4,"endAt":5}]},{"type":"hover","selector":"#A"},{"type":"hover","selector":"#B"},{"type":"hover","selector":"#C"},{"type":"hover","selector":"#D"},{"type":"hover","selector":"#E"}]},"sCsv":{"name":"Csv","actions":[{"type":"input","selector":"#name","value":"${user}"},{"type":"readdom","selector":"#total","varName":"total"},{"type":"screenshot_tovar","varName":"shot"},{"type":"switch","switchVar":"${user}","cases":[{"value":"bob","scenarioId":"csvNested"}]}]},"csvNested":{"name":"Nested","actions":[{"type":"screenshot_tovar","varName":"${inner}","target":"element","selector":"#el"}]},"sLoop":{"name":"Loop","actions":[{"type":"switch","switchVar":"x","cases":[{"value":"1","scenarioId":"__self__","startAt":1}]}]},"sDeep":{"name":"Deep","actions":[{"type":"switch","switchVar":"x","cases":[{"value":"1","scenarioId":"sDeep"}]}]},"sNest":{"name":"Nest","actions":[{"type":"switch","switchVar":"","cases":[{"value":"__default__","scenarioId":"tgt","scenarioName":"Target"}]},{"type":"hover","selector":"#after"}]},"sSelect":{"name":"Select","actions":[{"type":"dropdown","selector":"#native"},{"type":"hover","selector":"#after"}]},"sShot":{"name":"Shot","actions":[{"type":"screenshot","delay":0}]}},"variables":{"user":"alice","x":"1","a":"1"},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000},"csvSsVarOrder":["shot","inner"]},
+   "sync": {"screenshotSaveMode":"ask","screenshotPrefix":"pb","notifyOnComplete":true},
+   "session": {"_lastActiveTabId":1}
+  },
+  "state": {
+   "playback": {"active":false,"tabId":1,"scenarioId":"sShot","scenarioName":"Shot","originalScenarioName":"Shot","actionIndex":0,"totalActions":1,"loopCurrent":1,"loopTotal":1},
+   "sequencePlayback": {"active":false},
+   "csvPlayback": {"active":false},
+   "csvInterrupted": null,
+   "recording": false
+  },
+  "pendingTimers": 0
+ },
+ {
+  "step": "screenshot settings: resumed after switching to auto save",
+  "done": true,
+  "result": null,
+  "calls": [
+   "storage.local.get [[\"scenarios\"]]",
+   "action.setBadgeText [{\"text\":\"1/1\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.update [1,{\"autoDiscardable\":false}]",
+   "alarms.create [\"playback-keepalive\",{\"when\":1768467808774}]",
+   "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
+   "tabs.onRemoved.addListener []",
+   "action.setBadgeText [{\"text\":\"1/1\"}]",
+   "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "storage.local.set [{\"playbackCheckpoint\":{\"scenarioId\":\"sShot\",\"actionIndex\":0,\"tabId\":1,\"timestamp\":1768467788774}}]",
+   "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
+   "tabs.get [1]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
+   "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible28\\\"}›\",\"filename\":\"screenshots/2026-01-15/pb_2026-01-15_09-03-08.png\",\"saveAs\":false}]",
+   "alarms.clear [\"playback-keepalive\"]",
+   "tabs.update [1,{\"autoDiscardable\":true}]",
+   "action.setBadgeText [{\"text\":\"\"}]",
+   "storage.local.remove [\"playbackCheckpoint\"]",
+   "storage.sync.get [[\"notifyOnComplete\"]]",
+   "notifications.create [\"complete_1768467788854\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Playback complete\",\"message\":\"\\\"Shot\\\" resumed & finished\"}]"
+  ],
+  "console": [],
+  "storage": {
+   "local": {"scenarios":{"tgt":{"name":"Target","actions":[{"type":"hover","selector":"#t1"},{"type":"hover","selector":"#t2"},{"type":"hover","selector":"#t3"}]},"empty":{"name":"Empty","actions":[]},"sBasic":{"name":"Basic","actions":[{"type":"hover","selector":"#a"},{"type":"readdom","selector":"#loop","varName":"${n}"},{"type":"wait","delay":100}]},"sFail":{"name":"Fails","actions":[{"type":"click","selector":"#fail"},{"type":"hover","selector":"#ok"}]},"sBlocks":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${a}","cases":[{"value":"1","scenarioId":"__self__","startAt":2,"endAt":3},{"value":"2","scenarioId":"__self__","startAt":4,"endAt":5}]},{"type":"hover","selector":"#A"},{"type":"hover","selector":"#B"},{"type":"hover","selector":"#C"},{"type":"hover","selector":"#D"},{"type":"hover","selector":"#E"}]},"sCsv":{"name":"Csv","actions":[{"type":"input","selector":"#name","value":"${user}"},{"type":"readdom","selector":"#total","varName":"total"},{"type":"screenshot_tovar","varName":"shot"},{"type":"switch","switchVar":"${user}","cases":[{"value":"bob","scenarioId":"csvNested"}]}]},"csvNested":{"name":"Nested","actions":[{"type":"screenshot_tovar","varName":"${inner}","target":"element","selector":"#el"}]},"sLoop":{"name":"Loop","actions":[{"type":"switch","switchVar":"x","cases":[{"value":"1","scenarioId":"__self__","startAt":1}]}]},"sDeep":{"name":"Deep","actions":[{"type":"switch","switchVar":"x","cases":[{"value":"1","scenarioId":"sDeep"}]}]},"sNest":{"name":"Nest","actions":[{"type":"switch","switchVar":"","cases":[{"value":"__default__","scenarioId":"tgt","scenarioName":"Target"}]},{"type":"hover","selector":"#after"}]},"sSelect":{"name":"Select","actions":[{"type":"dropdown","selector":"#native"},{"type":"hover","selector":"#after"}]},"sShot":{"name":"Shot","actions":[{"type":"screenshot","delay":0}]}},"variables":{"user":"alice","x":"1","a":"1"},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000},"csvSsVarOrder":["shot","inner"]},
+   "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"pb","notifyOnComplete":true},
+   "session": {"_lastActiveTabId":1}
+  },
+  "pendingTimers": 0
  }
 ]
