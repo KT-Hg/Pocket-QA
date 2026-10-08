@@ -15,7 +15,7 @@ export async function runElementScreenshot(ctx, i, action) {
   const prefix   = settings.screenshotPrefix || 'screenshot';
   const result   = await takeElementScreenshot(tabId, {
     selector: action.selector, saveMode, prefix, crop: false, returnBase64: false, skipDownload,
-    selectors: action.selectors, requestedFilename: action.value || null,
+    selectors: action.selectors, selectorType: action.selectorType, requestedFilename: action.value || null,
   })
     .catch(e => ({ error: e.message }));
   if (result?.error) {
@@ -37,6 +37,7 @@ export async function runScreenshotToVar(ctx, i, action) {
     if (action.target === 'element' && action.selector) {
       res = await takeElementScreenshot(tabId, {
         selector: action.selector, saveMode, prefix, crop: false, returnBase64: true, skipDownload,
+        selectors: action.selectors, selectorType: action.selectorType,
       });
     } else if (action.target === 'full') {
       res = await takeFullPageScreenshot(tabId, {

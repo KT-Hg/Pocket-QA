@@ -344,6 +344,18 @@ function _firstLocated(strategies) {
   return null;
 }
 
+/**
+ * The element as the page is now, without waiting, found the way an action
+ * finds it (_locators): the Condition check and the element-screenshot rect
+ * looked with orders of their own, and ignored the selector type chosen in the
+ * form. `selector`, the action's plain selector, is tried as CSS when
+ * `selectors` has no css of its own.
+ */
+function locateNow(selectors, selector, prefer = null) {
+  const plain = typeof selector === 'string' && selector ? { css: selector } : {};
+  return _firstLocated(_locators({ ...plain, ...(selectors && typeof selectors === 'object' ? selectors : {}) }, prefer));
+}
+
 /** `prefer`: the selector type the user chose in the form (action.selectorType) — see _locators. */
 function findElementWithFallback(selectors, timeout = 5000, prefer = null) {
   return new Promise((resolve, reject) => {
@@ -1581,13 +1593,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   if (msg.type === 'GET_ELEMENT_RECT') {
     try {
-      let el = null;
-      const s = msg.selectors;
-      if (s?.fullXpath) el = document.evaluate(s.fullXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-      if (!el && s?.xpath) el = document.evaluate(s.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-      if (!el && s?.id)    el = document.getElementById(s.id);
-      if (!el && msg.selector) el = document.querySelector(msg.selector);
-
+      const el = locateNow(msg.selectors, msg.selector, msg.selectorType);
       if (!el) { sendResponse({ error: 'Element not found' }); return true; }
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) { sendResponse({ error: 'Element has no size' }); return true; }
@@ -1608,22 +1614,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'CHECK_CONDITION') {
     const { conditionType, selector, selectors: selectorMap, expectedValue } = msg;
 
-    // Synchronous element lookup matching 22/05 behaviour — conditions evaluate
-    // the DOM at the current moment, no waiting. Uses full selector map when
-    // available (fullXpath → id → xpath → css) for accuracy.
-    const getEl = () => {
-      const s = selectorMap;
-      if (s && typeof s === 'object') {
-        let el = null;
-        try { if (s.fullXpath) el = document.evaluate(s.fullXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; } catch(_) { /* invalid XPath: fall through to the next selector */ }
-        if (!el && s.id) el = document.getElementById(s.id);
-        try { if (!el && s.xpath) el = document.evaluate(s.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; } catch(_) { /* invalid XPath: fall through to the next selector */ }
-        if (!el && s.css) { try { el = document.querySelector(s.css); } catch(_) { /* invalid CSS: no element */ } }
-        return el || null;
-      }
-      if (selector) { try { return document.querySelector(selector); } catch(_) { /* invalid CSS: no element */ } }
-      return null;
-    };
+    // Conditions evaluate the DOM at the current moment, no waiting, and find
+    // the element the way an action does — the chosen selector type first.
+    const getEl = () => locateNow(selectorMap, selector, msg.selectorType);
 
     let result = false;
     try {

@@ -38,7 +38,8 @@ const SCROLL_SETTLE_MS = 150;
  * @param {boolean}     options.crop          - Open crop UI.
  * @param {boolean}     options.returnBase64  - Embed base64 in result.
  * @param {boolean}     options.skipDownload  - Capture without saving.
- * @param {object|null} options.selectors     - Preferred locator set {fullXpath, xpath, id}.
+ * @param {object|null} options.selectors     - The action's locators, as content.js locateNow takes them.
+ * @param {string|null} options.selectorType  - The locator type chosen in the form, tried first.
  * @param {string|null} options.requestedFilename - Override filename, or null for auto.
  * @returns {Promise<{success?: boolean, filename?: string, base64?: string, error?: string}>}
  */
@@ -48,12 +49,14 @@ export function takeElementScreenshot(tabId, options = {}) {
 
 async function _takeElementScreenshot(tabId, {
   selector, saveMode, prefix, crop = false, returnBase64 = false, skipDownload = false, selectors = null,
-  requestedFilename = null,
+  selectorType = null, requestedFilename = null,
 }) {
   const tag = !requestedFilename && (await typeTagEnabled()) ? '_elem' : '';
   const filename = buildScreenshotFilename(prefix, requestedFilename, tag);
 
-  const rect0 = await tabMsg(tabId, { type: 'GET_ELEMENT_RECT', selector, selectors });
+  const rect0 = await tabMsg(tabId, {
+    type: 'GET_ELEMENT_RECT', selector, selectors, ...(selectorType ? { selectorType } : {}),
+  });
   if (!rect0 || rect0.error) return { error: rect0?.error || 'Could not get element rect' };
 
   const dims = await tabMsg(tabId, { type: 'GET_PAGE_DIMENSIONS' });

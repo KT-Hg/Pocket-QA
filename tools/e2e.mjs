@@ -44,6 +44,9 @@
  *                 open page loads it and paints the highlight
  *   import-warning  importing a scenario with Upload File and Run JS actions warns
  *                 about both, and names the folder the upload reads
+ *   condition-choice  a Condition checks the element of the selector type chosen in the
+ *                 form, not the Full XPath one; a Condition and an element screenshot
+ *                 find an element by a Name typed in the form
  *   typed-text    a Text selector typed in the form (no textTag) clicks the element
  *                 holding that text, surrounding spaces ignored
  *   select-missing  an Input of an option the <select> does not have brings up the
@@ -113,6 +116,7 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
   <tr><td id="aliceCell">Alice</td><td><button id="edit1" class="edit">Edit</button></td></tr>
   <tr><td id="johnCell">John</td><td><button id="edit2" class="edit special">Edit</button></td></tr>
 </tbody></table>
+<input name="nick">
 <script>
   window.__log = [];
   // background-tab: #bg1 adds #late a moment later; every click logs whether the tab was visible.
@@ -675,6 +679,27 @@ async function checkImportWarning(ctx) {
   }
 }
 
+async function checkConditionChoice(ctx) {
+  await reloadTestPage(ctx);
+  const shots = ctx.browser.downloads().length;
+  const id = await makeScenario(ctx, 'e2e condition choice', [
+    // Full XPath finds the hidden #menu, CSS the visible #choiceA; CSS was chosen.
+    { type: 'condition', conditionType: 'elementVisible', skipCount: 1, selector: '#choiceA',
+      selectors: { fullXpath: '//*[@id="menu"]', css: '#choiceA' }, selectorType: 'css', delay: 0 },
+    { type: 'click', selector: '#choiceB', selectors: { css: '#choiceB' }, delay: 0 },
+    // A Name typed in the form: { name } only.
+    { type: 'condition', conditionType: 'elementExists', skipCount: 1, selector: 'nick',
+      selectors: { name: 'nick' }, selectorType: 'name', delay: 0 },
+    { type: 'click', selector: '#choiceA', selectors: { css: '#choiceA' }, delay: 0 },
+    { type: 'screenshot_element', selector: 'nick', selectors: { name: 'nick' }, selectorType: 'name', delay: 0 },
+  ]);
+  const r = await play(ctx, id);
+  const clicked = r.log.filter((e) => e.startsWith('choice')).map((e) => e.split(' ')[0]);
+  check(clicked.join() === 'choiceB,choiceA', 'a Condition checks the element of the selector type chosen, a typed Name too', clicked);
+  check(!r.timedOut && ctx.browser.downloads().length === shots + 1, 'an element screenshot finds its element by a typed Name',
+    { timedOut: r.timedOut, saved: ctx.browser.downloads().length - shots });
+}
+
 async function checkTypedText(ctx) {
   await reloadTestPage(ctx);
   // As the form saves a Text selector typed by hand: no textTag beside it.
@@ -820,6 +845,7 @@ const CHECKS = [
   ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
   ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
   ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
+  ['condition-choice', 'Condition and element screenshot use the chosen selector type', checkConditionChoice],
   ['typed-text', 'A Text selector typed in the form', checkTypedText],
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],

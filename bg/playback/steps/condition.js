@@ -17,6 +17,8 @@ export async function runCondition(ctx, i, action) {
     selector: action.selector || '',
     selectors: action.selectors || null,
     expectedValue: action.expectedValue || '',
+    // Tried first, as an action tries it (content.js locateNow).
+    ...(action.selectorType ? { selectorType: action.selectorType } : {}),
   }, CHECK_TIMEOUT_MS, action.frameId);
   let passed = !!condResult?.result;
   // The page could not evaluate it (an unknown type, an exception): neither true

@@ -88,7 +88,7 @@ function handleScreenshotRequest(request, sender, sendResponse) {
     readCaptureSettings(({ saveMode, prefix }) => {
       takeElementScreenshot(tabId, {
         selector: request.selector, saveMode, prefix, crop: !!request.crop, returnBase64: false,
-        skipDownload: false, selectors: request.selectors,
+        skipDownload: false, selectors: request.selectors, selectorType: request.selectorType,
       })
         .then((result) => {
           sendResponse(result);
