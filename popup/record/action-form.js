@@ -14,7 +14,7 @@ import { addVariableRow, newVariableConfig } from '../variables.js';
 import { saveDraft } from './draft.js';
 import { DEFAULT_DELAY_MS, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { collectManualFormState, setEditing } from './form-state.js';
-import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, fillField } from './form-table.js';
+import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, clickThroughOff, fillField, setClickThrough, showClickThroughFor } from './form-table.js';
 import { clearPickedSelectorsPanel, selectorIsPicked, showFieldError, updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 import { renderConditionRunTo, previewActions } from './preview.js';
 import { alwaysSwitchError, candidateActions, commitPendingCase, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, switchSelfIdx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
@@ -279,6 +279,7 @@ function buildActionFromForm(type, selector, value, delayVal) {
 
   const labelVal = document.getElementById("manualLabel")?.value?.trim();
   if (labelVal) action.label = labelVal;
+  if (clickThroughOff(type)) action.clickThrough = false;
 
   return action;
 }
@@ -370,6 +371,8 @@ export function startEdit(index, action) {
   const manualLabelWrapper = document.getElementById("manualLabelWrapper");
   if (manualLabelEl) manualLabelEl.value = action.label || "";
   if (manualLabelWrapper) manualLabelWrapper.style.display = "block";
+  setClickThrough(action.clickThrough !== false);
+  showClickThroughFor(action.type);
 
   setEditing({ scenarioId: scenarioList.value || null, index });
   updateStepLabels();
@@ -400,6 +403,8 @@ export function clearEditState() {
   if (_delWrap) _delWrap.style.display = "none";
   const _lblWrap = document.getElementById("manualLabelWrapper");
   if (_lblWrap) _lblWrap.style.display = "none";
+  setClickThrough(true);
+  showClickThroughFor("");
 
   // Every type's own section hidden and its fields emptied — record/form-table.js
   for (const { wrapper, fields } of TYPE_FIELDS.values()) {

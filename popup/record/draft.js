@@ -59,7 +59,7 @@ export const debouncedSaveDraft = debounce(saveDraft, 600);
 export function initDraft() {
   [
     "manualActionType", "selectorType", "manualSelector",
-    "manualValue", "manualDelayPreset", "manualDelay", "manualLabel",
+    "manualValue", "manualDelayPreset", "manualDelay", "manualLabel", "clickThrough",
     "dragdropTarget", "dragdropTargetSelectorType",
     "conditionType", "conditionExpectedValue", "conditionSkipCount",
     "condChildValueEquals", "condChildTextContains", "condChildIdContains",

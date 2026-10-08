@@ -12,6 +12,7 @@
  */
 
 import { conditionSkip, isAlwaysSwitch } from '../../shared/switch-blocks.js';
+import { CLICK_THROUGH_TYPES } from '../../shared/click-through.js';
 import { readdomMode, setReaddomMode, setSwitchMode, switchMode } from './form-fields.js';
 
 /**
@@ -140,6 +141,31 @@ export const CHILD_COND_FIELDS = [
   { id: "condChildClassContains", prop: "classContains", draftKey: "classContains" },
   { id: "condChildType",          prop: "typeEquals",    draftKey: "childType" },
 ];
+
+/**
+ * "Click through" (shared/click-through.js): the checkbox under Label, shown for
+ * the types it covers. Checked unless the action turns it off, and saved only
+ * then (`clickThrough: false`), so an action that allows it keeps its old shape.
+ */
+export function setClickThrough(allowed) {
+  const box = document.getElementById("clickThrough");
+  if (box) box.checked = allowed;
+}
+
+export function showClickThroughFor(type) {
+  const wrap = document.getElementById("clickThroughWrapper");
+  if (wrap) wrap.style.display = CLICK_THROUGH_TYPES.includes(type) ? "block" : "none";
+}
+
+/** As a draft keeps it: true unless unchecked. */
+export function clickThroughAllowed() {
+  return document.getElementById("clickThrough")?.checked !== false;
+}
+
+/** Whether an action of `type` built from the card turns Click through off. */
+export function clickThroughOff(type) {
+  return CLICK_THROUGH_TYPES.includes(type) && !clickThroughAllowed();
+}
 
 function _put(f, v) {
   if (f.write) { f.write(v); return; }

@@ -10,11 +10,10 @@
  * (content.js _blockedReason).
  */
 
-// The actions that act on an element the way a user would.
-const CLICK_THROUGH_TYPES = new Set(['click', 'hover', 'input', 'dropdown', 'dragdrop', 'uploadFile']);
+import { CLICK_THROUGH_TYPES } from '../../../shared/click-through.js';
 
 /** `{ strict: true }` to add to the page's message when the action may not click through, else `{}`. */
 export function strictFor(ctx, action) {
-  const strict = CLICK_THROUGH_TYPES.has(action.type) && (ctx.strict || action.clickThrough === false);
+  const strict = CLICK_THROUGH_TYPES.includes(action.type) && (ctx.strict || action.clickThrough === false);
   return strict ? { strict: true } : {};
 }

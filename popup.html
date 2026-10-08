@@ -575,6 +575,14 @@
         <input id="manualLabel" placeholder="Short description for this action" />
       </div>
 
+      <!-- CLICK THROUGH — click / hover / input / dropdown / dragdrop / uploadFile
+           (shared/click-through.js). The scenario has its own switch too. -->
+      <div class="hidden-by-default" id="clickThroughWrapper">
+        <label class="form-check" title="Off: the action fails (retry / skip / stop) when its element is disabled, read-only, not visible or covered by another element, as a user would be stopped. The scenario has its own Click through switch; both must allow it.">
+          <input type="checkbox" id="clickThrough" checked /> Click through — act even on a disabled or covered element
+        </label>
+      </div>
+
       <!-- Hidden until an action type is chosen (02-action-list.css) -->
       <div class="row" id="manualActionButtons">
         <button id="addManualAction">Add Action</button>

@@ -5,7 +5,7 @@
 
 import { conditionType, conditionWrapper, manualActionType, manualValue, pickedSelectorsInfo, pickedSelectorsWrap } from '../dom.js';
 import { CONDITION_NO_SELECTOR, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, updateDropdownForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
-import { VALUE_BOX } from './form-table.js';
+import { VALUE_BOX, showClickThroughFor } from './form-table.js';
 import { renderConditionRunTo } from './preview.js';
 import { refreshSwitchContext, refreshSwitchForm, populateSwitchScenarioSelect } from './switch-case-builder.js';
 
@@ -134,6 +134,7 @@ export function initValueMemory() {
     manualDelayWrapper.style.display = type ? "block" : "none";
     const manualLabelWrapper = document.getElementById("manualLabelWrapper");
     if (manualLabelWrapper) manualLabelWrapper.style.display = type ? "block" : "none";
+    showClickThroughFor(type);
 
     if (type !== "condition") updateStepLabels();
   };

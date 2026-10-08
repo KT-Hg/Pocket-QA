@@ -37,7 +37,9 @@
  *                 included, on a page whose light DOM never stops changing
  *   select-type   a Child Condition "Type is: select" finds a <select multiple>
  *   form-roundtrip  one action of every type, put in the Add Manual Action form
- *                 with Edit and saved twice, comes back as it was each time
+ *                 with Edit and saved twice, comes back as it was each time — six of
+ *                 them with Click through off; the checkbox shows only for those
+ *                 types, and a draft keeps it
  *   highlight     a text selection opens the highlight tooltip, which follows the
  *                 popup theme; a colour saves the highlight, and a reload paints it again.
  *                 With Highlight off a page loads no highlight engine; turned on, the
@@ -571,6 +573,13 @@ const roundtripFixtures = (otherId) => [
   { type: 'condition', conditionType: 'textContains', selector: '#title', selectors: { css: '#title' }, expectedValue: 'Hi', skipCount: 2, delay: 500 },
   { type: 'condition', conditionType: 'urlContains', expectedValue: '/login', skipCount: 1, delay: 500 },
   { type: 'switch', switchVar: '${role}', cases: [{ value: 'admin', scenarioId: otherId, scenarioName: 'e2e rt other' }, { value: '__default__', scenarioId: otherId, scenarioName: 'e2e rt other' }], delay: 500 },
+  // "Click through" off, on each type that has it.
+  { type: 'click', selector: '#go', selectors: ROUNDTRIP_LOCATORS, delay: 500, clickThrough: false },
+  { type: 'hover', selector: '#go', selectors: ROUNDTRIP_LOCATORS, delay: 500, label: 'Hover', clickThrough: false },
+  { type: 'input', selector: '#name', selectors: { css: '#name' }, value: 'x', delay: 300, clickThrough: false },
+  { type: 'dropdown', selector: '#sel', selectors: { css: '#sel' }, delay: 500, clickThrough: false },
+  { type: 'dragdrop', selector: '#a', selectors: { css: '#a' }, targetSelector: '#b', targetSelectors: { css: '#b' }, delay: 500, clickThrough: false },
+  { type: 'uploadFile', selector: '#file', selectors: { css: '#file' }, uploadMode: 'input', folderPath: 'C:\\data', fileNames: ['a.pdf'], delay: 500, clickThrough: false },
 ];
 
 /** JSON with every object's keys sorted: chrome.storage hands nested objects back sorted. */
@@ -612,6 +621,30 @@ async function checkFormRoundtrip(ctx) {
     else if (JSON.stringify(a2) !== JSON.stringify(a1)) bad.push({ i, type: fixtures[i].type, secondSave: a2 });
   }
   check(!bad.length, `every action type (${fixtures.length} fixtures) comes back from Edit → Save as it was`, bad);
+
+  // The Click through checkbox: shown only for the types it covers, and kept by
+  // a draft (the popup closed and opened again mid-edit).
+  const offIndex = fixtures.findIndex((a) => a.type === 'hover' && a.clickThrough === false);
+  const form = await popup.evaluate(`(async () => {
+    const { startEdit, clearEditState } = await import('./popup/record/action-form.js');
+    const { collectManualFormState, applyManualFormState } = await import('./popup/record/form-state.js');
+    const shown = () => getComputedStyle(document.getElementById('clickThroughWrapper')).display !== 'none';
+    const box = document.getElementById('clickThrough');
+    startEdit(4, ${JSON.stringify(fixtures[4])});
+    const onNavigate = shown();
+    startEdit(${offIndex}, ${JSON.stringify(fixtures[offIndex])});
+    const onHover = { shown: shown(), checked: box.checked };
+    const draft = collectManualFormState();
+    clearEditState();
+    const cleared = box.checked;
+    applyManualFormState(draft);
+    const restored = { shown: shown(), checked: box.checked };
+    clearEditState();
+    return { onNavigate, onHover, draft: draft.clickThrough, cleared, restored };
+  })()`);
+  check(!form.onNavigate && form.onHover.shown && !form.onHover.checked && form.draft === false && form.cleared
+    && form.restored.shown && !form.restored.checked,
+  'the Click through checkbox shows only where it applies, and a draft keeps it', form);
   if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   await popup.close();
 }

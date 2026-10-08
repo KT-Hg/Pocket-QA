@@ -408,6 +408,9 @@ function createActionListItem(a, i, scenarioId, view = null) {
   const labelHtml = a.label
     ? `<span class="value-label">${escHtml(a.label)}</span>`
     : "";
+  const clickThroughHtml = a.clickThrough === false
+    ? `<span class="ct-off" title="Click through off: fails when its element is disabled, read-only, not visible or covered">⊘</span>`
+    : "";
 
   // Switch blocks: nesting, problems, where playback goes next.
   let warnHtml = "", notesHtml = "", summaryHtml = "";
@@ -472,7 +475,7 @@ function createActionListItem(a, i, scenarioId, view = null) {
     <span class="index" title="#${i + 1}">${escHtml(blocksOn ? no : `${i + 1}.`)}</span>
     <span class="type">${getActionIcon(a.type)}${escHtml(a.type)}${toggleHtml}</span>
     <span class="value" title="${escHtml(value)}${escHtml(delayText)}">
-      <span class="value-main">${warnHtml}${escHtml(value)}${escHtml(delayText)}</span>
+      <span class="value-main">${warnHtml}${clickThroughHtml}${escHtml(value)}${escHtml(delayText)}</span>
       ${subHtml}
     </span>
   `;

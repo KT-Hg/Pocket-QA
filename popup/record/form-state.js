@@ -7,7 +7,7 @@ import { addManualAction, cancelEdit, manualActionType, manualSelector, manualVa
 import { ui } from '../ui-state.js';
 import { hasChildCondData, setChildCondExpanded, updateChildCondBadge, setManualDelayUI } from './form-widgets.js';
 import { DEFAULT_DELAY_MS, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
-import { CHILD_COND_FIELDS, TYPE_FIELDS, applyDraftValue, draftFields } from './form-table.js';
+import { CHILD_COND_FIELDS, TYPE_FIELDS, applyDraftValue, clickThroughAllowed, draftFields, setClickThrough } from './form-table.js';
 import { updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 import { renderConditionRunTo } from './preview.js';
 import { refreshSwitchContext, refreshSwitchForm, resetCaseEditor, populateSwitchScenarioSelect } from './switch-case-builder.js';
@@ -42,6 +42,7 @@ export function collectManualFormState() {
     })(),
     delayPreset: document.getElementById("manualDelayPreset")?.value ?? "500", // "" = No delay
     label:       document.getElementById("manualLabel")?.value?.trim() || "",
+    clickThrough: clickThroughAllowed(),
 
     // Each type's own fields go under their element ids — record/form-table.js.
     ...draftFields("dragdrop"),
@@ -112,8 +113,9 @@ export function applyManualFormState(state) {
   resetCaseEditor();
   ui._switchContinueAt = Number.isFinite(state.switchContinueAt) ? state.switchContinueAt : null;
 
-  // label
+  // label, and Click through (on in drafts from before it existed)
   set("manualLabel", state.label);
+  setClickThrough(state.clickThrough !== false);
 
   /* --- Core fields --- */
   manualSelector.value   = state.selector || "";
