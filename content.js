@@ -579,8 +579,10 @@ document.addEventListener('input', (event) => {
   const el = event.target;
   // A file input's value cannot be typed back (setting it throws); choosing files
   // is the Upload File action's job. Text typed into an extension overlay (a
-  // highlight note) is not the page's.
-  if (el.type === 'file' || _extIsOurChrome(el)) return;
+  // highlight note) is not the page's. A checkbox or radio fires input when it
+  // toggles, but the click that toggled it is recorded already; an Input of its
+  // value ("on") played back changes nothing.
+  if (el.type === 'file' || el.type === 'checkbox' || el.type === 'radio' || _extIsOurChrome(el)) return;
   const selectors = getAllSelectors(el);
   if (!selectors) return;
 
