@@ -82,6 +82,24 @@ export const scenariosHandlers = {
     return true;
   },
 
+  /**
+   * The scenario's own "Click through" (shared/click-through.js). Only the
+   * scenario is written: its actions keep their own settings, so turning it
+   * back on leaves the ones turned off on their own as they were.
+   */
+  SET_SCENARIO_CLICK_THROUGH(request, sender, sendResponse) {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
+      const scenario = scenarios[request.scenarioId];
+      if (!scenario) { sendResponse({ success: false }); return; }
+      if (request.allowed) delete scenario.clickThrough;
+      else scenario.clickThrough = false;
+      await setScenarios(scenarios);
+      sendResponse({ success: true, clickThrough: scenario.clickThrough !== false });
+    });
+    return true;
+  },
+
   DUPLICATE_SCENARIO(request, sender, sendResponse) {
     runExclusive(async () => {
       const scenarios = await getScenarios();

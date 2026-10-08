@@ -20,7 +20,9 @@ export function toggleScenarioActions(enabled) {
     duplicateScenarioBtn,
     doMoveToFolder,
     document.getElementById("showMoveSection"),
+    document.getElementById("scenarioClickThrough"),
   ].filter(Boolean).forEach((btn) => (btn.disabled = !enabled));
+  _showClickThrough();
 
   // Hide rename/move panels when selection cleared
   if (!enabled) {
@@ -47,7 +49,42 @@ export function toggleScenarioActions(enabled) {
   }
 }
 
+/* === CLICK THROUGH ===
+ * The scenario's own "Click through" (shared/click-through.js): off, every action
+ * of it fails on an element a user could not reach; back on, each action keeps
+ * its own setting. Shown on the toolbar button and above the action list. */
+
+function _showClickThrough() {
+  const off = ui.scenariosCache[scenarioList.value]?.clickThrough === false;
+  const btn = document.getElementById("scenarioClickThrough");
+  if (btn) {
+    btn.setAttribute("aria-pressed", String(off));
+    btn.title = off
+      ? "Click through is off: every action of this scenario fails on a disabled, read-only, hidden or covered element. Click to turn it back on — each action then keeps its own setting."
+      : "Click through is on: actions act even on a disabled or covered element. Click to turn it off for the whole scenario.";
+  }
+  const note = document.getElementById("scenarioClickThroughNote");
+  if (note) note.style.display = off ? "" : "none";
+}
+
+function _toggleClickThrough() {
+  const scenarioId = scenarioList.value;
+  const scenario = ui.scenariosCache[scenarioId];
+  if (!scenario) return;
+  const allowed = scenario.clickThrough === false;
+  chrome.runtime.sendMessage({ type: "SET_SCENARIO_CLICK_THROUGH", scenarioId, allowed }, (res) => {
+    if (chrome.runtime.lastError || !res?.success) { showToast("Could not change Click through", "error"); return; }
+    if (allowed) delete scenario.clickThrough;
+    else scenario.clickThrough = false;
+    _showClickThrough();
+    showToast(allowed ? "Click through on for this scenario" : "Click through off — every action of this scenario is checked", "success");
+  });
+}
+
 export function initScenarioActions() {
+  const clickThroughBtn = document.getElementById("scenarioClickThrough");
+  if (clickThroughBtn) clickThroughBtn.onclick = _toggleClickThrough;
+
   /* === RENAME === */
 
   renameScenario.onclick = () => {

@@ -387,6 +387,20 @@ await send('import folder with uploadFile', { type: 'IMPORT_FOLDER', folder: { n
   b: { name: 'B', actions: [{ type: 'uploadFile', selector: '#f', folderPath: ' E:\\x ', fileNames: ['b'] }, { type: 'click', selector: '#c' }] },
 } } });
 
+// A scenario's own "Click through": only the scenario is written, never its
+// actions; a web page cannot change it; Duplicate keeps it.
+const CT_ACTIONS = [{ type: 'click', selector: '#a', clickThrough: false }, { type: 'click', selector: '#b' }];
+await send('click through: scenario off', { type: 'SET_SCENARIO_CLICK_THROUGH', scenarioId: 'sCt', allowed: false }, {
+  setup: () => { fake.data.local.scenarios.sCt = { name: 'Ct', actions: JSON.parse(JSON.stringify(CT_ACTIONS)) }; },
+});
+const ctOff = JSON.parse(JSON.stringify(fake.data.local.scenarios.sCt));
+await send('click through: duplicate keeps it', { type: 'DUPLICATE_SCENARIO', scenarioId: 'sCt' });
+const ctCopyId = _stepOf('click through: duplicate keeps it')?.responses?.[0]?.id;
+await send('click through: from a web page refused', { type: 'SET_SCENARIO_CLICK_THROUGH', scenarioId: 'sCt', allowed: true }, { sender: PAGE_SENDER });
+await send('click through: scenario back on', { type: 'SET_SCENARIO_CLICK_THROUGH', scenarioId: 'sCt', allowed: true });
+const ctOn = JSON.parse(JSON.stringify(fake.data.local.scenarios.sCt));
+await send('click through: unknown scenario', { type: 'SET_SCENARIO_CLICK_THROUGH', scenarioId: 'zz', allowed: false });
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -424,6 +438,15 @@ test('an import names its Run JS actions and the folders its Upload File actions
   const folder = _stepOf('import folder with uploadFile')?.responses?.[0];
   assert.equal(folder?.hasScriptActions, false);
   assert.deepEqual(folder?.uploadFolders, ['D:\\data', 'E:\\x']);
+});
+test("a scenario's Click through changes the scenario only, and Duplicate keeps it", () => {
+  assert.equal(ctOff.clickThrough, false);
+  assert.deepEqual(ctOff.actions, CT_ACTIONS, 'off: the actions are untouched');
+  assert.ok(!('clickThrough' in ctOn), 'back on: no key left');
+  assert.deepEqual(ctOn.actions, CT_ACTIONS, 'back on: an action turned off on its own stays off');
+  assert.equal(fake.data.local.scenarios[ctCopyId]?.clickThrough, false);
+  assert.deepEqual(_stepOf('click through: from a web page refused')?.responses, []);
+  assert.deepEqual(_stepOf('click through: unknown scenario')?.responses, [{ success: false }]);
 });
 test('a web page is refused what its content script never sends', () => {
   for (const step of ['GET_ALL_DATA', 'IMPORT_SCENARIO', 'RESTORE_ALL_DATA']) {

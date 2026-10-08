@@ -149,6 +149,7 @@
         <button id="redoAction" class="secondary" disabled style="flex: 0 0 auto; width: auto; padding: 3.5px 12px; font-size: 14px;" title="Redo">↪</button>
         <button id="preview" class="secondary" style="flex: 1; font-size: 12px;">Preview Actions <span id="actionCount" class="count-badge" style="display:none;"></span></button>
       </div>
+      <div id="scenarioClickThroughNote" class="ct-scenario-note" style="display:none;">⊘ Click through is off for this scenario — every action is checked</div>
       <ul id="actions" class="actions"></ul>
     </div>
 
@@ -659,6 +660,7 @@
           <button id="renameScenario" class="secondary loop-action-btn" title="Rename scenario">✎</button>
           <button id="duplicateScenario" class="secondary loop-action-btn" title="Duplicate scenario">⧉</button>
           <button id="showMoveSection" class="secondary loop-action-btn" title="Move to folder">⇄</button>
+          <button id="scenarioClickThrough" class="secondary loop-action-btn ct-toggle" aria-pressed="false" title="Click through">⊘</button>
         </div>
       </div>
 

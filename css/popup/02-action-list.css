@@ -445,8 +445,11 @@
   cursor: pointer;
 }
 .form-check input { width: auto; margin: 0; }
-/* An action with "Click through" off, in the action list. */
+/* An action with "Click through" off, in the action list; the scenario's own,
+   above the list and on its toolbar button. */
 .ct-off { color: var(--warning-text); margin-right: 3px; cursor: help; }
+.ct-scenario-note { color: var(--warning-text); font-size: 11px; margin: 6px 0 2px; }
+.ct-toggle[aria-pressed="true"] { color: var(--warning-text); border-color: var(--warning-text); }
 .form-inline .card-help-btn { align-self: center; }
 
 /* Condition: the expected-value label and field are grid cells of their own,
