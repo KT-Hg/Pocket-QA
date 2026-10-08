@@ -42,6 +42,8 @@
  *                 popup theme; a colour saves the highlight, and a reload paints it again.
  *                 With Highlight off a page loads no highlight engine; turned on, the
  *                 open page loads it and paints the highlight
+ *   import-warning  importing a scenario with Upload File and Run JS actions warns
+ *                 about both, and names the folder the upload reads
  *   record-untrusted  a click and an input event the page's own script dispatches
  *                 are not recorded; a real click is
  *   record-other-tab  typing in another tab while recording is not recorded; the
@@ -54,8 +56,10 @@
  * Exit:  0 OK, 1 a check failed, 2 no browser found.
  */
 
+import { rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { dirname, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { asActiveTab, launchWithExtension, sleep } from './lib/cdp-browser.mjs';
 
@@ -638,6 +642,29 @@ async function checkHighlight(ctx) {
   await sleep(PAGE_SETTLE_MS);
 }
 
+async function checkImportWarning(ctx) {
+  const file = join(tmpdir(), `pqa-e2e-import-${process.pid}.json`);
+  writeFileSync(file, JSON.stringify({ name: 'e2e import warning', actions: [
+    { type: 'navigate', value: 'https://example.com/upload' },
+    { type: 'uploadFile', selector: '#f', folderPath: 'C:\\Users\\me\\.ssh', fileNames: ['id_rsa'] },
+    { type: 'script', code: 'void 0' },
+  ] }));
+  const popup = await openPopup(ctx);
+  try {
+    const { root } = await popup.send('DOM.getDocument');
+    const { nodeId } = await popup.send('DOM.querySelector', { nodeId: root.nodeId, selector: '#importFile' });
+    await popup.send('DOM.setFileInputFiles', { nodeId, files: [file] });
+    await popup.evaluate(`document.getElementById('importScenario').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const msg = await popup.evaluate(`document.querySelector('#confirmModal.show #confirmModalMsg')?.textContent || ''`);
+    check(msg.includes('Upload File') && msg.includes('C:\\Users\\me\\.ssh') && msg.includes('Run JS'),
+      'importing Upload File and Run JS actions warns about both, naming the folder', msg);
+  } finally {
+    await popup.close();
+    rmSync(file, { force: true });
+  }
+}
+
 async function checkRecordUntrusted(ctx) {
   await reloadTestPage(ctx);
   const { actions } = await record(ctx, 'e2e record untrusted', async () => {
@@ -705,6 +732,7 @@ const CHECKS = [
   ['select-type', 'Child Condition type "select"', checkSelectType],
   ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
   ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
+  ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
   ['record-restart', 'A recording across a worker restart', checkRecordRestart],

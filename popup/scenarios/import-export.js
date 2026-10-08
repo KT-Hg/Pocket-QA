@@ -20,6 +20,32 @@ function _withMinVersion(data, scenarios) {
   return version ? { ...data, minVersion: version } : data;
 }
 
+// Upload File folders named in the import warning; the rest are counted.
+const MAX_LISTED_FOLDERS = 5;
+
+/**
+ * The warning for imported actions that reach beyond the page they play on
+ * (data-io.js `_risksOf`), or null when there are none. `what`: "file" / "folder".
+ */
+function _importWarning({ hasScriptActions, uploadFolders = [] }, what) {
+  const parts = [];
+  if (hasScriptActions) {
+    parts.push("Run JS actions, whose code runs in the page they are played on, past its Content Security Policy");
+  }
+  if (uploadFolders.length) {
+    const listed = uploadFolders.slice(0, MAX_LISTED_FOLDERS).join(", ");
+    const more = uploadFolders.length > MAX_LISTED_FOLDERS ? ` (+${uploadFolders.length - MAX_LISTED_FOLDERS} more)` : "";
+    parts.push(`Upload File actions, which give the page files from ${listed}${more}`);
+  }
+  if (!parts.length) return null;
+  return `This ${what} contains ${parts.join(", and ")}. Review those actions before playing them.`;
+}
+
+function _warnAboutImport(risks, what) {
+  const msg = _importWarning(risks, what);
+  if (msg) showAlert(msg, { title: "⚠ Imported actions" });
+}
+
 export function initImportExport() {
   /* === EXPORT === */
 
@@ -105,25 +131,23 @@ export function initImportExport() {
           loadScenarios(); // refreshes folders too — see its GET_FOLDERS call
           const skipped = res.skipped ? ` (${res.skipped} skipped)` : "";
           showToast(`Imported folder "${res.folderName}" — ${res.count} scenario${res.count > 1 ? "s" : ""}${skipped}`, "success");
-          if (res.hasScriptActions) {
-            showAlert(
-              "This folder contains scenarios with Run JS actions. Imported code runs with the " +
-              "extension's privileges — review those actions before playing them.",
-              { title: "⚠ Imported code" },
-            );
-          }
+          _warnAboutImport(res, "folder");
         });
         return;
       }
 
       const items = Array.isArray(json) ? json : [json];
       if (!items.length) { showToast("Empty file", "error"); return; }
-      let done = 0, ok = 0, failed = 0, sawScripts = false;
+      let done = 0, ok = 0, failed = 0;
+      const risks = { hasScriptActions: false, uploadFolders: [] };
       items.forEach((scenario) => {
         chrome.runtime.sendMessage({ type: "IMPORT_SCENARIO", scenario }, (res) => {
           done++;
-          if (res?.success) { ok++; if (res.hasScriptActions) sawScripts = true; }
-          else failed++;
+          if (res?.success) {
+            ok++;
+            if (res.hasScriptActions) risks.hasScriptActions = true;
+            for (const f of res.uploadFolders || []) if (!risks.uploadFolders.includes(f)) risks.uploadFolders.push(f);
+          } else failed++;
           if (done !== items.length) return;
           loadScenarios();
           if (ok === 0) {
@@ -134,13 +158,7 @@ export function initImportExport() {
             `Imported ${ok} scenario${ok > 1 ? "s" : ""}${failed ? ` · ${failed} skipped` : ""}`,
             failed ? "warn" : "success",
           );
-          if (sawScripts) {
-            showAlert(
-              "This import contains Run JS actions. Imported code runs with the extension's " +
-              "privileges — review those actions before playing them.",
-              { title: "⚠ Imported code" },
-            );
-          }
+          _warnAboutImport(risks, "file");
         });
       });
     };

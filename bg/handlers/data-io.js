@@ -18,6 +18,22 @@ import { broadcastRecordingState } from './recording.js';
 const _isScenarioShaped = (s) =>
   !!s && typeof s === 'object' && !Array.isArray(s) && Array.isArray(s.actions);
 
+/**
+ * What imported actions can do beyond clicking and typing, for the popup to warn
+ * about before they are played: Run JS actions (their code runs in the page,
+ * past its Content Security Policy), and the local folders Upload File actions
+ * hand files from — a shared scenario that uploads ~/.ssh/id_rsa to the page it
+ * opened looks like any other until it is played.
+ */
+function _risksOf(actions, into = { hasScriptActions: false, uploadFolders: [] }) {
+  for (const a of actions || []) {
+    if (a?.type === 'script') into.hasScriptActions = true;
+    const folder = a?.type === 'uploadFile' ? String(a.folderPath ?? '').trim() : '';
+    if (folder && !into.uploadFolders.includes(folder)) into.uploadFolders.push(folder);
+  }
+  return into;
+}
+
 export const dataIoHandlers = {
   EXPORT_SCENARIO(request, sender, sendResponse) {
     getScenarios().then((scenarios) => {
@@ -40,10 +56,7 @@ export const dataIoHandlers = {
       const { folderId: _ignored, ...rest } = request.scenario;
       scenarios[id] = { ...rest, folderId: null, createdAt: Date.now() };
       await setScenarios(scenarios);
-      // Flag script actions in imported scenarios so the popup can warn the user —
-      // imported code runs with the extension's elevated CSP privileges.
-      const hasScriptActions = (request.scenario.actions || []).some(a => a?.type === 'script');
-      sendResponse({ success: true, id, hasScriptActions });
+      sendResponse({ success: true, id, ..._risksOf(request.scenario.actions) });
     });
     return true;
   },
@@ -75,7 +88,7 @@ export const dataIoHandlers = {
       // the exporting profile, so the branch failed with "scenario not found".
       // Allocate the new ids up front and rewrite the cases as they are imported.
       const idMap = new Map(valid.map(([oldId]) => [oldId, generateId()]));
-      let hasScriptActions = false;
+      const risks = { hasScriptActions: false, uploadFolders: [] };
       for (const [oldId, src] of valid) {
         const { folderId: _ignored, ...rest } = src;
         const actions = (src.actions || []).map((a) => {
@@ -87,14 +100,14 @@ export const dataIoHandlers = {
           };
         });
         scenarios[idMap.get(oldId)] = { ...rest, actions, folderId, createdAt: Date.now() };
-        if (actions.some(a => a?.type === 'script')) hasScriptActions = true;
+        _risksOf(actions, risks);
       }
       await Promise.all([setFolders(folders), setScenarios(scenarios)]);
       sendResponse({
         success: true, folderId, count: valid.length,
         skipped: allEntries.length - valid.length,
         folderName: folders[folderId].name,
-        hasScriptActions,
+        ...risks,
       });
     });
     return true;

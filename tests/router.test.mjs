@@ -375,6 +375,18 @@ await send('from a web page: recorded click keeps its known fields', { type: 'RE
 } }, { sender: { ...PAGE_SENDER, frameId: 3 } });
 await send('stop record (page actions)', { type: 'STOP_RECORD' });
 
+// An import says what it holds that reaches beyond the page: Run JS, and the
+// local folders Upload File actions hand files from (each named once).
+await send('import scenario with uploadFile', { type: 'IMPORT_SCENARIO', scenario: { name: 'Up', actions: [
+  { type: 'uploadFile', selector: '#f', folderPath: 'C:\\Users\\me\\.ssh', fileNames: ['id_rsa'] },
+  { type: 'uploadFile', selector: '#g', folderPath: 'C:\\Users\\me\\.ssh', fileName: 'known_hosts' },
+  { type: 'script', code: '1' },
+] } });
+await send('import folder with uploadFile', { type: 'IMPORT_FOLDER', folder: { name: 'Uploads', scenarios: {
+  a: { name: 'A', actions: [{ type: 'uploadFile', selector: '#f', folderPath: 'D:\\data', fileNames: ['a.csv'] }] },
+  b: { name: 'B', actions: [{ type: 'uploadFile', selector: '#f', folderPath: ' E:\\x ', fileNames: ['b'] }, { type: 'click', selector: '#c' }] },
+} } });
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -404,6 +416,14 @@ test('from a web page, a recorded action is a click or an input with known field
   assert.deepEqual(_stepOf('stop record (page actions)')?.responses?.[0]?.actions, [{
     type: 'click', selector: '#ok', selectors: { css: '#ok', text: 'OK', textTag: 'button' }, frameId: 3, delay: 500,
   }]);
+});
+test('an import names its Run JS actions and the folders its Upload File actions read', () => {
+  const one = _stepOf('import scenario with uploadFile')?.responses?.[0];
+  assert.equal(one?.hasScriptActions, true);
+  assert.deepEqual(one?.uploadFolders, ['C:\\Users\\me\\.ssh']);
+  const folder = _stepOf('import folder with uploadFile')?.responses?.[0];
+  assert.equal(folder?.hasScriptActions, false);
+  assert.deepEqual(folder?.uploadFolders, ['D:\\data', 'E:\\x']);
 });
 test('a web page is refused what its content script never sends', () => {
   for (const step of ['GET_ALL_DATA', 'IMPORT_SCENARIO', 'RESTORE_ALL_DATA']) {
