@@ -21,7 +21,7 @@
  *   label-click   a real click on a checkbox's <label>, recorded, is one action, and
  *                 playing it leaves the box checked
  *   child-condition  "Text contains" clicks the innermost element holding the text,
- *                 and ALL needs every condition
+ *                 and ALL needs every condition; one that matches nothing says so
  *   file-input    choosing a file while recording adds no Input action, and an old
  *                 Input action on a file input fails at once (it timed out after 10 s)
  *   hotkeys       Alt+R on a tab that is not activated reaches the page; on an
@@ -386,6 +386,20 @@ async function checkChildCondition(ctx) {
   const clicked = r.log.filter((e) => e.startsWith('people ')).map((e) => e.slice(7));
   check(clicked[0] === 'johnCell', 'Text contains "John" clicks the cell holding it, not the table body', clicked);
   check(clicked[1] === 'edit2', 'ALL clicks the one element matching every condition', clicked);
+
+  // No child matching: the prompt says so.
+  await reloadTestPage(ctx);
+  const none = await makeScenario(ctx, 'e2e child condition none', [inPeople({ matchMode: 'any', textContains: 'Nobody' })]);
+  await ctx.web.bringToFront();
+  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: none });
+  let text = '';
+  for (let waited = 0; !text && waited < 10_000; waited += POLL_MS) {
+    await sleep(POLL_MS);
+    text = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].map((e) => e.textContent).find((t) => /failed/i.test(t)) || ''`);
+  }
+  await ctx.send({ type: 'STOP_PLAYBACK' });
+  await sleep(SETTLE_MS);
+  check(/No child element matches the Child Condition/.test(text), 'a Child Condition that matches nothing says so on the prompt', text.slice(0, 160));
 }
 
 async function checkFileInput(ctx) {

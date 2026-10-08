@@ -985,7 +985,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       return;
     }
 
-    if (!target) { sendResponse({ failed: true }); return; }
+    if (!target) {
+      // Said, as Read DOM says it: a bare failure showed only "Action failed".
+      const error = action.conditions ? 'No child element matches the Child Condition' : 'The action has no selector';
+      sendResponse({ failed: true, error });
+      return;
+    }
 
     // scrollIntoView first, then re-query on the next rAF.
     // Virtualized lists (React-Window, AG-Grid) unmount and remount rows during
@@ -1032,7 +1037,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           ? action.targetSelectors : { css: action.targetSelector };
         dropEl = await findElementWithFallback(ts, actionTimeout, action.targetSelectorType).catch(() => null);
       }
-      if (!dropEl) { sendResponse({ failed: true }); return; }
+      if (!dropEl) { sendResponse({ failed: true, error: 'Drop target not found' }); return; }
       if (msg.strict) {
         const why = _blockedReason(dropEl);
         if (why) { sendResponse({ failed: true, blocked: true, error: `Drop target: ${why}` }); return; }
