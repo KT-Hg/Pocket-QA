@@ -11,9 +11,12 @@ function msToSec(ms) {
 }
 
 // Picks the best available selector and returns { type, value }.
-// ID is the most stable selector — prioritised over generic CSS.
+// The type chosen in the form comes first, as playback tries it first
+// (content.js); otherwise ID, the most stable, before generic CSS.
 function getBestSelInfo(action) {
   const s = action.selectors || {};
+  const chosen = action.selectorType;
+  if (chosen && typeof s[chosen] === 'string' && s[chosen]) return { type: chosen, value: s[chosen] };
   if (s.id)        return { type: 'id',        value: s.id };
   if (s.name)      return { type: 'name',      value: s.name };
   if (s.css)       return { type: 'css',       value: s.css };
@@ -25,6 +28,8 @@ function getBestSelInfo(action) {
 
 function getBestTargetSelInfo(action) {
   const s = action.targetSelectors || {};
+  const chosen = action.targetSelectorType;
+  if (chosen && typeof s[chosen] === 'string' && s[chosen]) return { type: chosen, value: s[chosen] };
   if (s.css)       return { type: 'css',   value: s.css };
   if (s.xpath)     return { type: 'xpath', value: s.xpath };
   if (s.id)        return { type: 'id',    value: s.id };

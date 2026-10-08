@@ -163,6 +163,30 @@ test('the copied bookmark URL is the code as written, and it runs', async () => 
   assert.ok(runs.includes('John  Smith\\t100%41'), 'values keep their spacing and percent signs');
 });
 
+test('both exports try the selector type chosen in the form first, as playback does', () => {
+  const sels = { id: 'go', css: '#go-css', xpath: '//button[@id="go"]', name: 'q', text: 'it\'s "ok"' };
+  const click = (selectorType) => ({ type: 'click', selector: '#go-css', selectors: sels, ...(selectorType ? { selectorType } : {}) });
+  const steps = [
+    click('css'), click('xpath'), click('name'), click('text'), click(null),
+    { type: 'dragdrop', selector: '#go-css', selectors: sels, selectorType: 'css',
+      targetSelector: '#t', targetSelectors: { css: '#t', xpath: '//div[@id="t"]' }, targetSelectorType: 'xpath' },
+  ];
+  const textXPath = `//*[contains(text(), concat('it', "'", 's "ok"'))]`;
+
+  const py = generateSeleniumPy('choice', steps, {}).code;
+  for (const [by, sel] of [['CSS_SELECTOR', '#go-css'], ['XPATH', '//button[@id="go"]'], ['NAME', 'q'],
+    ['XPATH', textXPath], ['ID', 'go'], ['XPATH', '//div[@id="t"]']]) {
+    assert.ok(py.includes(`By.${by}, ${JSON.stringify(sel)}`), `${by} ${sel}`);
+  }
+  assert.equal(compilePy(py), null);
+
+  const js = generateBookmarklet('choice', steps, {}).code;
+  for (const sel of ['#go-css', '//button[@id="go"]', '[name="q"]', textXPath, '//div[@id="t"]']) {
+    assert.ok(js.includes(`getEl(${JSON.stringify(sel)}`), sel);
+  }
+  new Function(js.replace(/^javascript:/, ''));
+});
+
 test('Random: the length is capped at 512 in both exports and the preview, as a run caps it', async () => {
   const { parseRandomSpec, MAX_RANDOM_LENGTH } = await import('../shared/var-spec.js');
   assert.equal(MAX_RANDOM_LENGTH, 512);

@@ -5,6 +5,7 @@ import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
+import { cssEscape } from '../shared/css-escape.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -53,9 +54,35 @@ function _sanitizeVarName(name) {
   return _RESERVED_JS.has(safe) ? safe + '_v' : safe;
 }
 
+// An XPath string literal. XPath 1.0 has no escapes, so a text holding both
+// kinds of quote is put together with concat().
+function _xpathLiteral(s) {
+  if (!s.includes("'")) return `'${s}'`;
+  if (!s.includes('"')) return `"${s}"`;
+  return `concat(${s.split("'").map((p) => `'${p}'`).join(`, "'", `)})`;
+}
+
+/**
+ * The locator of `sels` named by `type` (the selector type chosen in the form)
+ * as a selector _qsel takes — CSS, or XPath when it starts with / or ( — or ''
+ * when there is none. Playback tries the chosen type first (content.js).
+ */
+function _chosenSel(sels, type) {
+  const v = sels?.[type];
+  if (!type || typeof v !== 'string' || !v) return '';
+  switch (type) {
+    case 'css': case 'xpath': case 'fullXpath': return v;
+    case 'id':   return '#' + cssEscape(v);
+    case 'name': return `[name="${cssEscape(v)}"]`;
+    case 'text': return `//*[contains(text(), ${_xpathLiteral(v)})]`;
+    default:     return '';
+  }
+}
+
 function getBestSel(action) {
   const s = action.selectors || {};
-  return s.css
+  return _chosenSel(s, action.selectorType)
+    || s.css
     || action.selector
     || (s.id ? '#' + s.id : '')
     || s.xpath
@@ -286,7 +313,8 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
       break;
 
     case 'dragdrop': {
-      const tgt = action.targetSelectors?.css || action.targetSelector || '';
+      const tgt = _chosenSel(action.targetSelectors, action.targetSelectorType)
+        || action.targetSelectors?.css || action.targetSelector || '';
       out.push(`// Step ${stepNum}: dragdrop${lbl}`);
       out.push(`const ${v}_s = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       out.push(`const ${v}_t = await getEl(${valueToJS(tgt)}, ${elTimeout});`);
