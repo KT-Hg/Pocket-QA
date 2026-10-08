@@ -18,10 +18,15 @@ export async function runDropdown(ctx, i, action) {
     || (action.selectors?.id ? `#${cssEscape(action.selectors.id)}` : null)
     || action.selector || '';
   if (action.pick) return _pickItem(ctx, i, action, cssSel);
-  // Like the CDP click, a trigger the page cannot find is not a failure here.
+  // Like the CDP click, a trigger the page cannot find is not a failure here;
+  // one a user could not reach, with "Click through" off, is.
   if (cssSel) {
-    await _open(tabId, action, cssSel,
+    const blocked = await _open(ctx, action, cssSel,
       () => tabMsg(tabId, { type: 'PLAY_ACTION', action, ...strictFor(ctx, action) }, pageReplyTimeout(action), action.frameId));
+    if (blocked) {
+      const back = afterFailure(await ctx.fail(i, action, blocked), i);
+      if (back !== null) return back;
+    }
   }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;
@@ -34,23 +39,30 @@ const _inFrame = (action) => action.frameId != null && action.frameId !== 0;
  * (page-target.js). In a frame, or with no page to ask, as before: CDP on the
  * action's own CSS selector, or `pageClick`, the page's own click, where CDP
  * cannot use that selector. A trigger the page looked for and did not find is
- * left alone.
+ * left alone. Resolves to the reason when "Click through" is off and a user
+ * could not reach the trigger (nothing is clicked then), else null.
  */
-async function _open(tabId, action, cssSel, pageClick) {
+async function _open(ctx, action, cssSel, pageClick) {
+  const { tabId } = ctx;
   if (!_inFrame(action)) {
-    const target = await markTarget(tabId, action);
+    const target = await markTarget(tabId, action, strictFor(ctx, action));
+    if (target.blocked) return target.blocked;
     if (target.css) {
       try {
         await openDropdownViaCdp(tabId, target.css);
       } finally {
         await unmarkTarget(tabId);
       }
-      return;
+      return null;
     }
-    if (target.error) return;
+    if (target.error) return null;
   }
-  if (_cdpCanOpen(action, cssSel)) await openDropdownViaCdp(tabId, cssSel);
-  else await pageClick();
+  if (_cdpCanOpen(action, cssSel)) {
+    await openDropdownViaCdp(tabId, cssSel);
+    return null;
+  }
+  const res = await pageClick();
+  return res?.blocked ? res.error : null;
 }
 
 /**
@@ -74,8 +86,8 @@ async function _pickItem(ctx, i, action, cssSel) {
 
   let result = await toPage('select');
   if (!result?.failed && result?.needsOpen) {
-    await _open(tabId, action, cssSel, () => toPage(undefined));
-    result = await toPage('items');
+    const blocked = await _open(ctx, action, cssSel, () => toPage(undefined));
+    result = blocked ? { failed: true, error: blocked } : await toPage('items');
   }
   // A page whose content script predates this action answers without choosing.
   if (!result?.failed && !result?.picked) {

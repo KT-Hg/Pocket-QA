@@ -915,12 +915,15 @@ function _describeEl(el) {
  * Why a user could not act on `el` as it is now, or null: it has no size, it is
  * disabled (or read-only, for a text field), or something else is on top of its
  * middle. A <label> of the element on top of it — a floating label — does not
- * count, nor do the extension's own overlays.
+ * count, nor do the extension's own overlays. `disabledOnly`: Upload File's file
+ * input, which pages hide on purpose and style through a label or a button.
  */
-function _blockedReason(el) {
+function _blockedReason(el, { disabledOnly = false } = {}) {
+  const disabled = el.matches(':disabled') || !!el.closest('[aria-disabled="true"]');
+  if (disabledOnly) return disabled ? 'Element is disabled' : null;
   const r = el.getBoundingClientRect();
   if (!r.width || !r.height) return 'Element is not visible';
-  if (el.matches(':disabled') || el.closest('[aria-disabled="true"]')) return 'Element is disabled';
+  if (disabled) return 'Element is disabled';
   if ((el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.readOnly) return 'Element is read-only';
   const root = el.getRootNode();
   const hit = (typeof root.elementFromPoint === 'function' ? root : document)
@@ -1651,10 +1654,19 @@ function _markTarget(el) {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'MARK_ELEMENT') {
     const timeout = msg.timeout > 0 ? msg.timeout : 5000;
-    findElementWithFallback(_withPlain(msg.selectors, msg.selector), timeout, msg.selectorType).then(
-      (el) => sendResponse({ css: _markTarget(el) }),
-      (e) => sendResponse({ error: e?.message || 'Element not found' }),
-    );
+    (async () => {
+      const el = await findElementWithFallback(_withPlain(msg.selectors, msg.selector), timeout, msg.selectorType);
+      // "Click through" off: a blocked element is reported, not tagged (PLAYBACK).
+      if (msg.strict) {
+        if (!msg.disabledOnly) {
+          el.scrollIntoView({ behavior: 'auto', block: 'center' });
+          await new Promise(nextFrame);
+        }
+        const why = _blockedReason(el, { disabledOnly: !!msg.disabledOnly });
+        if (why) return { blocked: why };
+      }
+      return { css: _markTarget(el) };
+    })().then(sendResponse, (e) => sendResponse({ error: e?.message || 'Element not found' }));
     return true;
   }
 

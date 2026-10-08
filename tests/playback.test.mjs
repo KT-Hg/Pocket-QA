@@ -66,10 +66,14 @@ installTabMessages(fake, {
   GET_PAGE_DIMENSIONS: { viewportWidth: 800, viewportHeight: 600, fullWidth: 800, fullHeight: 1500, scrollX: 0, scrollY: 0, devicePixelRatio: 1 },
   GET_ELEMENT_RECT: (msg) => (msg.selector === '#missing' ? { error: 'Element not found' }
     : { x: 10, y: 20, width: 300, height: 200, css: `[data-pqa-target="${msg.selector}"]` }),
-  // The element a CDP step acts on, found and tagged by the page (#missing: not found).
-  MARK_ELEMENT: (msg) => (msg.selector === '#missing'
-    ? { error: 'Timeout: Element not found with any selector strategy' }
-    : { css: `[data-pqa-target="${msg.selector}"]` }),
+  // The element a CDP step acts on, found and tagged by the page (#missing: not
+  // found). With "Click through" off, #covered is covered and #disabledFile disabled.
+  MARK_ELEMENT: (msg) => {
+    if (msg.selector === '#missing') return { error: 'Timeout: Element not found with any selector strategy' };
+    if (msg.strict && msg.selector === '#covered') return { blocked: 'Element is covered by div#cover' };
+    if (msg.strict && msg.disabledOnly && msg.selector === '#disabledFile') return { blocked: 'Element is disabled' };
+    return { css: `[data-pqa-target="${msg.selector}"]` };
+  },
   UNMARK_ELEMENT: { ok: true },
 });
 installDebugger(fake, {
@@ -743,6 +747,23 @@ test('the page is told strict exactly when the action or its scenario turns Clic
   assert.deepEqual(strictOf('click through: scenario off'), ['#a strict', '#r free', '#h strict']);
   assert.deepEqual(strictOf('click through: one action off'), ['#a strict', '#b free']);
   assert.deepEqual(strictOf('click through: a Switch into a scenario that is off'), ['#a strict', '#r free', '#h strict', '#after free']);
+});
+
+// With "Click through" off, the CDP steps ask the page whether a user could
+// reach the element first, and act on nothing it says they could not.
+await run('click through: a covered Dropdown trigger', play([
+  { type: 'dropdown', selector: '#covered', clickThrough: false }, hover('#after'),
+], {}), { setup: () => { choices = ['skip']; } });
+await run('click through: Upload File into a disabled input', play([
+  { type: 'uploadFile', selector: '#disabledFile', folderPath: 'C:\\data', fileNames: ['a.csv'], clickThrough: false }, hover('#after'),
+], {}), { setup: () => { choices = ['skip']; } });
+test('with Click through off, a CDP step fails on an element a user could not reach, and does nothing to it', () => {
+  assert.match(_failedOf('click through: a covered Dropdown trigger'), /covered by div#cover/);
+  assert.ok(!_callsOf('click through: a covered Dropdown trigger').some((c) => c.includes('Input.dispatchMouseEvent')));
+  const upload = _callsOf('click through: Upload File into a disabled input');
+  assert.match(_failedOf('click through: Upload File into a disabled input'), /Element is disabled/);
+  assert.ok(upload.some((c) => c.includes('"MARK_ELEMENT"') && c.includes('"disabledOnly":true')), 'a file input is checked only for being disabled');
+  assert.ok(!upload.some((c) => c.includes('DOM.setFileInputFiles')));
 });
 
 test('a resumed run saves screenshots with the save mode set now', () => {

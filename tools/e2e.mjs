@@ -53,7 +53,9 @@
  *   click-through  with Click through on (the default) a covered button is clicked as
  *                 before; with it off for the scenario, or for the action, a disabled,
  *                 covered, read-only or hidden element (or drop target) fails the
- *                 action with the reason; a shadow-DOM button is not "covered" by its host
+ *                 action with the reason; a shadow-DOM button is not "covered" by its host.
+ *                 Through CDP too: a covered Dropdown trigger and a disabled file input
+ *                 fail, a file input hidden by CSS still gets its file
  *   typed-text    a Text selector typed in the form (no textTag) clicks the element
  *                 holding that text, surrounding spaces ignored
  *   select-missing  an Input of an option the <select> does not have brings up the
@@ -127,6 +129,7 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
 <button id="ctDisabled" disabled>ctDisabled</button>
 <span style="position:relative;display:inline-block"><button id="ctCovered">ctCovered</button><span id="ctCover" style="position:absolute;inset:0"></span></span>
 <input id="ctReadonly" readonly><button id="ctHidden" style="display:none">ctHidden</button>
+<input type="file" id="ctFileDisabled" disabled><input type="file" id="ctFileHidden" style="display:none">
 <script>
   window.__log = [];
   document.getElementById('ctCovered').addEventListener('click', () => __log.push('ctCovered'));
@@ -787,6 +790,18 @@ async function checkClickThrough(ctx) {
     const text = await failureOf(`e2e ct ${what}`, action, { scenarioOff: true });
     check(reason.test(text), `Click through off for the scenario: a ${what} element fails with the reason`, text.slice(0, 160));
   }
+  // The steps that act through CDP ask the page first (MARK_ELEMENT).
+  const here = fileURLToPath(import.meta.url);
+  const upload = (id) => ({ type: 'uploadFile', selector: `#${id}`, selectors: { css: `#${id}` },
+    folderPath: dirname(here), fileNames: [basename(here)], delay: 0 });
+  const dd = await failureOf('e2e ct dropdown', { type: 'dropdown', selector: '#ctCovered', selectors: { css: '#ctCovered' }, delay: 0 }, { scenarioOff: true });
+  check(/covered by span#ctCover/.test(dd), 'Click through off: a covered Dropdown trigger fails, through CDP', dd.slice(0, 160));
+  const disabledFile = await failureOf('e2e ct upload disabled', upload('ctFileDisabled'), { scenarioOff: true });
+  check(/Element is disabled/.test(disabledFile), 'Click through off: Upload File into a disabled file input fails', disabledFile.slice(0, 160));
+  const hiddenFile = await failureOf('e2e ct upload hidden', upload('ctFileHidden'), { scenarioOff: true });
+  const hiddenFiles = await ctx.web.evaluate(`document.getElementById('ctFileHidden').files.length`);
+  check(hiddenFile === '' && hiddenFiles === 1, 'Click through off: a file input hidden by CSS still gets its file', { hiddenFile: hiddenFile.slice(0, 120), hiddenFiles });
+
   const own = await failureOf('e2e ct action off', click('ctCovered', { clickThrough: false }));
   check(/covered by span#ctCover/.test(own), 'Click through off for the action alone: the covered button fails too', own.slice(0, 160));
   const shadow = await failureOf('e2e ct shadow', click('shadowBtn'), { scenarioOff: true, shadow: true });

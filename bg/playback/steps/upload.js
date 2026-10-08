@@ -7,6 +7,7 @@ import { cssEscape } from '../../../shared/css-escape.js';
 import { setFileInputViaCdp, setFileDropZoneViaCdp } from '../../cdp/upload.js';
 import { afterFailure } from './flow.js';
 import { markTarget, unmarkTarget } from './page-target.js';
+import { strictFor } from './click-through.js';
 
 export async function runUploadFile(ctx, i, action) {
   const { tabId, fail } = ctx;
@@ -29,8 +30,12 @@ export async function runUploadFile(ctx, i, action) {
     // The element the page found (page-target.js); in a frame, or with no page
     // to ask, the action's own selector as before.
     const inFrame = action.frameId != null && action.frameId !== 0;
-    const target  = inFrame ? { noPage: true } : await markTarget(tabId, action);
-    let error = target.error || null;
+    // "Click through" off: a drop zone is checked like any element, a file input
+    // only for being disabled — pages hide it on purpose.
+    const strict  = strictFor(ctx, action);
+    const check   = strict.strict && action.uploadMode !== 'dropzone' ? { ...strict, disabledOnly: true } : strict;
+    const target  = inFrame ? { noPage: true } : await markTarget(tabId, action, check);
+    let error = target.error || target.blocked || null;
     if (!error) {
       try {
         if (action.uploadMode === 'dropzone') {

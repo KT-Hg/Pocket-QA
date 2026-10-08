@@ -18,15 +18,19 @@ const UNMARK_TIMEOUT_MS = 2_000;
 
 /**
  * { css } for the element `action` means, { error } when the page found none,
- * or { noPage: true } when no content script answered — the caller then falls
- * back on its own selector. The top frame only: that is where CDP selects.
+ * { blocked } with the reason when "Click through" is off (`check`:
+ * click-through.js strictFor, plus disabledOnly for a file input) and a user
+ * could not reach it, or { noPage: true } when no content script answered — the
+ * caller then falls back on its own selector. The top frame only: that is where
+ * CDP selects.
  */
-export async function markTarget(tabId, action) {
+export async function markTarget(tabId, action, check = {}) {
   const res = await tabMsg(tabId, {
     type: 'MARK_ELEMENT', selectors: action.selectors, selector: action.selector, timeout: action.timeout,
-    ...(action.selectorType ? { selectorType: action.selectorType } : {}),
+    ...(action.selectorType ? { selectorType: action.selectorType } : {}), ...check,
   }, pageReplyTimeout(action), 0);
   if (res?.css) return { css: res.css };
+  if (res?.blocked) return { blocked: res.blocked };
   if (res?._noContentScript) return { noPage: true };
   return { error: res?.error || 'Element not found' };
 }
