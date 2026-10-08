@@ -3448,9 +3448,10 @@
    "storage.local.get [[\"schedules\",\"scenarios\"]]",
    "storage.sync.get [[\"notifyOnSchedule\"]]",
    "storage.local.get [[\"scenarios\"]]",
-   "storage.local.set [{\"schedules\":[{\"id\":\"sc1\",\"scenarioId\":\"s1\",\"time\":\"7\",\"enabled\":false},{\"id\":\"sc2\",\"scenarioId\":\"s2\",\"time\":\"25:99\",\"enabled\":true},{\"id\":\"sc3\",\"scenarioId\":\"s1\",\"time\":\"08:00\",\"enabled\":false},{\"id\":\"sc4\",\"scenarioId\":\"s2\",\"time\":\"09:15\",\"enabled\":true,\"repeat\":false}]}]",
    "alarms.clear [\"sched_sc1\"]",
-   "notifications.create [\"schedule_start\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⏰ Scheduled run started\",\"message\":\"\\\"s1\\\"\"}]"
+   "storage.local.get [[\"schedules\"]]",
+   "notifications.create [\"schedule_start\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⏰ Scheduled run started\",\"message\":\"\\\"s1\\\"\"}]",
+   "storage.local.set [{\"schedules\":[{\"id\":\"sc1\",\"scenarioId\":\"s1\",\"time\":\"7\",\"enabled\":false},{\"id\":\"sc2\",\"scenarioId\":\"s2\",\"time\":\"25:99\",\"enabled\":true},{\"id\":\"sc3\",\"scenarioId\":\"s1\",\"time\":\"08:00\",\"enabled\":false},{\"id\":\"sc4\",\"scenarioId\":\"s2\",\"time\":\"09:15\",\"enabled\":true,\"repeat\":false}]}]"
   ],
   "console": [],
   "storage": {
@@ -3465,9 +3466,10 @@
    "storage.local.get [[\"schedules\",\"scenarios\"]]",
    "storage.sync.get [[\"notifyOnSchedule\"]]",
    "storage.local.get [[\"scenarios\"]]",
-   "storage.local.set [{\"schedules\":[{\"id\":\"sc1\",\"scenarioId\":\"s1\",\"time\":\"7\",\"enabled\":false},{\"id\":\"sc2\",\"scenarioId\":\"s2\",\"time\":\"25:99\",\"enabled\":true},{\"id\":\"sc3\",\"scenarioId\":\"s1\",\"time\":\"08:00\",\"enabled\":false},{\"id\":\"sc4\",\"scenarioId\":\"s2\",\"time\":\"09:15\",\"enabled\":false,\"repeat\":false}]}]",
    "alarms.clear [\"sched_sc4\"]",
-   "notifications.create [\"schedule_start\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⏰ Scheduled run started\",\"message\":\"\\\"s2\\\"\"}]"
+   "storage.local.get [[\"schedules\"]]",
+   "notifications.create [\"schedule_start\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⏰ Scheduled run started\",\"message\":\"\\\"s2\\\"\"}]",
+   "storage.local.set [{\"schedules\":[{\"id\":\"sc1\",\"scenarioId\":\"s1\",\"time\":\"7\",\"enabled\":false},{\"id\":\"sc2\",\"scenarioId\":\"s2\",\"time\":\"25:99\",\"enabled\":true},{\"id\":\"sc3\",\"scenarioId\":\"s1\",\"time\":\"08:00\",\"enabled\":false},{\"id\":\"sc4\",\"scenarioId\":\"s2\",\"time\":\"09:15\",\"enabled\":false,\"repeat\":false}]}]"
   ],
   "console": [],
   "storage": {
@@ -4210,5 +4212,93 @@
    "storage.local.get [[\"scenarios\"]]"
   ],
   "console": []
+ },
+ {
+  "step": "schedules: three saved at once",
+  "types": [
+   "SAVE_SCHEDULE",
+   "SAVE_SCHEDULE",
+   "SAVE_SCHEDULE"
+  ],
+  "responses": [
+   {"success":true,"armed":true,"invalidTime":false},
+   {"success":true,"armed":true,"invalidTime":false},
+   {"success":true,"armed":true,"invalidTime":false}
+  ],
+  "calls": [
+   "storage.local.get [[\"schedules\"]]",
+   "storage.local.set [{\"schedules\":[{\"id\":\"sc1\",\"scenarioId\":\"s1\",\"time\":\"7\",\"enabled\":false},{\"id\":\"sc2\",\"scenarioId\":\"s2\",\"time\":\"25:99\",\"enabled\":true},{\"id\":\"sc3\",\"scenarioId\":\"s1\",\"time\":\"08:00\",\"enabled\":false},{\"id\":\"sc4\",\"scenarioId\":\"s2\",\"time\":\"09:15\",\"enabled\":false,\"repeat\":false},{\"id\":\"scUrl\",\"scenarioId\":\"s2\",\"time\":\"08:00\",\"enabled\":true,\"repeat\":true,\"url\":\"https://example.com/start\"},{\"id\":\"scA\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true}]}]",
+   "alarms.clear [\"sched_scA\"]",
+   "alarms.create [\"sched_scA\",{\"delayInMinutes\":839.2645,\"periodInMinutes\":1440}]",
+   "storage.local.get [[\"schedules\"]]",
+   "storage.local.set [{\"schedules\":[{\"id\":\"sc1\",\"scenarioId\":\"s1\",\"time\":\"7\",\"enabled\":false},{\"id\":\"sc2\",\"scenarioId\":\"s2\",\"time\":\"25:99\",\"enabled\":true},{\"id\":\"sc3\",\"scenarioId\":\"s1\",\"time\":\"08:00\",\"enabled\":false},{\"id\":\"sc4\",\"scenarioId\":\"s2\",\"time\":\"09:15\",\"enabled\":false,\"repeat\":false},{\"id\":\"scUrl\",\"scenarioId\":\"s2\",\"time\":\"08:00\",\"enabled\":true,\"repeat\":true,\"url\":\"https://example.com/start\"},{\"id\":\"scA\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true},{\"id\":\"scB\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true}]}]",
+   "alarms.clear [\"sched_scB\"]",
+   "alarms.create [\"sched_scB\",{\"delayInMinutes\":839.2645,\"periodInMinutes\":1440}]",
+   "storage.local.get [[\"schedules\"]]",
+   "storage.local.set [{\"schedules\":[{\"id\":\"sc1\",\"scenarioId\":\"s1\",\"time\":\"7\",\"enabled\":false},{\"id\":\"sc2\",\"scenarioId\":\"s2\",\"time\":\"25:99\",\"enabled\":true},{\"id\":\"sc3\",\"scenarioId\":\"s1\",\"time\":\"08:00\",\"enabled\":false},{\"id\":\"sc4\",\"scenarioId\":\"s2\",\"time\":\"09:15\",\"enabled\":false,\"repeat\":false},{\"id\":\"scUrl\",\"scenarioId\":\"s2\",\"time\":\"08:00\",\"enabled\":true,\"repeat\":true,\"url\":\"https://example.com/start\"},{\"id\":\"scA\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true},{\"id\":\"scB\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true},{\"id\":\"scC\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true}]}]",
+   "alarms.clear [\"sched_scC\"]",
+   "alarms.create [\"sched_scC\",{\"delayInMinutes\":839.2645,\"periodInMinutes\":1440}]"
+  ],
+  "console": [],
+  "storage": {
+   "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000015":{"name":"Up","actions":[{"type":"uploadFile","selector":"#f","folderPath":"C:\\Users\\me\\.ssh","fileNames":["id_rsa"]},{"type":"uploadFile","selector":"#g","folderPath":"C:\\Users\\me\\.ssh","fileName":"known_hosts"},{"type":"script","code":"1"}],"folderId":null,"createdAt":1768467644130},"00000000-0000-4000-8000-000000000017":{"name":"A","actions":[{"type":"uploadFile","selector":"#f","folderPath":"D:\\data","fileNames":["a.csv"]}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467644130},"00000000-0000-4000-8000-000000000018":{"name":"B","actions":[{"type":"uploadFile","selector":"#f","folderPath":" E:\\x ","fileNames":["b"]},{"type":"click","selector":"#c"}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467644130},"sCt":{"name":"Ct","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}]},"00000000-0000-4000-8000-000000000019":{"name":"Ct (copy)","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}],"clickThrough":false,"createdAt":1768467644130}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500},"00000000-0000-4000-8000-000000000016":{"name":"Uploads","createdAt":1768467644130}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"sc1","scenarioId":"s1","time":"7","enabled":false},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":false,"repeat":false},{"id":"scUrl","scenarioId":"s2","time":"08:00","enabled":true,"repeat":true,"url":"https://example.com/start"},{"id":"scA","scenarioId":"s1","time":"06:00","enabled":true,"repeat":true},{"id":"scB","scenarioId":"s1","time":"06:00","enabled":true,"repeat":true},{"id":"scC","scenarioId":"s1","time":"06:00","enabled":true,"repeat":true}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"example.com/a":[{"id":"h1","text":"alpha"}],"example.com/b":[{"id":"h2","text":"beta"}]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
+   "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1}
+  }
+ },
+ {
+  "step": "schedules: a one-shot alarm and a save at once",
+  "responses": [
+   {"success":true,"armed":true,"invalidTime":false}
+  ],
+  "calls": [
+   "storage.local.get [[\"schedules\",\"scenarios\"]]",
+   "storage.local.get [[\"schedules\"]]",
+   "storage.sync.get [[\"notifyOnSchedule\"]]",
+   "storage.local.get [[\"scenarios\"]]",
+   "alarms.clear [\"sched_scOnce\"]",
+   "storage.local.set [{\"schedules\":[{\"id\":\"sc1\",\"scenarioId\":\"s1\",\"time\":\"7\",\"enabled\":false},{\"id\":\"sc2\",\"scenarioId\":\"s2\",\"time\":\"25:99\",\"enabled\":true},{\"id\":\"sc3\",\"scenarioId\":\"s1\",\"time\":\"08:00\",\"enabled\":false},{\"id\":\"sc4\",\"scenarioId\":\"s2\",\"time\":\"09:15\",\"enabled\":false,\"repeat\":false},{\"id\":\"scUrl\",\"scenarioId\":\"s2\",\"time\":\"08:00\",\"enabled\":true,\"repeat\":true,\"url\":\"https://example.com/start\"},{\"id\":\"scA\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true},{\"id\":\"scB\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true},{\"id\":\"scC\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true},{\"id\":\"scOnce\",\"scenarioId\":\"s1\",\"time\":\"07:00\",\"enabled\":true,\"repeat\":false},{\"id\":\"scNew\",\"scenarioId\":\"s1\",\"time\":\"09:00\",\"enabled\":true}]}]",
+   "notifications.create [\"schedule_start\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⏰ Scheduled run started\",\"message\":\"\\\"s1\\\"\"}]",
+   "alarms.clear [\"sched_scNew\"]",
+   "alarms.create [\"sched_scNew\",{\"delayInMinutes\":1019.2645}]",
+   "storage.local.get [[\"schedules\"]]",
+   "storage.local.set [{\"schedules\":[{\"id\":\"sc1\",\"scenarioId\":\"s1\",\"time\":\"7\",\"enabled\":false},{\"id\":\"sc2\",\"scenarioId\":\"s2\",\"time\":\"25:99\",\"enabled\":true},{\"id\":\"sc3\",\"scenarioId\":\"s1\",\"time\":\"08:00\",\"enabled\":false},{\"id\":\"sc4\",\"scenarioId\":\"s2\",\"time\":\"09:15\",\"enabled\":false,\"repeat\":false},{\"id\":\"scUrl\",\"scenarioId\":\"s2\",\"time\":\"08:00\",\"enabled\":true,\"repeat\":true,\"url\":\"https://example.com/start\"},{\"id\":\"scA\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true},{\"id\":\"scB\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true},{\"id\":\"scC\",\"scenarioId\":\"s1\",\"time\":\"06:00\",\"enabled\":true,\"repeat\":true},{\"id\":\"scOnce\",\"scenarioId\":\"s1\",\"time\":\"07:00\",\"enabled\":false,\"repeat\":false},{\"id\":\"scNew\",\"scenarioId\":\"s1\",\"time\":\"09:00\",\"enabled\":true}]}]"
+  ],
+  "console": [],
+  "storage": {
+   "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000015":{"name":"Up","actions":[{"type":"uploadFile","selector":"#f","folderPath":"C:\\Users\\me\\.ssh","fileNames":["id_rsa"]},{"type":"uploadFile","selector":"#g","folderPath":"C:\\Users\\me\\.ssh","fileName":"known_hosts"},{"type":"script","code":"1"}],"folderId":null,"createdAt":1768467644130},"00000000-0000-4000-8000-000000000017":{"name":"A","actions":[{"type":"uploadFile","selector":"#f","folderPath":"D:\\data","fileNames":["a.csv"]}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467644130},"00000000-0000-4000-8000-000000000018":{"name":"B","actions":[{"type":"uploadFile","selector":"#f","folderPath":" E:\\x ","fileNames":["b"]},{"type":"click","selector":"#c"}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467644130},"sCt":{"name":"Ct","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}]},"00000000-0000-4000-8000-000000000019":{"name":"Ct (copy)","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}],"clickThrough":false,"createdAt":1768467644130}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500},"00000000-0000-4000-8000-000000000016":{"name":"Uploads","createdAt":1768467644130}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"sc1","scenarioId":"s1","time":"7","enabled":false},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":false,"repeat":false},{"id":"scUrl","scenarioId":"s2","time":"08:00","enabled":true,"repeat":true,"url":"https://example.com/start"},{"id":"scA","scenarioId":"s1","time":"06:00","enabled":true,"repeat":true},{"id":"scB","scenarioId":"s1","time":"06:00","enabled":true,"repeat":true},{"id":"scC","scenarioId":"s1","time":"06:00","enabled":true,"repeat":true},{"id":"scOnce","scenarioId":"s1","time":"07:00","enabled":false,"repeat":false},{"id":"scNew","scenarioId":"s1","time":"09:00","enabled":true}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"example.com/a":[{"id":"h1","text":"alpha"}],"example.com/b":[{"id":"h2","text":"beta"}]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
+   "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1}
+  }
+ },
+ {
+  "step": "schedules: a restore arms them",
+  "type": "RESTORE_ALL_DATA",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   true,
+   "‹undefined›"
+  ],
+  "responses": [
+   {"success":true,"restoredSync":false,"warning":null}
+  ],
+  "calls": [
+   "storage.local.set [{\"schedules\":[{\"id\":\"scRestored\",\"scenarioId\":\"s1\",\"time\":\"05:30\",\"enabled\":true,\"repeat\":true}]}]",
+   "alarms.getAll []",
+   "tabs.query [{}]",
+   "storage.local.get [[\"schedules\"]]",
+   "tabs.sendMessage [1,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
+   "tabs.sendMessage [2,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
+   "alarms.create [\"sched_scRestored\",{\"delayInMinutes\":809.2645,\"periodInMinutes\":1440}]"
+  ],
+  "console": [],
+  "storage": {
+   "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000015":{"name":"Up","actions":[{"type":"uploadFile","selector":"#f","folderPath":"C:\\Users\\me\\.ssh","fileNames":["id_rsa"]},{"type":"uploadFile","selector":"#g","folderPath":"C:\\Users\\me\\.ssh","fileName":"known_hosts"},{"type":"script","code":"1"}],"folderId":null,"createdAt":1768467644130},"00000000-0000-4000-8000-000000000017":{"name":"A","actions":[{"type":"uploadFile","selector":"#f","folderPath":"D:\\data","fileNames":["a.csv"]}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467644130},"00000000-0000-4000-8000-000000000018":{"name":"B","actions":[{"type":"uploadFile","selector":"#f","folderPath":" E:\\x ","fileNames":["b"]},{"type":"click","selector":"#c"}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467644130},"sCt":{"name":"Ct","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}]},"00000000-0000-4000-8000-000000000019":{"name":"Ct (copy)","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}],"clickThrough":false,"createdAt":1768467644130}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500},"00000000-0000-4000-8000-000000000016":{"name":"Uploads","createdAt":1768467644130}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"scRestored","scenarioId":"s1","time":"05:30","enabled":true,"repeat":true}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"example.com/a":[{"id":"h1","text":"alpha"}],"example.com/b":[{"id":"h2","text":"beta"}]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
+   "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1}
+  }
  }
 ]
