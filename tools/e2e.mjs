@@ -42,6 +42,8 @@
  *                 popup theme; a colour saves the highlight, and a reload paints it again.
  *                 With Highlight off a page loads no highlight engine; turned on, the
  *                 open page loads it and paints the highlight
+ *   record-untrusted  a click and an input event the page's own script dispatches
+ *                 are not recorded; a real click is
  *   record-other-tab  typing in another tab while recording is not recorded; the
  *                 recording tab still is
  *   record-restart  a recording whose worker stopped before the first action (it
@@ -636,6 +638,20 @@ async function checkHighlight(ctx) {
   await sleep(PAGE_SETTLE_MS);
 }
 
+async function checkRecordUntrusted(ctx) {
+  await reloadTestPage(ctx);
+  const { actions } = await record(ctx, 'e2e record untrusted', async () => {
+    await ctx.web.evaluate(`document.getElementById('bg2').click();
+      const out = document.getElementById('out');
+      out.value = 'set by script';
+      out.dispatchEvent(new Event('input', { bubbles: true }));`);
+    await sleep(600); // past the input debounce
+    await clickAt(ctx, '#bg1');
+  });
+  check(actions.map((a) => `${a.type} ${a.selector}`).join() === 'click #bg1',
+    'a click and an input event the page dispatches itself are not recorded', actions.map((a) => `${a.type} ${a.selector} ${a.value ?? ''}`));
+}
+
 async function checkRecordOtherTab(ctx) {
   await reloadTestPage(ctx);
   const other = await ctx.browser.openPage(`${ctx.base}/page?other`, { width: 1000, height: 700 });
@@ -689,6 +705,7 @@ const CHECKS = [
   ['select-type', 'Child Condition type "select"', checkSelectType],
   ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
   ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
+  ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
   ['record-restart', 'A recording across a worker restart', checkRecordRestart],
 ];

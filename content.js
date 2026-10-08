@@ -533,6 +533,9 @@ let _labelForwardTarget = null;
 
 document.addEventListener('click', (event) => {
   if (!_isRecording || pickerMode) return;
+  // What the page's own scripts dispatch is not something the user did: a widget
+  // that clicks a hidden input on every real click played back as two clicks.
+  if (!event.isTrusted) return;
   // The extension's own overlays (a prompt, a countdown, a highlight note) are
   // not part of the page being tested.
   if (_extIsOurChrome(event.target)) return;
@@ -572,7 +575,7 @@ const _inputDebounceTimers = new WeakMap();
 const INPUT_DEBOUNCE_MS = 400;
 
 document.addEventListener('input', (event) => {
-  if (!_isRecording || pickerMode) return;
+  if (!_isRecording || pickerMode || !event.isTrusted) return;
   const el = event.target;
   // A file input's value cannot be typed back (setting it throws); choosing files
   // is the Upload File action's job. Text typed into an extension overlay (a
