@@ -29,7 +29,7 @@
    "runtime.onUpdateAvailable.addListener []",
    "storage.onChanged.addListener []",
    "storage.local.get [[\"lastUpdateAt\",\"updateAvailableSince\",\"updateStatus\"]]",
-   "storage.session.get [[\"rec_recording\",\"rec_scenarioId\",\"rec_actions\",\"rec_timestamp\"]]",
+   "storage.session.get [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\"]]",
    "storage.session.get [[\"csv_pending\"]]",
    "alarms.onAlarm.addListener []",
    "runtime.onMessage.addListener []",
