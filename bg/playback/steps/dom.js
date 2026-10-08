@@ -5,6 +5,7 @@
 import { tabMsg, getTabUrl, waitForTabLoad } from '../../tabs.js';
 import { pageReplyTimeout } from './page-reply.js';
 import { afterFailure } from './flow.js';
+import { strictFor } from './click-through.js';
 
 // A click or select that navigated: how long the new page gets to load.
 const NAV_LOAD_TIMEOUT_MS = 15_000;
@@ -14,7 +15,7 @@ export async function runOnPage(ctx, i, action) {
   const _isClickLike  = action.type === 'click' || action.type === 'select';
   const preActionUrl  = _isClickLike ? await getTabUrl(tabId).catch(() => null) : null;
 
-  const result = await tabMsg(tabId, { type: 'PLAY_ACTION', action }, pageReplyTimeout(action), action.frameId);
+  const result = await tabMsg(tabId, { type: 'PLAY_ACTION', action, ...strictFor(ctx, action) }, pageReplyTimeout(action), action.frameId);
 
   _stickFallbacks(result);
 

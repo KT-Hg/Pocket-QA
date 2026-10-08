@@ -10,6 +10,7 @@ import { tabMsg } from '../../tabs.js';
 import { afterFailure } from './flow.js';
 import { pageReplyTimeout } from './page-reply.js';
 import { markTarget, unmarkTarget } from './page-target.js';
+import { strictFor } from './click-through.js';
 
 export async function runDropdown(ctx, i, action) {
   const { tabId } = ctx;
@@ -20,7 +21,7 @@ export async function runDropdown(ctx, i, action) {
   // Like the CDP click, a trigger the page cannot find is not a failure here.
   if (cssSel) {
     await _open(tabId, action, cssSel,
-      () => tabMsg(tabId, { type: 'PLAY_ACTION', action }, pageReplyTimeout(action), action.frameId));
+      () => tabMsg(tabId, { type: 'PLAY_ACTION', action, ...strictFor(ctx, action) }, pageReplyTimeout(action), action.frameId));
   }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;
@@ -68,7 +69,8 @@ function _cdpCanOpen(action, cssSel) {
  */
 async function _pickItem(ctx, i, action, cssSel) {
   const { tabId, fail } = ctx;
-  const toPage = (pickStage) => tabMsg(tabId, { type: 'PLAY_ACTION', action, pickStage }, pageReplyTimeout(action), action.frameId);
+  const toPage = (pickStage) => tabMsg(tabId, { type: 'PLAY_ACTION', action, pickStage, ...strictFor(ctx, action) },
+    pageReplyTimeout(action), action.frameId);
 
   let result = await toPage('select');
   if (!result?.failed && result?.needsOpen) {

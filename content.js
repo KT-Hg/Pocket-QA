@@ -857,8 +857,8 @@ function _clickDropdownItem(el) {
   el.click();
 }
 
-/** Custom dropdown, already opened: wait for item `pick.index`, then click it. */
-async function pickDropdownItem(action) {
+/** Custom dropdown, already opened: wait for item `pick.index`, then click it. `strict`: see _blockedReason. */
+async function pickDropdownItem(action, strict = false) {
   const pick = action.pick || {};
   const parsed = parsePickIndex(pick.index);
   if (parsed.error) return { failed: true, error: `Dropdown: ${parsed.error}` };
@@ -889,8 +889,44 @@ async function pickDropdownItem(action) {
   const item = items[r.index];
   const text = item.textContent.trim().replace(/\s+/g, ' ').slice(0, 80);
   if (_itemDisabled(item)) return { failed: true, error: `Dropdown: item #${r.index + 1} ("${text}") is disabled` };
+  if (strict) {
+    item.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const why = _blockedReason(item);
+    if (why) return { failed: true, blocked: true, error: `Dropdown: item #${r.index + 1} ("${text}"): ${why}` };
+  }
   _clickDropdownItem(item);
   return { picked: { index: r.index + 1, text, count: items.length } };
+}
+
+/* ── "Click through" off ──────────────────────────────────────────────────────
+ * An action, or its scenario, can say it acts only on what a user could act on
+ * (bg/playback/steps/click-through.js); the worker then sends `strict`. Without
+ * it, playback acts on the element as it always has: events are dispatched to it
+ * whatever it looks like, and a disabled one just ignores them.
+ */
+
+/** "button#save.primary": enough of an element to find it in DevTools. */
+function _describeEl(el) {
+  const classes = typeof el.className === 'string' ? el.className.split(/\s+/).filter(Boolean).slice(0, 2) : [];
+  return el.tagName.toLowerCase() + (el.id ? `#${el.id}` : '') + classes.map((c) => `.${c}`).join('');
+}
+
+/**
+ * Why a user could not act on `el` as it is now, or null: it has no size, it is
+ * disabled (or read-only, for a text field), or something else is on top of its
+ * middle. A <label> of the element on top of it — a floating label — does not
+ * count, nor do the extension's own overlays.
+ */
+function _blockedReason(el) {
+  const r = el.getBoundingClientRect();
+  if (!r.width || !r.height) return 'Element is not visible';
+  if (el.matches(':disabled') || el.closest('[aria-disabled="true"]')) return 'Element is disabled';
+  if ((el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.readOnly) return 'Element is read-only';
+  const root = el.getRootNode();
+  const hit = (typeof root.elementFromPoint === 'function' ? root : document)
+    .elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  if (!hit || hit === el || el.contains(hit) || _extIsOurChrome(hit) || hit.closest('label')?.control === el) return null;
+  return `Element is covered by ${_describeEl(hit)}`;
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -907,7 +943,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     /* ── dropdown, opened by the worker: choose its item ── */
     if (action.type === 'dropdown' && msg.pickStage === 'items') {
-      const r = await pickDropdownItem(action);
+      const r = await pickDropdownItem(action, !!msg.strict);
       if (r.failed) sendResponse(r); else _ok(r);
       return;
     }
@@ -966,6 +1002,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
       } catch (_) { /* keep original target */ }
     }
+    if (msg.strict) {
+      const why = _blockedReason(target);
+      if (why) { sendResponse({ failed: true, blocked: true, error: why }); return; }
+    }
     target.focus();
 
     /* ── HOVER ── */
@@ -990,6 +1030,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         dropEl = await findElementWithFallback(ts, actionTimeout, action.targetSelectorType).catch(() => null);
       }
       if (!dropEl) { sendResponse({ failed: true }); return; }
+      if (msg.strict) {
+        const why = _blockedReason(dropEl);
+        if (why) { sendResponse({ failed: true, blocked: true, error: `Drop target: ${why}` }); return; }
+      }
       const srcRect = target.getBoundingClientRect();
       const dstRect = dropEl.getBoundingClientRect();
       const sx = srcRect.left + srcRect.width  / 2, sy = srcRect.top  + srcRect.height / 2;

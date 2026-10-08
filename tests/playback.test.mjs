@@ -712,6 +712,39 @@ await run('screenshot settings: a run with Save As', () => startPlayback('sShot'
 await run('screenshot settings: resumed after switching to auto save', () => startPlaybackFromCheckpoint('sShot', 0, 1), {
   setup: () => { fake.data.sync.screenshotSaveMode = 'auto'; },
 });
+// "Click through": the page is told `strict` for an action that may not act on
+// an element a user could not — its own flag off, or its scenario's. Only the
+// action types that act on an element; a scenario a Switch goes into has its own.
+await run('click through: scenario off', () => startPlayback('sCtOff'), {
+  setup: () => {
+    fake.data.local.scenarios.sCtOff = { name: 'Off', clickThrough: false, actions: [
+      { type: 'click', selector: '#a' }, { type: 'readdom', selector: '#r', varName: 'v' }, { type: 'hover', selector: '#h' },
+    ] };
+  },
+});
+await run('click through: one action off', () => startPlayback('sCtOne'), {
+  setup: () => {
+    fake.data.local.scenarios.sCtOne = { name: 'One', actions: [
+      { type: 'click', selector: '#a', clickThrough: false }, { type: 'click', selector: '#b' },
+    ] };
+  },
+});
+await run('click through: a Switch into a scenario that is off', () => startPlayback('sCtParent'), {
+  setup: () => {
+    fake.data.local.scenarios.sCtParent = { name: 'Parent', actions: [
+      { type: 'switch', switchVar: '', cases: [{ value: '__default__', scenarioId: 'sCtOff', scenarioName: 'Off' }] },
+      { type: 'click', selector: '#after' },
+    ] };
+  },
+});
+test('the page is told strict exactly when the action or its scenario turns Click through off', () => {
+  const strictOf = (step) => _callsOf(step).filter((c) => c.includes('"PLAY_ACTION"'))
+    .map((c) => `${/"selector":"([^"]+)"/.exec(c)?.[1]} ${c.includes('"strict":true') ? 'strict' : 'free'}`);
+  assert.deepEqual(strictOf('click through: scenario off'), ['#a strict', '#r free', '#h strict']);
+  assert.deepEqual(strictOf('click through: one action off'), ['#a strict', '#b free']);
+  assert.deepEqual(strictOf('click through: a Switch into a scenario that is off'), ['#a strict', '#r free', '#h strict', '#after free']);
+});
+
 test('a resumed run saves screenshots with the save mode set now', () => {
   const saveAs = (step) => _callsOf(step).filter((c) => c.startsWith('downloads.download')).map((c) => /"saveAs":(true|false)/.exec(c)?.[1]);
   assert.deepEqual(saveAs('screenshot settings: a run with Save As'), ['true']);

@@ -50,6 +50,10 @@
  *   cdp-targets   the steps that act through CDP use the element the page found:
  *                 Upload File by a typed XPath, a Dropdown opened by a typed Name,
  *                 an element screenshot of the chosen CSS, not of the Full XPath one
+ *   click-through  with Click through on (the default) a covered button is clicked as
+ *                 before; with it off for the scenario, or for the action, a disabled,
+ *                 covered, read-only or hidden element (or drop target) fails the
+ *                 action with the reason; a shadow-DOM button is not "covered" by its host
  *   typed-text    a Text selector typed in the form (no textTag) clicks the element
  *                 holding that text, surrounding spaces ignored
  *   select-missing  an Input of an option the <select> does not have brings up the
@@ -120,8 +124,12 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
   <tr><td id="johnCell">John</td><td><button id="edit2" class="edit special">Edit</button></td></tr>
 </tbody></table>
 <input name="nick">
+<button id="ctDisabled" disabled>ctDisabled</button>
+<span style="position:relative;display:inline-block"><button id="ctCovered">ctCovered</button><span id="ctCover" style="position:absolute;inset:0"></span></span>
+<input id="ctReadonly" readonly><button id="ctHidden" style="display:none">ctHidden</button>
 <script>
   window.__log = [];
+  document.getElementById('ctCovered').addEventListener('click', () => __log.push('ctCovered'));
   // background-tab: #bg1 adds #late a moment later; every click logs whether the tab was visible.
   const logClick = (el) => el.addEventListener('click', () => __log.push(el.id + ' ' + document.visibilityState));
   logClick(document.getElementById('bg1'));
@@ -736,6 +744,57 @@ async function checkCdpTargets(ctx) {
     'an element screenshot captures the element of the chosen selector type', { size, bg1, added, timedOut: shot.timedOut });
 }
 
+/** The scenario's own "Click through" flag, written straight into storage. */
+async function setScenarioClickThrough(ctx, id, allowed) {
+  await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('scenarios', ({ scenarios }) => {
+    if (${allowed}) delete scenarios[${JSON.stringify(id)}].clickThrough;
+    else scenarios[${JSON.stringify(id)}].clickThrough = false;
+    chrome.storage.local.set({ scenarios }, r);
+  }))`);
+}
+
+async function checkClickThrough(ctx) {
+  const click = (id, extra = {}) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` }, delay: 0, ...extra });
+  /** The failure prompt's text for a one-action run, '' when the action passes. */
+  const failureOf = async (name, action, { scenarioOff = false, shadow = false } = {}) => {
+    await ctx.web.goto(`${ctx.base}/page${shadow ? '?shadow' : ''}`);
+    await sleep(PAGE_SETTLE_MS);
+    const id = await makeScenario(ctx, name, [action]);
+    if (scenarioOff) await setScenarioClickThrough(ctx, id, false);
+    await ctx.web.bringToFront();
+    await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: id });
+    let text = '';
+    for (let waited = 0; !text && waited < 8_000; waited += POLL_MS) {
+      await sleep(POLL_MS);
+      text = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].map((e) => e.textContent).find((t) => /failed/i.test(t)) || ''`);
+      if (!text && waited > 2_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing) break;
+    }
+    await ctx.send({ type: 'STOP_PLAYBACK' });
+    await sleep(SETTLE_MS);
+    return text;
+  };
+
+  check(await failureOf('e2e ct default', click('ctCovered')) === '' && (await ctx.web.evaluate('__log')).includes('ctCovered'),
+    'Click through on (the default): a covered button is clicked as before');
+  const off = [
+    ['disabled', click('ctDisabled'), /Element is disabled/],
+    ['covered', click('ctCovered'), /covered by span#ctCover/],
+    ['read-only', { type: 'input', selector: '#ctReadonly', selectors: { css: '#ctReadonly' }, value: 'x', delay: 0 }, /read-only/],
+    ['hidden', { type: 'hover', selector: '#ctHidden', selectors: { css: '#ctHidden' }, delay: 0 }, /not visible/],
+    ['drop target', { type: 'dragdrop', selector: '#bg1', selectors: { css: '#bg1' }, targetSelector: '#ctCovered', targetSelectors: { css: '#ctCovered' }, delay: 0 }, /Drop target: Element is covered/],
+  ];
+  for (const [what, action, reason] of off) {
+    const text = await failureOf(`e2e ct ${what}`, action, { scenarioOff: true });
+    check(reason.test(text), `Click through off for the scenario: a ${what} element fails with the reason`, text.slice(0, 160));
+  }
+  const own = await failureOf('e2e ct action off', click('ctCovered', { clickThrough: false }));
+  check(/covered by span#ctCover/.test(own), 'Click through off for the action alone: the covered button fails too', own.slice(0, 160));
+  const shadow = await failureOf('e2e ct shadow', click('shadowBtn'), { scenarioOff: true, shadow: true });
+  check(shadow === '', 'a button in a shadow root is not "covered" by its own host', shadow.slice(0, 160));
+  await ctx.web.goto(`${ctx.base}/page`);
+  await sleep(PAGE_SETTLE_MS);
+}
+
 async function checkTypedText(ctx) {
   await reloadTestPage(ctx);
   // As the form saves a Text selector typed by hand: no textTag beside it.
@@ -883,6 +942,7 @@ const CHECKS = [
   ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
   ['condition-choice', 'Condition and element screenshot use the chosen selector type', checkConditionChoice],
   ['cdp-targets', 'Upload, Dropdown and element screenshot act on the element the page found', checkCdpTargets],
+  ['click-through', 'Click through: off for the scenario or the action', checkClickThrough],
   ['typed-text', 'A Text selector typed in the form', checkTypedText],
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],

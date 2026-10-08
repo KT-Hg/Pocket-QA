@@ -123,10 +123,12 @@ function _saveCheckpoint(frames, tabId) {
  * Play `actions` from `startFromIndex`. `endAtIndex` (0-based, inclusive) stops
  * the run early — a Switch block case plays only its own range this way, then
  * the caller moves on to the block's continueAt (see shared/switch-blocks.js).
+ * `strict`: "Click through" is off for the scenario the actions belong to
+ * (scenario.clickThrough === false) — see steps/click-through.js.
  */
 export async function playActionsOnTab(tabId, actions, {
   vars = null, screenshotsResult = null, forceAutoSave = false, skipDownload = false,
-  startFromIndex = 0, failedActions = null, depth = 0, endAtIndex = null, frames = null,
+  startFromIndex = 0, failedActions = null, depth = 0, endAtIndex = null, frames = null, strict = false,
 } = {}) {
   if (depth > 10) {
     console.error('[PLAYBACK] Max switch/nested-scenario depth (10) exceeded — aborting branch');
@@ -146,7 +148,7 @@ export async function playActionsOnTab(tabId, actions, {
   // (Switch → "this scenario" hops taken in this run) change as it goes.
   const ctx = {
     tabId, actions, resolvedVars, screenshotsResult, forceAutoSave, skipDownload,
-    tabClosed: false, selfJumps: 0,
+    tabClosed: false, selfJumps: 0, strict,
   };
   const _onTabRemoved = (removedTabId) => {
     if (removedTabId === tabId) { ctx.tabClosed = true; state.playback.active = false; }
@@ -181,11 +183,12 @@ export async function playActionsOnTab(tabId, actions, {
     layout: _layout, fail, stickFallbacks: _stickFallbacks, getSsSettings: _getSsSettings,
     // A Switch case played as a run of its own, one level deeper. It shares this
     // run's screenshots, save options and failure list; its variables are a copy.
-    // `scenarioId`: the case plays another scenario (a new checkpoint frame).
-    playNested: (acts, nestedVars, start, end, scenarioId = null) => playActionsOnTab(tabId, acts, {
+    // `other`: the case plays another scenario — { scenarioId } for a new
+    // checkpoint frame, and its own "Click through" (`strict`), which then applies.
+    playNested: (acts, nestedVars, start, end, other = null) => playActionsOnTab(tabId, acts, {
       vars: nestedVars, screenshotsResult, forceAutoSave, skipDownload, startFromIndex: start,
-      failedActions, depth: depth + 1, endAtIndex: end,
-      frames: scenarioId ? [..._frames, { scenarioId, actionIndex: start, endAtIndex: end }] : _frames,
+      failedActions, depth: depth + 1, endAtIndex: end, strict: other ? other.strict : strict,
+      frames: other ? [..._frames, { scenarioId: other.scenarioId, actionIndex: start, endAtIndex: end }] : _frames,
     }),
   });
 
@@ -275,6 +278,7 @@ async function _resumeNested(tabId, scenarios, rootSwitchIdx, nested, failedActi
         vars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
         startFromIndex: seg.start, failedActions, depth: k + 1, endAtIndex: end,
         frames: [...outer, { scenarioId, actionIndex: seg.start, endAtIndex }],
+        strict: scenarios[scenarioId].clickThrough === false,
       });
     }
   }
@@ -316,6 +320,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
       vars = await playActionsOnTab(tabId, actions, {
         vars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
         startFromIndex: seg.start, failedActions, depth: 0, endAtIndex: seg.end,
+        strict: scenario.clickThrough === false,
       });
     }
   } finally {
@@ -380,7 +385,7 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
       updateBadge();
       loopVars = await playActionsOnTab(tabId, actions, {
         vars: loopVars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
-        startFromIndex: 0, failedActions,
+        startFromIndex: 0, failedActions, strict: scenario.clickThrough === false,
       });
       if (loop < loops - 1 && loopDelay > 0) await new Promise(r => setTimeout(r, loopDelay));
     }
@@ -460,7 +465,7 @@ async function _playSequence(runList) {
       const _seqItemFailed = [];
       await playActionsOnTab(tabId, actions, {
         vars: null, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
-        startFromIndex: 0, failedActions: _seqItemFailed,
+        startFromIndex: 0, failedActions: _seqItemFailed, strict: scenario.clickThrough === false,
       });
       state.playback.active = false;
       _seqCompleted++;
@@ -662,7 +667,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
       const finalVars = await playActionsOnTab(
         tabId, actions, {
           vars: rowVars, screenshotsResult, forceAutoSave: true, skipDownload, startFromIndex: 0,
-          failedActions,
+          failedActions, strict: scenario.clickThrough === false,
         },
       );
       state.playback.active = false;
