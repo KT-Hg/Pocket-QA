@@ -243,7 +243,7 @@ export async function launchWithExtension(extDir, { headed = false } = {}) {
     try { rmSync(profile.dir, { recursive: true, force: true }); } catch { /* the browser may still hold a file; it is a temp folder */ }
   }
 
-  return { browserPath: exe, send: conn.send, openPage, serviceWorker, downloads, close };
+  return { browserPath: exe, send: conn.send, openPage, serviceWorker, downloads, downloadDir: profile.downloads, close };
 }
 
 /**

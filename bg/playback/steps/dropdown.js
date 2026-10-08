@@ -9,6 +9,7 @@ import { openDropdownViaCdp } from '../../cdp/dropdown.js';
 import { tabMsg } from '../../tabs.js';
 import { afterFailure } from './flow.js';
 import { pageReplyTimeout } from './page-reply.js';
+import { markTarget, unmarkTarget } from './page-target.js';
 
 export async function runDropdown(ctx, i, action) {
   const { tabId } = ctx;
@@ -16,11 +17,39 @@ export async function runDropdown(ctx, i, action) {
     || (action.selectors?.id ? `#${cssEscape(action.selectors.id)}` : null)
     || action.selector || '';
   if (action.pick) return _pickItem(ctx, i, action, cssSel);
-  if (_cdpCanOpen(action, cssSel)) await openDropdownViaCdp(tabId, cssSel);
   // Like the CDP click, a trigger the page cannot find is not a failure here.
-  else if (cssSel) await tabMsg(tabId, { type: 'PLAY_ACTION', action }, pageReplyTimeout(action), action.frameId);
+  if (cssSel) {
+    await _open(tabId, action, cssSel,
+      () => tabMsg(tabId, { type: 'PLAY_ACTION', action }, pageReplyTimeout(action), action.frameId));
+  }
   if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;
+}
+
+const _inFrame = (action) => action.frameId != null && action.frameId !== 0;
+
+/**
+ * Open the dropdown with a trusted CDP click on the trigger the page found
+ * (page-target.js). In a frame, or with no page to ask, as before: CDP on the
+ * action's own CSS selector, or `pageClick`, the page's own click, where CDP
+ * cannot use that selector. A trigger the page looked for and did not find is
+ * left alone.
+ */
+async function _open(tabId, action, cssSel, pageClick) {
+  if (!_inFrame(action)) {
+    const target = await markTarget(tabId, action);
+    if (target.css) {
+      try {
+        await openDropdownViaCdp(tabId, target.css);
+      } finally {
+        await unmarkTarget(tabId);
+      }
+      return;
+    }
+    if (target.error) return;
+  }
+  if (_cdpCanOpen(action, cssSel)) await openDropdownViaCdp(tabId, cssSel);
+  else await pageClick();
 }
 
 /**
@@ -28,9 +57,8 @@ export async function runDropdown(ctx, i, action) {
  * frame, or known only by XPath, is clicked by the page instead.
  */
 function _cdpCanOpen(action, cssSel) {
-  const inFrame = action.frameId != null && action.frameId !== 0;
   const isXPath = /^[/(]/.test(cssSel);
-  return !!cssSel && !isXPath && !inFrame;
+  return !!cssSel && !isXPath && !_inFrame(action);
 }
 
 /**
@@ -44,8 +72,7 @@ async function _pickItem(ctx, i, action, cssSel) {
 
   let result = await toPage('select');
   if (!result?.failed && result?.needsOpen) {
-    if (_cdpCanOpen(action, cssSel)) await openDropdownViaCdp(tabId, cssSel);
-    else await toPage(undefined);
+    await _open(tabId, action, cssSel, () => toPage(undefined));
     result = await toPage('items');
   }
   // A page whose content script predates this action answers without choosing.

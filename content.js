@@ -22,7 +22,8 @@
  *                                  tests/dropdown-pick.test.mjs)
  *   SHARED IN-PAGE OVERLAY CHROME  _extOverlay(): the template every overlay below uses
  *   ELEMENT PICKER                 START_PICK_MODE / STOP_PICK_MODE → ELEMENT_PICKED
- *   FULL PAGE SCREENSHOT HELPER    GET_PAGE_DIMENSIONS, GET_ELEMENT_RECT, CHECK_CONDITION
+ *   FULL PAGE SCREENSHOT HELPER    GET_PAGE_DIMENSIONS, GET_ELEMENT_RECT, CHECK_CONDITION;
+ *                                  MARK_ELEMENT / UNMARK_ELEMENT for the CDP steps
  *   HOTKEYS                        the shortcut settings
  *   VISIBLE SCREENSHOT COUNTDOWN   the countdown pill, FULL_CAPTURE_STATE (ESC cancels a
  *                                  capture), and the keydown handler that fires the hotkeys
@@ -352,8 +353,13 @@ function _firstLocated(strategies) {
  * `selectors` has no css of its own.
  */
 function locateNow(selectors, selector, prefer = null) {
+  return _firstLocated(_locators(_withPlain(selectors, selector), prefer));
+}
+
+/** `selectors`, with the action's plain `selector` as its CSS when it has none of its own. */
+function _withPlain(selectors, selector) {
   const plain = typeof selector === 'string' && selector ? { css: selector } : {};
-  return _firstLocated(_locators({ ...plain, ...(selectors && typeof selectors === 'object' ? selectors : {}) }, prefer));
+  return { ...plain, ...(selectors && typeof selectors === 'object' ? selectors : {}) };
 }
 
 /** `prefer`: the selector type the user chose in the form (action.selectorType) — see _locators. */
@@ -1574,7 +1580,46 @@ function clearPickerUI() {
    FULL PAGE SCREENSHOT HELPER
 ───────────────────────────────────────────────────────────────────────────── */
 
+// The CDP steps — Upload File, opening a Dropdown, the element screenshot's
+// second measurement — run in the page's own world, where this script's finder
+// cannot be called. They used to guess one CSS selector themselves, and an XPath
+// or a Name typed in the form found nothing there, or another element. The
+// element is found here instead, the way an action finds it, and given a
+// one-off attribute they select it by (MARK_ELEMENT, GET_ELEMENT_RECT);
+// UNMARK_ELEMENT takes it off again.
+const _TARGET_ATTR = 'data-pqa-target';
+let _markedTarget = null;
+
+function _unmarkTarget() {
+  _markedTarget?.removeAttribute(_TARGET_ATTR);
+  _markedTarget = null;
+}
+
+/** Tag `el` for CDP: the CSS selector that finds it. */
+function _markTarget(el) {
+  _unmarkTarget();
+  const token = Math.random().toString(36).slice(2, 10);
+  el.setAttribute(_TARGET_ATTR, token);
+  _markedTarget = el;
+  return `[${_TARGET_ATTR}="${token}"]`;
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'MARK_ELEMENT') {
+    const timeout = msg.timeout > 0 ? msg.timeout : 5000;
+    findElementWithFallback(_withPlain(msg.selectors, msg.selector), timeout, msg.selectorType).then(
+      (el) => sendResponse({ css: _markTarget(el) }),
+      (e) => sendResponse({ error: e?.message || 'Element not found' }),
+    );
+    return true;
+  }
+
+  if (msg.type === 'UNMARK_ELEMENT') {
+    _unmarkTarget();
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (msg.type === 'GET_PAGE_DIMENSIONS') {
     const body = document.body;
     const html = document.documentElement;
@@ -1603,6 +1648,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         width:  rect.width,
         height: rect.height,
         devicePixelRatio: window.devicePixelRatio || 1,
+        // For the measurement after the scroll, through CDP (bg/screenshot/element.js).
+        css: _markTarget(el),
       });
     } catch (e) {
       sendResponse({ error: e.message });

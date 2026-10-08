@@ -6,6 +6,7 @@
 import { cssEscape } from '../../../shared/css-escape.js';
 import { setFileInputViaCdp, setFileDropZoneViaCdp } from '../../cdp/upload.js';
 import { afterFailure } from './flow.js';
+import { markTarget, unmarkTarget } from './page-target.js';
 
 export async function runUploadFile(ctx, i, action) {
   const { tabId, fail } = ctx;
@@ -25,14 +26,26 @@ export async function runUploadFile(ctx, i, action) {
   } else {
     const sep       = folder.includes('\\') ? '\\' : '/';
     const filePaths = rawNames.map(n => `${folder}${sep}${n}`);
-    try {
-      if (action.uploadMode === 'dropzone') {
-        await setFileDropZoneViaCdp(tabId, cssSel, filePaths);
-      } else {
-        await setFileInputViaCdp(tabId, cssSel, filePaths);
+    // The element the page found (page-target.js); in a frame, or with no page
+    // to ask, the action's own selector as before.
+    const inFrame = action.frameId != null && action.frameId !== 0;
+    const target  = inFrame ? { noPage: true } : await markTarget(tabId, action);
+    let error = target.error || null;
+    if (!error) {
+      try {
+        if (action.uploadMode === 'dropzone') {
+          await setFileDropZoneViaCdp(tabId, target.css || cssSel, filePaths);
+        } else {
+          await setFileInputViaCdp(tabId, target.css || cssSel, filePaths);
+        }
+      } catch (e) {
+        error = e.message;
+      } finally {
+        if (target.css) await unmarkTarget(tabId);
       }
-    } catch (e) {
-      const back = afterFailure(await fail(i, action, e.message), i);
+    }
+    if (error) {
+      const back = afterFailure(await fail(i, action, error), i);
       if (back !== null) return back;
     }
   }

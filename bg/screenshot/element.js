@@ -21,6 +21,8 @@ import { applyWatermark } from './watermark.js';
 const ZOOM_SETTLE_MS = 300;
 // After each scroll that the measurement depends on.
 const SCROLL_SETTLE_MS = 150;
+// Taking the element's tag off again: a short answer, not worth waiting long for.
+const UNMARK_TIMEOUT_MS = 2_000;
 
 /* ── Element Screenshot ─────────────────────────────────────────────────────── */
 
@@ -44,13 +46,22 @@ const SCROLL_SETTLE_MS = 150;
  * @returns {Promise<{success?: boolean, filename?: string, base64?: string, error?: string}>}
  */
 export function takeElementScreenshot(tabId, options = {}) {
-  return queueScreenshot(tabId, () => _takeElementScreenshot(tabId, options));
+  return queueScreenshot(tabId, async () => {
+    // GET_ELEMENT_RECT tags the element it found, for the measurement through
+    // CDP; the tag comes off however the capture ends.
+    const marked = { css: null };
+    try {
+      return await _takeElementScreenshot(tabId, options, marked);
+    } finally {
+      if (marked.css) await tabMsg(tabId, { type: 'UNMARK_ELEMENT' }, UNMARK_TIMEOUT_MS);
+    }
+  });
 }
 
 async function _takeElementScreenshot(tabId, {
   selector, saveMode, prefix, crop = false, returnBase64 = false, skipDownload = false, selectors = null,
   selectorType = null, requestedFilename = null,
-}) {
+}, marked) {
   const tag = !requestedFilename && (await typeTagEnabled()) ? '_elem' : '';
   const filename = buildScreenshotFilename(prefix, requestedFilename, tag);
 
@@ -58,6 +69,7 @@ async function _takeElementScreenshot(tabId, {
     type: 'GET_ELEMENT_RECT', selector, selectors, ...(selectorType ? { selectorType } : {}),
   });
   if (!rect0 || rect0.error) return { error: rect0?.error || 'Could not get element rect' };
+  marked.css = rect0.css || null;
 
   const dims = await tabMsg(tabId, { type: 'GET_PAGE_DIMENSIONS' });
   if (!dims || dims.failed) return { error: 'Could not get page dimensions' };
@@ -144,12 +156,18 @@ async function _takeElementScreenshot(tabId, {
   }
 }
 
-/** The element's rect in page coordinates (plus dpr and viewport), measured in the page, or null. */
-function cdpGetRect(tabId, sel, sels) {
+/**
+ * The element's rect in page coordinates (plus dpr and viewport), measured in the
+ * page, or null. `markedCss` selects the element content.js found and tagged
+ * (GET_ELEMENT_RECT), the way an action finds it; the action's own locators are
+ * the fallback, for a tag the page has since dropped.
+ */
+function cdpGetRect(tabId, sel, sels, markedCss) {
   return new Promise((resolve) => {
     const expr = `(function(){
       let el = null;
-      ${sels?.fullXpath ? `try{ el = document.evaluate(${JSON.stringify(sels.fullXpath)}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; }catch(e){}` : ''}
+      ${markedCss ? `el = document.querySelector(${JSON.stringify(markedCss)});` : ''}
+      ${sels?.fullXpath ? `if(!el) try{ el = document.evaluate(${JSON.stringify(sels.fullXpath)}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; }catch(e){}` : ''}
       ${sels?.xpath    ? `if(!el) try{ el = document.evaluate(${JSON.stringify(sels.xpath)},     document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; }catch(e){}` : ''}
       ${sels?.id       ? `if(!el) el = document.getElementById(${JSON.stringify(sels.id)});` : ''}
       if(!el) el = document.querySelector(${JSON.stringify(sel || '')});
@@ -172,7 +190,7 @@ function cdpGetRect(tabId, sel, sels) {
  * once, park, measure again. Falls back to the previous measurement at each step.
  */
 async function locateElement(tabId, selector, selectors, rect0, viewportHeight) {
-  const probe = await cdpGetRect(tabId, selector, selectors) || rect0;
+  const probe = await cdpGetRect(tabId, selector, selectors, rect0.css) || rect0;
 
   // Scroll the element into view once before capturing. The tiling below never
   // scrolls, so without this pass an element sitting below the fold would be captured
@@ -193,7 +211,7 @@ async function locateElement(tabId, selector, selectors, rect0, viewportHeight) 
   await cdpRaf(tabId);
   await new Promise(r => setTimeout(r, SCROLL_SETTLE_MS));
 
-  return await cdpGetRect(tabId, selector, selectors) || probe;
+  return await cdpGetRect(tabId, selector, selectors, rect0.css) || probe;
 }
 
 /**

@@ -47,6 +47,9 @@
  *   condition-choice  a Condition checks the element of the selector type chosen in the
  *                 form, not the Full XPath one; a Condition and an element screenshot
  *                 find an element by a Name typed in the form
+ *   cdp-targets   the steps that act through CDP use the element the page found:
+ *                 Upload File by a typed XPath, a Dropdown opened by a typed Name,
+ *                 an element screenshot of the chosen CSS, not of the Full XPath one
  *   typed-text    a Text selector typed in the form (no textTag) clicks the element
  *                 holding that text, surrounding spaces ignored
  *   select-missing  an Input of an option the <select> does not have brings up the
@@ -69,10 +72,10 @@
  * Exit:  0 OK, 1 a check failed, 2 no browser found.
  */
 
-import { rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { asActiveTab, launchWithExtension, sleep } from './lib/cdp-browser.mjs';
 
@@ -100,7 +103,7 @@ const check = (cond, msg, detail) => (cond ? ok(msg) : fail(`${msg} — ${JSON.s
 const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</title>
 <style>.menu { display: none } .menu.open { display: block } li, [id], .xp { padding: 4px }</style></head>
 <body>
-<div id="dd">Choose…</div>
+<div id="dd" name="ddtrigger">Choose…</div>
 <ul id="menu" class="menu"><li>One</li><li>Two</li><li>Three</li></ul>
 <select id="sel"><option>a</option><option>b</option><option>c</option></select>
 <div id="2nd:dd">id that needs escaping</div>
@@ -700,6 +703,39 @@ async function checkConditionChoice(ctx) {
     { timedOut: r.timedOut, saved: ctx.browser.downloads().length - shots });
 }
 
+/** Width and height of a PNG file, from its IHDR chunk. */
+function pngSize(file) {
+  const b = readFileSync(file);
+  return { width: b.readUInt32BE(16), height: b.readUInt32BE(20) };
+}
+
+async function checkCdpTargets(ctx) {
+  const marks = () => ctx.web.evaluate(`document.querySelectorAll('[data-pqa-target]').length`);
+  // Each its own run: one that fails stops on the prompt, and must not hide the others.
+  const playOne = async (name, action) => { await reloadTestPage(ctx); return play(ctx, await makeScenario(ctx, name, [action])); };
+
+  const here = fileURLToPath(import.meta.url);
+  // Known only by an XPath typed in the form: CDP was handed it as CSS.
+  const up = await playOne('e2e cdp upload', { type: 'uploadFile', selector: '//input[@id="upload"]',
+    selectors: { xpath: '//input[@id="upload"]' }, selectorType: 'xpath', folderPath: dirname(here), fileNames: [basename(here)], delay: 0 });
+  const files = await ctx.web.evaluate(`document.getElementById('upload').files.length`);
+  check(files === 1 && !up.timedOut && await marks() === 0, 'Upload File finds its input by an XPath typed in the form', { files, timedOut: up.timedOut });
+
+  // A Name typed in the form: CDP looked for a <ddtrigger> tag.
+  const dd = await playOne('e2e cdp dropdown', { type: 'dropdown', selector: 'ddtrigger', selectors: { name: 'ddtrigger' }, selectorType: 'name', delay: 300 });
+  check(dd.log.includes('dd open') && await marks() === 0, 'a Dropdown opens by a Name typed in the form', dd.log);
+
+  // Full XPath on the whole table, CSS on one button; CSS was chosen.
+  const shots = ctx.browser.downloads();
+  const shot = await playOne('e2e cdp element shot', { type: 'screenshot_element', selector: '#bg1',
+    selectors: { fullXpath: '//*[@id="people"]', css: '#bg1' }, selectorType: 'css', delay: 0 });
+  const bg1 = await ctx.web.evaluate(`(({ width, height }) => ({ width, height }))(document.getElementById('bg1').getBoundingClientRect())`);
+  const added = ctx.browser.downloads().filter((f) => !shots.includes(f));
+  const size = added.length === 1 ? pngSize(join(ctx.browser.downloadDir, added[0])) : null;
+  check(!!size && Math.abs(size.width - bg1.width) <= 2 && Math.abs(size.height - bg1.height) <= 2 && await marks() === 0,
+    'an element screenshot captures the element of the chosen selector type', { size, bg1, added, timedOut: shot.timedOut });
+}
+
 async function checkTypedText(ctx) {
   await reloadTestPage(ctx);
   // As the form saves a Text selector typed by hand: no textTag beside it.
@@ -846,6 +882,7 @@ const CHECKS = [
   ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
   ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
   ['condition-choice', 'Condition and element screenshot use the chosen selector type', checkConditionChoice],
+  ['cdp-targets', 'Upload, Dropdown and element screenshot act on the element the page found', checkCdpTargets],
   ['typed-text', 'A Text selector typed in the form', checkTypedText],
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],

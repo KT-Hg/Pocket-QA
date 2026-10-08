@@ -64,7 +64,13 @@ installTabMessages(fake, {
     return c ? { choice: c } : {};
   },
   GET_PAGE_DIMENSIONS: { viewportWidth: 800, viewportHeight: 600, fullWidth: 800, fullHeight: 1500, scrollX: 0, scrollY: 0, devicePixelRatio: 1 },
-  GET_ELEMENT_RECT: (msg) => (msg.selector === '#missing' ? { error: 'Element not found' } : { x: 10, y: 20, width: 300, height: 200 }),
+  GET_ELEMENT_RECT: (msg) => (msg.selector === '#missing' ? { error: 'Element not found' }
+    : { x: 10, y: 20, width: 300, height: 200, css: `[data-pqa-target="${msg.selector}"]` }),
+  // The element a CDP step acts on, found and tagged by the page (#missing: not found).
+  MARK_ELEMENT: (msg) => (msg.selector === '#missing'
+    ? { error: 'Timeout: Element not found with any selector strategy' }
+    : { css: `[data-pqa-target="${msg.selector}"]` }),
+  UNMARK_ELEMENT: { ok: true },
 });
 installDebugger(fake, {
   command(method, params, tabId, n) {
