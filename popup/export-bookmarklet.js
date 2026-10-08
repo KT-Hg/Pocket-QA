@@ -726,7 +726,7 @@ export function initExportBookmarklet() {
       ? [`${stats.skipped} action(s) skipped (screenshot/switch — requires Extension API)`]
       : []),
     isSkipped: (a) => SKIPPED_TYPES.has(a.type),
-    copyText: _toBookmarkletUrl,
+    copyText: toBookmarkletUrl,
     // .js file: pretty-printed, without javascript: prefix
     file: (code) => ({ text: _toJsFile(code), type: 'application/javascript' }),
   });
@@ -734,7 +734,7 @@ export function initExportBookmarklet() {
 
 // Produce a single-line bookmark URL: drop // comment lines, collapse whitespace.
 // Keeps the javascript: prefix so it's ready to paste into a bookmark URL field.
-function _toBookmarkletUrl(code) {
+export function toBookmarkletUrl(code) {
   return code
     .split('\n')
     .map(line => {
