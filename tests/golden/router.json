@@ -4370,5 +4370,22 @@
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
    "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1}
   }
+ },
+ {
+  "step": "highlight engine: HL_LOAD from a document",
+  "type": "HL_LOAD",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›"
+  ],
+  "responses": [],
+  "calls": [
+   "scripting.executeScript [{\"target\":{\"tabId\":1,\"documentIds\":[\"doc-4\"]},\"files\":[\"content-highlight.js\"]}]"
+  ],
+  "console": []
  }
 ]
