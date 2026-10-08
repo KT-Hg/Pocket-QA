@@ -22,11 +22,19 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   xuống module lá. Phần còn lại là các phần UI thật sự gọi lẫn nhau (lưu form → vẽ lại preview → cập nhật danh sách
   scenario). Phá tiếp phải đảo thành callback, chỉ chuyển độ phức tạp sang chỗ khác. Các nhóm vòng ở `dbtools/`,
   `sqlcases/ui/` và `run/schedule` ↔ `run/time-picker` có từ trước và nằm ngoài đợt này.
-- **`content.js` còn 2.105 dòng** (từ 3.343) sau khi tách Highlight engine; mục tiêu dưới 2.000 dòng dựa trên ước
-  lượng cỡ của engine.
+- **`content.js` có 2.270 dòng** (`wc -l`; từ 3.343, còn 2.123 sau khi tách Highlight engine); mục tiêu dưới 2.000
+  dòng dựa trên ước lượng cỡ của engine. Đợt sửa review thứ hai thêm khoảng 150 dòng: `MARK_ELEMENT` cho các bước CDP,
+  phần kiểm "Click through" (`_blockedReason`), thứ tự input / click của recorder và các thông báo lỗi rõ hơn.
+- **DB guard không bọc run resume.** `startPlayback`, `startSequence` và `startCsvPlayback` mở session DB trước
+  run; `_resumeScenario` (Resume từ checkpoint) thì không. Chưa có tác động vì guard tắt khi `TABLE_COPIES = false`
+  (`dbtools/features.js`); phải sửa trước khi bật lại.
 
 ## Giới hạn của tính năng
 
+- **Recorder chỉ ghi tab bắt đầu ghi.** Link mở sang tab mới thì thao tác ở tab đó không được ghi. Trước đây ghi được
+  nhưng phát lại chạy trên tab ban đầu, tức là sai tab.
+- **Các bước đi qua CDP chỉ thấy frame trên cùng:** Upload File, mở Dropdown và đo phần tử khi chụp ảnh phần tử. Phần
+  tử nằm trong iframe thì các bước này báo không tìm thấy.
 - **Dropdown "Choose item #" với danh sách ảo hoá** (chỉ render các item đang thấy): item chưa được render thì không
   chọn được; action báo lỗi kèm số item đã thấy.
 - **Switch Always chỉ nhắm tới scenario khác.** "Nhảy tới action #N trong scenario này" vẫn làm bằng case default ở

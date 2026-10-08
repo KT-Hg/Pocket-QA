@@ -57,7 +57,9 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 
 ### Record & Play
 - Start/stop recording; undo/redo on the action list (up to 50 steps, cleared by **New** or loading another scenario)
+  - Only the tab the recording started on is recorded; clicks and input events the page's own scripts dispatch are left out, and text typed just before a click is recorded before it
 - Add manual actions (all 16 types)
+- **Click through** on each action (checkbox under Label) and on each scenario (⊘ on its toolbar) — see [Click through](#click-through)
 - Save and manage scenarios (rename, duplicate, move to folder, delete)
 - Playback controls: loop count, loop delay
 - Sequence playback (run multiple scenarios in order, each with its own delay)
@@ -92,7 +94,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - Watermark (format, font size)
 - Segment scroll speed (V/H)
 - Notifications on playback complete
-- Import/Export scenarios and folders
+- Import/Export scenarios and folders — an import holding Run JS or Upload File actions warns, naming the folders the uploads read
 - Backup/Restore all data
 
 ---
@@ -108,7 +110,21 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 | `dropdown` | Trusted click via CDP — for native dropdowns that ignore a synthetic JS click. With **Choose item #** (`pick: { by: "index", index, itemSelector? }`) it also chooses item *i*: counted from 1 as the list shows it (a placeholder line included), `-1` = last, `random` = any enabled item, `${var}` allowed. A `<select>` gets its option set by the page; any other dropdown is opened, then the item is clicked once the list shows it — found through `aria-controls` / `role="option"`, or by the **Items** CSS selector. |
 | `dragdrop` | HTML5 drag from source selector to target selector |
 
-`click`, `input`, `hover` support **Child Condition**: the selector targets a parent container, and a matching child is found by value, text, id, class, or input type.
+`click`, `input`, `hover` (and `readdom`) support **Child Condition**: the selector targets a parent container, and a matching child is found by value, text, id, class, or input type.
+
+#### Click through
+
+Playback dispatches its events straight to the element, so by default an action acts on it whatever it looks
+like — a disabled button just ignores the click. **Click through** can be turned off for one action (checkbox in
+the Add / Edit form) or for a whole scenario (⊘ on the scenario toolbar; a line above the action list says so).
+With it off, `click`, `hover`, `input`, `dropdown`, `dragdrop` and `uploadFile` fail — with the usual
+retry / skip / stop prompt — when their element has no size, is disabled (or read-only, for a text field), or
+something else covers its middle (a floating `<label>` of it, the extension's own overlays and its own shadow
+tree excepted). A Drag & drop checks its drop target too, "Choose item #" the item, and Upload File only whether
+a file input is disabled, since pages hide it on purpose. An action may click through only when both it and its
+scenario allow it: turning the scenario off checks every action of it, and turning it back on leaves each action
+with its own setting. A Switch into another scenario takes that scenario's setting. Stored as
+`clickThrough: false` (absent = allowed) on the action or the scenario.
 
 ### Navigation & Control *(executed by background service worker)*
 | Type | Description |
@@ -187,7 +203,8 @@ From the **Data** tab → **Export Code** card, select any saved scenario and ge
 - Read DOM uses a `_readVal()` helper that mirrors the extension's reader for each "Read from" choice
 - Not supported: `uploadFile` (no way to reach the local filesystem from a bookmarklet) — emitted as a skipped step
 - Selectors: a `_qsel()` helper injected into the generated script dispatches by shape — selectors starting with `/` or `(` go through `document.evaluate` (XPath), everything else through `document.querySelector`
-- Copy as a single-line bookmark URL or download as a `.js` file
+- Copy as a single-line bookmark URL — the code as written, with `%`, tabs and line breaks percent-encoded, so a script without semicolons or with `//` comments still runs — or download as a `.js` file
+- The selector type chosen in the form is used first, as playback does; names, labels and types only ever reach comments on one line
 
 **Output example:**
 ```js
@@ -212,6 +229,8 @@ javascript:(async () => {
 
 - Generates a ready-to-run `.py` script using `selenium` 4.x
 - Supported actions: every type except `switch` and `uploadFile` — including **screenshot**, which the bookmarklet cannot do
+- The selector type chosen in the form is used first, as playback does; the scenario name and every label stay inside a string or a one-line comment, and a Condition type it does not know exports as `if True:` with a warning
+- The file is named after the scenario, letters of any language kept (`đăng_nhập_selenium.py`)
 - `input` actions auto-detect `<select>` elements at runtime — uses `Select.select_by_value()` with fallback to `select_by_visible_text()`
 - `condition` actions use `find_elements()` (returns list, never raises)
 - `switch` is skipped (extension-specific scenario routing) — a Switch with a block together with its block — and `uploadFile` is emitted as an unsupported step — both are commented into the generated script rather than silently dropped
@@ -673,8 +692,9 @@ script in a web page) and `bg/cdp/` (debugger sessions; dropdown, script and upl
 
 `shared/*.js` holds the pure modules (no `chrome.*`) that both sides use and the Node tests import directly:
 variable names (`var-name`), variable ordering (`var-order`), Read DOM patterns (`text-pattern`), Switch block
-and Condition range math (`switch-blocks`), the update-lock deadline (`update-lock`), and `CSS.escape` for the
-service worker, which has no `CSS` global (`css-escape`).
+and Condition range math (`switch-blocks`), the update-lock deadline (`update-lock`), the action types Click
+through covers (`click-through`), and `CSS.escape` for the service worker, which has no `CSS` global
+(`css-escape`).
 
 `sqlcases.html` + `sqlcases/*.js` sit outside that pipeline: the SQL Test Case Designer is a self-contained
 page that never messages the service worker or touches a tab. It is opened from the Data tab and uses
@@ -710,7 +730,7 @@ The service worker enforces mutual exclusion — only one primary state at a tim
 
 Orthogonal states (can overlay IDLE): **PICK_MODE**, **SEGMENT_CAPTURING**
 
-> **Important:** The service worker resets all in-memory state on idle (~30 s). An in-progress recording interrupted by SW restart loses the `currentActions` buffer. `chrome.storage` is never affected.
+> **Important:** The service worker resets all in-memory state on idle (~30 s). A recording survives it: its state (`rec_*`, the recording tab included) is in session storage from Start, and the message that wakes the worker — a click, the popup's Stop — waits until it is read back. `chrome.storage` is never affected.
 
 ---
 
@@ -735,7 +755,7 @@ chrome.storage.sync (100 KB — synced across devices)
 
 chrome.storage.session (1 MB — survives SW restart, lost on browser close)
   undoStacks — max 50 snapshots per stack, LRU-capped at 20 scenarios
-  Recording buffer (rec_*) and CSV checkpoint (csv_pending, 30 min TTL)
+  Recording buffer and state (rec_*, the recording tab in rec_tabId) and CSV checkpoint (csv_pending, 30 min TTL)
 
 IndexedDB — FastRecorder_CsvScreenshots (disk, no hard quota)
   CSV screenshot results: key = "rowIndex:varName", value = base64 PNG
@@ -751,7 +771,7 @@ IndexedDB — FastRecorder_DbtoolsSnapshots (disk, no hard quota)
 
 | Key | Type | Description |
 |---|---|---|
-| `scenarios` | `Record<id, Scenario>` | All saved scenarios |
+| `scenarios` | `Record<id, Scenario>` | All saved scenarios; `clickThrough: false` on one turns [Click through](#click-through) off for all its actions |
 | `folders` | `Record<id, Folder>` | Folder tree |
 | `variables` | `Record<name, value>` | Global variables |
 | `schedules` | `Schedule[]` | Scheduled playback entries |
@@ -791,6 +811,15 @@ During recording, `getAllSelectors()` stores up to 8 selector candidates per ele
 ```
 
 Strategy 5 exists because web components (LitElement, Stencil, …) render into shadow roots that `document.querySelector` cannot see.
+
+The selector type chosen in the form (`selectorType`) is tried first; the rest keep the order above. A Text
+selector typed in the form has no tag: it finds the deepest element whose trimmed text is exactly that text.
+
+Every lookup goes through this one list (`_locators` in `content.js`): actions wait for the element
+(`findElementWithFallback`), Conditions and the element-screenshot rect look once (`locateNow`). The steps
+that act through CDP — Upload File, opening a Dropdown, the element screenshot's measurement after its scroll —
+cannot call the content script's finder, so the page finds the element, tags it with a one-off
+`data-pqa-target` attribute (`MARK_ELEMENT`), and CDP selects that; the tag comes off when the step ends.
 
 If all strategies fail, the system waits using `MutationObserver` up to the configured timeout before reporting failure.
 
