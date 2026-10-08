@@ -32,7 +32,13 @@ export const highlightHandlers = {
   HL_LOAD(request, sender) {
     const tabId = sender?.tab?.id;
     if (tabId == null) return;
-    chrome.scripting.executeScript({ target: { tabId, frameIds: [sender.frameId ?? 0] }, files: ['content-highlight.js'] })
+    // The document that asked (Chrome 106+), not whatever its frame shows by the
+    // time the script lands; content-highlight.js skips a document without
+    // content.js anyway, but this way it is never offered one.
+    const target = sender.documentId
+      ? { tabId, documentIds: [sender.documentId] }
+      : { tabId, frameIds: [sender.frameId ?? 0] };
+    chrome.scripting.executeScript({ target, files: ['content-highlight.js'] })
       .catch(() => { /* the frame navigated away or closed: nothing to load into */ });
   },
 

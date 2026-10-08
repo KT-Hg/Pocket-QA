@@ -433,6 +433,9 @@ await send('highlights: a web page saves under a pattern', { type: 'HL_SAVE_PAGE
   sender: PAGE_SENDER, setup: () => { fake.data.local.hl_patterns_v1 = ['example.com/*']; },
 });
 
+// With the document Chrome says sent it, the engine goes into that document.
+await send('highlight engine: HL_LOAD from a document', { type: 'HL_LOAD' }, { sender: { ...PAGE_SENDER, frameId: 4, documentId: 'doc-4' } });
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -493,6 +496,10 @@ test('a web page saves its own highlights only', () => {
   assert.deepEqual(_stepOf('highlights: a web page saves its own, fragment dropped')?.responses, [{ ok: true }]);
   assert.deepEqual(_stepOf('highlights: a web page saves under a pattern')?.responses, [{ ok: true }]);
   assert.ok(!('https://bank.example/' in fake.data.local.hl_v1));
+});
+test('the highlight engine goes into the document that asked for it', () => {
+  const calls = _stepOf('highlight engine: HL_LOAD from a document')?.calls || [];
+  assert.ok(calls.some((c) => c.startsWith('scripting.executeScript') && c.includes('"documentIds":["doc-4"]') && !c.includes('frameIds')), JSON.stringify(calls));
 });
 test('a web page is refused what its content script never sends', () => {
   for (const step of ['GET_ALL_DATA', 'IMPORT_SCENARIO', 'RESTORE_ALL_DATA']) {
