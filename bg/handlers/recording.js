@@ -113,6 +113,10 @@ export const recordingHandlers = {
       state.currentActions = [];
       getStack("current").undo = [];
       getStack("current").redo = [];
+      // Saved now, not with the first action: the worker sleeps after 30 s with
+      // nothing to do, and a user who looks at the page that long before the first
+      // click came back to a worker that had forgotten the recording.
+      persistRecordingState();
       updateBadge();
       broadcastRecordingState(true);
       sendResponse({ started: true });
@@ -138,7 +142,7 @@ export const recordingHandlers = {
     broadcastRecordingState(false);
     // Remove session-storage snapshot — persisted only to survive SW suspend
     // during recording, no longer needed after stop.
-    chrome.storage.session?.remove?.(['rec_recording','rec_scenarioId','rec_actions','rec_timestamp'], () => {});
+    chrome.storage.session?.remove?.(['rec_recording','rec_scenarioId','rec_tabId','rec_actions','rec_timestamp'], () => {});
     if (sid) {
       const newActions = [...state.currentActions];
       state.currentActions = [];

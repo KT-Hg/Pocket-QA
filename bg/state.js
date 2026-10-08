@@ -136,6 +136,7 @@ export async function persistRecordingState() {
     await chrome.storage.session.set({
       rec_recording:  state.recording,
       rec_scenarioId: state.recordingScenarioId,
+      rec_tabId:      state.recordingTabId,
       rec_actions:    state.currentActions,
       rec_timestamp:  Date.now(),
     });
@@ -151,11 +152,12 @@ export async function restoreRecordingState() {
   if (!chrome.storage?.session) return;
   try {
     const res = await chrome.storage.session.get([
-      'rec_recording', 'rec_scenarioId', 'rec_actions', 'rec_timestamp',
+      'rec_recording', 'rec_scenarioId', 'rec_tabId', 'rec_actions', 'rec_timestamp',
     ]);
     if (res.rec_recording && res.rec_timestamp && Date.now() - res.rec_timestamp < 1_800_000) {
       state.recording = true;
       state.recordingScenarioId = res.rec_scenarioId || null;
+      state.recordingTabId = res.rec_tabId ?? null;
       state.currentActions = res.rec_actions || [];
       chrome.runtime.sendMessage({
         type: 'RECORDING_RESTORED',

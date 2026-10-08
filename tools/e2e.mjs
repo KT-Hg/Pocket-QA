@@ -42,6 +42,8 @@
  *                 popup theme; a colour saves the highlight, and a reload paints it again.
  *                 With Highlight off a page loads no highlight engine; turned on, the
  *                 open page loads it and paints the highlight
+ *   record-restart  a recording whose worker stopped before the first action (it
+ *                 sleeps after 30 s with nothing to do) still records that action
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -65,6 +67,8 @@ const POLL_MS = 150;
 const SETTLE_MS = 300;
 const PAGE_SETTLE_MS = 800;
 const POPUP_SETTLE_MS = 1500;
+// After the worker is stopped: long enough for it to be gone before the next message wakes it.
+const WORKER_STOP_SETTLE_MS = 1000;
 const POPUP_VIEWPORT = { width: 480, height: 900 };
 
 const failures = [];
@@ -630,6 +634,20 @@ async function checkHighlight(ctx) {
   await sleep(PAGE_SETTLE_MS);
 }
 
+// Last in CHECKS: it stops the worker, and ctx.sw stays attached to the one that was stopped.
+async function checkRecordRestart(ctx) {
+  await reloadTestPage(ctx);
+  const { actions } = await record(ctx, 'e2e record restart', async () => {
+    // Stands in for the worker going to sleep before the first click.
+    await ctx.ext.send('ServiceWorker.enable');
+    await ctx.ext.send('ServiceWorker.stopAllWorkers');
+    await sleep(WORKER_STOP_SETTLE_MS);
+    await clickAt(ctx, '#bg1');
+  });
+  check(actions.map((a) => a.selector).join() === '#bg1',
+    'a recording whose worker stopped before the first action still records it', actions.map((a) => `${a.type} ${a.selector}`));
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -649,6 +667,7 @@ const CHECKS = [
   ['select-type', 'Child Condition type "select"', checkSelectType],
   ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
   ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
+  ['record-restart', 'A recording across a worker restart', checkRecordRestart],
 ];
 
 async function main() {
