@@ -19,14 +19,23 @@ const RESUME_OFFER_WINDOW_MS = 60_000;
 /* === RECORDING STATE FAN-OUT === */
 
 /**
- * Tell every content script whether a recording is running.
+ * Whether a recording takes actions from this tab: only from the one it was
+ * started on. Playback plays a scenario in one tab, and typing in any other tab
+ * (a password on another site, say) went into the scenario being recorded.
+ * A recording restored from before the tab was saved has none, and takes any tab.
+ */
+function _recordsTab(tabId) {
+  return state.recording && (state.recordingTabId == null || tabId === state.recordingTabId);
+}
+
+/**
+ * Tell every content script whether to record: the recording tab that it should,
+ * every other tab that it should not.
  *
  * The recorder's click/input listeners in content.js are attached unconditionally
  * on every page and in every frame, so they need to know when to stay quiet.
- * Broadcast to all tabs rather than only state.recordingTabId: a recorded
- * navigation can land the session on a different tab, and a stale "recording"
- * flag left behind in some other tab would keep that tab chattering after the
- * session ends. Tabs with no content script (chrome://, the Web Store) simply
+ * Every tab is told, so a stale "recording" flag left behind in one cannot keep it
+ * chattering. Tabs with no content script (chrome://, the Web Store) simply
  * reject the message; lastError is read to keep it out of the console.
  */
 export function broadcastRecordingState(recording) {
@@ -34,7 +43,7 @@ export function broadcastRecordingState(recording) {
     void chrome.runtime.lastError;
     for (const t of tabs || []) {
       if (t.id == null) continue;
-      chrome.tabs.sendMessage(t.id, { type: 'RECORDING_STATE', recording },
+      chrome.tabs.sendMessage(t.id, { type: 'RECORDING_STATE', recording: recording && _recordsTab(t.id) },
         ignoreLastError);
     }
   });
@@ -47,7 +56,7 @@ export const recordingHandlers = {
     // no session is running, but a frame injected before the gate existed (or one
     // that missed the RECORDING_STATE broadcast) can still send; re-broadcasting
     // its payload would put page input values on the message bus for no reason.
-    if (!state.recording || state.pickMode) { sendResponse({ received: false }); return; }
+    if (!_recordsTab(sender.tab?.id) || state.pickMode) { sendResponse({ received: false }); return; }
     const snapshot = [...state.currentActions];
     const act = request.action;
     if (act.delay == null) act.delay = 500;
@@ -92,7 +101,7 @@ export const recordingHandlers = {
     const tabId = sender.tab?.id;
     chrome.storage.local.get(["activatedTabs"], (res) => {
       sendResponse({
-        frameId: sender.frameId ?? 0, recording: state.recording,
+        frameId: sender.frameId ?? 0, recording: _recordsTab(tabId),
         activated: tabId != null && (res?.activatedTabs || []).includes(tabId),
       });
     });

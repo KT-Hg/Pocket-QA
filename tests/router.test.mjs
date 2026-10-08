@@ -354,6 +354,17 @@ await alarm('sched_scUrl');
 await send('highlight engine: HL_LOAD from a frame', { type: 'HL_LOAD' }, { sender: { ...PAGE_SENDER, frameId: 4 } });
 await send('highlight engine: HL_LOAD with no tab', { type: 'HL_LOAD' }, { sender: {} });
 
+// A recording takes actions from the tab it was started on only: another tab's
+// frames are told not to record, and what they send anyway is dropped.
+const OTHER_TAB_SENDER = { tab: { id: 2, url: 'https://example.com/other' }, url: 'https://example.com/other', frameId: 0 };
+await send('record on tab 1', { type: 'START_RECORD', scenarioId: 's2', tabId: 1 }, {
+  setup: () => { state.pickMode = false; }, // left on by an earlier step; it drops every action too
+});
+await send('other tab: register frame while recording', { type: 'REGISTER_FRAME' }, { sender: OTHER_TAB_SENDER });
+await send('other tab: recorded action dropped', { type: 'RECORDED_ACTION', action: { type: 'input', selector: '#pw', value: 'secret' } }, { sender: OTHER_TAB_SENDER });
+await send('recording tab: recorded action kept', { type: 'RECORDED_ACTION', action: { type: 'click', selector: '#go' } }, { sender: PAGE_SENDER });
+await send('stop record (tab 1 only)', { type: 'STOP_RECORD' });
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -365,6 +376,18 @@ function stringify(v, depth = 3, pad = '') {
 }
 
 
+test('a recording takes actions from its own tab only', () => {
+  assert.deepEqual(_stepOf('other tab: register frame while recording')?.responses?.[0]?.recording, false);
+  assert.deepEqual(_stepOf('other tab: recorded action dropped')?.responses, [{ received: false }]);
+  assert.deepEqual(_stepOf('recording tab: recorded action kept')?.responses, [{ received: true }]);
+  const started = _stepOf('record on tab 1')?.calls.filter((c) => c.startsWith('tabs.sendMessage'));
+  assert.deepEqual(started, [
+    'tabs.sendMessage [1,{"type":"RECORDING_STATE","recording":true}]',
+    'tabs.sendMessage [2,{"type":"RECORDING_STATE","recording":false}]',
+  ]);
+  const recorded = _stepOf('stop record (tab 1 only)')?.responses?.[0]?.actions;
+  assert.deepEqual(recorded?.map((a) => a.selector), ['#go']);
+});
 test('a web page is refused what its content script never sends', () => {
   for (const step of ['GET_ALL_DATA', 'IMPORT_SCENARIO', 'RESTORE_ALL_DATA']) {
     assert.deepEqual(_stepOf(`from a web page: ${step} refused`)?.responses, [], step);

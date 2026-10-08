@@ -42,6 +42,8 @@
  *                 popup theme; a colour saves the highlight, and a reload paints it again.
  *                 With Highlight off a page loads no highlight engine; turned on, the
  *                 open page loads it and paints the highlight
+ *   record-other-tab  typing in another tab while recording is not recorded; the
+ *                 recording tab still is
  *   record-restart  a recording whose worker stopped before the first action (it
  *                 sleeps after 30 s with nothing to do) still records that action
  *
@@ -634,6 +636,26 @@ async function checkHighlight(ctx) {
   await sleep(PAGE_SETTLE_MS);
 }
 
+async function checkRecordOtherTab(ctx) {
+  await reloadTestPage(ctx);
+  const other = await ctx.browser.openPage(`${ctx.base}/page?other`, { width: 1000, height: 700 });
+  await sleep(PAGE_SETTLE_MS);
+  try {
+    const { actions } = await record(ctx, 'e2e record other tab', async () => {
+      await other.bringToFront();
+      await other.evaluate(`document.getElementById('out').focus()`);
+      await other.send('Input.insertText', { text: 'typed elsewhere' });
+      await sleep(600); // past the input debounce
+      await ctx.web.bringToFront();
+      await clickAt(ctx, '#bg1');
+    });
+    check(actions.map((a) => `${a.type} ${a.selector}`).join() === 'click #bg1',
+      'typing in another tab is not recorded; the recording tab still is', actions.map((a) => `${a.type} ${a.selector} ${a.value ?? ''}`));
+  } finally {
+    await other.close();
+  }
+}
+
 // Last in CHECKS: it stops the worker, and ctx.sw stays attached to the one that was stopped.
 async function checkRecordRestart(ctx) {
   await reloadTestPage(ctx);
@@ -667,6 +689,7 @@ const CHECKS = [
   ['select-type', 'Child Condition type "select"', checkSelectType],
   ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
   ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
+  ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
   ['record-restart', 'A recording across a worker restart', checkRecordRestart],
 ];
 
