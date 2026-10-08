@@ -12,6 +12,8 @@ import { updateBadge } from '../badge.js';
 import { refuseRecordingIfPlaying } from '../playback.js';
 import { ignoreLastError } from '../last-error.js';
 import { isAnyPlaybackActive } from '../run-state.js';
+import { fromExtensionPage } from '../sender.js';
+import { SELECTOR_KEYS } from '../../shared/var-name.js';
 
 // A playback checkpoint younger than this is offered for resume when its tab reloads.
 const RESUME_OFFER_WINDOW_MS = 60_000;
@@ -26,6 +28,32 @@ const RESUME_OFFER_WINDOW_MS = 60_000;
  */
 function _recordsTab(tabId) {
   return state.recording && (state.recordingTabId == null || tabId === state.recordingTabId);
+}
+
+// What content.js records, and the fields of it a page may send.
+const RECORDED_TYPES = new Set(['click', 'input']);
+const RECORDED_SELECTOR_KEYS = [...SELECTOR_KEYS, 'textTag'];
+
+/**
+ * A recorded action as a web page's content script may send it: a click or an
+ * input, with the fields content.js records and nothing else; null for anything
+ * else. A compromised renderer could otherwise put any action into the scenario
+ * being recorded — an Upload File handing a local file to the page, a Script —
+ * to run on the next Play. The frame is the one Chrome says sent it.
+ */
+function _recordedFromPage(action, sender) {
+  if (!action || !RECORDED_TYPES.has(action.type)) return null;
+  const out = { type: action.type };
+  if (typeof action.selector === 'string') out.selector = action.selector;
+  if (action.selectors && typeof action.selectors === 'object') {
+    out.selectors = {};
+    for (const k of RECORDED_SELECTOR_KEYS) {
+      if (typeof action.selectors[k] === 'string') out.selectors[k] = action.selectors[k];
+    }
+  }
+  if (action.type === 'input' && typeof action.value === 'string') out.value = action.value;
+  out.frameId = sender.frameId ?? 0;
+  return out;
 }
 
 /**
@@ -57,13 +85,14 @@ export const recordingHandlers = {
     // that missed the RECORDING_STATE broadcast) can still send; re-broadcasting
     // its payload would put page input values on the message bus for no reason.
     if (!_recordsTab(sender.tab?.id) || state.pickMode) { sendResponse({ received: false }); return; }
+    const act = fromExtensionPage(sender) ? request.action : _recordedFromPage(request.action, sender);
+    if (!act) { sendResponse({ received: false }); return; }
     const snapshot = [...state.currentActions];
-    const act = request.action;
     if (act.delay == null) act.delay = 500;
     state.currentActions.push(act);
     pushUndo("current", snapshot);
     persistRecordingState(); // persist across SW suspend
-    chrome.runtime.sendMessage(request).catch(() => {});
+    chrome.runtime.sendMessage({ type: 'RECORDED_ACTION', action: act }).catch(() => {});
     sendResponse({ received: true });
     return;
   },

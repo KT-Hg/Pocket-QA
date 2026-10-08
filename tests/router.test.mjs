@@ -365,6 +365,16 @@ await send('other tab: recorded action dropped', { type: 'RECORDED_ACTION', acti
 await send('recording tab: recorded action kept', { type: 'RECORDED_ACTION', action: { type: 'click', selector: '#go' } }, { sender: PAGE_SENDER });
 await send('stop record (tab 1 only)', { type: 'STOP_RECORD' });
 
+// From a web page, a recorded action is a click or an input with the fields
+// content.js records; anything else could be run by the next Play.
+await send('record on tab 1 (page actions)', { type: 'START_RECORD', scenarioId: 's2', tabId: 1 });
+await send('from a web page: recorded uploadFile dropped', { type: 'RECORDED_ACTION', action: { type: 'uploadFile', selector: '#f', folderPath: 'C:\\Users\\me\\.ssh', fileNames: ['id_rsa'] } }, { sender: PAGE_SENDER });
+await send('from a web page: recorded script dropped', { type: 'RECORDED_ACTION', action: { type: 'script', code: 'alert(1)' } }, { sender: PAGE_SENDER });
+await send('from a web page: recorded click keeps its known fields', { type: 'RECORDED_ACTION', action: {
+  type: 'click', selector: '#ok', selectors: { css: '#ok', text: 'OK', textTag: 'button', onclick: 'x' }, code: 'alert(1)', frameId: 9,
+} }, { sender: { ...PAGE_SENDER, frameId: 3 } });
+await send('stop record (page actions)', { type: 'STOP_RECORD' });
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -387,6 +397,13 @@ test('a recording takes actions from its own tab only', () => {
   ]);
   const recorded = _stepOf('stop record (tab 1 only)')?.responses?.[0]?.actions;
   assert.deepEqual(recorded?.map((a) => a.selector), ['#go']);
+});
+test('from a web page, a recorded action is a click or an input with known fields only', () => {
+  assert.deepEqual(_stepOf('from a web page: recorded uploadFile dropped')?.responses, [{ received: false }]);
+  assert.deepEqual(_stepOf('from a web page: recorded script dropped')?.responses, [{ received: false }]);
+  assert.deepEqual(_stepOf('stop record (page actions)')?.responses?.[0]?.actions, [{
+    type: 'click', selector: '#ok', selectors: { css: '#ok', text: 'OK', textTag: 'button' }, frameId: 3, delay: 500,
+  }]);
 });
 test('a web page is refused what its content script never sends', () => {
   for (const step of ['GET_ALL_DATA', 'IMPORT_SCENARIO', 'RESTORE_ALL_DATA']) {
