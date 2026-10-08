@@ -105,6 +105,46 @@ test('Read DOM Extract: each ${name} is read out of the text, in both exports', 
   }
 });
 
+/** Python's verdict on generated code: null when it compiles (or there is no Python here), else the error. */
+function compilePy(code) {
+  const dir = mkdtempSync(join(tmpdir(), 'pqa-'));
+  const file = join(dir, 'gen.py');
+  writeFileSync(file, code);
+  try {
+    execFileSync('python', ['-c', `compile(open(r"${file}", encoding="utf-8").read(), "gen.py", "exec")`], { stdio: 'pipe' });
+    return null;
+  } catch (e) {
+    return e.code === 'ENOENT' ? null : String(e.stderr || e);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// What an imported scenario can hold: names, labels and types are free text.
+const HOSTILE_NAME = 'Đăng nhập "admin" \\ C:\\new\nprint("INJECTED")';
+const hostile = [
+  { type: 'click', selector: '#a', selectors: { css: '#a' }, label: 'ok\n    print("INJECTED")' },
+  { type: 'condition', conditionType: 'isChecked\nprint("INJECTED")', selector: '#b', selectors: { css: '#b' }, skipCount: 1,
+    label: 'x\u2028alert("INJECTED") */' },
+  { type: 'click', selector: '#c', selectors: { css: '#c' } },
+  { type: 'teleport\nprint("INJECTED")', selector: '#d' },
+];
+
+test('a name, label or type cannot end its comment or string, in either export', () => {
+  const py = generateSeleniumPy(HOSTILE_NAME, hostile, {});
+  for (const line of py.code.split('\n').filter((l) => l.includes('INJECTED'))) {
+    assert.match(line.trim(), /^#|^print\("✅/, line);
+  }
+  assert.ok(py.warnings.some((w) => /type "isChecked/.test(w)), 'an unknown condition type is a warning');
+  assert.equal(compilePy(py.code), null);
+
+  const js = generateBookmarklet(HOSTILE_NAME, hostile, {});
+  for (const line of js.code.split(/\r\n|[\n\r\u2028\u2029]/).filter((l) => l.includes('INJECTED'))) {
+    assert.match(line.trim(), /^\/\/|true \/\* unknown: /, line);
+  }
+  new Function(js.code.replace(/^javascript:/, ''));
+});
+
 test('Random: the length is capped at 512 in both exports and the preview, as a run caps it', async () => {
   const { parseRandomSpec, MAX_RANDOM_LENGTH } = await import('../shared/var-spec.js');
   assert.equal(MAX_RANDOM_LENGTH, 512);

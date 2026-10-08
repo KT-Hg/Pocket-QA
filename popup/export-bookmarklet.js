@@ -1,4 +1,4 @@
-import { getUsedVarNames } from './utils.js';
+import { getUsedVarNames, commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../shared/switch-blocks.js';
 import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
@@ -194,7 +194,7 @@ function condHeader(action, stepNum) {
   const sel = getBestSel(action);
   const s = valueToJS(sel);
   const exp = valueToJS(action.expectedValue);
-  const lbl = action.label ? ` — ${action.label}` : '';
+  const lbl = action.label ? ` — ${commentText(action.label)}` : '';
 
   const exprMap = {
     elementExists:    `_qsel(${s}) !== null`,
@@ -211,22 +211,22 @@ function condHeader(action, stepNum) {
     hasAttribute:     `(_qsel(${s})?.hasAttribute(${exp})??false)`,
   };
 
-  const expr = exprMap[action.conditionType] || `true /* unknown: ${action.conditionType} */`;
+  const expr = exprMap[action.conditionType] || `true /* unknown: ${commentText(action.conditionType)} */`;
   return [
-    `// Step ${stepNum}: condition — ${action.conditionType}${lbl}`,
+    `// Step ${stepNum}: condition — ${commentText(action.conditionType)}${lbl}`,
     `if (${expr}) {`
   ];
 }
 
 // Generates JS lines for a single non-condition action
 function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
-  const lbl = action.label ? ` — ${action.label}` : '';
+  const lbl = action.label ? ` — ${commentText(action.label)}` : '';
   const delay = action.delay != null ? action.delay : stepDelay;
   const sel = getBestSel(action);
   const v = `_el${stepNum}`;
 
   if (SKIPPED_TYPES.has(action.type)) {
-    return [`// Step ${stepNum}: [SKIPPED] ${action.type} — requires Chrome Extension API`];
+    return [`// Step ${stepNum}: [SKIPPED] ${commentText(action.type)} — requires Chrome Extension API`];
   }
 
   const out = [];
@@ -322,10 +322,10 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
       const { code, unresolved } = _scriptCodeWithVars(action.code || action.value || '', ctx);
       out.push(`// Step ${stepNum}: script${lbl}`);
       if (unresolved.length) {
-        out.push(`// ⚠ Not substituted below: ${unresolved.map(n => '${' + n + '}').join(', ')}`);
+        out.push(`// ⚠ Not substituted below: ${commentText(unresolved.map(n => '${' + n + '}').join(', '))}`);
         out.push(`//   Only static variables can be inlined into script code. These are`);
         out.push(`//   declared above as real JS variables — reference them bare, e.g.`);
-        out.push(`//   \`${_sanitizeVarName(unresolved[0])}\` instead of \`\${${unresolved[0]}}\`.`);
+        out.push(`//   \`${_sanitizeVarName(unresolved[0])}\` instead of \`\${${commentText(unresolved[0])}}\`.`);
         ctx.warnings.add(`Script step ${stepNum}: ${unresolved.map(n => '${' + n + '}').join(', ')} left as-is (only static variables inline into script code)`);
       }
       out.push(`await (async () => {`);
@@ -370,7 +370,7 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
     }
 
     default:
-      out.push(`// Step ${stepNum}: ${action.type}${lbl} — [unsupported type, skipped]`);
+      out.push(`// Step ${stepNum}: ${commentText(action.type)}${lbl} — [unsupported type, skipped]`);
   }
 
   return out;
@@ -500,7 +500,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
 
   out.push('javascript:(async () => {');
   out.push(`  // ============================`);
-  out.push(`  // BOOKMARKLET: ${scenarioName}`);
+  out.push(`  // BOOKMARKLET: ${commentText(scenarioName)}`);
   out.push(`  // ============================`);
   out.push('');
   out.push('  // --- HELPER FUNCTIONS ---');

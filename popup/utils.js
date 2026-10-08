@@ -8,6 +8,16 @@ export function escHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/**
+ * Text for a comment in exported code (labels, names, action types): on one
+ * line, so it cannot end the comment and carry on as code — a label
+ * "x\n    os.system(…)" in an imported scenario became a line of the Selenium
+ * script — and with no "*" "/" to close a JS block comment early.
+ */
+export function commentText(s) {
+  return String(s ?? '').replace(/[\r\n\u2028\u2029]+/g, ' ').replace(/\*\//g, '* /');
+}
+
 /* === Action Icons === */
 
 const ACTION_ICONS = {

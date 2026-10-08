@@ -1,4 +1,4 @@
-import { showToast, getUsedVarNames } from './utils.js';
+import { showToast, getUsedVarNames, commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../shared/switch-blocks.js';
 import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
@@ -211,7 +211,9 @@ function condExprPy(action, selPy) {
       return `bool(driver.find_element(${selPy}).get_attribute(${exp})) if driver.find_elements(${selPy}) else False`;
     }
     default:
-      return `True  # unknown condition: ${action.conditionType}`;
+      // A type this version does not know. Not "True  # unknown …": the comment
+      // took the `:` of the `if` with it and the script did not parse.
+      return null;
   }
 }
 
@@ -408,7 +410,7 @@ function _buildChildCondPy(conditions, elVar, tout, selPy, stepNum) {
 
 // Generates Python lines for a single non-condition action
 function actionLines(action, stepNum, stepDelay, elTimeout) {
-  const lbl    = action.label ? ` — ${action.label}` : '';
+  const lbl    = action.label ? ` — ${commentText(action.label)}` : '';
   const delay  = msToSec(action.delay != null ? action.delay : stepDelay);
   const tout   = msToSec(elTimeout);
   const sel    = getBestSelInfo(action);
@@ -582,7 +584,7 @@ function actionLines(action, stepNum, stepDelay, elTimeout) {
       break;
 
     default:
-      out.push(`# Step ${stepNum}: ${action.type}${lbl} — [unsupported, skipped]`);
+      out.push(`# Step ${stepNum}: ${commentText(action.type)}${lbl} — [unsupported, skipped]`);
   }
 
   return out;
@@ -618,12 +620,16 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
 
     if (action.type === 'condition') {
       const skipCount = conditionSkip(action); // 0 for an emptied Condition: empty body
-      const lbl  = action.label ? ` — ${action.label}` : '';
+      const lbl  = action.label ? ` — ${commentText(action.label)}` : '';
       const sel  = getBestSelInfo(action);
       const selPy = selToPy(sel);
 
-      out.push(`# Step ${stepNum}: condition — ${action.conditionType}${lbl}`);
-      out.push(`if ${condExprPy(action, selPy)}:`);
+      out.push(`# Step ${stepNum}: condition — ${commentText(action.conditionType)}${lbl}`);
+      const condPy = condExprPy(action, selPy);
+      if (condPy === null) {
+        ctx.warnings?.add(`Condition step ${stepNum}: type "${action.conditionType}" is unknown — exported as always true`);
+      }
+      out.push(`if ${condPy ?? 'True'}:`);
 
       // Same span playback skips: a Switch and its block count as one action.
       const bodyEnd   = ctx.all ? conditionSkipTarget(ctx.all, abs, skipCount, ctx.layout) - baseIdx : i + 1 + skipCount;
@@ -761,7 +767,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   // ── Header ──
   out.push(`# ============================`);
-  out.push(`# SCENARIO: ${scenarioName}`);
+  out.push(`# SCENARIO: ${commentText(scenarioName)}`);
   out.push(`# ============================`);
   out.push('');
   out.push(`driver = webdriver.${driverType}()`);
@@ -838,7 +844,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     out.push(line === '' ? '' : '    ' + line);
   }
 
-  out.push(`    print("✅ Scenario '${scenarioName}' completed successfully.")`);
+  out.push(`    print(${JSON.stringify(`✅ Scenario '${scenarioName}' completed successfully.`)})`);
   out.push('');
   out.push('except Exception as e:');
   out.push('    print(f"❌ Error: {e}")');
