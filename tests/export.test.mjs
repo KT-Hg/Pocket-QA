@@ -145,6 +145,24 @@ test('a name, label or type cannot end its comment or string, in either export',
   new Function(js.code.replace(/^javascript:/, ''));
 });
 
+test('the copied bookmark URL is the code as written, and it runs', async () => {
+  const { toBookmarkletUrl } = await import('../popup/export-bookmarklet.js');
+  const steps = [
+    { type: 'script', code: 'const a = 1\nconsole.log(a)' },                  // relies on line breaks
+    { type: 'script', code: 'const b = 2; // a trailing comment\nconsole.log(b);' },
+    { type: 'input', selector: '#n', selectors: { css: '#n' }, value: 'John  Smith\t100%41' },
+  ];
+  const { code } = generateBookmarklet('copy', steps, {});
+  const url = toBookmarkletUrl(code);
+  assert.ok(url.startsWith('javascript:'));
+  assert.doesNotMatch(url, /[\t\r\n]/, 'nothing a URL parser would drop');
+  // What the browser runs: the URL with its percent-encoding decoded.
+  const runs = decodeURIComponent(url.slice('javascript:'.length));
+  assert.equal(runs, code.slice('javascript:'.length).trim());
+  new Function(runs);
+  assert.ok(runs.includes('John  Smith\\t100%41'), 'values keep their spacing and percent signs');
+});
+
 test('Random: the length is capped at 512 in both exports and the preview, as a run caps it', async () => {
   const { parseRandomSpec, MAX_RANDOM_LENGTH } = await import('../shared/var-spec.js');
   assert.equal(MAX_RANDOM_LENGTH, 512);

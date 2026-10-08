@@ -732,19 +732,24 @@ export function initExportBookmarklet() {
   });
 }
 
-// Produce a single-line bookmark URL: drop // comment lines, collapse whitespace.
-// Keeps the javascript: prefix so it's ready to paste into a bookmark URL field.
+/**
+ * The code as a bookmark URL, ready to paste into a bookmark's URL field: the
+ * code exactly as written, with what a URL would lose encoded. The URL parser
+ * drops every tab and line break, and a javascript: URL is percent-decoded
+ * before it runs, so "%" is encoded first, then tab, CR and LF.
+ *
+ * It used to join the lines with spaces and squeeze runs of spaces instead,
+ * which broke a script that needs its line breaks (no semicolons, a trailing
+ * // comment that then swallowed the rest) and changed any value holding two
+ * spaces in a row.
+ */
 export function toBookmarkletUrl(code) {
-  return code
-    .split('\n')
-    .map(line => {
-      const t = line.trim();
-      return t.startsWith('//') ? '' : t;
-    })
-    .filter(Boolean)
-    .join(' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+  const body = code.startsWith('javascript:') ? code.slice('javascript:'.length) : code;
+  return 'javascript:' + body.trim()
+    .replace(/%/g, '%25')
+    .replace(/\t/g, '%09')
+    .replace(/\r/g, '%0D')
+    .replace(/\n/g, '%0A');
 }
 
 /**
