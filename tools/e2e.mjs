@@ -44,6 +44,8 @@
  *                 open page loads it and paints the highlight
  *   import-warning  importing a scenario with Upload File and Run JS actions warns
  *                 about both, and names the folder the upload reads
+ *   select-missing  an Input of an option the <select> does not have brings up the
+ *                 failure prompt and leaves the choice alone; one it has is chosen
  *   export-file-name  a Selenium script exported from a scenario named in Vietnamese
  *                 is saved under that name, letters kept, and the file holds the code
  *   record-untrusted  a click and an input event the page's own script dispatches
@@ -671,6 +673,22 @@ async function checkImportWarning(ctx) {
   }
 }
 
+async function checkSelectMissing(ctx) {
+  await reloadTestPage(ctx);
+  await ctx.web.evaluate(`document.getElementById('sel').value = 'b'`);
+  const missing = await makeScenario(ctx, 'e2e select missing', [
+    { type: 'input', selector: '#sel', selectors: { css: '#sel' }, value: 'zzz', delay: 0 },
+  ]);
+  const { prompt } = await playUntilPrompt(ctx, missing);
+  const kept = await ctx.web.evaluate(`document.getElementById('sel').value`);
+  check(prompt && kept === 'b', 'an Input of an option the <select> does not have fails, and leaves its choice alone', { prompt, kept });
+  const present = await makeScenario(ctx, 'e2e select present', [
+    { type: 'input', selector: '#sel', selectors: { css: '#sel' }, value: 'c', delay: 0 },
+  ]);
+  const r = await play(ctx, present);
+  check(r.sel === 'c' && !r.timedOut, 'an option it has is still chosen', r);
+}
+
 async function checkExportFileName(ctx) {
   const id = await makeScenario(ctx, 'Đăng nhập "admin"', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
   const popup = await openPopup(ctx);
@@ -788,6 +806,7 @@ const CHECKS = [
   ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
   ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
   ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
+  ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],

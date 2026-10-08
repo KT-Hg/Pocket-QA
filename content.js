@@ -1006,13 +1006,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         _ok();
         return;
       } else if (target.tagName === 'SELECT') {
-        target.value = action.value;
-        if (target.value !== action.value) {
-          const option = [...target.options].find(
-            o => o.value === action.value || o.text === action.value,
-          );
-          if (option) { option.selected = true; target.value = option.value; }
+        // The option with that value, else the one showing that text. None is a
+        // failure, and the selection stays as it was: setting .value to a missing
+        // option emptied the select, and the action still passed.
+        const want = String(action.value ?? '');
+        const options = [...target.options];
+        const option = options.find(o => o.value === want) || options.find(o => o.text === want);
+        if (!option) {
+          sendResponse({ failed: true, error: `The dropdown has no option "${want}"` });
+          return;
         }
+        target.value = option.value;
         target.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }));
         target.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
         target.dispatchEvent(new Event('blur',   { bubbles: true }));
