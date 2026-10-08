@@ -3494,5 +3494,43 @@
    "3": 1
   },
   "pendingTimers": 0
+ },
+ {
+  "step": "TAKE_SCREENSHOT from a web page naming another tab",
+  "type": "TAKE_SCREENSHOT",
+  "returned": [
+   "‹undefined›",
+   true,
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›"
+  ],
+  "responses": [
+   {"success":true,"filename":"cap_2026-01-15_09-01-33.png"}
+  ],
+  "calls": [
+   "storage.local.get [[\"lastUpdateAt\",\"updateAvailableSince\",\"remoteConfig\"]]",
+   "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
+   "tabs.get [1]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
+   "tabs.captureVisibleTab [1,{\"format\":\"png\"}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
+   "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-33.png\",\"saveAs\":false}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-33.png\"}}]"
+  ],
+  "console": [],
+  "storage": {
+   "local": {"lastUpdateAt":1768467693910,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000},"watermarkEnabled":false,"watermarkFormat":"{url}  {datetime}","windowCaptureBounds":{"width":1000,"height":800,"left":10,"top":20}},
+   "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"cap"},
+   "session": {}
+  },
+  "zoom": {
+   "1": 1.25,
+   "3": 1
+  },
+  "pendingTimers": 0
  }
 ]
