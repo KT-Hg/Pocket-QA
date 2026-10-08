@@ -143,12 +143,28 @@ export async function persistRecordingState() {
   } catch (_) { /* session storage full or unavailable: the recording only won't survive a worker restart */ }
 }
 
+let _recordingRestore = null;
+let _recordingRestored = false;
+
+/** Whether restoreRecordingState() has finished. */
+export function recordingRestored() {
+  return _recordingRestored;
+}
+
 /**
  * Restore a recording session from the previous SW lifecycle.
  * Notifies the popup via RECORDING_RESTORED so it can re-render the action list.
  * Snapshots older than 30 minutes are silently discarded.
+ *
+ * Runs once: background.js starts it, and a later call gets the same promise,
+ * so a handler can wait for it (handlers/recording.js).
  */
-export async function restoreRecordingState() {
+export function restoreRecordingState() {
+  _recordingRestore ??= _restoreRecordingState().finally(() => { _recordingRestored = true; });
+  return _recordingRestore;
+}
+
+async function _restoreRecordingState() {
   if (!chrome.storage?.session) return;
   try {
     const res = await chrome.storage.session.get([

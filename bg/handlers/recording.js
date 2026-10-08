@@ -6,7 +6,7 @@
  * onMessage listener returns: `true` while sendResponse is still to come.
  */
 
-import { state, persistRecordingState } from '../state.js';
+import { state, persistRecordingState, recordingRestored, restoreRecordingState } from '../state.js';
 import { getScenarios, setScenarios, getStack, pushUndo, runExclusive } from '../storage.js';
 import { updateBadge } from '../badge.js';
 import { refuseRecordingIfPlaying } from '../playback.js';
@@ -77,9 +77,25 @@ export function broadcastRecordingState(recording) {
   });
 }
 
+/**
+ * A handler that reads or changes the recording, run once the recording saved
+ * before a worker restart is back (restoreRecordingState). The message that wakes
+ * the worker — the first click after a pause, the popup's Stop — is dispatched
+ * before session storage has been read: handled at once, the click was dropped,
+ * and Stop saved nothing while the restore then started the recording again.
+ * After start-up it runs at once and returns what the handler returns.
+ */
+function _afterRestore(handler) {
+  return (request, sender, sendResponse) => {
+    if (recordingRestored()) return handler(request, sender, sendResponse);
+    restoreRecordingState().then(() => handler(request, sender, sendResponse));
+    return true;
+  };
+}
+
 export const recordingHandlers = {
   /* --- Forward recorded actions to popup --- */
-  RECORDED_ACTION(request, sender, sendResponse) {
+  RECORDED_ACTION: _afterRestore((request, sender, sendResponse) => {
     // Both the store and the forward are gated. content.js now stays silent when
     // no session is running, but a frame injected before the gate existed (or one
     // that missed the RECORDING_STATE broadcast) can still send; re-broadcasting
@@ -95,7 +111,7 @@ export const recordingHandlers = {
     chrome.runtime.sendMessage({ type: 'RECORDED_ACTION', action: act }).catch(() => {});
     sendResponse({ received: true });
     return;
-  },
+  }),
 
   CONTENT_READY(request, sender, sendResponse) {
     const tabId = sender.tab?.id;
@@ -124,7 +140,7 @@ export const recordingHandlers = {
   // `recording` rides along so a script injected mid-session (tab activation,
   // reconnect after a crash) starts gated correctly instead of waiting for the
   // next RECORDING_STATE broadcast.
-  REGISTER_FRAME(request, sender, sendResponse) {
+  REGISTER_FRAME: _afterRestore((request, sender, sendResponse) => {
     // `activated`: whether the record hotkeys act on this tab (content.js keeps
     // the key from the page only there).
     const tabId = sender.tab?.id;
@@ -135,10 +151,10 @@ export const recordingHandlers = {
       });
     });
     return true;
-  },
+  }),
 
   /* --- Recording --- */
-  START_RECORD(request, sender, sendResponse) {
+  START_RECORD: _afterRestore((request, sender, sendResponse) => {
     if (refuseRecordingIfPlaying()) {
       sendResponse({ started: false, error: 'Cannot start recording while playback is active' });
       return;
@@ -170,9 +186,9 @@ export const recordingHandlers = {
       return true;
     }
     return;
-  },
+  }),
 
-  STOP_RECORD(request, sender, sendResponse) {
+  STOP_RECORD: _afterRestore((request, sender, sendResponse) => {
     state.recording = false;
     const sid = state.recordingScenarioId;
     state.recordingScenarioId = null;
@@ -201,5 +217,5 @@ export const recordingHandlers = {
     }
     sendResponse({ actions: state.currentActions });
     return;
-  },
+  }),
 };
