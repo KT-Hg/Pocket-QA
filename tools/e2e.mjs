@@ -1461,6 +1461,12 @@ const EXPORT_CASES = [
     ],
     expect: { clicks: ['submit'] },
   },
+  {
+    // A one-line Script that ends in a quote: the Selenium literal closed early on it.
+    name: 'script-quote',
+    actions: [{ type: 'script', code: 'alert("hi"); window.done = "yes"' }],
+    expect: { alerts: ['hi'] },
+  },
 ];
 
 // A folder with @playwright/test installed (npm install @playwright/test): the Playwright

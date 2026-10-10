@@ -191,10 +191,9 @@ function _scriptToPy(rawCode) {
   }
 
   const prefix = hasVars ? 'f' : '';
-  if (!body.includes('\n')) return [`driver.execute_script(${prefix}"""${body}""")`];
-
-  // The closing delimiter goes on its own line so a source ending in `"` cannot
-  // run into it.
+  // The closing delimiter goes on its own line when a source ending in `"` would
+  // run into it: `"""x = "y""""` closes after y and leaves a stray quote.
+  if (!body.includes('\n') && !body.endsWith('"')) return [`driver.execute_script(${prefix}"""${body}""")`];
   return [`driver.execute_script(${prefix}"""`, ...body.split('\n'), `""")`];
 }
 

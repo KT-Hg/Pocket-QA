@@ -858,3 +858,26 @@ test('a Wait waits what playback waits, and only a number reaches the code', asy
   assert.equal(checkModule(pw), null);
   new Function(bm.replace(/^javascript:/, ''));
 });
+
+/** Python's verdict on a generated script: null when it compiles (or there is no Python), else the error. */
+function checkPython(code) {
+  const dir = mkdtempSync(join(tmpdir(), 'pqa-'));
+  const file = join(dir, 'gen.py');
+  writeFileSync(file, code);
+  try {
+    execFileSync('python', ['-W', 'error::SyntaxWarning', '-c', `compile(open(r"${file}", encoding="utf-8").read(), "gen.py", "exec")`], { stdio: 'pipe' });
+    return null;
+  } catch (e) {
+    return e.code === 'ENOENT' ? null : String(e.stderr || e);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('Selenium: a one-line Script that ends in a quote still compiles', () => {
+  for (const code of ['window.done = "yes"', 'window.done = "${who}"', 'window.done = "a\\""']) {
+    const py = generateSeleniumPy('q', [{ type: 'script', code }], { who: 'Bob' }).code;
+    assert.equal(checkPython(py), null, code);
+    assert.match(py, /^ {4}"""\)$/m, 'the closing quotes on their own line');
+  }
+});
