@@ -185,19 +185,19 @@ function render(result) {
   const codeEl = byId('Code')?.querySelector('code');
   if (codeEl) codeEl.textContent = result.code;
 
-  // Warning bar — steps not exported as is, plus anything the generator could
-  // not express faithfully (renamed identifiers, unresolved ${...}, script
-  // placeholders). These used to surface only when the exported code was run.
-  const warning = byId('Warning');
-  const skipMsg = byId('SkipMsg');
-  const msgs = [...stepNotices(result.steps), ...(result.warnings || [])];
-  if (msgs.length) {
-    skipMsg.style.whiteSpace = 'pre-line';
-    skipMsg.textContent = msgs.join('\n');
-    warning.style.display = '';
-  } else {
-    warning.style.display = 'none';
-  }
+  // Warning bar (Code tab): one line counting the steps not exported as is and
+  // what the generator could not express faithfully (renamed identifiers,
+  // unresolved ${...}); the Actions tab lists them. These used to surface only
+  // when the exported code was run.
+  const toCheck = result.steps.filter((s) => s.status === 'verify').length;
+  const notes = result.warnings?.length || 0;
+  const counts = [
+    toCheck && `${toCheck} to check`,
+    skipped && `${skipped} skipped`,
+    notes && `${notes} note${notes > 1 ? 's' : ''}`,
+  ].filter(Boolean);
+  byId('Warning').hidden = !counts.length;
+  byId('WarningText').textContent = `${counts.join(' · ')} — see Actions`;
 
   // Variables — row layout
   const vars = Object.entries(run.variables || {});
@@ -206,6 +206,7 @@ function render(result) {
 
   // Actions review tab
   renderActionsTab(PREFIX, run.actions, result.steps);
+  renderNotices(byId('ActSummary'), result.steps, result.warnings || []);
 }
 
 function open() {
@@ -314,6 +315,7 @@ function wireModal() {
   byId('Copy')?.addEventListener('click', copy);
   byId('Download')?.addEventListener('click', download);
   byId('Reload')?.addEventListener('click', reload);
+  byId('Warning')?.addEventListener('click', () => switchTab('actions'));
   followSettings(modal);
 
   byId('WrapBtn')?.addEventListener('click', () => {
@@ -340,16 +342,44 @@ function wireModal() {
   return true;
 }
 
-/** Warning-bar lines for the steps not exported as is: one per reason, with its step numbers. */
-function stepNotices(steps) {
-  const byReason = new Map();
+/**
+ * What the export did not take as is, for the top of the Actions tab: the steps
+ * to check and the skipped ones, one line per reason led by its steps ("Step 8 —
+ * custom JS … — check it"), then the generator's notes. [title, lines] each,
+ * the empty ones left out.
+ */
+export function stepNotices(steps, warnings = []) {
+  const byStatus = { verify: new Map(), skip: new Map() };
   for (const s of steps) {
-    if (s.status === 'ok') continue;
-    const key = `${s.status === 'skip' ? 'Skipped' : 'Check'} — ${s.reason}`;
-    if (!byReason.has(key)) byReason.set(key, []);
-    byReason.get(key).push(s.n);
+    const byReason = byStatus[s.status];
+    if (!byReason) continue;
+    if (!byReason.has(s.reason)) byReason.set(s.reason, []);
+    byReason.get(s.reason).push(s.n);
   }
-  return [...byReason].map(([key, ns]) => `${key}: step${ns.length > 1 ? 's' : ''} ${ns.join(', ')}`);
+  const lines = (byReason) => [...byReason].map(([reason, ns]) => `Step${ns.length > 1 ? 's' : ''} ${ns.join(', ')} — ${reason}`);
+  return [
+    ['To check', lines(byStatus.verify)],
+    ['Skipped', lines(byStatus.skip)],
+    ['Notes', warnings],
+  ].filter(([, items]) => items.length);
+}
+
+// stepNotices into `el`, as text: a note may hold a variable name from the scenario.
+function renderNotices(el, steps, warnings) {
+  const groups = stepNotices(steps, warnings);
+  if (!groups.length) { el.textContent = '✓ Every step is exported as recorded'; return; }
+  el.replaceChildren(...groups.map(([title, items]) => {
+    const group = document.createElement('div');
+    group.className = 'export-bm-notice-group';
+    const head = document.createElement('div');
+    head.className = 'export-bm-notice-title';
+    head.textContent = title;
+    const list = document.createElement('ul');
+    list.className = 'export-bm-notice-list';
+    list.append(...items.map((text) => Object.assign(document.createElement('li'), { textContent: text })));
+    group.append(head, list);
+    return group;
+  }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -468,9 +498,8 @@ const STEP_STATUS_VIEW = {
 
 // One row per step the generator reported, numbered as in the scenario and the code's comments.
 function renderActionsTab(prefix, actions, steps) {
-  const listEl    = document.getElementById(`${prefix}ActList`);
-  const summaryEl = document.getElementById(`${prefix}ActSummary`);
-  if (!listEl || !summaryEl) return;
+  const listEl = document.getElementById(`${prefix}ActList`);
+  if (!listEl) return;
 
   let html = '';
   for (const s of steps) {
@@ -491,16 +520,9 @@ function renderActionsTab(prefix, actions, steps) {
       <span class="export-bm-action-status ast-${view.cls}" title="${escHtml(s.reason)}">${view.label}</span>
     </div>`;
   }
-  const okCount   = steps.filter(s => s.status === 'ok').length;
   const warnCount = steps.filter(s => s.status === 'verify').length;
   const skipCount = steps.filter(s => s.status === 'skip').length;
   listEl.innerHTML = html;
-
-  let sumHtml = '<span class="export-bm-act-sum-label">Will export:</span>';
-  sumHtml += `<span class="export-bm-act-sum-pill act-sum-ok">✓ ${okCount} OK</span>`;
-  if (warnCount) sumHtml += `<span class="export-bm-act-sum-pill act-sum-warn">⚠ ${warnCount} needs review</span>`;
-  if (skipCount) sumHtml += `<span class="export-bm-act-sum-pill act-sum-skip">— ${skipCount} skipped</span>`;
-  summaryEl.innerHTML = sumHtml;
 
   const badge = document.getElementById(`${prefix}ActCount`);
   if (badge) {

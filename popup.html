@@ -1623,13 +1623,13 @@
         <button class="export-bm-tab" data-tab="settings" role="tab" aria-selected="false">Settings</button>
       </div>
 
-      <div id="exportWarning" class="export-bm-warning" style="display:none;">
-        <span class="export-bm-warning-icon">⚠</span>
-        <span id="exportSkipMsg"></span>
-      </div>
-
       <!-- Tab: Preview Code -->
       <div id="exportTabPreview" class="export-bm-tab-panel">
+        <!-- One line counting what the Actions tab lists; a click opens it. -->
+        <button id="exportWarning" class="export-bm-warning" hidden>
+          <span class="export-bm-warning-icon" aria-hidden="true">⚠</span>
+          <span id="exportWarningText" class="export-bm-warning-text"></span>
+        </button>
         <div class="export-bm-code-toolbar">
           <span class="export-bm-code-label" id="exportCodeLabel"></span>
           <div class="export-bm-code-toolbar-btns">
@@ -1648,6 +1648,7 @@
 
       <!-- Tab: Actions Review -->
       <div id="exportTabActions" class="export-bm-tab-panel" hidden>
+        <!-- What is not exported as is: by status, one line per reason; then notes. -->
         <div class="export-bm-act-summary" id="exportActSummary"></div>
         <div id="exportActList"></div>
       </div>

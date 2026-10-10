@@ -86,7 +86,9 @@
  *                 pressed — Copy right after takes the new code; typing is followed
  *                 once it pauses; opening with remembered Settings generates it once
  *   export-layout  in a 480 × 600 popup the export code gets at least 400 px and Copy
- *                 does not move between tabs; at 480 × 500 nothing is cut off
+ *                 does not move between tabs; the bookmarklet's warnings take one
+ *                 line, which opens the Actions tab listing each reason and note;
+ *                 at 480 × 500 nothing is cut off
  *   export-formats  the Export Code card offers the bookmarklet, Selenium and Playwright,
  *                 each opening its own export with a "⬇ Download" button; the last
  *                 button keeps the others' size, in the middle of its row
@@ -954,12 +956,12 @@ async function checkExportFileName(ctx) {
 /**
  * The 11 steps the export modal is checked with (tasks/plan-6): named steps, a
  * Condition, a script, a full-page screenshot and an upload the bookmarklet
- * leaves out.
+ * leaves out. With the variable pass-word saved, the exports note its new name.
  */
 const EXPORT_SAMPLE = [
   { type: 'navigate', url: 'https://shop.test/login' },
   { type: 'input', selector: '#user', selectors: { css: '#user' }, value: 'alice', label: 'Username' },
-  { type: 'input', selector: '#pass', selectors: { css: '#pass' }, value: 'secret' },
+  { type: 'input', selector: '#pass', selectors: { css: '#pass' }, value: '${pass-word}' },
   { type: 'click', selector: '#login', selectors: { css: '#login' }, label: 'Sign in' },
   { type: 'condition', conditionType: 'elementExists', selector: '.welcome', selectors: { css: '.welcome' } },
   { type: 'click', selector: '.welcome', selectors: { css: '.welcome' } },
@@ -1000,12 +1002,14 @@ async function checkExportSteps(ctx) {
       const tab = await popup.evaluate(`({
         rows: [...document.querySelectorAll('#exportActList .export-bm-action-status')].map((el) => el.textContent.trim()),
         skipped: document.getElementById('exportSub').textContent.match(/\\d+ skipped/)?.[0] || null,
-        warning: document.getElementById('exportSkipMsg').textContent,
+        warning: document.getElementById('exportWarning').hidden ? '' : document.getElementById('exportWarningText').textContent,
+        notices: document.getElementById('exportActSummary').textContent,
       })`);
       const said = skipped
-        ? JSON.stringify(tab.rows) === '["✓ OK","— Skip"]' && tab.skipped === '1 skipped' && /local files/.test(tab.warning)
+        ? JSON.stringify(tab.rows) === '["✓ OK","— Skip"]' && tab.skipped === '1 skipped' && tab.warning === '1 skipped — see Actions'
+          && /Step 2 — a bookmarklet cannot read local files/.test(tab.notices)
         : JSON.stringify(tab.rows) === '["✓ OK","✓ OK"]' && tab.skipped === null && tab.warning === '';
-      check(said, `${button}: the Actions tab, the counts and the warning bar say whether Upload File is exported`, tab);
+      check(said, `${button}: the Actions tab, the header and the warning bar say whether Upload File is exported`, tab);
       await popup.evaluate(`document.getElementById('exportClose').click()`);
     }
 
@@ -1307,6 +1311,7 @@ const showExportTab = (page, tab) => page.evaluate(`document.querySelector('#exp
 async function checkExportLayout(ctx) {
   const plain = await makeScenario(ctx, 'e2e export layout', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
   const sample = await makeScenario(ctx, 'e2e export layout sample', EXPORT_SAMPLE);
+  await ctx.send({ type: 'SAVE_VARIABLES', variables: { 'pass-word': 'secret' } });
   // A real popup is at most 600 px tall.
   const tall = await openPopup(ctx, { width: 480, height: 600 });
   try {
@@ -1323,6 +1328,26 @@ async function checkExportLayout(ctx) {
     }
     check(copy.every((c) => c.top === copy[0].top && c.left === copy[0].left), 'Copy stays where it is through the four tabs', copy);
     check(shown.join(' ') === 'exportTabVariables exportTabActions exportTabSettings exportTabPreview', 'each tab shows its panel alone', shown);
+
+    // The bookmarklet of the sample: four reasons and a note, counted in one line over the code.
+    await tall.evaluate(`document.getElementById('exportClose').click()`);
+    await openExport(tall, sample, 'exportBookmarklet');
+    const bar = await boxOf(tall, '#exportWarning');
+    const bmCode = await boxOf(tall, '#exportCode');
+    check(bar.height <= 32 && bmCode.height >= 360, 'the bookmarklet\'s warnings take one line; the code keeps at least 360 px',
+      { bar: bar.height, code: bmCode.height });
+    await tall.evaluate(`document.getElementById('exportWarning').click()`);
+    const listed = await tall.evaluate(`({
+      actions: !document.getElementById('exportTabActions').hidden,
+      bar: document.getElementById('exportWarningText').textContent,
+      groups: [...document.querySelectorAll('#exportActSummary .export-bm-notice-group')]
+        .map((g) => [g.querySelector('.export-bm-notice-title').textContent, ...[...g.querySelectorAll('li')].map((li) => li.textContent)]),
+    })`);
+    const [check2, skip2, notes] = listed.groups;
+    check(listed.actions && listed.bar === '2 to check · 2 skipped · 1 note — see Actions'
+      && check2?.[0] === 'To check' && check2.length === 3 && check2[2].startsWith('Step 7 — custom JS')
+      && skip2?.[0] === 'Skipped' && skip2.length === 3 && notes?.[0] === 'Notes' && /pass_word/.test(notes[1]),
+      'a click on the bar opens Actions, which lists the four reasons and the note', listed);
   } finally {
     await tall.close();
   }

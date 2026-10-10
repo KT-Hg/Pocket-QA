@@ -228,18 +228,39 @@
   font-weight: 700;
 }
 
-/* ── Warning bar ── */
+/* ── Warning bar: one line at the top of the Code tab; a click opens Actions ── */
 .export-bm-warning {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
-  background: rgba(234, 157, 0, 0.08);
+  width: 100%;
+  margin: 0;
+  padding: 5px 14px;
+  border: 0;
   border-bottom: 1px solid rgba(234, 157, 0, 0.2);
+  border-radius: 0;
+  background: rgba(234, 157, 0, 0.08);
   color: #b45309;
   font-size: 11px;
-  padding: 7px 14px;
+  font-weight: 600;
+  text-align: left;
   flex-shrink: 0;
   line-height: 1.5;
+}
+
+.export-bm-warning:hover {
+  background: rgba(234, 157, 0, 0.16);
+  border-color: rgba(234, 157, 0, 0.2);
+  transform: none;
+}
+
+.export-bm-warning[hidden] { display: none; }
+
+.export-bm-warning-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 [data-theme="dark"] .export-bm-warning {
@@ -250,7 +271,6 @@
 .export-bm-warning-icon {
   font-size: 13px;
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
 /* ── Tab panel ── */
@@ -900,41 +920,30 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
    ACTIONS REVIEW TAB
 ─────────────────────────────────────────────── */
 
-/* Summary bar */
+/* What is not exported as is: a titled list per status, then the notes */
 .export-bm-act-summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   padding: 7px 14px;
   background: var(--secondary-bg);
   border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text);
 }
 
-.export-bm-act-sum-label {
-  font-size: 10px;
-  color: var(--muted);
-  margin-right: 2px;
-}
+.export-bm-notice-group + .export-bm-notice-group { margin-top: 6px; }
 
-.export-bm-act-sum-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 9px;
-  border-radius: 20px;
+.export-bm-notice-title {
   font-size: 10px;
   font-weight: 700;
-  border: 1px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
-.act-sum-ok   { background: rgba(34,197,94,.12);  color: #15803d; border-color: rgba(34,197,94,.2); }
-.act-sum-skip { background: rgba(245,158,11,.12); color: #b45309; border-color: rgba(245,158,11,.2); }
-.act-sum-warn { background: rgba(239,68,68,.12);  color: #b91c1c; border-color: rgba(239,68,68,.15); }
-[data-theme="dark"] .act-sum-ok   { color: #4ade80; }
-[data-theme="dark"] .act-sum-skip { color: #fbbf24; }
-[data-theme="dark"] .act-sum-warn { color: #f87171; }
+.export-bm-notice-list {
+  margin: 2px 0 0;
+  padding-left: 16px;
+  line-height: 1.5;
+}
 
 /* Action row */
 .export-bm-action-row {
