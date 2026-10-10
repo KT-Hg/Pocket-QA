@@ -201,3 +201,14 @@ test('Random: the length is capped at 512 in both exports and the preview, as a 
   assert.match(py, /^big = ''\.join\(random\.choices\(string\.ascii_letters, k=512\)\)$/m);
   assert.match(py, /^small = ''\.join\(random\.choices\(string\.digits, k=12\)\)$/m);
 });
+
+test('the Selenium script switches stdout to UTF-8 before its first print', () => {
+  // A redirected stdout on Windows is cp1252: printing ✅ or "Đăng nhập" raised UnicodeEncodeError.
+  const { code } = generateSeleniumPy('Đăng nhập', [{ type: 'click', selector: '#a', selectors: { css: '#a' } }], {});
+  const lines = code.split('\n');
+  const reconfigure = lines.indexOf('    sys.stdout.reconfigure(encoding="utf-8")');
+  const firstPrint = lines.findIndex((l) => /\bprint\(/.test(l));
+  assert.match(code, /^import sys$/m);
+  assert.ok(reconfigure > 0 && reconfigure < firstPrint, `reconfigure at ${reconfigure}, first print at ${firstPrint}`);
+  assert.equal(compilePy(code), null);
+});

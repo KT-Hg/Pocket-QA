@@ -734,6 +734,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const out = [];
 
   // ── Imports ──
+  out.push('import sys');
   out.push('import time');
   if (needsRandom)   { out.push('import random'); out.push('import string'); }
   else if (needsDropdownPick) out.push('import random');
@@ -745,6 +746,15 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('from selenium.webdriver.support import expected_conditions as EC');
   if (needsActionChains) out.push('from selenium.webdriver.common.action_chains import ActionChains');
   if (needsCondition)    out.push('from selenium.common.exceptions import NoSuchElementException');
+  out.push('');
+  out.push('');
+
+  // A redirected stdout (a pipe, `> log`, CI) on Windows is cp1252: the ✅ / ❌
+  // printed at the end — and most scenario names — raised UnicodeEncodeError, so
+  // a run that passed exited 1 and its except branch crashed too.
+  out.push('# Print in UTF-8 whatever stdout is (a redirected one on Windows is cp1252).');
+  out.push('if hasattr(sys.stdout, "reconfigure"):');
+  out.push('    sys.stdout.reconfigure(encoding="utf-8")');
   out.push('');
   out.push('');
 
