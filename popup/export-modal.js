@@ -255,7 +255,8 @@ function open() {
 function load(done) {
   const sel = document.getElementById('exportCodeSelect');
   const scenarioId = sel?.value;
-  if (!scenarioId) { showToast('Please select a scenario first', 'error'); return; }
+  // The card's buttons are off until a scenario is chosen (export/code-card.js).
+  if (!scenarioId) return;
 
   run.scenarioName = sel.options[sel.selectedIndex]?.text || 'Scenario';
 

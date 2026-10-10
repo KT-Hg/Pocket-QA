@@ -878,7 +878,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   box-shadow: none !important;
 }
 
-.export-code-btn:hover {
+.export-code-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   /* Its own hover colour: without one the generic button hover used to paint
      this --primary-dark behind --text, and the label all but disappeared. The
@@ -886,7 +886,21 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   background: var(--secondary-bg);
   border-color: var(--border);
 }
-.export-code-btn:active { transform: translateY(0); }
+.export-code-btn:active:not(:disabled) { transform: translateY(0); }
+
+/* The format buttons of the Export Code card: small, two by two, icon beside
+   the name; off (no scenario chosen) they are dimmed. */
+.export-code-grid > .export-code-btn {
+  flex-direction: row;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 10px;
+}
+.export-code-grid > .export-code-btn .export-code-icon { font-size: 18px; }
+.export-code-grid > .export-code-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 
 .export-code-icon {
   font-size: 24px;
@@ -919,7 +933,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   background: color-mix(in srgb, var(--warning) 8%, transparent);
   color: var(--warning-text) !important;
 }
-.export-code-js:hover {
+.export-code-js:hover:not(:disabled) {
   background: color-mix(in srgb, var(--warning) 14%, transparent) !important;
   border-color: var(--warning);
 }
@@ -929,7 +943,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   background: color-mix(in srgb, var(--primary) 8%, transparent);
   color: var(--primary) !important;
 }
-.export-code-py:hover {
+.export-code-py:hover:not(:disabled) {
   background: color-mix(in srgb, var(--primary) 14%, transparent) !important;
   border-color: var(--primary);
 }
@@ -939,7 +953,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   background: color-mix(in srgb, var(--danger) 8%, transparent);
   color: var(--danger-dark) !important;
 }
-.export-code-pw:hover {
+.export-code-pw:hover:not(:disabled) {
   background: color-mix(in srgb, var(--danger) 14%, transparent) !important;
   border-color: var(--danger);
 }

@@ -768,27 +768,19 @@
       <select id="exportCodeSelect" style="margin-bottom:10px;">
         <option value="">-- Select scenario --</option>
       </select>
+      <!-- Two by two, the description in the title (popup/export/code-card.js). -->
       <div class="export-code-grid">
-        <button id="exportBookmarklet" class="export-code-btn export-code-js" title="Export as JS Bookmarklet">
-          <span class="export-code-icon">⚡</span>
-          <div class="export-code-info">
-            <span class="export-code-name">JS Bookmarklet</span>
-            <span class="export-code-desc">Runs in browser</span>
-          </div>
+        <button id="exportBookmarklet" class="export-code-btn export-code-js" data-desc="JS Bookmarklet: runs in the browser, from a bookmark">
+          <span class="export-code-icon" aria-hidden="true">⚡</span>
+          <span class="export-code-name">JS Bookmarklet</span>
         </button>
-        <button id="exportSelenium" class="export-code-btn export-code-py" title="Export as Selenium Python">
-          <span class="export-code-icon">🐍</span>
-          <div class="export-code-info">
-            <span class="export-code-name">Selenium Python</span>
-            <span class="export-code-desc">Standalone .py file</span>
-          </div>
+        <button id="exportSelenium" class="export-code-btn export-code-py" data-desc="Selenium Python: a script or a pytest test">
+          <span class="export-code-icon" aria-hidden="true">🐍</span>
+          <span class="export-code-name">Selenium Python</span>
         </button>
-        <button id="exportPlaywright" class="export-code-btn export-code-pw" title="Export as a Playwright test">
-          <span class="export-code-icon">🎭</span>
-          <div class="export-code-info">
-            <span class="export-code-name">Playwright Test</span>
-            <span class="export-code-desc">.spec.js for npx playwright test</span>
-          </div>
+        <button id="exportPlaywright" class="export-code-btn export-code-pw" data-desc="Playwright Test: a .spec.js for npx playwright test">
+          <span class="export-code-icon" aria-hidden="true">🎭</span>
+          <span class="export-code-name">Playwright Test</span>
         </button>
       </div>
     </div>

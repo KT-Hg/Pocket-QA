@@ -95,6 +95,9 @@
  *   export-formats  the Export Code card offers the bookmarklet, Selenium and Playwright,
  *                 each opening its own export with a "⬇ Download" button; the last
  *                 button keeps the others' size, in the middle of its row
+ *   export-card   the Export Code card's format buttons are off until a scenario is
+ *                 chosen; its list has the scenarios in no folder first, then a
+ *                 group per folder; it opens on the scenario Manage Scenarios has
  *   export-playwright  Playwright Test opens a <name>.spec.js holding one test
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, Edge exported
@@ -1486,6 +1489,54 @@ async function checkExportFormats(ctx) {
   }
 }
 
+async function checkExportCard(ctx) {
+  const click = [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }];
+  const { id: folderId } = await ctx.send({ type: 'CREATE_FOLDER', name: 'e2e card folder' });
+  const inFolder = await makeScenario(ctx, 'e2e card in folder', click);
+  await ctx.send({ type: 'MOVE_TO_FOLDER', scenarioId: inFolder, folderId });
+  const loose = await makeScenario(ctx, 'e2e card loose', click);
+  // The format buttons, on or off and their titles; the scenario chosen.
+  const state = (popup) => popup.evaluate(`({ value: document.getElementById('exportCodeSelect').value,
+    buttons: [...document.querySelectorAll('.export-code-grid > button')].map((b) => ({ off: b.disabled, title: b.title, height: b.offsetHeight })) })`);
+
+  await ctx.ext.evaluate(`chrome.storage.local.remove('lastSelectedScenario')`);
+  let popup = await openPopup(ctx);
+  try {
+    await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabData"]').click()`);
+    await sleep(SETTLE_MS);
+    const none = await state(popup);
+    check(none.value === '' && none.buttons.length === 3 && none.buttons.every((b) => b.off && b.title === 'Select a scenario first'),
+      'no scenario chosen: the three format buttons are off and say why', none);
+    await popup.evaluate(`(() => { const s = document.getElementById('exportCodeSelect'); s.value = ${JSON.stringify(loose)};
+      s.dispatchEvent(new Event('change')); })()`);
+    const chosen = await state(popup);
+    check(chosen.buttons.every((b) => !b.off && b.title && b.title !== 'Select a scenario first' && b.height > 0 && b.height < 50),
+      'a scenario chosen: the buttons are on, small, each titled with what it makes', chosen);
+    const order = await popup.evaluate(`(() => {
+      const s = document.getElementById('exportCodeSelect');
+      const where = (id) => { const o = s.querySelector('option[value="' + id + '"]'); return o.parentElement.tagName === 'OPTGROUP' ? o.parentElement.label : 'top'; };
+      const kids = [...s.children].map((el) => el.tagName);
+      return { inFolder: where(${JSON.stringify(inFolder)}), loose: where(${JSON.stringify(loose)}),
+        looseFirst: kids.lastIndexOf('OPTION') < kids.indexOf('OPTGROUP') };
+    })()`);
+    check(order.inFolder === 'e2e card folder' && order.loose === 'top' && order.looseFirst,
+      'the list has the scenarios in no folder first, then one group per folder', order);
+  } finally {
+    await popup.close();
+  }
+
+  // The scenario Manage Scenarios has selected is the card's when the card has none.
+  await ctx.ext.evaluate(`chrome.storage.local.set({ lastSelectedScenario: ${JSON.stringify(inFolder)} })`);
+  popup = await openPopup(ctx);
+  try {
+    const taken = await state(popup);
+    check(taken.value === inFolder && taken.buttons.every((b) => !b.off), 'the popup opens with the card on the scenario Manage Scenarios has', taken);
+  } finally {
+    await popup.close();
+    await ctx.ext.evaluate(`chrome.storage.local.remove('lastSelectedScenario')`);
+  }
+}
+
 async function checkExportPlaywright(ctx) {
   const id = await makeScenario(ctx, 'Đăng nhập pw', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
   const popup = await openPopup(ctx);
@@ -2090,6 +2141,7 @@ const CHECKS = [
   ['export-layout', 'The export modal\'s size in a 600 and a 500 px popup', checkExportLayout],
   ['export-jump', 'From a row of the Actions tab to its code', checkExportJump],
   ['export-formats', 'The formats the Export Code card offers', checkExportFormats],
+  ['export-card', 'The Export Code card: its buttons and its list', checkExportCard],
   ['export-playwright', 'The Playwright Test export in the popup', checkExportPlaywright],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
