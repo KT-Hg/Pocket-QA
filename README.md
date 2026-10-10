@@ -20,7 +20,7 @@ A Chrome Manifest V3 extension that records browser interactions and replays the
 | **CSV Run** | Run a scenario once per row; export results to XLSX / HTML / ZIP with screenshots |
 | **SQL Test Cases** | Vietnamese/English. Parse a SELECT/INSERT/UPDATE/DELETE statement and derive a test case list — EP + BVA, decision table / MC-DC, NULL & 3-valued logic, JOIN cardinality, grouping and paging — with one panel for editing the sample values every case draws on, exported as CSV or JSON |
 | **DB Test Session** | Records every row changed through **Adminer** — edit form, grid edits, bulk delete, `INSERT`, and hand-written SQL — and rolls a whole test run back, with a preview of the exact SQL and a drift check per row. (Whole-table snapshots, backup tables and rollback after Playback are built but temporarily hidden.) |
-| **Export** | Scenario JSON, folder JSON, full backup/restore, JS Bookmarklet, Selenium Python (script or pytest), Playwright Test, Test steps (Markdown / CSV) |
+| **Export** | Scenario JSON, folder JSON, full backup/restore, JS Bookmarklet, Selenium Python (script or pytest), Playwright Test |
 | **UI** | Dark/light theme, 5 drag-to-reorder tabs, collapsible cards, hotkeys |
 
 ---
@@ -66,7 +66,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 
 ### Data
 - Global variables table (`${varName}` → value)
-- **Export Code** — turn any saved scenario into a JS Bookmarklet, a Selenium Python script or pytest test, a Playwright Test spec, or test steps in Markdown / CSV
+- **Export Code** — turn any saved scenario into a JS Bookmarklet, a Selenium Python script or pytest test, or a Playwright Test spec
 - Scheduled playback at a set time — one-off, or **Repeat daily**
 - CSV data-driven runs (one scenario execution per CSV row)
 - **SQL Test Case Designer** — opens `sqlcases.html` in its own tab (see below)
@@ -172,7 +172,7 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
   scenario are never rewritten — they get ⚠ when their range no longer fits. Undo restores ranges and actions
   together.
 - **Export:** the bookmarklet, Selenium and Playwright exports skip a block Switch *with its whole block* (otherwise
-  every case would run), and say so in the warnings; Test steps writes the cases out, numbered `7.1.1` as in the list. A scenario or folder export that uses blocks carries `minVersion` — the
+  every case would run), and say so in the warnings. A scenario or folder export that uses blocks carries `minVersion` — the
   version that wrote it; older versions ignore `endAt` and would play every case one after the other.
 - Tests: `node --test "tests/*.test.mjs"` (Node 21+, no npm install). Newer Node reads the arguments as globs, so
   passing the bare directory (`tests/`) fails instead of running the files in it.
@@ -191,14 +191,13 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
 
 ## Export Code
 
-From the **Data** tab → **Export Code** card, select any saved scenario and pick one of four formats. All four open the same window: **Code** (preview, *wrap*, *select all*), **Variables** (the variables the scenario uses, with the values that will be baked in), **Actions** (each step marked **✓ OK**, **⚠ Verify** — exported, check it by hand — or **— Skip**, with the reason) and **Settings** (press **↺ Regenerate Code** after a change; it re-reads the saved scenario too). The settings of each format are remembered the next time the popup opens.
+From the **Data** tab → **Export Code** card, select any saved scenario and pick one of three formats. All three open the same window: **Code** (preview, *wrap*, *select all*), **Variables** (the variables the scenario uses, with the values that will be baked in), **Actions** (each step marked **✓ OK**, **⚠ Verify** — exported, check it by hand — or **— Skip**, with the reason) and **Settings** (press **↺ Regenerate Code** after a change; it re-reads the saved scenario too). The settings of each format are remembered the next time the popup opens.
 
 | Format | File | Runs with |
 |---|---|---|
 | ⚡ JS Bookmarklet | `<name>_bookmarklet.js`, or **Copy** as a one-line bookmark URL | the browser — a bookmark or the Console |
 | 🐍 Selenium Python | `<name>_selenium.py` (Script) or `test_<name>.py` (pytest) | `python` / `pytest` with `selenium` 4.x |
 | 🎭 Playwright Test | `<name>.spec.js` | `npx playwright test` with `@playwright/test` |
-| 📋 Test steps | `<name>_steps.md` or `<name>_steps.csv` | a reader: a test document, a bug report, or an import into TestRail / Xray / Zephyr |
 
 The file name keeps letters of any language (`đăng_nhập_selenium.py`).
 
@@ -214,9 +213,7 @@ The file name keeps letters of any language (`đăng_nhập_selenium.py`).
 | Upload File to a drop zone | — | — | — |
 | Switch | — | — | — |
 
-Test steps is documentation rather than code, so it writes every enabled step as a sentence: numbered as the scenario list numbers them (a Switch block's `7.1.1`), with the steps a Condition or a Switch case governs indented under it (`↳`), and `${name}`s kept as written. The Markdown lists those variables under **Test data**; the CSV has the columns `Step, Action, Data, Expected` and is saved with a byte-order mark so a spreadsheet reads it as UTF-8.
-
-What the three code formats share:
+What the three formats share:
 
 - **Locators with fallbacks**, tried in playback's order: the selector type chosen in the form first, then full XPath → id → XPath → CSS → `data-testid` → `data-id` → `name` → text (the exact trimmed text of the innermost element, in the recorded tag). The first that finds an element wins (`getEl([...])`, `_find([...])`); a locator the page cannot parse is passed over.
 - **The extension's own in-page code** where a plain driver call would do something else: Read DOM (each "Read from" choice), Child Condition, Conditions and *Choose item #* run the functions playback runs, and Input fills date / time / color / range fields through playback's value setter. The bookmarklet also clicks, hovers, fills every field and drags (HTML5 drag events) as playback does; Selenium and Playwright use their own mouse and keyboard for those.
@@ -320,18 +317,6 @@ test("Login Form", async ({ page }) => {
   const el3 = await _find(page, ["xpath=//button", "button:text-is(\"Sign in\")"]);
   await el3.click();
 });
-```
-
-### 📋 Test steps
-
-- Settings: Format — Markdown or CSV.
-
-```markdown
-| # | Action | Data | Expected result |
-|---|---|---|---|
-| 1 | Open https://example.com/login |  |  |
-| 2 | Email | ${username} |  |
-| 3 | Sign in |  |  |
 ```
 
 The limits that remain are listed in [docs/known-issues.md](docs/known-issues.md).
@@ -697,7 +682,7 @@ All hotkeys are configurable in the **Settings** tab and synced via `chrome.stor
 │  popup.html + popup/*.js  (UI Layer — ES modules)           │
 │  main · variables · settings · screenshots · highlight      │
 │  export-modal · export-bookmarklet · export-selenium        │
-│  export-playwright · export-steps · update-banner           │
+│  export-playwright · update-banner                          │
 │  Sends messages → background.js                             │
 └──────────────────────────┬───────────────────────────────────┘
                            │ chrome.runtime.sendMessage
@@ -1120,10 +1105,10 @@ node tools/verify.mjs --all      # … + ESLint vs baseline + smoke and e2e runs
 | Tool | What it proves |
 |---|---|
 | `tools/check-imports.mjs` | Every `import` resolves and every imported name is exported; manifest paths, `<script>`/`<link>` in the pages, `getURL('…')` and `files: ['…']` exist; every module an Adminer page imports is in `web_accessible_resources`. |
-| `tests/*.test.mjs` | Unit tests, plus four characterization tests. `golden.test.mjs`: the pure modules, the CSV result files and the four exports (bookmarklet, Selenium, Playwright, Test steps) must return exactly what is stored in `tests/golden/` (rewrite with `node tests/golden/update.mjs`). `router.test.mjs`: background.js driven through 140 steps against an in-memory `chrome` (`tests/helpers/chrome-fake.mjs`) must reproduce `tests/golden/router.json` — answers, chrome.* calls, storage and state (rewrite with `node tests/router.test.mjs --update`). `playback.test.mjs`: every action type through its success and failure paths (prompt retry / skip / stop / no answer), Condition skips, Switch jumps, nested scenarios and blocks, and the single / resume / sequence / CSV entry points → `tests/golden/playback.json`. `capture.test.mjs`: visible, full page, scroll, segment, element and window capture with zoom, tiling past 4 000 px, cancels and the capture messages → `tests/golden/capture.json`; frames and canvases are described rather than drawn (`tests/helpers/bg-fakes.mjs`), so the transcript shows every tile and where it was stitched. Both rewrite with `--update`. Rewrite only for an intended change, in its own commit. |
+| `tests/*.test.mjs` | Unit tests, plus four characterization tests. `golden.test.mjs`: the pure modules, the CSV result files and the three exports (bookmarklet, Selenium, Playwright) must return exactly what is stored in `tests/golden/` (rewrite with `node tests/golden/update.mjs`). `router.test.mjs`: background.js driven through 140 steps against an in-memory `chrome` (`tests/helpers/chrome-fake.mjs`) must reproduce `tests/golden/router.json` — answers, chrome.* calls, storage and state (rewrite with `node tests/router.test.mjs --update`). `playback.test.mjs`: every action type through its success and failure paths (prompt retry / skip / stop / no answer), Condition skips, Switch jumps, nested scenarios and blocks, and the single / resume / sequence / CSV entry points → `tests/golden/playback.json`. `capture.test.mjs`: visible, full page, scroll, segment, element and window capture with zoom, tiling past 4 000 px, cancels and the capture messages → `tests/golden/capture.json`; frames and canvases are described rather than drawn (`tests/helpers/bg-fakes.mjs`), so the transcript shows every tile and where it was stitched. Both rewrite with `--update`. Rewrite only for an intended change, in its own commit. |
 | `tools/smoke.mjs` | Loads the unpacked extension in Chromium: the service worker starts and answers, the five pages load without errors and follow the shared theme key, `content.js` answers PING, the DB tools modules load on an Adminer-looking page. `--shots <dir>` saves light/dark screenshots of every popup tab (as if opened on an activated http page) and of the other pages, for a before/after comparison. Needs Playwright: `NODE_PATH` to an install, or `PLAYWRIGHT_CORE` = a `playwright-core` directory; `CHROMIUM_PATH` picks the browser (branded Chrome ignores `--load-extension`; Edge and Chromium accept it). |
 | `tools/smoke-cdp.mjs` | The same checks as `smoke.mjs` (and `--shots`, with animations stopped so two runs give identical images) without Playwright: it drives the browser over the DevTools protocol with Node's own WebSocket (Node 22+, `tools/lib/cdp-browser.mjs`). It also checks the popup on an activated page: the status bar says Active and the Now Playing bar opens its panel. `CHROMIUM_PATH` picks the browser, else the usual Edge / Chromium install; downloads stay in a temporary profile. `verify --smoke` runs it when Playwright is missing. |
-| `tools/e2e.mjs` | Plays real scenarios in the browser (same driver) against a test page and checks the page: Dropdown "Choose item #" in a custom list and in a `<select>`, a Dropdown known only by an escaped id or by an XPath, Switch Always, the 512-character Random cap, two visible screenshots within a second, variable suggestions in the popup, a Switch draft listing the scenarios when the popup reopens, and the export window (`export-*`: skipped steps, Regenerate, Headless, Output, Settings kept between popups, Test steps, Playwright). `export-run` plays each case of `EXPORT_CASES` and runs it as the exported bookmarklet, Selenium script (headless Edge), pytest test and Playwright spec, then compares the page each one leaves with what playback left; without python + selenium, pytest, or `PQA_PLAYWRIGHT_DIR` (a folder outside the repo with `@playwright/test` installed) those runs are skipped, not failed. `--only <name>` runs one check; `--ext <dir>` runs another checkout, e.g. an older commit in a `git worktree`, to see a check fail there. |
+| `tools/e2e.mjs` | Plays real scenarios in the browser (same driver) against a test page and checks the page: Dropdown "Choose item #" in a custom list and in a `<select>`, a Dropdown known only by an escaped id or by an XPath, Switch Always, the 512-character Random cap, two visible screenshots within a second, variable suggestions in the popup, a Switch draft listing the scenarios when the popup reopens, and the export window (`export-*`: the formats the card offers, skipped steps, Regenerate, Headless, Output, the start URL from the tab, Settings kept between popups, Playwright). `export-run` plays each case of `EXPORT_CASES` and runs it as the exported bookmarklet, Selenium script (headless Edge), pytest test and Playwright spec, then compares the page each one leaves with what playback left; without python + selenium, pytest, or `PQA_PLAYWRIGHT_DIR` (a folder outside the repo with `@playwright/test` installed) those runs are skipped, not failed. `--only <name>` runs one check; `--ext <dir>` runs another checkout, e.g. an older commit in a `git worktree`, to see a check fail there. |
 | `tools/eslint.config.mjs` | `npx --yes eslint@9.39.5 -c tools/eslint.config.mjs .` — a change may not raise any rule's count above `tools/eslint-baseline.json`. |
 
 ### Key Technical Constraints (WHY knowledge)
