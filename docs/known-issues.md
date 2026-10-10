@@ -51,3 +51,26 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   đang là chỗ thả khi kéo action (`02-action-list.css`) và vòng focus của công tắc Highlight (`11-highlight.css`).
   Màu dự phòng phải đặt trong `@supports`: viết ngay phía trên thì không có tác dụng, vì khai báo dùng `var()` không
   bị bỏ qua lúc parse.
+
+## Giới hạn của Export Code
+
+Chuẩn là phát lại: bản xuất làm khác phát lại là bug. Những chỗ dưới đây chưa làm giống được; tab Actions của cửa sổ
+xuất đánh dấu ⚠ Verify hoặc — Skip cho từng bước liên quan, kèm lý do.
+
+- **Bước ghi trong iframe:** cả ba bản xuất code tìm element ở trang chính, nên bước đó báo không tìm thấy. Bước được
+  đánh ⚠ Verify. Phát lại cũng chỉ thấy frame trên cùng với các bước đi qua CDP (xem mục trên).
+- **Upload File vào drop zone** không được xuất ở định dạng nào (cần cầu nối DataTransfer của extension). Upload vào
+  `<input type="file">` thì Selenium (`send_keys`) và Playwright (`setInputFiles`) làm được; bookmarklet không đọc
+  được tệp trên máy nên bỏ qua mọi Upload File.
+- **Switch** bị bỏ qua ở cả ba bản xuất code, Switch có khối bị bỏ qua cùng cả khối: chọn case và nhảy sang scenario
+  khác là việc của extension. Test steps vẫn viết các case ra.
+- **Bookmarklet và Navigate:** Navigate đầu tiên cần bấm 2 lần (mở trang rồi dừng, bấm lại khi trang đã tải). Nếu
+  trang đích chuyển hướng sang địa chỉ khác (ví dụ về trang đăng nhập), lần bấm sau vẫn không thấy mình ở đích nên lại
+  mở trang và dừng, không bao giờ chạy tiếp. Navigate ở giữa scenario tải lại trang, các bước sau nó không chạy.
+- **Shadow DOM:** phát lại tìm theo CSS xuyên qua shadow root, các bản xuất thì không.
+- **Child Condition "Text contains":** phát lại khớp cả chữ của riêng element (các text node con trực tiếp) lẫn
+  `textContent`; các bản xuất chỉ khớp `textContent`. Chỉ khác khi chữ cần tìm bị một phần tử con chen ngang, ví dụ
+  `Hello <b>x</b> world` với "Hello world".
+- **Kéo thả trong Selenium** dùng ActionChains; mới kiểm chạy thật trên Edge (e2e `export-run`), chưa kiểm trên
+  Firefox và Safari.
+- **Test steps dạng CSV** không có bảng Test data như Markdown: cột Data giữ nguyên `${tên}`.
