@@ -2006,6 +2006,17 @@ async function checkFailsAtStep(ctx, run) {
     check(r.error && NAMES_STEP_3.test(said) && NAMES_LOCATOR.test(said),
       'fails-at-step: the Selenium script fails, printing step 3, its label and what it looked for', said.split('\n').pop());
   }
+  if (run.pwRun) {
+    // The list reporter, as on a terminal: each test.step and the failing one.
+    const spec = 'fails_at_step.spec.js';
+    writeFileSync(join(run.pwRun, spec), run.generatePlaywright('fails at step', FAILING_STEPS, {}, { ...opts, startUrl: page('playwright') }).code);
+    const r = await runFile(process.execPath, [run.pwCli, 'test', spec, '--config', 'playwright.config.mjs', '--reporter=list'],
+      { cwd: run.pwRun, timeout: PYTHON_RUN_TIMEOUT_MS, env: { ...process.env, PLAYWRIGHT_LIST_PRINT_STEPS: '1' } });
+    const report = String(r.stdout);
+    // Reported under its step (test.step), not only near the step's comment in the code frame.
+    check(r.error && /› Step 3: click — Sign in/.test(report) && NAMES_LOCATOR.test(report),
+      'fails-at-step: the Playwright report names step 3, its label and what it looked for', report.split('\n').filter((l) => /Step 3|nope/.test(l)).slice(0, 3));
+  }
   if (run.pytestHere) {
     const file = join(run.dir, 'test_fails_at_step.py');
     writeFileSync(file, run.generateSeleniumPy('fails at step', FAILING_STEPS, {},

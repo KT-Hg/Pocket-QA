@@ -624,7 +624,8 @@ function checkModule(code) {
 
 /**
  * Run a generated spec against a fake Playwright: `test` keeps the test function,
- * `page` records every call. Returns the calls, as "method arg…" strings.
+ * `page` records every call. Returns the calls, as "method arg…" strings; their
+ * `steps`, the test.step titles in the order they ran.
  */
 async function runSpec(code, { kind = 'text', checks = {}, text = 'read' } = {}) {
   const calls = [];
@@ -667,7 +668,10 @@ async function runSpec(code, { kind = 'text', checks = {}, text = 'read' } = {})
     screenshot: async (o) => calls.push(`shot page ${fmt(o)}`),
   };
   let body = null;
-  const test = Object.assign((name, fn) => { body = fn; }, { use() {}, setTimeout() {} });
+  // Not enumerable: a deepEqual of the calls leaves it out.
+  Object.defineProperty(calls, 'steps', { value: [] });
+  const step = async (title, fn) => { calls.steps.push(title); return fn(); };
+  const test = Object.assign((name, fn) => { body = fn; }, { use() {}, setTimeout() {}, step });
   const js = code.replace(/^import \{ test \} from '@playwright\/test';$/m, '');
   new Function('test', js)(test);
   await body({ page });
@@ -697,7 +701,8 @@ test('Playwright: a spec npx playwright test runs, each step through the page', 
   assert.match(code, /const el3 = await _find\(page, \["#go", "xpath=\/\/button\[@id=\\"go\\"\]", "#go-css"\]\);/);
   assert.match(code, /const el4 = page\.locator\("text=\\"OK\\""\)\.first\(\);/);
   assert.match(code, /const el5 = page\.locator\("li:text-is\(\\"Menu\\"\)"\)\.first\(\);/);
-  assert.deepEqual(await runSpec(code), [
+  const calls = await runSpec(code);
+  assert.deepEqual(calls, [
     'goto https://shop.test/',
     'fill #user "bob"',
     'click #go',
@@ -708,6 +713,10 @@ test('Playwright: a spec npx playwright test runs, each step through the page', 
     'shot page {"path":"screenshot_full_step8.png","fullPage":true}',
     'shot #card {"path":"screenshot_shot_step9.png"}',
   ]);
+  // Each step a test.step of the report, named as its comment.
+  assert.deepEqual(calls.steps, ['Step 1: navigate', 'Step 2: input', 'Step 3: click', 'Step 4: click', 'Step 5: hover', 'Step 6: wait',
+    'Step 7: script', 'Step 8: screenshot (full page)', 'Step 9: screenshot → variable "shot"']);
+  assert.match(code, /^ {2}\/\/ Step 3: click\n {2}await test\.step\("Step 3: click", async \(\) => \{\n {4}const el3 = /m);
   assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'verify', 'ok', 'ok'], 'a script, as in the other exports, is to check');
   // A date (or color, range, <select>) goes through the extension's own setter, as playback sets it.
   const date = generatePlaywright('d', [{ type: 'input', selector: '#d', selectors: { css: '#d' }, value: '2026-10-10' }], {}, { stepDelay: 0 }).code;
@@ -725,8 +734,9 @@ test('Playwright: Conditions decide with the in-page check, and guard their step
     { type: 'click', selector: '#d', selectors: { css: '#d' } },
   ];
   const { code, steps: status, warnings } = generatePlaywright('conds', steps, { who: 'Bob' }, { stepDelay: 0 });
-  assert.match(code, /^ {2}if \(await page\.evaluate\(_checkCond, \["textContains", await _first\(page, \["#greet"\]\), `\$\{who\}`\]\)\) \{$/m);
-  assert.match(code, /^ {2}if \(await page\.evaluate\(_checkCond, \["urlContains", null, "cart"\]\)\) \{$/m);
+  // The check is a test.step of its own; the steps it guards are theirs.
+  assert.match(code, /^ {2}if \(await test\.step\("Step 1: condition — textContains", async \(\) => page\.evaluate\(_checkCond, \["textContains", await _first\(page, \["#greet"\]\), `\$\{who\}`\]\)\)\) \{$/m);
+  assert.match(code, /^ {2}if \(await test\.step\("Step 3: condition — urlContains", async \(\) => page\.evaluate\(_checkCond, \["urlContains", null, "cart"\]\)\)\) \{$/m);
   // An unknown type stops there, as a run does; its name stays in the comment.
   assert.match(code, /^ {2}throw new Error\("Condition step 5: unknown condition type, named in the comment above"\);\n {2}if \(true\) \{$/m);
   assert.ok(warnings.some((w) => /Condition step 5: type "isChecked" is unknown/.test(w)));
@@ -736,6 +746,7 @@ test('Playwright: Conditions decide with the in-page check, and guard their step
   assert.deepEqual(calls.filter((c) => !c.startsWith('goto')), [
     'check textContains #greet "Bob"', 'check urlContains null "cart"', 'click #b', 'click #d',
   ], 'the guarded step runs only when its check holds');
+  assert.deepEqual(calls.steps, ['Step 1: condition — textContains', 'Step 3: condition — urlContains', 'Step 4: click', 'Step 6: click']);
 });
 
 test('Playwright: Child Condition, Read DOM, Choose item #, drag and Upload File, as the other exports do them', async () => {

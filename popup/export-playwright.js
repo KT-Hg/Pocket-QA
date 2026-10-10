@@ -269,12 +269,26 @@ function conditionHeader(action, step, ctx) {
     ctx.uses.add('first');
     el = `await _first(page, [${selectorsPW(locatorsFor(action)).join(', ')}])`;
   }
-  return [head, `if (await page.evaluate(_checkCond, [${JSON.stringify(type)}, ${el}, ${valueJS(action.expectedValue)}])) {`];
+  // The check is a step of the report; the steps it guards are steps of their own.
+  const title = JSON.stringify(head.slice('// '.length));
+  return [head, `if (await test.step(${title}, async () => page.evaluate(_checkCond, [${JSON.stringify(type)}, ${el}, ${valueJS(action.expectedValue)}]))) {`];
 }
 
 // The steps, walked as playback walks them (export/walk.js).
+/**
+ * A step's lines as a test.step named by its comment ("Step 3: click — Sign in"):
+ * the report lists each one and marks the one that failed. A skipped step has no
+ * code, so no step. Its element is the step's own; a variable it writes is the
+ * test's (declared outside).
+ */
+function asTestStep(lines, step) {
+  if (step.status === 'skip') return lines;
+  return [lines[0], `await test.step(${JSON.stringify(lines[0].slice('// '.length))}, async () => {`,
+    ...lines.slice(1).map((l) => (l === '' ? '' : `  ${l}`)), '});'];
+}
+
 const stepLines = (ctx) => walkActions(ctx, {
-  step: (action, step) => actionLines(action, step, ctx),
+  step: (action, step) => asTestStep(actionLines(action, step, ctx), step),
   conditionHead: (action, step) => conditionHeader(action, step, ctx),
   conditionBody: (lines) => [...lines.map((l) => (l === '' ? '' : `  ${l}`)), '}'],
   // The spec cannot pick a case.
