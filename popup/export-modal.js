@@ -39,16 +39,16 @@ let modalWired = false;
  *
  * @param {object}   cfg
  * @param {string}   cfg.triggerId     - the button that opens the modal for it
- * @param {string}   cfg.format        - its Settings block ([data-format]) and strip / chip style ('js', 'py')
- * @param {string}   cfg.badge         - the chip's text ('JS', 'PY')
+ * @param {string}   cfg.format        - its Settings block ([data-format]) and strip / chip style ('js', 'py', 'pw')
+ * @param {string}   cfg.badge         - the chip's text ('JS', 'PY', 'PW')
  * @param {string}   cfg.title         - header, followed by " — <scenario>"
- * @param {string|Function} cfg.downloadLabel - the Download button's text ('⬇ .js'), or (options) → it
+ * @param {string}   cfg.downloadLabel - the Download button's text ('⬇ .js')
  * @param {Function} cfg.fileName      - (base, options) → the file name, from the scenario's safe name
  *                                       and the options the code was made with
  * @param {Function} cfg.readOptions   - () → the generator's options, read from its Settings block
  * @param {Function} cfg.generate      - (scenarioName, actions, variables, options) → { code, stats, steps, warnings }
  * @param {Function} cfg.copyText      - (code) → what Copy puts on the clipboard
- * @param {Function} cfg.file          - (code, options) → { text, type } that Download saves
+ * @param {Function} cfg.file          - (code) → { text, type } that Download saves
  * @param {string[]} [cfg.remember]    - ids of its Settings inputs kept between popups, in the
  *                                       order they are put back
  * @param {Function} [cfg.beforeOpen]  - (done) → run first each time the modal opens for it; the
@@ -174,8 +174,7 @@ function render(result) {
   byId('Title').textContent = `${run.cfg.title} — ${run.scenarioName}`;
   byId('Sub').textContent = `${filename} · ${result.stats.supported} steps`;
   byId('CodeLabel').textContent = filename;
-  const label = run.cfg.downloadLabel;
-  byId('Download').textContent = typeof label === 'function' ? label(run.options) : label;
+  byId('Download').textContent = run.cfg.downloadLabel;
 
   // Code preview
   const codeEl = byId('Code')?.querySelector('code');
@@ -287,7 +286,7 @@ async function copy() {
 
 function download() {
   if (!run.code) return;
-  const { text, type } = run.cfg.file(run.code, run.options);
+  const { text, type } = run.cfg.file(run.code);
   // Through downloadBlob, which revokes the URL a moment later: revoked right
   // after click() it can go before the browser has read the file.
   downloadBlob(new Blob([text], { type }), fileName());
