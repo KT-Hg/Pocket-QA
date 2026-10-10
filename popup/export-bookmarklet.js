@@ -6,7 +6,7 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
   PICK_ITEM_JS, QUERY_DEEP_JS,
@@ -20,7 +20,7 @@ const SKIPPED_TYPES = new Set([
 // Identifiers the generated bookmarklet declares for itself, plus the JS reserved
 // words (js-code.js).
 const _RESERVED_JS = new Set([
-  'sleep', 'getEl', '_qsel', '_deep', '_first', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
+  'sleep', 'getEl', '_qsel', '_deep', '_first', '_inFrames', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
   'domVar', '_at', 'setInterval', 'clearInterval', 'clearTimeout',
   ...JS_RESERVED,
 ]);
@@ -130,6 +130,8 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
   const delay = action.delay != null ? Number(action.delay) : stepDelay;
   const sel = locsJS(locatorsFor(action));
   const v = `_el${stepNum}`;
+  // getEl's arguments after the locators: recorded in a frame, it looks in the same-origin frames too.
+  const at = `, ${elTimeout}${inFrame(action) ? ', _inFrames' : ''}`;
 
   if (SKIPPED_TYPES.has(action.type)) {
     mark(step, 'skip', action.type === 'switch'
@@ -143,11 +145,11 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'click':
       out.push(`// Step ${stepNum}: click${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${sel}${at});`);
         out.push(`const ${v} = _findChild(${v}_p, ${jsConditions(action.conditions, valueToJS)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}${at});`);
       }
       out.push(`_click(${v});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
@@ -156,11 +158,11 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'input':
       out.push(`// Step ${stepNum}: input${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${sel}${at});`);
         out.push(`const ${v} = _findChild(${v}_p, ${jsConditions(action.conditions, valueToJS)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}${at});`);
       }
       out.push(`_setInput(${v}, ${valueToJS(action.value)});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
@@ -169,11 +171,11 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'hover':
       out.push(`// Step ${stepNum}: hover${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${sel}${at});`);
         out.push(`const ${v} = _findChild(${v}_p, ${jsConditions(action.conditions, valueToJS)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}${at});`);
       }
       out.push(`_hover(${v});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
@@ -182,13 +184,13 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'dropdown':
       if (action.pick) {
         out.push(`// Step ${stepNum}: dropdown → item #${_pickLabel(action)}${lbl}`);
-        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}${at});`);
         out.push(`await _pickItem(${v}, ${valueToJS(action.pick.index)}, ${valueToJS(action.pick.itemSelector || '')}, ${elTimeout});`);
         if (delay > 0) out.push(`await sleep(${delay});`);
         break;
       }
       out.push(`// Step ${stepNum}: open dropdown (freeze)${lbl}`);
-      out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
+      out.push(`const ${v} = await getEl(${sel}${at});`);
       out.push(`${v}.click();`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
@@ -196,8 +198,8 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'dragdrop': {
       const tgt = locsJS(locatorsFor(action, true));
       out.push(`// Step ${stepNum}: dragdrop${lbl}`);
-      out.push(`const ${v}_s = await getEl(${sel}, ${elTimeout});`);
-      out.push(`const ${v}_t = await getEl(${tgt}, ${elTimeout});`);
+      out.push(`const ${v}_s = await getEl(${sel}${at});`);
+      out.push(`const ${v}_t = await getEl(${tgt}${at});`);
       out.push(`_dragDrop(${v}_s, ${v}_t);`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
@@ -269,11 +271,11 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       const targets = [varName, ...slots.map(_sanitizeVarName)].filter(Boolean);
       out.push(`// Step ${stepNum}: readdom → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${sel}${at});`);
         out.push(`const ${v} = _findChild(${v}_p, ${jsConditions(action.conditions, valueToJS)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}${at});`);
       }
       // _readVal mirrors what the extension reads for each "Read from" choice.
       const readExpr = `_readVal(${v}, ${JSON.stringify(action.readFrom || 'text')}, ${valueToJS(action.attrName || '')})`;
@@ -341,7 +343,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   // The step number of a Navigate that comes first (waits aside), else 0.
   const first = enabled.find(a => a.type !== 'wait');
   const firstNavigate = first?.type === 'navigate' ? all.indexOf(first) + 1 : 0;
-  const ctx = { staticVars, warnings, all, layout, steps, firstNavigate };
+  const ctx = { staticVars, warnings, all, layout, steps, firstNavigate, frames: 'same-origin' };
   // The steps first: the helpers declared below depend on what they use.
   const bodyLines = stepLines(stepDelay, elTimeout, ctx);
 
@@ -373,10 +375,34 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('    return null;');
   out.push('  };');
   out.push('');
-  out.push(`  const getEl = (sels, timeout = ${elTimeout}) => new Promise((res, rej) => {`);
-  out.push('    const el = _first(sels);');
+  // With a step recorded in a frame, getEl takes how to look (_first, or _inFrames for that step).
+  const framed = bodyLines.some((l) => l.includes(', _inFrames);'));
+  if (framed) {
+    out.push('  // An element recorded in a frame: in the page, then in the document of each frame of the same origin');
+    out.push("  // (another origin's is out of a page script's reach), by CSS or XPath.");
+    out.push('  const _inFrames = sels => {');
+    out.push('    const el = _first(sels);');
+    out.push('    if (el) return el;');
+    out.push("    for (const frame of document.querySelectorAll('iframe, frame')) {");
+    out.push('      let doc = null;');
+    out.push('      try { doc = frame.contentDocument; } catch (e) { /* another origin */ }');
+    out.push('      for (const sel of doc ? [].concat(sels) : []) {');
+    out.push('        try {');
+    out.push("          const found = typeof sel === 'object' ? null : (sel.startsWith('/') || sel.startsWith('('))");
+    out.push('            ? doc.evaluate(sel, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue : doc.querySelector(sel);');
+    out.push('          if (found) return found;');
+    out.push('        } catch (e) { /* a selector this page cannot parse */ }');
+    out.push('      }');
+    out.push('    }');
+    out.push('    return null;');
+    out.push('  };');
+    out.push('');
+  }
+  const find = framed ? 'find' : '_first';
+  out.push(`  const getEl = (sels, timeout = ${elTimeout}${framed ? ', find = _first' : ''}) => new Promise((res, rej) => {`);
+  out.push(`    const el = ${find}(sels);`);
   out.push('    if (el) return res(el);');
-  out.push('    const look = () => { const found = _first(sels); if (found) { stop(); res(found); } };');
+  out.push(`    const look = () => { const found = ${find}(sels); if (found) { stop(); res(found); } };`);
   out.push('    const obs = new MutationObserver(look);');
   // As playback looks again (findElementWithFallback): what changes inside a shadow root reaches no observer of the page.
   out.push(`    const poll = setInterval(look, ${SHADOW_POLL_MS});`);

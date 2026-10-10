@@ -57,9 +57,10 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 Chuẩn là phát lại: bản xuất làm khác phát lại là bug. Những chỗ dưới đây chưa làm giống được; tab Actions của cửa sổ
 xuất đánh dấu ⚠ Verify hoặc — Skip cho từng bước liên quan, kèm lý do.
 
-- **Bước ghi trong iframe:** Selenium và Playwright tìm element ở trang chính rồi trong từng frame. Bookmarklet chỉ tìm
-  ở trang chính, nên bước đó báo không tìm thấy (⚠ Verify). Một Condition ghi trong frame vẫn được kiểm ở trang chính
-  ở cả ba bản (⚠ Verify). Phát lại cũng chỉ thấy frame trên cùng với các bước đi qua CDP (xem mục trên).
+- **Bước ghi trong iframe:** Selenium và Playwright tìm element ở trang chính rồi trong từng frame. Bookmarklet chỉ với
+  tới frame cùng origin với trang (bằng CSS hoặc XPath, không lồng frame trong frame); frame khác origin thì không
+  (⚠ Verify). Một Condition ghi trong frame vẫn được kiểm ở trang chính ở cả ba bản (⚠ Verify). Phát lại cũng chỉ thấy
+  frame trên cùng với các bước đi qua CDP (xem mục trên).
 - **Upload File vào drop zone** không được xuất ở định dạng nào (cần cầu nối DataTransfer của extension). Upload vào
   `<input type="file">` thì Selenium (`send_keys`) và Playwright (`setInputFiles`) làm được; bookmarklet không đọc
   được tệp trên máy nên bỏ qua mọi Upload File.

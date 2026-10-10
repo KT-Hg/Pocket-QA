@@ -1951,7 +1951,8 @@ const EXPORT_CASES = [
     // A field and a button inside the page's iframe, then a button of the page. `inFrame`
     // steps get the frameId playback knows the frame by (as recording gives it).
     name: 'iframe',
-    runners: ['selenium', 'pytest', 'playwright'],
+    // The frame is of the page's own origin: within the bookmarklet's reach.
+    runners: ['bookmarklet', 'selenium', 'pytest', 'playwright'],
     actions: [
       { type: 'input', selector: '#fName', selectors: { css: '#fName' }, value: 'Zoe', inFrame: true },
       { type: 'click', selector: '#fGo', selectors: { css: '#fGo' }, inFrame: true },

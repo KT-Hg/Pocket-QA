@@ -371,12 +371,16 @@ const stepKinds = [
 const statusOf = (steps) => Object.fromEntries(steps.map((s) => [s.n, s.status]));
 
 test('each export says, step by step, what it exported, skipped or wants checked', () => {
-  // Step 7 was recorded in a frame: Selenium looks for it there too, the bookmarklet in the page only.
+  // Step 7 was recorded in a frame: Selenium looks for it there too, the bookmarklet in same-origin frames only.
   const py = generateSeleniumPy('kinds', stepKinds, {});
   assert.deepEqual(statusOf(py.steps), { 1: 'ok', 3: 'ok', 4: 'ok', 5: 'skip', 6: 'verify', 7: 'ok', 8: 'ok' });
   const js = generateBookmarklet('kinds', stepKinds, {});
   assert.deepEqual(statusOf(js.steps), { 1: 'verify', 3: 'ok', 4: 'skip', 5: 'skip', 6: 'verify', 7: 'verify', 8: 'skip' });
-  assert.match(js.steps.find((s) => s.n === 7).reason, /iframe/);
+  assert.match(js.steps.find((s) => s.n === 7).reason, /iframe — a bookmarklet reaches only the frames of its own site/);
+  assert.match(js.code, /const _el7 = await getEl\("#in-frame", 5000, _inFrames\);/);
+  assert.match(js.code, /const getEl = \(sels, timeout = 5000, find = _first\) =>/);
+  assert.doesNotMatch(generateBookmarklet('top', [stepKinds[2]], {}).code, /_inFrames|find = _first/, 'none without a step in a frame');
+  new Function(js.code.replace(/^javascript:/, ''));
   for (const { steps } of [py, js]) {
     assert.ok(steps.every((s) => s.type === stepKinds[s.n - 1].type), 'each step names its action type');
     assert.ok(steps.filter((s) => s.status !== 'ok').every((s) => s.reason), 'a step not exported as is says why');

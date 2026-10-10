@@ -24,14 +24,16 @@ export function mark(step, status, reason) {
  * The record for `action` at 1-based `n`, before the generator marks it.
  * `frames`: where the export looks for an element of an action recorded inside a
  * frame (action.frameId, a number of the recording, of no use to the export):
- * 'all' (the page and its frames: Selenium, Playwright), or 'none' (the page
+ * 'all' (the page and its frames: Selenium, Playwright), 'same-origin' (the page
+ * and the frames a script of it may read: the bookmarklet), or 'none' (the page
  * only). A Condition is checked in the page whatever the export.
  */
 export function newStep(action, n, frames = 'none') {
   const step = { n, type: action.type, status: 'ok', reason: '' };
-  if (action.frameId != null && action.frameId !== 0 && (frames !== 'all' || action.type === 'condition')) {
-    mark(step, 'verify', 'recorded inside an iframe — the export looks in the top page');
-  }
+  if (action.frameId == null || action.frameId === 0 || (frames === 'all' && action.type !== 'condition')) return step;
+  mark(step, 'verify', frames === 'same-origin' && action.type !== 'condition'
+    ? 'recorded inside an iframe — a bookmarklet reaches only the frames of its own site (same origin)'
+    : 'recorded inside an iframe — the export looks in the top page');
   return step;
 }
 
