@@ -387,6 +387,21 @@ function variableLines(variables, { staticVars, randomSpecs, pickSpecs, written 
   return out.length ? ['// --- VARIABLES ---', ...out, ''] : [];
 }
 
+// The helpers the steps (`body`, what they `use`) and a data file call, each followed by an empty line.
+function helperLines(body, uses, dataFile) {
+  const used = [
+    [true, ENV_HELPERS],
+    [dataFile, CSV_HELPERS],
+    [body.some((l) => l.includes('await _find(')), FIND_HELPER],
+    [body.some((l) => l.includes('await _inFrames(')), FRAMES_HELPER],
+    [uses.has('first'), FIRST_HELPER],
+    ...['check', 'child', 'read', 'pick'].map((name) => [uses.has(name), PAGE_HELPERS[name]]),
+    [uses.has('input'), INPUT_HELPER],
+    [uses.has('js'), JS_HELPER],
+  ];
+  return used.filter(([on]) => on).flatMap(([, src]) => [src, '']);
+}
+
 // The test of `lines`; with a data file, one test per row of it, named "<scenario> #<row>".
 function testBlock(scenarioName, lines, dataFile) {
   const indent = (l) => (l === '' ? '' : `  ${l}`);
@@ -436,14 +451,7 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
   // A failed test keeps a screenshot and a trace of the page (test-results/).
   out.push('// How long a step waits for its element, as set in the export.', `const TIMEOUT = ${elTimeout};`,
     "test.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });", '');
-  out.push(ENV_HELPERS, '');
-  if (dataFile) out.push(CSV_HELPERS, '');
-  if (body.some((l) => l.includes('await _find('))) out.push(FIND_HELPER, '');
-  if (body.some((l) => l.includes('await _inFrames('))) out.push(FRAMES_HELPER, '');
-  if (ctx.uses.has('first')) out.push(FIRST_HELPER, '');
-  for (const name of ['check', 'child', 'read', 'pick']) if (ctx.uses.has(name)) out.push(PAGE_HELPERS[name], '');
-  if (ctx.uses.has('input')) out.push(INPUT_HELPER, '');
-  if (ctx.uses.has('js')) out.push(JS_HELPER, '');
+  out.push(...helperLines(body, ctx.uses, dataFile));
   const csv = dataFile ? { fromColumns: undefinedVarNames(enabled, variables), written: enabled.flatMap((a) => writtenVarNames(a)) } : null;
   out.push(...testBlock(scenarioName, [...variableLines(variables, vars, csv), ...start, ...body], dataFile));
 

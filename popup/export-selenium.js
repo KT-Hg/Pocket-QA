@@ -630,7 +630,7 @@ function _findChildHelperPy() {
  * unrolled version did — compared against the literal spec text and never matched.
  * The dict reaches the page's _findChild as an object, matchMode included.
  */
-function _buildChildCondPy(conditions, elVar, tout, locs, stepNum, frames) {
+function _buildChildCondPy(conditions, elVar, find, locs, stepNum) {
   const cond  = conditions;
   const lines = [];
 
@@ -641,7 +641,7 @@ function _buildChildCondPy(conditions, elVar, tout, locs, stepNum, frames) {
     }
   }
 
-  lines.push(`${elVar}_p = ${waitPy(locs, tout, false, frames)}`);
+  lines.push(`${elVar}_p = ${find(locs)}`);
   lines.push(`${elVar} = _find_child(${elVar}_p, {${parts.join(', ')}})`);
   lines.push(`if ${elVar} is None:`);
   lines.push(`    raise Exception("Child condition not matched (step ${stepNum})")`);
@@ -658,14 +658,16 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
   const locs   = locatorsFor(action);
   const elVar  = `el${stepNum}`;
   const out    = [];
+  // The expression that waits for an element of this scenario (waitPy).
+  const find   = (l, clickable = false) => waitPy(l, tout, clickable, ctx.frames === 'all');
 
   switch (action.type) {
     case 'click':
       out.push(`# Step ${stepNum}: click${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum, ctx.frames === 'all'));
+        out.push(..._buildChildCondPy(action.conditions, elVar, find, locs, stepNum));
       } else {
-        out.push(`${elVar} = ${waitPy(locs, tout, true, ctx.frames === 'all')}`);
+        out.push(`${elVar} = ${find(locs, true)}`);
       }
       out.push(`${elVar}.click()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
@@ -675,9 +677,9 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       const val = valueToPy(action.value);
       out.push(`# Step ${stepNum}: input${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum, ctx.frames === 'all'));
+        out.push(..._buildChildCondPy(action.conditions, elVar, find, locs, stepNum));
       } else {
-        out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
+        out.push(`${elVar} = ${find(locs)}`);
       }
       out.push(`if ${elVar}.tag_name == 'select':`);
       out.push(`    try:`);
@@ -696,9 +698,9 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'hover':
       out.push(`# Step ${stepNum}: hover${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum, ctx.frames === 'all'));
+        out.push(..._buildChildCondPy(action.conditions, elVar, find, locs, stepNum));
       } else {
-        out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
+        out.push(`${elVar} = ${find(locs)}`);
       }
       out.push(`ActionChains(driver).move_to_element(${elVar}).perform()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
@@ -707,21 +709,21 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'dropdown':
       if (action.pick) {
         out.push(`# Step ${stepNum}: dropdown → item #${String(action.pick.index ?? '?').replace(/\s+/g, ' ')}${lbl}`);
-        out.push(`${elVar} = ${waitPy(locs, tout, true, ctx.frames === 'all')}`);
+        out.push(`${elVar} = ${find(locs, true)}`);
         out.push(`_pick_item(${elVar}, ${valueToPy(action.pick.index)}, ${valueToPy(action.pick.itemSelector || '')}, ${tout})`);
         if (delay > 0) out.push(`time.sleep(${delay})`);
         break;
       }
       out.push(`# Step ${stepNum}: open dropdown (freeze)${lbl}`);
-      out.push(`${elVar} = ${waitPy(locs, tout, true, ctx.frames === 'all')}`);
+      out.push(`${elVar} = ${find(locs, true)}`);
       out.push(`${elVar}.click()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
 
     case 'dragdrop': {
       out.push(`# Step ${stepNum}: drag & drop${lbl}`);
-      out.push(`${elVar}_src = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
-      out.push(`${elVar}_tgt = ${waitPy(locatorsFor(action, true), tout, false, ctx.frames === 'all')}`);
+      out.push(`${elVar}_src = ${find(locs)}`);
+      out.push(`${elVar}_tgt = ${find(locatorsFor(action, true))}`);
       out.push(`ActionChains(driver).drag_and_drop(${elVar}_src, ${elVar}_tgt).perform()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -764,9 +766,9 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       const targets = [varName, ...slots.map(safeVarName)].filter(Boolean);
       out.push(`# Step ${stepNum}: read DOM → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum, ctx.frames === 'all'));
+        out.push(..._buildChildCondPy(action.conditions, elVar, find, locs, stepNum));
       } else {
-        out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
+        out.push(`${elVar} = ${find(locs)}`);
       }
       // _read_val runs the extension's own reader in the page, so "Text content"
       // (textContent) and "Visible text" (innerText) match playback exactly.
@@ -801,7 +803,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
 
     case 'screenshot_element':
       out.push(`# Step ${stepNum}: screenshot element${lbl}`);
-      out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
+      out.push(`${elVar} = ${find(locs)}`);
       out.push(`${elVar}.screenshot(f"screenshot_element_step${stepNum}.png")`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -811,7 +813,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       out.push(`# Step ${stepNum}: screenshot → variable "${varName}"${lbl}`);
       out.push(`_ss_file${stepNum} = f"screenshot_${varName}_step${stepNum}.png"`);
       if (action.target === 'element' && locs[0].value) {
-        out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
+        out.push(`${elVar} = ${find(locs)}`);
         out.push(`${elVar}.screenshot(_ss_file${stepNum})`);
       } else if (action.target === 'full') {
         out.push(fullPagePy(`_ss_file${stepNum}`, ctx.driverType, step));
@@ -850,7 +852,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       const sep   = folder.includes('\\') ? '\\' : '/';
       const paths = names.map((n) => valueToPy(`${folder}${sep}${n}`));
       // Present is enough: pages hide their file inputs, and send_keys still fills one.
-      out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
+      out.push(`${elVar} = ${find(locs)}`);
       out.push(`${elVar}.send_keys(${paths.length === 1 ? paths[0] : `"\\n".join([${paths.join(', ')}])`})`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
