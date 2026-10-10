@@ -570,3 +570,35 @@ test('Selenium: a driver name that is not one of the four becomes Chrome, never 
     assert.doesNotMatch(code, /import os/);
   }
 });
+
+test('Selenium as a pytest test: a fixture opens and quits the browser, the steps are the test', () => {
+  const steps = [
+    { type: 'readdom', selector: '#n', selectors: { css: '#n' }, varName: 'seed', readFrom: 'text' },
+    { type: 'input', selector: '#o', selectors: { css: '#o' }, value: '${salute} ${seed}' },
+  ];
+  const vars = { salute: 'Hi', seed: 'INIT' };
+  const { code } = generateSeleniumPy('Đăng nhập "admin"', steps, vars, { output: 'pytest', startUrl: 'https://shop.test/' });
+  assert.match(code, /^import pytest$/m);
+  // The helpers use the module's `driver`; the fixture starts it and always quits it.
+  assert.ok(code.includes('\ndriver = None\n\n\n@pytest.fixture\ndef browser():\n'), 'a fixture named browser');
+  assert.ok(code.includes('    global driver\n    driver = webdriver.Chrome()\n    yield driver\n    driver.quit()\n'));
+  // The test: named after the scenario, letters folded to ASCII; it opens the start page.
+  assert.match(code, /^def test_dang_nhap_admin\(browser\):\n {4}driver\.get\("https:\/\/shop\.test\/"\)$/m);
+  // Variables inside the test: a step writing `seed` makes it a local of the function.
+  assert.match(code, /^ {4}salute = "Hi"$/m);
+  assert.match(code, /^ {4}seed = "INIT"$/m);
+  assert.match(code, /^ {4}seed = _read_val\(el1, "text", ""\)$/m);
+  // pytest reports the failure; the script's own prints and try / except are gone.
+  assert.doesNotMatch(code, /print\(|^try:|^except|reconfigure|^import sys$/m);
+  assert.equal(compilePy(code), null);
+
+  const head = generateSeleniumPy('x', steps, vars, { output: 'pytest', driverType: 'Edge', headless: true }).code;
+  assert.ok(head.includes('    global driver\n    _options = webdriver.EdgeOptions()\n    _options.add_argument("--headless=new")\n    driver = webdriver.Edge(options=_options)\n'));
+  assert.equal(compilePy(head), null);
+});
+
+test('Selenium as a script, the default, is unchanged by the pytest option', () => {
+  const steps = [{ type: 'click', selector: '#a', selectors: { css: '#a' } }];
+  assert.equal(generateSeleniumPy('s', steps, {}, { output: 'script' }).code, generateSeleniumPy('s', steps, {}).code);
+  assert.doesNotMatch(generateSeleniumPy('s', steps, {}).code, /pytest/);
+});

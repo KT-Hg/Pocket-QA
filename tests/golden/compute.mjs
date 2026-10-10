@@ -319,6 +319,8 @@ async function _compute() {
   out.exportBookmarklet[`${syn.name} | opts`] = run(() => generateBookmarklet(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs), { stepDelay: 0, elTimeout: 1234 }));
   out.exportSelenium[`${syn.name} | opts`] = run(() => generateSeleniumPy(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs),
     { stepDelay: 0, elTimeout: 1234, driverType: 'Firefox', startUrl: 'https://start.example/${page}' }));
+  out.exportSelenium[`${syn.name} | pytest`] = run(() => generateSeleniumPy(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs),
+    { driverType: 'Edge', headless: true, output: 'pytest', startUrl: 'https://start.example/' }));
 
   return out;
 }

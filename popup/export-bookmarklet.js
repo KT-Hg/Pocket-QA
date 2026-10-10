@@ -717,7 +717,7 @@ export function initExportBookmarklet() {
     prefix: 'exportBm',
     tabClass: 'export-bm-tab',
     title: 'Export JS',
-    fileSuffix: '_bookmarklet.js',
+    fileName: (base) => `${base}_bookmarklet.js`,
     readOptions: () => ({
       stepDelay: parseInt(document.getElementById('exportBmStepDelay')?.value) || 300,
       elTimeout: parseInt(document.getElementById('exportBmElTimeout')?.value)  || 5000,

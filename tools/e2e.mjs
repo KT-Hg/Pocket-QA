@@ -72,11 +72,15 @@
  *                 variables the scenario uses
  *   export-headless  the Selenium modal's Headless switch exports a headless driver,
  *                 and turns off (disabled) with Safari
+ *   export-output  the Selenium modal's Output pytest gives a test_….py file with a
+ *                 test function
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, Edge exported
  *                 headless — with a window under --headed),
- *                 leaves the export page the same way. No python or selenium: the
- *                 Selenium run is skipped, not failed
+ *                 leaves the export page the same way; the form case runs as the
+ *                 exported pytest test too, and a pytest test with a failing step
+ *                 names it. No python, selenium or pytest: those runs are skipped,
+ *                 not failed
  *   record-untrusted  a click and an input event the page's own script dispatches
  *                 are not recorded; a real click is
  *   record-checkbox  ticking a checkbox records the click only, not an Input of its
@@ -1031,6 +1035,35 @@ async function checkExportHeadless(ctx) {
   }
 }
 
+async function checkExportOutput(ctx) {
+  const id = await makeScenario(ctx, 'Đăng nhập pytest', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  const popup = await openPopup(ctx);
+  try {
+    await popup.evaluate(`(() => {
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+      document.getElementById('exportSelenium').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    await popup.evaluate(`(() => {
+      const o = document.getElementById('exportSeleniumOutput');
+      o.value = 'pytest';
+      o.dispatchEvent(new Event('change'));
+      document.getElementById('exportSeleniumRegenerate').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    const shown = await popup.evaluate(`({
+      label: document.getElementById('exportSeleniumCodeLabel').textContent,
+      code: document.querySelector('#exportSeleniumCode code').textContent,
+    })`);
+    check(shown.label === 'test_đăng_nhập_pytest.py' && /^import pytest$/m.test(shown.code) && /^def test_dang_nhap_pytest\(browser\):$/m.test(shown.code),
+      'Output pytest: a test_….py file pytest finds, with a test function', { label: shown.label });
+  } finally {
+    await popup.close();
+  }
+}
+
 /**
  * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
  * every input, select, textarea and contenteditable with an id (a checkbox by
@@ -1142,6 +1175,8 @@ const TOOLS_DIR = dirname(fileURLToPath(import.meta.url));
 const EXPORT_CASES = [
   {
     name: 'form',
+    // Also as the exported pytest test (python -m pytest).
+    runners: ['bookmarklet', 'selenium', 'pytest'],
     variables: { salute: 'Hi' },
     actions: [
       { type: 'input', selector: '#name', selectors: { css: '#name' }, value: 'Alice' },
@@ -1277,6 +1312,15 @@ const runFile = (file, args, opts) => new Promise((res) => {
   execFile(file, args, { windowsHide: true, ...opts }, (error, stdout, stderr) => res({ error, stdout, stderr }));
 });
 
+/** Whether `python -m pytest` runs here. */
+async function hasPytest() {
+  return !(await runFile('python', ['-m', 'pytest', '--version'])).error;
+}
+
+/** Run a pytest file from `dir`, no cache written. */
+const runPytest = (file, dir) => runFile('python', ['-m', 'pytest', '-q', '-p', 'no:cacheprovider', file],
+  { cwd: dir, timeout: PYTHON_RUN_TIMEOUT_MS });
+
 /** Why the Selenium run cannot happen on this machine, or null when it can. */
 async function pythonMissing() {
   const { error, stderr } = await runFile('python', ['-c', 'import selenium']);
@@ -1314,6 +1358,8 @@ async function checkExportRun(ctx) {
   const { getUsedVarNames } = await import(extModule('popup/utils.js'));
   const noPython = await pythonMissing();
   if (noPython) console.log(`  – the Selenium runs are skipped: ${noPython}`);
+  const pytestHere = !noPython && await hasPytest();
+  if (!noPython && !pytestHere) console.log('  – the pytest runs are skipped: no pytest for python');
   const dir = mkdtempSync(join(tmpdir(), 'pqa-export-'));
   let headlessChecked = false;
   const pageUrl = (key) => `${ctx.base}/export?run=${encodeURIComponent(key)}`;
@@ -1370,16 +1416,38 @@ async function checkExportRun(ctx) {
         }
       }
 
+      if (pytestHere && runners.includes('pytest')) {
+        const file = join(dir, `test_${c.name.replace(/\W/g, '_')}.py`);
+        writeFileSync(file, generateSeleniumPy(c.name, actions, { ...variables, ...pageVars('pytest') },
+          { driverType: 'Edge', startUrl: startUrl('pytest'), headless: !HEADED, output: 'pytest' }).code);
+        const r = await runPytest(file, dir);
+        if (r.error) fail(`${c.name}: the pytest test failed: ${String(r.stdout).trim().split('\n').slice(-3).join(' | ')}`);
+        await sleep(SETTLE_MS);
+        states.pytest = exportStates.get(`${c.name}:pytest`)?.state;
+      }
+
       // Fields not named in `expect` are taken as playback left them.
       const expected = { clicks: [], alerts: [], marks: [], ...c.expect, fields: { ...states.playback?.fields, ...c.expect?.fields } };
       const wanted = stateDiff(states.playback, expected);
       check(states.playback && !Object.keys(wanted).length, `${c.name}: playback leaves the expected page`, wanted);
-      for (const runner of ['bookmarklet', 'selenium']) {
+      for (const runner of ['bookmarklet', 'selenium', 'pytest']) {
         if (!(runner in states)) continue;
         const diff = stateDiff(states.playback, states[runner]);
         check(states[runner] && !Object.keys(diff).length,
           `${c.name}: the ${runner} export leaves the page as playback does`, states[runner] ? diff : 'no state posted');
       }
+    }
+    if (pytestHere) {
+      const file = join(dir, 'test_failing_step.py');
+      writeFileSync(file, generateSeleniumPy('failing step', [
+        { type: 'click', selector: '#submit', selectors: { css: '#submit' } },
+        { type: 'click', selector: '#nowhere', selectors: { css: '#nowhere' } },
+      ], {}, { driverType: 'Edge', startUrl: pageUrl('failing-step:pytest'), headless: !HEADED, output: 'pytest', elTimeout: 1000 }).code);
+      const r = await runPytest(file, dir);
+      const out = String(r.stdout);
+      const summary = out.trim().split('\n').pop();
+      check(r.error && /# Step 2: click/.test(out) && /^1 failed in /.test(summary),
+        'a pytest test fails on the step that fails, and its browser is closed (no teardown error)', summary);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -1487,6 +1555,7 @@ const CHECKS = [
   ['export-steps', 'The export modal tells which steps were skipped', checkExportSteps],
   ['export-regenerate', 'Regenerate in the export modals', checkExportRegenerate],
   ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],
+  ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],

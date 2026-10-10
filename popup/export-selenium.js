@@ -135,6 +135,7 @@ const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
+  'pytest', 'browser',
   'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
   'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
@@ -277,6 +278,43 @@ function driverPy(driverType, headless, warnings) {
     `_options.add_argument("${driverType === 'Firefox' ? '-headless' : '--headless=new'}")`,
     `driver = webdriver.${driverType}(options=_options)`,
   ];
+}
+
+/**
+ * A pytest test of the scenario. The helpers and the steps use the module's
+ * `driver`, which the `browser` fixture starts and quits — after a failed step
+ * too. The start page, the variables and the steps are the test's body: a step
+ * that writes a variable makes it a local of the function, so a seed of it has to
+ * be there as well, not at module level.
+ */
+function pytestLines(driverLines, testName, body) {
+  return [
+    'driver = None',
+    '',
+    '',
+    '@pytest.fixture',
+    'def browser():',
+    '    """The browser of the test: the module\'s `driver`, quit even when a step fails."""',
+    '    global driver',
+    ...driverLines.map((l) => `    ${l}`),
+    '    yield driver',
+    '    driver.quit()',
+    '',
+    '',
+    `def ${testName}(browser):`,
+    ...body.map((l) => (l === '' ? '' : `    ${l}`)),
+  ];
+}
+
+/**
+ * The test function's name: "test_" and the scenario name in lower-case ASCII
+ * words — letters of any language folded ("Đăng nhập" → test_dang_nhap) —
+ * joined by underscores.
+ */
+function testFunctionName(scenarioName) {
+  const ascii = String(scenarioName ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+  return `test_${ascii.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'scenario'}`;
 }
 
 /**
@@ -707,12 +745,14 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
  * @param {number}   opts.elTimeout    - `WebDriverWait` timeout in ms (default 10000).
  * @param {string}   opts.driverType   - Chrome (default), Edge, Firefox or Safari; anything else is Chrome.
  * @param {boolean}  opts.headless     - run the browser without a window (not Safari, which has no such mode).
+ * @param {string}   opts.output       - 'script' (default), or 'pytest': a test with a fixture for the browser.
  * @param {string}   opts.startUrl     - Initial `driver.get()` URL when first action is not navigate.
  * @returns {{ code: string, stats: { total, supported, skipped }, steps: object[], warnings: string[] }}
  *   steps: what became of each enabled action (popup/export/steps.js).
  */
 export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) {
   const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false } = opts;
+  const pytest = opts.output === 'pytest';
   // Written into `webdriver.<driverType>()`: only a class the script can call, never code.
   const driverType = DRIVER_TYPES.has(opts.driverType) ? opts.driverType : 'Chrome';
 
@@ -774,12 +814,13 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   // ── Imports ──
   if (needsFullPage) out.push('import base64');
-  out.push('import sys');
+  if (!pytest) out.push('import sys');
   out.push('import time');
   if (needsRandom)   { out.push('import random'); out.push('import string'); }
   else if (needsDropdownPick) out.push('import random');
   if (needsExtract || needsDropdownPick) out.push('import re');
   if (needsDatetime)  out.push('from datetime import datetime');
+  if (pytest) out.push('import pytest');
   out.push('from selenium import webdriver');
   out.push('from selenium.webdriver.common.by import By');
   out.push('from selenium.webdriver.support.ui import WebDriverWait, Select');
@@ -792,11 +833,13 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   // A redirected stdout (a pipe, `> log`, CI) on Windows is cp1252: the ✅ / ❌
   // printed at the end — and most scenario names — raised UnicodeEncodeError, so
   // a run that passed exited 1 and its except branch crashed too.
-  out.push('# Print in UTF-8 whatever stdout is (a redirected one on Windows is cp1252).');
-  out.push('if hasattr(sys.stdout, "reconfigure"):');
-  out.push('    sys.stdout.reconfigure(encoding="utf-8")');
-  out.push('');
-  out.push('');
+  if (!pytest) {
+    out.push('# Print in UTF-8 whatever stdout is (a redirected one on Windows is cp1252).');
+    out.push('if hasattr(sys.stdout, "reconfigure"):');
+    out.push('    sys.stdout.reconfigure(encoding="utf-8")');
+    out.push('');
+    out.push('');
+  }
 
   // ── Runtime helpers ──
   if (needsFullPage) {
@@ -845,34 +888,33 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push(`# SCENARIO: ${commentText(scenarioName)}`);
   out.push(`# ============================`);
   out.push('');
-  out.push(...driverPy(driverType, headless, warnings));
-  // implicitly_wait is intentionally omitted — it conflicts with WebDriverWait/EC.
-  out.push('');
 
   // If no navigate action exists as the first real step, emit a driver.get() line.
   // Use the user-supplied startUrl if provided, otherwise a TODO placeholder.
+  const startLines = [];
   const firstAction = enabled.find(a => a.type !== 'wait');
   if (!firstAction || firstAction.type !== 'navigate') {
     if (startUrl) {
-      out.push(`driver.get(${JSON.stringify(startUrl)})`);
+      startLines.push(`driver.get(${JSON.stringify(startUrl)})`);
     } else {
-      out.push('# ⚠ TODO: Set the starting URL (go to Settings tab to configure)');
-      out.push('driver.get("https://your-url-here.com")');
+      startLines.push('# ⚠ TODO: Set the starting URL (go to Settings tab to configure)');
+      startLines.push('driver.get("https://your-url-here.com")');
     }
-    out.push('');
+    startLines.push('');
   }
 
   // ── Variables ──
   const hasVars = Object.keys(staticVars).length > 0 || needsRandom || writtenVars.size > 0;
+  const varLines = [];
   if (hasVars) {
-    out.push('# --- VARIABLES ---');
+    varLines.push('# --- VARIABLES ---');
     const declared = new Set();
 
     for (const [k, v] of Object.entries(staticVars)) {
       const safe = safeVarName(k);
       if (declared.has(safe)) continue;
       declared.add(safe);
-      out.push(`${safe} = ${JSON.stringify(v)}`);
+      varLines.push(`${safe} = ${JSON.stringify(v)}`);
     }
     for (const [k, spec] of Object.entries(randomSpecs)) {
       const safe = safeVarName(k);
@@ -882,21 +924,21 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
       // in bg/interpolate.js implements; it used to fall through to the alphanumeric
       // charset here and produce random junk instead of the run's timestamp.
       if (spec.type === 'datetime') {
-        out.push(`${safe} = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")`);
+        varLines.push(`${safe} = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")`);
         continue;
       }
       let charset;
       if (spec.type === 'alpha') charset = 'string.ascii_letters';
       else if (spec.type === 'numeric') charset = 'string.digits';
       else charset = 'string.ascii_letters + string.digits';
-      out.push(`${safe} = ''.join(random.choices(${charset}, k=${spec.length}))`);
+      varLines.push(`${safe} = ''.join(random.choices(${charset}, k=${spec.length}))`);
     }
     for (const [k, vals] of Object.entries(pickSpecs)) {
       const safe = safeVarName(k);
       if (declared.has(safe)) continue;
       declared.add(safe);
       const pyList = '[' + vals.map(v => JSON.stringify(v)).join(', ') + ']';
-      out.push(`${safe} = random.choice(${pyList})`);
+      varLines.push(`${safe} = random.choice(${pyList})`);
     }
     // Only the written names nothing above already seeded. This loop used to run
     // unconditionally, so `seed = "INIT"` from the Variables tab was immediately
@@ -904,28 +946,38 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     for (const k of writtenVars) {
       if (declared.has(k)) continue;
       declared.add(k);
-      out.push(`${k} = ''`);
+      varLines.push(`${k} = ''`);
     }
+    varLines.push('');
+  }
+
+  if (pytest) {
+    out.push(...pytestLines(driverPy(driverType, headless, warnings), testFunctionName(scenarioName),
+      [...startLines, ...varLines, ...bodyLines]));
+  } else {
+    out.push(...driverPy(driverType, headless, warnings));
+    // implicitly_wait is intentionally omitted — it conflicts with WebDriverWait/EC.
     out.push('');
+    out.push(...startLines, ...varLines);
+
+    // ── Main flow ──
+    out.push('# --- MAIN FLOW ---');
+    out.push('try:');
+    out.push('');
+
+    for (const line of bodyLines) {
+      out.push(line === '' ? '' : '    ' + line);
+    }
+
+    out.push(`    print(${JSON.stringify(`✅ Scenario '${scenarioName}' completed successfully.`)})`);
+    out.push('');
+    out.push('except Exception as e:');
+    out.push('    print(f"❌ Error: {e}")');
+    out.push('    raise');
+    out.push('');
+    out.push('finally:');
+    out.push('    driver.quit()');
   }
-
-  // ── Main flow ──
-  out.push('# --- MAIN FLOW ---');
-  out.push('try:');
-  out.push('');
-
-  for (const line of bodyLines) {
-    out.push(line === '' ? '' : '    ' + line);
-  }
-
-  out.push(`    print(${JSON.stringify(`✅ Scenario '${scenarioName}' completed successfully.`)})`);
-  out.push('');
-  out.push('except Exception as e:');
-  out.push('    print(f"❌ Error: {e}")');
-  out.push('    raise');
-  out.push('');
-  out.push('finally:');
-  out.push('    driver.quit()');
 
   // A `${name}` with nothing behind it becomes a NameError the moment the step
   // runs, and the generated file gives no clue where it came from — flag it while
@@ -962,7 +1014,7 @@ export function initExportSelenium() {
     prefix: 'exportSelenium',
     tabClass: 'export-py-tab',
     title: 'Export Python',
-    fileSuffix: '_selenium.py',
+    fileName: (base, o) => (o?.output === 'pytest' ? `test_${base}.py` : `${base}_selenium.py`),
     readOptions: _getOpts,
     generate: generateSeleniumPy,
     copyText: (code) => code,
@@ -982,6 +1034,7 @@ function _getOpts() {
     driverType: document.getElementById('exportSeleniumDriver')?.value || 'Chrome',
     startUrl:   document.getElementById('exportSeleniumStartUrl')?.value.trim() || '',
     headless:   !!document.getElementById('exportSeleniumHeadless')?.checked,
+    output:     document.getElementById('exportSeleniumOutput')?.value === 'pytest' ? 'pytest' : 'script',
   };
 }
 

@@ -33,7 +33,8 @@ const COPIED_LABEL_MS = 1500;
  * @param {string}   cfg.prefix       - prefix of the modal's element ids ('exportBm', …)
  * @param {string}   cfg.tabClass     - class of its tab buttons
  * @param {string}   cfg.title        - header, followed by " — <scenario>"
- * @param {string}   cfg.fileSuffix   - after the scenario's safe name, e.g. '_selenium.py'
+ * @param {Function} cfg.fileName     - (base, options) → the file name, from the scenario's safe name
+ *                                      and the options the code was made with
  * @param {Function} cfg.readOptions  - () → the generator's options, read from the Settings tab
  * @param {Function} cfg.generate     - (scenarioName, actions, variables, options) → { code, stats, steps, warnings }
  * @param {Function} cfg.copyText     - (code) → what Copy puts on the clipboard
@@ -44,7 +45,13 @@ const COPIED_LABEL_MS = 1500;
 export function initExportModal(cfg) {
   const { prefix, tabClass } = cfg;
   const byId = (suffix) => document.getElementById(prefix + suffix);
-  const run = { code: '', scenarioName: '', actions: [], variables: {}, releaseFocus: null };
+  const run = { code: '', scenarioName: '', actions: [], variables: {}, options: {}, releaseFocus: null };
+  const fileName = () => cfg.fileName(exportFileBase(run.scenarioName), run.options);
+  // The code for what `run` holds, with the options the Settings tab has now.
+  const generate = () => {
+    run.options = cfg.readOptions();
+    return cfg.generate(run.scenarioName, run.actions, run.variables, run.options);
+  };
 
   const close = () => {
     const modal = byId('Modal');
@@ -67,7 +74,7 @@ export function initExportModal(cfg) {
   };
 
   const render = (scenarioName, result, variables) => {
-    const filename = `${exportFileBase(scenarioName)}${cfg.fileSuffix}`;
+    const filename = fileName();
 
     // Header
     byId('Title').textContent = `${cfg.title} — ${scenarioName}`;
@@ -125,7 +132,7 @@ export function initExportModal(cfg) {
     const modal = byId('Modal');
     if (!modal) return;
     cfg.beforeOpen?.();
-    const result = cfg.generate(scenarioName, actions, variables, cfg.readOptions());
+    const result = generate();
     run.code = result.code;
     render(scenarioName, result, variables);
     modal.classList.add('show');
@@ -185,11 +192,11 @@ export function initExportModal(cfg) {
     const { text, type } = cfg.file(run.code);
     // Through downloadBlob, which revokes the URL a moment later: revoked right
     // after click() it can go before the browser has read the file.
-    downloadBlob(new Blob([text], { type }), `${exportFileBase(run.scenarioName)}${cfg.fileSuffix}`);
+    downloadBlob(new Blob([text], { type }), fileName());
   };
 
   const regenerate = () => load(() => {
-    const result = cfg.generate(run.scenarioName, run.actions, run.variables, cfg.readOptions());
+    const result = generate();
     run.code = result.code;
     render(run.scenarioName, result, run.variables);
     switchTab('preview');
