@@ -323,6 +323,11 @@ async function _compute() {
     { stepDelay: 0, elTimeout: 1234, driverType: 'Firefox', startUrl: 'https://start.example/${page}' }));
   out.exportSelenium[`${syn.name} | pytest`] = run(() => generateSeleniumPy(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs),
     { driverType: 'Edge', headless: true, output: 'pytest', startUrl: 'https://start.example/' }));
+  // With a data file: a test per row of it.
+  out.exportSelenium[`${syn.name} | pytest csv`] = run(() => generateSeleniumPy(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs),
+    { output: 'pytest', dataFile: 'data.csv', startUrl: 'https://start.example/' }));
+  out.exportPlaywright[`${syn.name} | csv`] = run(() => generatePlaywright(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs),
+    { dataFile: 'data.csv', startUrl: 'https://start.example/' }));
 
   return out;
 }
