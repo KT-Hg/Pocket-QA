@@ -43,61 +43,77 @@ export function highlightLines(code, lang) {
 
 function tokens(code, py) {
   const out = [];
-  const push = (text, kind) => {
+  // JS: for each template literal whose ${…} is open, the { depth inside it; and
+  // the last thing in the code proper, after which a / opens a regex or divides.
+  const state = { braces: [], prev: '' };
+  const next = py ? pyToken : jsToken;
+  for (let i = 0; i < code.length;) {
+    const [end, kind] = next(code, i, state);
+    const text = code.slice(i, end);
     const last = out[out.length - 1];
     if (last && last[1] === kind) last[0] += text; else out.push([text, kind]);
-  };
-  const keywords = py ? KEYWORDS.py : KEYWORDS.js;
-  // JS: for each template literal whose ${…} is open, the { depth inside it.
-  const braces = [];
-  // The last thing in the code proper: a JS / after it opens a regex or divides.
-  let prev = '';
-  let i = 0;
-  // Push code[i, end) as `kind` and go on from `end`.
-  const take = (end, kind) => { push(code.slice(i, end), kind); i = end; };
-
-  while (i < code.length) {
-    const c = code[i];
-    if (py ? c === '#' : code.startsWith('//', i)) {
-      take(lineEnd(code, i), 'cmt');
-    } else if (!py && code.startsWith('/*', i)) {
-      const close = code.indexOf('*/', i + 2);
-      take(close < 0 ? code.length : close + 2, 'cmt');
-    } else if (c === '"' || c === "'") {
-      take(py ? pyStringEnd(code, i) : quoteEnd(code, i), 'str');
-      prev = 'x';
-    } else if (!py && (c === '`' || (c === '}' && braces.length && braces[braces.length - 1] === 0))) {
-      // A template literal from its start, or from the } that closes one of its ${…}.
-      if (c === '}') braces.pop();
-      const [end, opensExpr] = templateEnd(code, i + 1);
-      if (opensExpr) braces.push(0);
-      take(end, 'str');
-      prev = 'x';
-    } else if (!py && c === '/' && BEFORE_REGEX.test(prev) && regexEnd(code, i) > 0) {
-      take(regexEnd(code, i), 'str');
-      prev = 'x';
-    } else if (/[A-Za-z_$]/.test(c)) {
-      WORD.lastIndex = i;
-      const word = WORD.exec(code)[0];
-      const end = i + word.length;
-      if (py && PY_PREFIX.test(word) && (code[end] === '"' || code[end] === "'")) {
-        // f"…", rb'…': the prefix is part of the string.
-        take(pyStringEnd(code, end), 'str');
-        prev = 'x';
-        continue;
-      }
-      take(end, keywords.has(word) && code[i - 1] !== '.' ? 'kw' : null);
-      prev = word;
-    } else {
-      if (!py && braces.length) {
-        if (c === '{') braces[braces.length - 1]++;
-        else if (c === '}') braces[braces.length - 1]--;
-      }
-      take(i + 1, null);
-      if (!/\s/.test(c)) prev = c;
-    }
+    i = end;
   }
   return out;
+}
+
+// A word at `i`: where it ends, and whether it is one of `keywords` (not a property: .default).
+function wordAt(code, i, keywords) {
+  WORD.lastIndex = i;
+  const word = WORD.exec(code)[0];
+  return [i + word.length, keywords.has(word) && code[i - 1] !== '.' ? 'kw' : null, word];
+}
+
+// The Python piece at `i`: [where it ends, its kind].
+function pyToken(code, i) {
+  const c = code[i];
+  if (c === '#') return [lineEnd(code, i), 'cmt'];
+  if (c === '"' || c === "'") return [pyStringEnd(code, i), 'str'];
+  if (!/[A-Za-z_]/.test(c)) return [i + 1, null];
+  const [end, kind, word] = wordAt(code, i, KEYWORDS.py);
+  // f"…", rb'…': the prefix is part of the string.
+  if (PY_PREFIX.test(word) && (code[end] === '"' || code[end] === "'")) return [pyStringEnd(code, end), 'str'];
+  return [end, kind];
+}
+
+// The JavaScript piece at `i`: [where it ends, its kind]; keeps `state` up to date.
+function jsToken(code, i, state) {
+  const c = code[i];
+  if (code.startsWith('//', i)) return [lineEnd(code, i), 'cmt'];
+  if (code.startsWith('/*', i)) {
+    const close = code.indexOf('*/', i + 2);
+    return [close < 0 ? code.length : close + 2, 'cmt'];
+  }
+  const value = jsValueEnd(code, i, state);
+  if (value) {
+    state.prev = 'x';
+    return [value, 'str'];
+  }
+  if (/[A-Za-z_$]/.test(c)) {
+    const [end, kind, word] = wordAt(code, i, KEYWORDS.js);
+    state.prev = word;
+    return [end, kind];
+  }
+  const { braces } = state;
+  if (braces.length && c === '{') braces[braces.length - 1]++;
+  else if (braces.length && c === '}') braces[braces.length - 1]--;
+  if (!/\s/.test(c)) state.prev = c;
+  return [i + 1, null];
+}
+
+// The end of the JS string, template literal piece or regex literal at `i`; 0 for none.
+function jsValueEnd(code, i, state) {
+  const c = code[i];
+  if (c === '"' || c === "'") return quoteEnd(code, i);
+  const { braces } = state;
+  if (c === '`' || (c === '}' && braces[braces.length - 1] === 0)) {
+    // A template literal from its start, or from the } that closes one of its ${…}.
+    if (c === '}') braces.pop();
+    const [end, opensExpr] = templateEnd(code, i + 1);
+    if (opensExpr) braces.push(0);
+    return end;
+  }
+  return c === '/' && BEFORE_REGEX.test(state.prev) ? regexEnd(code, i) : 0;
 }
 
 const lineEnd = (code, i) => {
