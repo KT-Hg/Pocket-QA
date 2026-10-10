@@ -1682,7 +1682,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
     .map((el) => [el.id, el.type === 'checkbox' ? el.checked : (el.isContentEditable ? el.textContent : el.value)]));
   // seq: two posts in flight may arrive in either order; the harness keeps the latest.
   const report = () => fetch('/state', { method: 'POST', keepalive: true,
-    body: JSON.stringify({ run, seq: ++seq, state: { fields: fields(), clicks, alerts, marks, headless: /Headless/.test(navigator.userAgent) } }) });
+    body: JSON.stringify({ run, seq: ++seq, state: { fields: fields(), clicks, alerts, marks, headless: /Headless/.test(navigator.userAgent), width: innerWidth } }) });
   // The bookmarklet reports its errors with alert(), which would block a headless page.
   window.alert = (m) => { alerts.push(String(m)); report(); };
   // Fields are in the state by value; a click on one is not counted.
@@ -2133,6 +2133,9 @@ async function checkExportRun(ctx) {
         if (!headlessChecked && states.selenium) {
           headlessChecked = true;
           check(states.selenium.headless === !HEADED, `the Selenium script runs ${HEADED ? 'with' : 'without'} a window, as exported`, states.selenium.headless);
+          // Headless, the window is the size a desktop page is recorded at, not a phone's.
+          // (A 1920 px window is 1896 px inside here; the default was 756.)
+          if (!HEADED) check(states.selenium.width >= 1800, 'the headless Selenium window is a desktop one, 1920 px wide', states.selenium.width);
         }
         checkFiles(c, 'Selenium', dir);
       }

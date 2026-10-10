@@ -324,8 +324,14 @@ function _envHelpersPy(driverType, headless) {
     '    if name == "Safari":',
     '        return webdriver.Safari()  # no headless mode',
     '    options = getattr(webdriver, name + "Options")()',
-    '    if headless:',
-    '        options.add_argument("-headless" if name == "Firefox" else "--headless=new")',
+    '    # Without a window there is no screen size: a narrow default turns a responsive page into its phone layout.',
+    '    if headless and name == "Firefox":',
+    '        options.add_argument("-headless")',
+    '        options.add_argument("--width=1920")',
+    '        options.add_argument("--height=1080")',
+    '    elif headless:',
+    '        options.add_argument("--headless=new")',
+    '        options.add_argument("--window-size=1920,1080")',
     '    return getattr(webdriver, name)(options=options)',
   ];
 }

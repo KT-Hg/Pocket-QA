@@ -560,7 +560,9 @@ test('Selenium Headless: each driver its own way, and none for Safari', () => {
     assert.match(code, /^driver = _start_browser\(\)$/m);
     assert.equal(compilePy(code), null);
   }
-  assert.match(head('Chrome').code, /options\.add_argument\("-headless" if name == "Firefox" else "--headless=new"\)|options\.add_argument\("-headless"\)/);
+  // Headless has no screen: the size of a desktop window, each browser by its own flag.
+  assert.match(head('Chrome').code, /^ {8}options\.add_argument\("--headless=new"\)\n {8}options\.add_argument\("--window-size=1920,1080"\)$/m);
+  assert.match(head('Firefox').code, /^ {8}options\.add_argument\("-headless"\)\n {8}options\.add_argument\("--width=1920"\)\n {8}options\.add_argument\("--height=1080"\)$/m);
   const safari = head('Safari');
   assert.match(safari.code, /^ {4}if name == "Safari":\n {8}return webdriver\.Safari\(\) {2}# no headless mode$/m);
   assert.ok(safari.warnings.some((w) => /Safari has no headless mode/.test(w)));
