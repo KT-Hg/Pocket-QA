@@ -1391,14 +1391,14 @@ async function checkExportJump(ctx) {
       const p = pre.getBoundingClientRect(), r = line.getBoundingClientRect();
       return { text: line.textContent, inView: r.top >= p.top && r.bottom <= p.bottom, scrollTop: Math.round(pre.scrollTop),
         tinted: line.classList.contains('export-bm-line-flash') && getComputedStyle(line).backgroundColor !== 'rgba(0, 0, 0, 0)',
-        codeTab: !document.getElementById('exportTabPreview').hidden };
+        codeTab: !document.getElementById('exportTabPreview').hidden, codeFocused: document.activeElement === pre };
     })()`);
     await showExportTab(popup, 'actions');
     await popup.evaluate(`document.querySelector('#exportActList [data-step="7"]').click()`);
     await sleep(SETTLE_MS);
     const seven = await stepLine(7);
-    check(seven.codeTab && seven.inView && seven.tinted && seven.scrollTop > 0 && seven.text.trim().startsWith('# Step 7:'),
-      'a click on row 7 opens the Code tab on "# Step 7", tinted', seven);
+    check(seven.codeTab && seven.inView && seven.tinted && seven.scrollTop > 0 && seven.text.trim().startsWith('# Step 7:') && !seven.codeFocused,
+      'a click on row 7 opens the Code tab on "# Step 7", tinted, focus left alone', seven);
     await popup.evaluate(`document.getElementById('exportStepsBtn').click()`);
     await sleep(SETTLE_MS);
     const first = await stepLine(1);
@@ -1409,7 +1409,7 @@ async function checkExportJump(ctx) {
     await pressKey(popup, 'Enter', 'Enter', 13, '\r');
     await sleep(SETTLE_MS);
     const ten = await stepLine(10);
-    check(ten.codeTab && ten.inView && ten.tinted, 'Enter on row 10 shows step 10 in the code', ten);
+    check(ten.codeTab && ten.inView && ten.tinted && ten.codeFocused, 'Enter on row 10 shows step 10 in the code, which takes the focus', ten);
     const text = await popup.evaluate(`document.querySelector('#exportCode code').textContent`);
     check(text.split('\n').length > 50 && /\n\s*# Step 10: /.test(text), 'the code box\'s text is still the code, line for line', text.length);
   } finally {

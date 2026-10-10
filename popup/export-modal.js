@@ -306,9 +306,10 @@ let flashTimer = null;
 /**
  * Show step `n` in the Code tab: its first line near the top of the code, its
  * lines (to the next step or blank line) tinted a moment. A step in a skipped
- * Switch block has no comment of its own: the block's is shown.
+ * Switch block has no comment of its own: the block's is shown. `focusCode`:
+ * keyboard focus goes on to the code (the row it was on is hidden now).
  */
-function showStep(n) {
+function showStep(n, focusCode = false) {
   const pre = byId('Code');
   const lines = [...pre.querySelectorAll('.export-bm-line')];
   const starts = lines.filter((l) => l.dataset.step && Number(l.dataset.step) <= n);
@@ -323,8 +324,7 @@ function showStep(n) {
   flashTimer = setTimeout(() => start.parentNode?.querySelectorAll('.export-bm-line-flash')
     .forEach((l) => l.classList.remove('export-bm-line-flash')), STEP_FLASH_MS);
   pre.scrollTop += start.getBoundingClientRect().top - pre.getBoundingClientRect().top - STEP_SCROLL_MARGIN_PX;
-  // The row that was clicked is hidden now: keyboard focus goes on to the code.
-  pre.focus({ preventScroll: true });
+  if (focusCode) pre.focus({ preventScroll: true });
 }
 
 // The scenario as saved now, for one edited while the modal is open.
@@ -369,7 +369,8 @@ function wireModal() {
   byId('Warning')?.addEventListener('click', () => switchTab('actions'));
   byId('ActList')?.addEventListener('click', (e) => {
     const row = e.target.closest('[data-step]');
-    if (row) showStep(Number(row.dataset.step));
+    // Only a row reached by keyboard hands its focus on: a mouse user gets no ring on the code.
+    if (row) showStep(Number(row.dataset.step), row.matches(':focus-visible'));
   });
   byId('StepsBtn')?.addEventListener('click', () => {
     const first = byId('Code')?.querySelector('[data-step]');
