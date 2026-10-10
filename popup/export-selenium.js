@@ -1,4 +1,4 @@
-import { showToast, commentText } from './utils.js';
+import { commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarName } from '../shared/var-name.js';
@@ -1036,9 +1036,8 @@ export function initExportSelenium() {
     generate: generateSeleniumPy,
     copyText: (code) => code,
     file: (code) => ({ text: code, type: 'text/x-python' }),
-    beforeOpen: _autoFillStartUrl,
+    startUrl: { field: 'exportSeleniumStartUrl', button: 'exportSeleniumGetUrl', badge: 'exportSeleniumUrlFromTab' },
     wire: () => {
-      document.getElementById('exportSeleniumGetUrl')?.addEventListener('click', _fillCurrentUrl);
       document.getElementById('exportSeleniumDriver')?.addEventListener('change', _syncHeadless);
     },
   });
@@ -1063,38 +1062,4 @@ function _syncHeadless() {
   if (safari) box.checked = false;
   box.disabled = safari;
   document.getElementById('exportSeleniumHeadlessRow').title = safari ? 'Safari has no headless mode' : '';
-}
-
-// Auto-fill Starting URL from current tab (if input is still empty), then `done`.
-function _autoFillStartUrl(done) {
-  const urlInput = document.getElementById('exportSeleniumStartUrl');
-  if (!urlInput || urlInput.value.trim()) { done(); return; }
-  chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-    const url = tabs?.[0]?.url || '';
-    if (url && !url.startsWith('chrome://') && !url.startsWith('chrome-extension://')) {
-      urlInput.value = url;
-      urlInput.dispatchEvent(new Event('input'));
-      const badge = document.getElementById('exportSeleniumUrlFromTab');
-      if (badge) badge.style.display = '';
-    }
-    done();
-  });
-}
-
-function _fillCurrentUrl() {
-  chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-    const url = tabs?.[0]?.url || '';
-    if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
-      showToast('Could not get URL from this tab', 'error');
-      return;
-    }
-    const input = document.getElementById('exportSeleniumStartUrl');
-    if (input) {
-      input.value = url;
-      // Bubbling, as a change made by hand: the modal generates the code again.
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      const badge = document.getElementById('exportSeleniumUrlFromTab');
-      if (badge) badge.style.display = '';
-    }
-  });
 }

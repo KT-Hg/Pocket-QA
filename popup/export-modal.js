@@ -60,8 +60,8 @@ let modalWired = false;
  * @param {Function} cfg.file          - (code) → { text, type } that Download saves
  * @param {string[]} [cfg.remember]    - ids of its Settings inputs kept between popups, in the
  *                                       order they are put back
- * @param {Function} [cfg.beforeOpen]  - (done) → run first each time the modal opens for it; the
- *                                       code is generated and shown once it calls `done`
+ * @param {object}   [cfg.startUrl]    - its Starting URL setting: { field, button, badge } ids — filled
+ *                                       from the tab on opening when empty, again by the button
  * @param {Function} [cfg.wire]        - wires its own extra controls
  */
 export function initExportModal(cfg) {
@@ -72,7 +72,48 @@ export function initExportModal(cfg) {
     restoreSettings(cfg, () => load(open));
   });
   rememberSettings(cfg);
+  if (cfg.startUrl) document.getElementById(cfg.startUrl.button)?.addEventListener('click', () => fillCurrentUrl(cfg.startUrl));
   cfg.wire?.();
+}
+
+// The URL of the page the popup is over, or '' for a browser or extension page.
+function withTabUrl(use) {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const url = tabs?.[0]?.url || '';
+    use(url && !url.startsWith('chrome://') && !url.startsWith('chrome-extension://') ? url : '');
+  });
+}
+
+// Auto-fill Starting URL from current tab (if input is still empty), then `done`.
+function autoFillStartUrl({ field, badge }, done) {
+  const urlInput = document.getElementById(field);
+  if (!urlInput || urlInput.value.trim()) { done(); return; }
+  withTabUrl((url) => {
+    if (url) {
+      urlInput.value = url;
+      urlInput.dispatchEvent(new Event('input'));
+      const badgeEl = document.getElementById(badge);
+      if (badgeEl) badgeEl.style.display = '';
+    }
+    done();
+  });
+}
+
+function fillCurrentUrl({ field, badge }) {
+  withTabUrl((url) => {
+    if (!url) {
+      showToast('Could not get URL from this tab', 'error');
+      return;
+    }
+    const input = document.getElementById(field);
+    if (input) {
+      input.value = url;
+      // Bubbling, as a change made by hand: the modal generates the code again.
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      const badgeEl = document.getElementById(badge);
+      if (badgeEl) badgeEl.style.display = '';
+    }
+  });
 }
 
 // Where each format's Settings are kept between popups: { [format]: { [inputId]: value } }.
@@ -245,9 +286,9 @@ function open() {
     // Focus on the open tab, not on ✕: Enter there would close what was just opened.
     modal.querySelector('.export-bm-tab.active')?.focus();
   };
-  // beforeOpen may fill a setting from the browser first (the Selenium start URL from
-  // the tab): generated at once, the code read the field before the URL had come.
-  if (run.cfg.beforeOpen) run.cfg.beforeOpen(show); else show();
+  // The start URL may come from the tab first: generated at once, the code read the
+  // field before the URL had come.
+  if (run.cfg.startUrl) autoFillStartUrl(run.cfg.startUrl, show); else show();
 }
 
 /**
