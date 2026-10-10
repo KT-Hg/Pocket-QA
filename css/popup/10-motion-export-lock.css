@@ -433,6 +433,12 @@
   flex-shrink: 0;
 }
 
+/* An on/off setting: the whole row is its <label>. Off limits for the chosen
+   driver (Headless on Safari), it is dimmed. */
+label.export-bm-setting-row { cursor: pointer; }
+label.export-bm-setting-row:has(input:disabled) { opacity: 0.5; cursor: not-allowed; }
+label.export-bm-setting-row:has(input:disabled) .hl-toggle-slider { cursor: not-allowed; }
+
 .export-bm-setting-unit {
   font-size: 11px;
   color: var(--muted);

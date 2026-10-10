@@ -70,8 +70,11 @@
  *   export-regenerate  Regenerate in either export modal shows a step added to the
  *                 scenario since it opened, and lists and declares only the
  *                 variables the scenario uses
+ *   export-headless  the Selenium modal's Headless switch exports a headless driver,
+ *                 and turns off (disabled) with Safari
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
- *                 and run as the exported Selenium script (python, headless Edge),
+ *                 and run as the exported Selenium script (python, Edge exported
+ *                 headless — with a window under --headed),
  *                 leaves the export page the same way. No python or selenium: the
  *                 Selenium run is skipped, not failed
  *   record-untrusted  a click and an input event the page's own script dispatches
@@ -993,6 +996,41 @@ async function checkExportRegenerate(ctx) {
   }
 }
 
+async function checkExportHeadless(ctx) {
+  const id = await makeScenario(ctx, 'e2e export headless', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  const popup = await openPopup(ctx);
+  try {
+    const code = () => popup.evaluate(`document.querySelector('#exportSeleniumCode code').textContent`);
+    await popup.evaluate(`(() => {
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+      document.getElementById('exportSelenium').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    // A click on the row's text flips the switch, as on any switch row.
+    await popup.evaluate(`document.querySelector('#exportSeleniumHeadlessRow .export-bm-setting-label').click();
+      document.getElementById('exportSeleniumRegenerate').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const on = await code();
+    check(/_options\.add_argument\("--headless=new"\)\ndriver = webdriver\.Chrome\(options=_options\)/.test(on),
+      'Headless on: the script starts Chrome without a window', on.split('\n').filter((l) => /driver = |_options/.test(l)));
+    await popup.evaluate(`(() => {
+      const d = document.getElementById('exportSeleniumDriver');
+      d.value = 'Safari';
+      d.dispatchEvent(new Event('change'));
+      document.getElementById('exportSeleniumRegenerate').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    const box = await popup.evaluate(`(({ checked, disabled }) => ({ checked, disabled }))(document.getElementById('exportSeleniumHeadless'))`);
+    const safari = await code();
+    check(!box.checked && box.disabled && /^driver = webdriver\.Safari\(\)$/m.test(safari),
+      'Safari: Headless is off and cannot be turned on', box);
+  } finally {
+    await popup.close();
+  }
+}
+
 /**
  * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
  * every input, select, textarea and contenteditable with an id (a checkbox by
@@ -1048,7 +1086,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
     .map((el) => [el.id, el.type === 'checkbox' ? el.checked : (el.isContentEditable ? el.textContent : el.value)]));
   // seq: two posts in flight may arrive in either order; the harness keeps the latest.
   const report = () => fetch('/state', { method: 'POST', keepalive: true,
-    body: JSON.stringify({ run, seq: ++seq, state: { fields: fields(), clicks, alerts, marks } }) });
+    body: JSON.stringify({ run, seq: ++seq, state: { fields: fields(), clicks, alerts, marks, headless: /Headless/.test(navigator.userAgent) } }) });
   // The bookmarklet reports its errors with alert(), which would block a headless page.
   window.alert = (m) => { alerts.push(String(m)); report(); };
   // Fields are in the state by value; a click on one is not counted.
@@ -1235,25 +1273,6 @@ const PYTHON_RUN_TIMEOUT_MS = 180_000;
 // The bookmarklet runs in the page; its own step delays and waits add up.
 const BOOKMARKLET_RUN_TIMEOUT_MS = 60_000;
 
-/**
- * Put on PYTHONPATH for the Selenium run: makes webdriver.Edge headless, so the
- * exported script runs exactly as a user gets it and still opens no window.
- */
-const HEADLESS_EDGE_SHIM = `import selenium.webdriver as _w
-
-_Edge = _w.Edge
-
-
-def _headless_edge(*args, **kwargs):
-    options = kwargs.get("options") or _w.EdgeOptions()
-    options.add_argument("--headless=new")
-    kwargs["options"] = options
-    return _Edge(*args, **kwargs)
-
-
-_w.Edge = _headless_edge
-`;
-
 const runFile = (file, args, opts) => new Promise((res) => {
   execFile(file, args, { windowsHide: true, ...opts }, (error, stdout, stderr) => res({ error, stdout, stderr }));
 });
@@ -1296,7 +1315,7 @@ async function checkExportRun(ctx) {
   const noPython = await pythonMissing();
   if (noPython) console.log(`  – the Selenium runs are skipped: ${noPython}`);
   const dir = mkdtempSync(join(tmpdir(), 'pqa-export-'));
-  writeFileSync(join(dir, 'sitecustomize.py'), HEADLESS_EDGE_SHIM);
+  let headlessChecked = false;
   const pageUrl = (key) => `${ctx.base}/export?run=${encodeURIComponent(key)}`;
   try {
     for (const c of EXPORT_CASES) {
@@ -1335,13 +1354,16 @@ async function checkExportRun(ctx) {
       if (!noPython && runners.includes('selenium')) {
         const file = join(dir, `${c.name}.py`);
         writeFileSync(file, generateSeleniumPy(c.name, actions, { ...variables, ...pageVars('selenium') },
-          { driverType: 'Edge', startUrl: startUrl('selenium') }).code);
-        const env = HEADED ? process.env : { ...process.env, PYTHONPATH: dir };
+          { driverType: 'Edge', startUrl: startUrl('selenium'), headless: !HEADED }).code);
         // In the temporary folder: what the script saves (screenshots) lands there.
-        const r = await runFile('python', [file], { env, cwd: dir, timeout: PYTHON_RUN_TIMEOUT_MS });
+        const r = await runFile('python', [file], { cwd: dir, timeout: PYTHON_RUN_TIMEOUT_MS });
         if (r.error) fail(`${c.name}: the Selenium script failed: ${String(r.stderr || r.error.message).trim().split('\n').slice(-3).join(' | ')}`);
         await sleep(SETTLE_MS);
         states.selenium = exportStates.get(`${c.name}:selenium`)?.state;
+        if (!headlessChecked && states.selenium) {
+          headlessChecked = true;
+          check(states.selenium.headless === !HEADED, `the Selenium script runs ${HEADED ? 'with' : 'without'} a window, as exported`, states.selenium.headless);
+        }
         for (const [name, ok] of Object.entries(c.files || {})) {
           const size = existsSync(join(dir, name)) ? pngSize(join(dir, name)) : null;
           check(size && ok(size), `${c.name}: the Selenium run saves ${name} as expected`, size);
@@ -1464,6 +1486,7 @@ const CHECKS = [
   ['export-file-name', 'The file name of an exported script', checkExportFileName],
   ['export-steps', 'The export modal tells which steps were skipped', checkExportSteps],
   ['export-regenerate', 'Regenerate in the export modals', checkExportRegenerate],
+  ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],

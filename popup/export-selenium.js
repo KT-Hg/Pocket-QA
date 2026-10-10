@@ -134,7 +134,7 @@ function valueToPy(val) {
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
-  'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64',
+  'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
   'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
   'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
@@ -255,6 +255,27 @@ function _setInputHelperPy() {
     '# Fields typing cannot fill the same way everywhere: set as the extension sets them.',
     '_SCRIPT_INPUT_TYPES = ("date", "time", "datetime-local", "month", "week", "color", "range")',
     ...pyPageJs('_SET_INPUT_JS', SET_INPUT_JS),
+  ];
+}
+
+// The drivers the Settings tab offers.
+const DRIVER_TYPES = new Set(['Chrome', 'Edge', 'Firefox', 'Safari']);
+
+/**
+ * The lines that start the browser: `driver = webdriver.<driverType>()`, or, with
+ * `headless`, with the options that run it without a window (Firefox's flag is
+ * its own; Safari has none, which is a warning). Headless is what CI needs.
+ */
+function driverPy(driverType, headless, warnings) {
+  if (!headless) return [`driver = webdriver.${driverType}()`];
+  if (driverType === 'Safari') {
+    warnings.add('Safari has no headless mode — the script opens a window');
+    return ['driver = webdriver.Safari()'];
+  }
+  return [
+    `_options = webdriver.${driverType}Options()`,
+    `_options.add_argument("${driverType === 'Firefox' ? '-headless' : '--headless=new'}")`,
+    `driver = webdriver.${driverType}(options=_options)`,
   ];
 }
 
@@ -684,13 +705,16 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
  * @param {object}   opts
  * @param {number}   opts.stepDelay    - Default inter-step `time.sleep()` in ms (default 500).
  * @param {number}   opts.elTimeout    - `WebDriverWait` timeout in ms (default 10000).
- * @param {string}   opts.driverType   - Selenium driver class name, e.g. "Chrome" (default).
+ * @param {string}   opts.driverType   - Chrome (default), Edge, Firefox or Safari; anything else is Chrome.
+ * @param {boolean}  opts.headless     - run the browser without a window (not Safari, which has no such mode).
  * @param {string}   opts.startUrl     - Initial `driver.get()` URL when first action is not navigate.
  * @returns {{ code: string, stats: { total, supported, skipped }, steps: object[], warnings: string[] }}
  *   steps: what became of each enabled action (popup/export/steps.js).
  */
 export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) {
-  const { stepDelay = 500, elTimeout = 10000, driverType = 'Chrome', startUrl = '' } = opts;
+  const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false } = opts;
+  // Written into `webdriver.<driverType>()`: only a class the script can call, never code.
+  const driverType = DRIVER_TYPES.has(opts.driverType) ? opts.driverType : 'Chrome';
 
   const warnings = new Set();
   const staticVars = {}, randomSpecs = {}, pickSpecs = {}, writtenVars = new Set();
@@ -821,7 +845,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push(`# SCENARIO: ${commentText(scenarioName)}`);
   out.push(`# ============================`);
   out.push('');
-  out.push(`driver = webdriver.${driverType}()`);
+  out.push(...driverPy(driverType, headless, warnings));
   // implicitly_wait is intentionally omitted — it conflicts with WebDriverWait/EC.
   out.push('');
 
@@ -944,7 +968,10 @@ export function initExportSelenium() {
     copyText: (code) => code,
     file: (code) => ({ text: code, type: 'text/x-python' }),
     beforeOpen: _autoFillStartUrl,
-    wire: () => document.getElementById('exportSeleniumGetUrl')?.addEventListener('click', _fillCurrentUrl),
+    wire: () => {
+      document.getElementById('exportSeleniumGetUrl')?.addEventListener('click', _fillCurrentUrl);
+      document.getElementById('exportSeleniumDriver')?.addEventListener('change', _syncHeadless);
+    },
   });
 }
 
@@ -954,7 +981,18 @@ function _getOpts() {
     elTimeout:  parseInt(document.getElementById('exportSeleniumElTimeout')?.value)  || 10000,
     driverType: document.getElementById('exportSeleniumDriver')?.value || 'Chrome',
     startUrl:   document.getElementById('exportSeleniumStartUrl')?.value.trim() || '',
+    headless:   !!document.getElementById('exportSeleniumHeadless')?.checked,
   };
+}
+
+// Safari has no headless mode: with it chosen, Headless is off and cannot be turned on.
+function _syncHeadless() {
+  const safari = document.getElementById('exportSeleniumDriver')?.value === 'Safari';
+  const box = document.getElementById('exportSeleniumHeadless');
+  if (!box) return;
+  if (safari) box.checked = false;
+  box.disabled = safari;
+  document.getElementById('exportSeleniumHeadlessRow').title = safari ? 'Safari has no headless mode' : '';
 }
 
 // Auto-fill Starting URL from current tab (if input is still empty)

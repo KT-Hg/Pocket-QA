@@ -545,3 +545,28 @@ test('a Navigate after the first step still ends a bookmarklet, and says so', ()
   assert.deepEqual(status.map((s) => s.status), ['ok', 'verify', 'ok']);
   assert.match(status[1].reason, /steps after it do not run/);
 });
+
+test('Selenium Headless: each driver its own way, and none for Safari', () => {
+  const steps = [{ type: 'click', selector: '#a', selectors: { css: '#a' } }];
+  const head = (driverType) => generateSeleniumPy('h', steps, {}, { driverType, headless: true });
+  for (const [driverType, options, arg] of [['Chrome', 'ChromeOptions', '--headless=new'], ['Edge', 'EdgeOptions', '--headless=new'],
+    ['Firefox', 'FirefoxOptions', '-headless']]) {
+    const { code } = head(driverType);
+    assert.ok(code.includes(`_options = webdriver.${options}()\n_options.add_argument("${arg}")\ndriver = webdriver.${driverType}(options=_options)\n`), driverType);
+    assert.equal(compilePy(code), null);
+  }
+  const safari = head('Safari');
+  assert.match(safari.code, /^driver = webdriver\.Safari\(\)$/m);
+  assert.ok(safari.warnings.some((w) => /Safari has no headless mode/.test(w)));
+  // Off, the script opens its window as it always did.
+  assert.match(generateSeleniumPy('h', steps, {}, { driverType: 'Edge' }).code, /^driver = webdriver\.Edge\(\)$/m);
+});
+
+test('Selenium: a driver name that is not one of the four becomes Chrome, never code', () => {
+  const steps = [{ type: 'click', selector: '#a', selectors: { css: '#a' } }];
+  for (const driverType of ['Chrome(); import os', 'Opera', '']) {
+    const { code } = generateSeleniumPy('d', steps, {}, { driverType });
+    assert.match(code, /^driver = webdriver\.Chrome\(\)$/m, JSON.stringify(driverType));
+    assert.doesNotMatch(code, /import os/);
+  }
+});
