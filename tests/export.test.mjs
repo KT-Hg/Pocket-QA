@@ -551,13 +551,52 @@ test('a bookmarklet that starts with a Navigate opens the page and stops, and pl
   assert.match(status[0].reason, /run the bookmark again/);
 });
 
-test('a Navigate after the first step still ends a bookmarklet, and says so', () => {
-  const steps = [{ type: 'click', selector: '#a', selectors: { css: '#a' } }, { type: 'navigate', url: 'https://shop.test/' },
-    { type: 'click', selector: '#b', selectors: { css: '#b' } }];
-  const { code, steps: status } = generateBookmarklet('nav', steps, {});
-  assert.match(code, /^ {4}window\.location\.href = "https:\/\/shop\.test\/";$/m);
-  assert.deepEqual(status.map((s) => s.status), ['ok', 'verify', 'ok']);
-  assert.match(status[1].reason, /steps after it do not run/);
+test('a bookmarklet goes on across the pages of its site, a click per page, redirected or not', async () => {
+  // Scripts record what ran, and the value of a Random variable each time.
+  const steps = [
+    { type: 'navigate', url: 'https://shop.test/a' },
+    { type: 'script', code: 'globalThis.__seen.push("s2 " + tok)' },
+    { type: 'navigate', url: 'https://shop.test/b' },
+    { type: 'script', code: 'globalThis.__seen.push("s4 " + tok)' },
+    { type: 'navigate', url: 'https://other.test/' },
+    { type: 'script', code: 'globalThis.__seen.push("s6")' },
+  ];
+  const { code, steps: status } = generateBookmarklet('multi', steps, { tok: '{random:alpha:8}' });
+  const storage = new Map();
+  // A click on the bookmark on a page at `href`: where it sent the page, and what it said.
+  const click = async (href) => {
+    const seen = { alerts: [], location: { href, origin: new URL(href).origin } };
+    Object.assign(globalThis, {
+      location: seen.location, alert: (m) => seen.alerts.push(m), __seen: globalThis.__seen || [],
+      sessionStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, String(v)), removeItem: (k) => storage.delete(k) },
+    });
+    try {
+      await new Function(`return ${code.slice('javascript:'.length)}`)();
+    } finally {
+      for (const k of ['location', 'alert', 'sessionStorage']) delete globalThis[k];
+    }
+    return seen;
+  };
+  try {
+    globalThis.__seen = [];
+    assert.equal((await click('https://shop.test/home')).location.href, 'https://shop.test/a', 'step 1 opens its page');
+    // Redirected to a login page: the next click goes on all the same.
+    assert.equal((await click('https://shop.test/login')).location.href, 'https://shop.test/b', 'steps 2–3 ran, step 3 opened its page');
+    const last = await click('https://shop.test/b');
+    assert.equal(last.location.href, 'https://other.test/', 'step 5 opens another site');
+    assert.match(last.alerts[0], /another site/);
+    const [s2, s4] = globalThis.__seen;
+    assert.match(s2, /^s2 [a-zA-Z]{8}$/);
+    assert.equal(s4, `s4 ${s2.slice(3)}`, 'the variables come back on the next page');
+    assert.equal(globalThis.__seen.length, 2, 'nothing after a Navigate to another site');
+    assert.equal(storage.size, 0, 'nothing left to go on from');
+  } finally {
+    delete globalThis.__seen;
+  }
+  assert.deepEqual(status.map((s) => s.status), ['verify', 'verify', 'verify', 'verify', 'verify', 'verify']);
+  assert.match(status[2].reason, /run the bookmark again on it to play on \(a page of the same site only\)/);
+  // A Navigate first only: as it was (golden).
+  assert.doesNotMatch(generateBookmarklet('one', steps.slice(0, 2), {}).code, /_resumeKey|_from/);
 });
 
 test('Selenium Headless: each driver its own way, and none for Safari', () => {

@@ -1997,6 +1997,20 @@ const EXPORT_CASES = [
     expect: { clicks: [clicked, 'after'] },
   })),
   {
+    // A value read on one page, a Navigate to a page that redirects, the value typed on the
+    // page it lands on. The bookmarklet goes on there at its second click.
+    name: 'multi-page',
+    pageVar: 'next',
+    redirect: true,
+    bookmarkletClicks: 2,
+    actions: [
+      { type: 'readdom', selector: '#code', selectors: { css: '#code' }, varName: 'code', readFrom: 'text' },
+      { type: 'navigate', url: '${next}' },
+      { type: 'input', selector: '#echo', selectors: { css: '#echo' }, value: '${code} ok' },
+    ],
+    expect: { fields: { echo: 'ORD-42 ok' } },
+  },
+  {
     // A one-line Script that ends in a quote: the Selenium literal closed early on it.
     name: 'script-quote',
     actions: [{ type: 'script', code: 'alert("hi"); window.done = "yes"' }],
@@ -2250,7 +2264,9 @@ async function checkExportRun(ctx) {
   try {
     for (const c of EXPORT_CASES.filter((x) => !CASES || CASES.includes(x.name))) {
       // The URL of each run's own page, in the variable named by `pageVar`.
-      const pageVars = (runner) => (c.pageVar ? { [c.pageVar]: pageUrl(`${c.name}:${runner}`) } : {});
+      // Through /redirect with `redirect`: the page a Navigate opens sends it on to the run's page.
+      const pageVars = (runner) => (c.pageVar ? { [c.pageVar]: c.redirect
+        ? `${ctx.base}/redirect?to=${encodeURIComponent(pageUrl(`${c.name}:${runner}`))}` : pageUrl(`${c.name}:${runner}`) } : {});
       const startUrl = (runner) => pageUrl(`${c.name}:${c.pageVar ? 'start' : runner}`);
       await ctx.send({ type: 'SAVE_VARIABLES', variables: { ...c.variables, ...pageVars('playback') } });
       // The playback page first: a step in its frame needs the frameId the frame has there.
@@ -2487,6 +2503,12 @@ async function main() {
     const s = createServer((req, reply) => {
       if (req.method === 'POST' && req.url === '/state') { saveExportState(req, reply); return; }
       reply.setHeader('content-type', 'text/html; charset=utf-8');
+      // /redirect?to=<url>: a page that sends the browser on, as a login page does.
+      if (req.url.startsWith('/redirect')) {
+        reply.writeHead(302, { location: new URL(req.url, 'http://x').searchParams.get('to') });
+        reply.end();
+        return;
+      }
       if (req.url.startsWith('/frame')) reply.end(FRAME_PAGE);
       else reply.end(req.url.startsWith('/export') ? EXPORT_PAGE : TEST_PAGE);
     });

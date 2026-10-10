@@ -6,7 +6,7 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, topLevelIndices, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
   PICK_ITEM_JS, QUERY_DEEP_JS,
@@ -21,7 +21,7 @@ const SKIPPED_TYPES = new Set([
 // words (js-code.js).
 const _RESERVED_JS = new Set([
   'sleep', 'getEl', '_qsel', '_deep', '_first', '_inFrames', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
-  'domVar', '_at', 'setInterval', 'clearInterval', 'clearTimeout',
+  'domVar', '_at', 'setInterval', 'clearInterval', 'clearTimeout', 'sessionStorage', '_resumeKey', '_saved', '_from', '_vars',
   ...JS_RESERVED,
 ]);
 
@@ -121,9 +121,30 @@ function condHeader(action, stepNum, step, ctx) {
   return [head, `if (_checkCond(${JSON.stringify(type)}, ${el}, ${valueToJS(action.expectedValue)})) {`];
 }
 
+/**
+ * A Navigate of the top level in a bookmarklet that goes on across pages
+ * (ctx.resume): to a page of this site, it saves where the run goes on (the step
+ * after it) and the variables' values in sessionStorage, which the next click on
+ * the new page — wherever it was redirected — reads and goes on from. Another
+ * site's storage is not this one's: there the bookmarklet stops.
+ */
+function resumeNavigateLines(nav, stepNum) {
+  return [
+    `if (new URL(${nav}, location.href).origin === location.origin) {`,
+    `  sessionStorage.setItem(_resumeKey, JSON.stringify({ next: ${stepNum + 1}, vars: _vars() }));`,
+    `  alert('Opening ' + ${nav} + '. Run the bookmark again once it has loaded.');`,
+    '} else {',
+    `  alert('Opening ' + ${nav} + ': another site, where this bookmarklet cannot go on.');`,
+    '}',
+    `location.href = ${nav};`,
+    'return;',
+  ];
+}
+
 // Generates JS lines for a single non-condition action, and marks `step`
-// (export/steps.js) when the action is not exported as is.
-function actionLines(action, step, stepDelay, elTimeout, ctx) {
+// (export/steps.js) when the action is not exported as is. `top`: of the top level.
+function actionLines(action, step, ctx, top = false) {
+  const { stepDelay, elTimeout } = ctx;
   const stepNum = step.n;
   const lbl = action.label ? ` — ${commentText(action.label)}` : '';
   // A number, whatever an imported scenario holds: it is written into the code.
@@ -218,10 +239,21 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
         out.push(`const _nav${stepNum} = ${url};`);
         out.push(`const _at${stepNum} = (u) => { const x = new URL(u, location.href); return x.origin + x.pathname.replace(/\\/+$/, '') + x.search; };`);
         out.push(`if (_at${stepNum}(_nav${stepNum}) !== _at${stepNum}(location.href)) {`);
-        out.push(`  alert('Opening ' + _nav${stepNum} + '. Run the bookmark again once it has loaded.');`);
-        out.push(`  location.href = _nav${stepNum};`);
-        out.push(`  return;`);
+        if (ctx.resume) {
+          // Saved too: redirected (to a login page), the next click still goes on.
+          out.push(...resumeNavigateLines(`_nav${stepNum}`, stepNum).map((l) => `  ${l}`));
+        } else {
+          out.push(`  alert('Opening ' + _nav${stepNum} + '. Run the bookmark again once it has loaded.');`);
+          out.push(`  location.href = _nav${stepNum};`);
+          out.push(`  return;`);
+        }
         out.push(`}`);
+        break;
+      }
+      if (ctx.resume && top) {
+        mark(step, 'verify', 'opens the page and stops: run the bookmark again on it to play on (a page of the same site only)');
+        out.push(`const _nav${stepNum} = ${url};`);
+        out.push(...resumeNavigateLines(`_nav${stepNum}`, stepNum));
         break;
       }
       out.push(`// ⚠ Page will reload — steps after this will not execute unless injected on next load`);
@@ -320,9 +352,11 @@ function switchLinesJS(action, step, branches) {
 }
 
 // The steps, walked as playback walks them (export/walk.js).
-function stepLines(stepDelay, elTimeout, ctx) {
+function stepLines(ctx) {
   return walkActions(ctx, {
-    step: (action, step) => actionLines(action, step, stepDelay, elTimeout, ctx),
+    step: (action, step, top) => actionLines(action, step, ctx, top),
+    // Going on across pages, a step of the top level runs only from where the run goes on.
+    top: ctx.resume ? (n, lines) => [`if (_from <= ${n}) {`, ...indentLines(lines, '  '), '}'] : undefined,
     conditionHead: (action, step) => condHeader(action, step.n, step, ctx),
     conditionBody: (lines) => [...indentLines(lines, '  '), '}'],
     // A bookmarklet cannot choose a case.
@@ -361,9 +395,11 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   // The step number of a Navigate that comes first (waits aside), else 0.
   const first = enabled.find(a => a.type !== 'wait');
   const firstNavigate = first?.type === 'navigate' ? all.indexOf(first) + 1 : 0;
-  const ctx = { staticVars, warnings, all, layout, steps, firstNavigate, frames: 'same-origin' };
+  // A Navigate of the top level after the first step: the bookmarklet goes on across pages.
+  const resume = topLevelIndices(all, layout).some((i) => all[i].type === 'navigate' && !all[i].disabled && i + 1 !== firstNavigate);
+  const ctx = { staticVars, warnings, all, layout, steps, firstNavigate, frames: 'same-origin', resume, stepDelay, elTimeout };
   // The steps first: the helpers declared below depend on what they use.
-  const bodyLines = stepLines(stepDelay, elTimeout, ctx);
+  const bodyLines = stepLines(ctx);
 
   const out = [];
 
@@ -478,14 +514,15 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     || Object.keys(pickSpecs).length > 0
     || writtenVars.size > 0;
 
+  const declared = new Set();
   if (hasVars) {
     blank();
     out.push('  // --- VARIABLES ---');
     // A name a step writes to has to be `let`, and must not also be declared by
     // the writtenVars pass below: `const result = "seed"` followed by
-    // `let result = ''` is a SyntaxError that kills the entire bookmarklet.
-    const declared = new Set();
-    const kw = (ident) => (writtenVars.has(ident) ? 'let' : 'const');
+    // `let result = ''` is a SyntaxError that kills the entire bookmarklet. Going on
+    // across pages, every one is `let`: the next page's click puts its value back.
+    const kw = (ident) => (writtenVars.has(ident) || resume ? 'let' : 'const');
 
     for (const [k, v] of Object.entries(staticVars)) {
       const safe = _sanitizeVarName(k);
@@ -513,6 +550,19 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
       declared.add(k);
       out.push(`  let ${k} = '';`);
     }
+  }
+
+  if (resume) {
+    blank();
+    out.push('  // --- GOING ON ACROSS PAGES ---');
+    out.push('  // A Navigate to a page of this site saved the step to go on from and the variables: from there.');
+    out.push(`  const _resumeKey = ${JSON.stringify(`pqa-resume:${scenarioName}`)};`);
+    out.push("  const _saved = JSON.parse(sessionStorage.getItem(_resumeKey) || 'null');");
+    out.push('  sessionStorage.removeItem(_resumeKey);');
+    out.push('  const _from = _saved ? _saved.next : 1;');
+    const names = [...declared];
+    out.push(`  const _vars = () => ({ ${names.join(', ')} });`);
+    if (names.length) out.push(`  if (_saved) ({ ${names.join(', ')} } = _saved.vars);`);
   }
 
   blank();

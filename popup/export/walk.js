@@ -103,11 +103,30 @@ export function locatorsFor(action, target = false) {
  *                                 [{ value, isDefault, body }] in the cases' order
  *   at(title)                   → optional: the line that records which step runs
  *                                 ("Step 3: click — Sign in"), for the error to name it
+ *   top(n, lines)               → optional: the lines of step n of the top level (a whole
+ *                                 Condition or Switch block with what it holds)
+ * step() gets a third argument: whether the action is of the top level.
  * Each step's lines are followed by an empty one. ctx: { all, layout, steps, warnings, frames }
  * (frames: newStep's, where the export looks for an element recorded in a frame).
  */
 export function walkActions(ctx, gen) {
-  return walk(ctx, gen, 0, ctx.all.length);
+  return walk(ctx, gen, 0, ctx.all.length, true);
+}
+
+/**
+ * The 0-based indices of the actions a walk meets at its top level: outside any
+ * Condition's body and any Switch block (its Switch itself is one of them).
+ */
+export function topLevelIndices(all, layout) {
+  const out = [];
+  for (let i = 0; i < all.length;) {
+    const a = all[i];
+    out.push(i);
+    if (hasBlock(a)) i = blockEnd(all, i) + 1;
+    else if (a.type === 'condition' && !a.disabled) i = Math.max(i + 1, conditionSkipTarget(all, i, conditionSkip(a), layout));
+    else i++;
+  }
+  return out;
 }
 
 // The comment that opens a step's lines: "// Step 3: click — Sign in", "# Step 3: …".
@@ -159,8 +178,10 @@ function switchBranches(ctx, gen, i, step) {
   return withAt(gen, step, gen.switchLines(action, step, branches));
 }
 
-function walk(ctx, gen, from, to) {
+function walk(ctx, gen, from, to, top = false) {
   const out = [];
+  // Step n's lines and the empty line after them, through gen.top at the top level.
+  const put = (n, lines) => out.push(...(top && gen.top ? gen.top(n, lines) : lines), '');
   let i = from;
   while (i < to) {
     const action = ctx.all[i];
@@ -170,7 +191,7 @@ function walk(ctx, gen, from, to) {
     if (hasBlock(action) && gen.switchLines && switchAsBranches(ctx.all, i, ctx.layout)) {
       const step = newStep(action, i + 1, ctx.frames);
       ctx.steps.push(step);
-      out.push(...switchBranches(ctx, gen, i, step), '');
+      put(i + 1, switchBranches(ctx, gen, i, step));
       i = blockEnd(ctx.all, i) + 1;
       continue;
     }
@@ -189,15 +210,14 @@ function walk(ctx, gen, from, to) {
     const step = newStep(action, i + 1, ctx.frames);
     ctx.steps.push(step);
     if (action.type !== 'condition') {
-      out.push(...withAt(gen, step, gen.step(action, step)), '');
+      put(i + 1, withAt(gen, step, gen.step(action, step, top)));
       i++;
       continue;
     }
     // The same span playback skips (0 actions for an emptied Condition): a Switch
     // and its block count as one action, and it ends where the enclosing body ends.
     const bodyEnd = conditionSkipTarget(ctx.all, i, conditionSkip(action), ctx.layout);
-    out.push(...withAt(gen, step, gen.conditionHead(action, step)));
-    out.push(...gen.conditionBody(walk(ctx, gen, i + 1, Math.min(bodyEnd, to))), '');
+    put(i + 1, [...withAt(gen, step, gen.conditionHead(action, step)), ...gen.conditionBody(walk(ctx, gen, i + 1, Math.min(bodyEnd, to)))]);
     i = Math.max(i + 1, bodyEnd);
   }
   return out;

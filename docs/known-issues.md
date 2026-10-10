@@ -67,8 +67,10 @@ xuất đánh dấu ⚠ Verify hoặc — Skip cho từng bước liên quan, k�
   at" riêng và không lỗi, được xuất thành `if / elif / else` trên giá trị biến lúc chạy. Các Switch khác — case nhảy
   sang scenario khác, nhảy tới action #N, "Always", có "Continue at" — vẫn bị bỏ qua (cùng cả khối nếu có khối): việc
   đó cần extension.
-- **Bookmarklet và Navigate:** Navigate đầu tiên cần bấm 2 lần (mở trang rồi dừng, bấm lại khi trang đã tải). Nếu
-  trang đích chuyển hướng sang địa chỉ khác (ví dụ về trang đăng nhập), lần bấm sau vẫn không thấy mình ở đích nên lại
-  mở trang và dừng, không bao giờ chạy tiếp. Navigate ở giữa scenario tải lại trang, các bước sau nó không chạy.
+- **Bookmarklet và Navigate:** mỗi trang cần một lần bấm. Navigate sang trang cùng site (cùng origin) lưu chỗ chạy tiếp
+  vào `sessionStorage`, nên lần bấm sau chạy tiếp dù trang đích đã chuyển hướng. Navigate sang site khác thì dừng ở đó
+  (`sessionStorage` của site này không sang được site kia). Navigate nằm trong Condition hoặc trong case của Switch vẫn
+  tải lại trang và các bước sau nó không chạy. Scenario chỉ có Navigate ở bước đầu giữ cách cũ: bấm lại khi đã ở đúng
+  trang; nếu trang đó chuyển hướng sang trang khác của cùng site thì lại mở trang và dừng.
 - **Kéo thả trong Selenium** dùng ActionChains; mới kiểm chạy thật trên Edge (e2e `export-run`), chưa kiểm trên
   Firefox và Safari.
