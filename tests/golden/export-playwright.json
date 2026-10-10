@@ -1,0 +1,2732 @@
+{
+ "TEST 01 — Click & Input (Screen 1) | none": {
+  "code": "// SCENARIO: TEST 01 — Click & Input (Screen 1)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\ntest(\"TEST 01 — Click & Input (Screen 1)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 1\n  await page.evaluate(\"showScreen(1, document.querySelectorAll('nav button')[0])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait — Wait for screen transition\n  await page.waitForTimeout(300);\n\n  // Step 3: input — Fill: Full name\n  const el3 = await _find(page, [\"#inputName\", \"xpath=//*[@id=\\\"inputName\\\"]\"]);\n  await _input(el3, \"John Doe\");\n  await page.waitForTimeout(300);\n\n  // Step 4: input — Fill: Email\n  const el4 = await _find(page, [\"#inputEmail\", \"xpath=//*[@id=\\\"inputEmail\\\"]\"]);\n  await _input(el4, \"john@example.com\");\n  await page.waitForTimeout(300);\n\n  // Step 5: input — Fill: Password\n  const el5 = await _find(page, [\"#inputPassword\", \"xpath=//*[@id=\\\"inputPassword\\\"]\"]);\n  await _input(el5, \"Passw0rd!\");\n  await page.waitForTimeout(300);\n\n  // Step 6: input — Fill: Phone\n  const el6 = await _find(page, [\"#inputPhone\", \"xpath=//*[@id=\\\"inputPhone\\\"]\"]);\n  await _input(el6, \"+1 555 123 4567\");\n  await page.waitForTimeout(300);\n\n  // Step 7: input — Fill: Message textarea\n  const el7 = await _find(page, [\"#inputMessage\", \"xpath=//*[@id=\\\"inputMessage\\\"]\"]);\n  await _input(el7, \"Hello from automation!\");\n  await page.waitForTimeout(300);\n\n  // Step 8: input — Select: Country → Vietnam\n  const el8 = await _find(page, [\"#selectCountry\", \"xpath=//*[@id=\\\"selectCountry\\\"]\"]);\n  await _input(el8, \"vn\");\n  await page.waitForTimeout(300);\n\n  // Step 9: input — Select: Priority → High\n  const el9 = await _find(page, [\"#selectPriority\", \"xpath=//*[@id=\\\"selectPriority\\\"]\"]);\n  await _input(el9, \"high\");\n  await page.waitForTimeout(300);\n\n  // Step 10: click — Check: Accept terms\n  const el10 = await _find(page, [\"#chkTerms\", \"xpath=//*[@id=\\\"chkTerms\\\"]\"]);\n  await el10.click();\n  await page.waitForTimeout(300);\n\n  // Step 11: click — Check: Remember me\n  const el11 = await _find(page, [\"#chkRemember\", \"xpath=//*[@id=\\\"chkRemember\\\"]\"]);\n  await el11.click();\n  await page.waitForTimeout(300);\n\n  // Step 12: click — Radio: Select Viewer role\n  const el12 = page.locator(\"input[name=\\\"role\\\"][value=\\\"viewer\\\"]\").first();\n  await el12.click();\n  await page.waitForTimeout(300);\n\n  // Step 13: click — Click: Load Sample\n  const el13 = await _find(page, [\"#btnLoad\", \"xpath=//*[@id=\\\"btnLoad\\\"]\"]);\n  await el13.click();\n  await page.waitForTimeout(300);\n\n  // Step 14: wait — Wait after load\n  await page.waitForTimeout(400);\n\n  // Step 15: click — Click: Submit Form\n  const el15 = await _find(page, [\"#btnSubmit\", \"xpath=//*[@id=\\\"btnSubmit\\\"]\"]);\n  await el15.click();\n  await page.waitForTimeout(300);\n\n  // Step 16: wait — Wait for form status\n  await page.waitForTimeout(500);\n\n  // Step 17: click — Click: Reset\n  const el17 = await _find(page, [\"#btnReset\", \"xpath=//*[@id=\\\"btnReset\\\"]\"]);\n  await el17.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 17,
+   "supported": 17,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 01 — Click & Input (Screen 1) | strings": {
+  "code": "// SCENARIO: TEST 01 — Click & Input (Screen 1)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\ntest(\"TEST 01 — Click & Input (Screen 1)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 1\n  await page.evaluate(\"showScreen(1, document.querySelectorAll('nav button')[0])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait — Wait for screen transition\n  await page.waitForTimeout(300);\n\n  // Step 3: input — Fill: Full name\n  const el3 = await _find(page, [\"#inputName\", \"xpath=//*[@id=\\\"inputName\\\"]\"]);\n  await _input(el3, \"John Doe\");\n  await page.waitForTimeout(300);\n\n  // Step 4: input — Fill: Email\n  const el4 = await _find(page, [\"#inputEmail\", \"xpath=//*[@id=\\\"inputEmail\\\"]\"]);\n  await _input(el4, \"john@example.com\");\n  await page.waitForTimeout(300);\n\n  // Step 5: input — Fill: Password\n  const el5 = await _find(page, [\"#inputPassword\", \"xpath=//*[@id=\\\"inputPassword\\\"]\"]);\n  await _input(el5, \"Passw0rd!\");\n  await page.waitForTimeout(300);\n\n  // Step 6: input — Fill: Phone\n  const el6 = await _find(page, [\"#inputPhone\", \"xpath=//*[@id=\\\"inputPhone\\\"]\"]);\n  await _input(el6, \"+1 555 123 4567\");\n  await page.waitForTimeout(300);\n\n  // Step 7: input — Fill: Message textarea\n  const el7 = await _find(page, [\"#inputMessage\", \"xpath=//*[@id=\\\"inputMessage\\\"]\"]);\n  await _input(el7, \"Hello from automation!\");\n  await page.waitForTimeout(300);\n\n  // Step 8: input — Select: Country → Vietnam\n  const el8 = await _find(page, [\"#selectCountry\", \"xpath=//*[@id=\\\"selectCountry\\\"]\"]);\n  await _input(el8, \"vn\");\n  await page.waitForTimeout(300);\n\n  // Step 9: input — Select: Priority → High\n  const el9 = await _find(page, [\"#selectPriority\", \"xpath=//*[@id=\\\"selectPriority\\\"]\"]);\n  await _input(el9, \"high\");\n  await page.waitForTimeout(300);\n\n  // Step 10: click — Check: Accept terms\n  const el10 = await _find(page, [\"#chkTerms\", \"xpath=//*[@id=\\\"chkTerms\\\"]\"]);\n  await el10.click();\n  await page.waitForTimeout(300);\n\n  // Step 11: click — Check: Remember me\n  const el11 = await _find(page, [\"#chkRemember\", \"xpath=//*[@id=\\\"chkRemember\\\"]\"]);\n  await el11.click();\n  await page.waitForTimeout(300);\n\n  // Step 12: click — Radio: Select Viewer role\n  const el12 = page.locator(\"input[name=\\\"role\\\"][value=\\\"viewer\\\"]\").first();\n  await el12.click();\n  await page.waitForTimeout(300);\n\n  // Step 13: click — Click: Load Sample\n  const el13 = await _find(page, [\"#btnLoad\", \"xpath=//*[@id=\\\"btnLoad\\\"]\"]);\n  await el13.click();\n  await page.waitForTimeout(300);\n\n  // Step 14: wait — Wait after load\n  await page.waitForTimeout(400);\n\n  // Step 15: click — Click: Submit Form\n  const el15 = await _find(page, [\"#btnSubmit\", \"xpath=//*[@id=\\\"btnSubmit\\\"]\"]);\n  await el15.click();\n  await page.waitForTimeout(300);\n\n  // Step 16: wait — Wait for form status\n  await page.waitForTimeout(500);\n\n  // Step 17: click — Click: Reset\n  const el17 = await _find(page, [\"#btnReset\", \"xpath=//*[@id=\\\"btnReset\\\"]\"]);\n  await el17.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 17,
+   "supported": 17,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 02 — Hover (Screen 1) | none": {
+  "code": "// SCENARIO: TEST 02 — Hover (Screen 1)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"TEST 02 — Hover (Screen 1)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 1\n  await page.evaluate(\"showScreen(1, document.querySelectorAll('nav button')[0])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: hover — Hover: Box A\n  const el3 = await _find(page, [\"#hoverA\", \"xpath=//*[@id=\\\"hoverA\\\"]\"]);\n  await el3.hover();\n  await page.waitForTimeout(300);\n\n  // Step 4: wait\n  await page.waitForTimeout(600);\n\n  // Step 5: hover — Hover: Box B\n  const el5 = await _find(page, [\"#hoverB\", \"xpath=//*[@id=\\\"hoverB\\\"]\"]);\n  await el5.hover();\n  await page.waitForTimeout(300);\n\n  // Step 6: wait\n  await page.waitForTimeout(600);\n\n  // Step 7: hover — Hover: Box C\n  const el7 = await _find(page, [\"#hoverC\", \"xpath=//*[@id=\\\"hoverC\\\"]\"]);\n  await el7.hover();\n  await page.waitForTimeout(300);\n\n  // Step 8: wait\n  await page.waitForTimeout(600);\n\n});",
+  "stats": {
+   "total": 8,
+   "supported": 8,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 02 — Hover (Screen 1) | strings": {
+  "code": "// SCENARIO: TEST 02 — Hover (Screen 1)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"TEST 02 — Hover (Screen 1)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 1\n  await page.evaluate(\"showScreen(1, document.querySelectorAll('nav button')[0])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: hover — Hover: Box A\n  const el3 = await _find(page, [\"#hoverA\", \"xpath=//*[@id=\\\"hoverA\\\"]\"]);\n  await el3.hover();\n  await page.waitForTimeout(300);\n\n  // Step 4: wait\n  await page.waitForTimeout(600);\n\n  // Step 5: hover — Hover: Box B\n  const el5 = await _find(page, [\"#hoverB\", \"xpath=//*[@id=\\\"hoverB\\\"]\"]);\n  await el5.hover();\n  await page.waitForTimeout(300);\n\n  // Step 6: wait\n  await page.waitForTimeout(600);\n\n  // Step 7: hover — Hover: Box C\n  const el7 = await _find(page, [\"#hoverC\", \"xpath=//*[@id=\\\"hoverC\\\"]\"]);\n  await el7.hover();\n  await page.waitForTimeout(300);\n\n  // Step 8: wait\n  await page.waitForTimeout(600);\n\n});",
+  "stats": {
+   "total": 8,
+   "supported": 8,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 03 — Run JS & Read DOM (Screen 2) | none": {
+  "code": "// SCENARIO: TEST 03 — Run JS & Read DOM (Screen 2)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"TEST 03 — Run JS & Read DOM (Screen 2)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  let counterValue = '';\n  let price = '';\n  let stock = '';\n  let rating = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 2\n  await page.evaluate(\"showScreen(2, document.querySelectorAll('nav button')[1])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: click — Click: Increment counter\n  const el3 = await _find(page, [\"#btnInc\", \"xpath=//*[@id=\\\"btnInc\\\"]\"]);\n  await el3.click();\n  await page.waitForTimeout(300);\n\n  // Step 4: click — Click: Increment counter\n  const el4 = await _find(page, [\"#btnInc\", \"xpath=//*[@id=\\\"btnInc\\\"]\"]);\n  await el4.click();\n  await page.waitForTimeout(300);\n\n  // Step 5: click — Click: Increment counter (total = 3)\n  const el5 = await _find(page, [\"#btnInc\", \"xpath=//*[@id=\\\"btnInc\\\"]\"]);\n  await el5.click();\n  await page.waitForTimeout(300);\n\n  // Step 6: readdom — Read DOM: counter → ${counterValue} — [not exported to Playwright yet]\n\n  // Step 7: script — Run JS: write to output panel\n  await page.evaluate(\"document.getElementById('jsOutput').textContent = 'Counter read by readdom: ' + document.getElementById('counter').textContent\");\n  await page.waitForTimeout(300);\n\n  // Step 8: readdom — Read DOM: price → ${price} — [not exported to Playwright yet]\n\n  // Step 9: readdom — Read DOM: stock → ${stock} — [not exported to Playwright yet]\n\n  // Step 10: readdom — Read DOM: rating → ${rating} — [not exported to Playwright yet]\n\n  // Step 11: script — Run JS: display read values\n  await page.evaluate(\"document.getElementById('jsOutput').textContent += '\\\\nPrice: ' + document.getElementById('domPrice').textContent + ' | Stock: ' + document.getElementById('domStock').textContent + ' | Rating: ' + document.getElementById('domRating').textContent\");\n  await page.waitForTimeout(300);\n\n  // Step 12: click — Click: Decrement\n  const el12 = await _find(page, [\"#btnDec\", \"xpath=//*[@id=\\\"btnDec\\\"]\"]);\n  await el12.click();\n  await page.waitForTimeout(300);\n\n  // Step 13: click — Click: Reset counter\n  const el13 = await _find(page, [\"#btnReset2\", \"xpath=//*[@id=\\\"btnReset2\\\"]\"]);\n  await el13.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 13,
+   "supported": 9,
+   "skipped": 4
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 7,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 8,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 9,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 03 — Run JS & Read DOM (Screen 2) | strings": {
+  "code": "// SCENARIO: TEST 03 — Run JS & Read DOM (Screen 2)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"TEST 03 — Run JS & Read DOM (Screen 2)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n  let counterValue = '';\n  let price = '';\n  let stock = '';\n  let rating = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 2\n  await page.evaluate(\"showScreen(2, document.querySelectorAll('nav button')[1])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: click — Click: Increment counter\n  const el3 = await _find(page, [\"#btnInc\", \"xpath=//*[@id=\\\"btnInc\\\"]\"]);\n  await el3.click();\n  await page.waitForTimeout(300);\n\n  // Step 4: click — Click: Increment counter\n  const el4 = await _find(page, [\"#btnInc\", \"xpath=//*[@id=\\\"btnInc\\\"]\"]);\n  await el4.click();\n  await page.waitForTimeout(300);\n\n  // Step 5: click — Click: Increment counter (total = 3)\n  const el5 = await _find(page, [\"#btnInc\", \"xpath=//*[@id=\\\"btnInc\\\"]\"]);\n  await el5.click();\n  await page.waitForTimeout(300);\n\n  // Step 6: readdom — Read DOM: counter → ${counterValue} — [not exported to Playwright yet]\n\n  // Step 7: script — Run JS: write to output panel\n  await page.evaluate(\"document.getElementById('jsOutput').textContent = 'Counter read by readdom: ' + document.getElementById('counter').textContent\");\n  await page.waitForTimeout(300);\n\n  // Step 8: readdom — Read DOM: price → ${price} — [not exported to Playwright yet]\n\n  // Step 9: readdom — Read DOM: stock → ${stock} — [not exported to Playwright yet]\n\n  // Step 10: readdom — Read DOM: rating → ${rating} — [not exported to Playwright yet]\n\n  // Step 11: script — Run JS: display read values\n  await page.evaluate(\"document.getElementById('jsOutput').textContent += '\\\\nPrice: ' + document.getElementById('domPrice').textContent + ' | Stock: ' + document.getElementById('domStock').textContent + ' | Rating: ' + document.getElementById('domRating').textContent\");\n  await page.waitForTimeout(300);\n\n  // Step 12: click — Click: Decrement\n  const el12 = await _find(page, [\"#btnDec\", \"xpath=//*[@id=\\\"btnDec\\\"]\"]);\n  await el12.click();\n  await page.waitForTimeout(300);\n\n  // Step 13: click — Click: Reset counter\n  const el13 = await _find(page, [\"#btnReset2\", \"xpath=//*[@id=\\\"btnReset2\\\"]\"]);\n  await el13.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 13,
+   "supported": 9,
+   "skipped": 4
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 7,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 8,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 9,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 04 — Condition (if) (Screen 2) | none": {
+  "code": "// SCENARIO: TEST 04 — Condition (if) (Screen 2)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"TEST 04 — Condition (if) (Screen 2)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 2\n  await page.evaluate(\"showScreen(2, document.querySelectorAll('nav button')[1])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: click — Click: Hide element\n  const el3 = await _find(page, [\"#btnHide\", \"xpath=//*[@id=\\\"btnHide\\\"]\"]);\n  await el3.click();\n  await page.waitForTimeout(300);\n\n  // Step 4: wait\n  await page.waitForTimeout(300);\n\n  // Step 5: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 8: click — Click: Show element\n  const el8 = await _find(page, [\"#btnShow\", \"xpath=//*[@id=\\\"btnShow\\\"]\"]);\n  await el8.click();\n  await page.waitForTimeout(300);\n\n  // Step 9: wait\n  await page.waitForTimeout(300);\n\n  // Step 10: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 12: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 14: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n});",
+  "stats": {
+   "total": 15,
+   "supported": 6,
+   "skipped": 9
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 6,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 5"
+   },
+   {
+    "n": 7,
+    "type": "wait",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 5"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 10"
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 12"
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 04 — Condition (if) (Screen 2) | strings": {
+  "code": "// SCENARIO: TEST 04 — Condition (if) (Screen 2)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"TEST 04 — Condition (if) (Screen 2)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 2\n  await page.evaluate(\"showScreen(2, document.querySelectorAll('nav button')[1])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: click — Click: Hide element\n  const el3 = await _find(page, [\"#btnHide\", \"xpath=//*[@id=\\\"btnHide\\\"]\"]);\n  await el3.click();\n  await page.waitForTimeout(300);\n\n  // Step 4: wait\n  await page.waitForTimeout(300);\n\n  // Step 5: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 8: click — Click: Show element\n  const el8 = await _find(page, [\"#btnShow\", \"xpath=//*[@id=\\\"btnShow\\\"]\"]);\n  await el8.click();\n  await page.waitForTimeout(300);\n\n  // Step 9: wait\n  await page.waitForTimeout(300);\n\n  // Step 10: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 12: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 14: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n});",
+  "stats": {
+   "total": 15,
+   "supported": 6,
+   "skipped": 9
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 6,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 5"
+   },
+   {
+    "n": 7,
+    "type": "wait",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 5"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 10"
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 12"
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 05 — Drag & Drop (Screen 2) | none": {
+  "code": "// SCENARIO: TEST 05 — Drag & Drop (Screen 2)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\ntest(\"TEST 05 — Drag & Drop (Screen 2)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 2\n  await page.evaluate(\"showScreen(2, document.querySelectorAll('nav button')[1])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(400);\n\n  // Step 3: dragdrop — Drag: Item Alpha → onto Item Gamma — [not exported to Playwright yet]\n\n  // Step 4: wait\n  await page.waitForTimeout(500);\n\n  // Step 5: dragdrop — Drag: Item Delta → onto Item Beta — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 5,
+   "supported": 3,
+   "skipped": 2
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "dragdrop",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "dragdrop",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 05 — Drag & Drop (Screen 2) | strings": {
+  "code": "// SCENARIO: TEST 05 — Drag & Drop (Screen 2)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\ntest(\"TEST 05 — Drag & Drop (Screen 2)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 2\n  await page.evaluate(\"showScreen(2, document.querySelectorAll('nav button')[1])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(400);\n\n  // Step 3: dragdrop — Drag: Item Alpha → onto Item Gamma — [not exported to Playwright yet]\n\n  // Step 4: wait\n  await page.waitForTimeout(500);\n\n  // Step 5: dragdrop — Drag: Item Delta → onto Item Beta — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 5,
+   "supported": 3,
+   "skipped": 2
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "dragdrop",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "dragdrop",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 06 — Loading State Condition (Screen 2) | none": {
+  "code": "// SCENARIO: TEST 06 — Loading State Condition (Screen 2)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"TEST 06 — Loading State Condition (Screen 2)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  let loadedResult = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 2\n  await page.evaluate(\"showScreen(2, document.querySelectorAll('nav button')[1])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: click — Click: Reset loading state\n  const el3 = await _find(page, [\"#screen2 .section:last-child .btn-ghost\", \"button:text-is(\\\"Reset\\\")\"]);\n  await el3.click();\n  await page.waitForTimeout(300);\n\n  // Step 4: wait\n  await page.waitForTimeout(300);\n\n  // Step 5: click — Click: Simulate Load (1.5s)\n  const el5 = await _find(page, [\"#screen2 button.btn-primary:last-of-type\", \"button:text-is(\\\"Simulate Load (1.5s)\\\")\"]);\n  await el5.click();\n  await page.waitForTimeout(300);\n\n  // Step 6: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 9: wait — Wait 2s for load to complete\n  await page.waitForTimeout(2000);\n\n  // Step 10: readdom — Read DOM: loaded result → ${loadedResult} — [not exported to Playwright yet]\n\n  // Step 11: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n});",
+  "stats": {
+   "total": 10,
+   "supported": 6,
+   "skipped": 4
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 7,
+    "type": "wait",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 6"
+   },
+   {
+    "n": 9,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 06 — Loading State Condition (Screen 2) | strings": {
+  "code": "// SCENARIO: TEST 06 — Loading State Condition (Screen 2)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"TEST 06 — Loading State Condition (Screen 2)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n  let loadedResult = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 2\n  await page.evaluate(\"showScreen(2, document.querySelectorAll('nav button')[1])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: click — Click: Reset loading state\n  const el3 = await _find(page, [\"#screen2 .section:last-child .btn-ghost\", \"button:text-is(\\\"Reset\\\")\"]);\n  await el3.click();\n  await page.waitForTimeout(300);\n\n  // Step 4: wait\n  await page.waitForTimeout(300);\n\n  // Step 5: click — Click: Simulate Load (1.5s)\n  const el5 = await _find(page, [\"#screen2 button.btn-primary:last-of-type\", \"button:text-is(\\\"Simulate Load (1.5s)\\\")\"]);\n  await el5.click();\n  await page.waitForTimeout(300);\n\n  // Step 6: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 9: wait — Wait 2s for load to complete\n  await page.waitForTimeout(2000);\n\n  // Step 10: readdom — Read DOM: loaded result → ${loadedResult} — [not exported to Playwright yet]\n\n  // Step 11: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n});",
+  "stats": {
+   "total": 10,
+   "supported": 6,
+   "skipped": 4
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 7,
+    "type": "wait",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 6"
+   },
+   {
+    "n": 9,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 07 — Screenshots (Screen 3) | none": {
+  "code": "// SCENARIO: TEST 07 — Screenshots (Screen 3)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\ntest(\"TEST 07 — Screenshots (Screen 3)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 3\n  await page.evaluate(\"showScreen(3, document.querySelectorAll('nav button')[2])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(500);\n\n  // Step 3: screenshot (visible) — Screenshot: Visible viewport\n  await page.screenshot({ path: \"screenshot_step3.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 4: wait\n  await page.waitForTimeout(800);\n\n  // Step 5: screenshot (full page) — Screenshot: Full page\n  await page.screenshot({ path: \"screenshot_full_step5.png\", fullPage: true });\n  await page.waitForTimeout(300);\n\n  // Step 6: wait\n  await page.waitForTimeout(1000);\n\n  // Step 7: screenshot element — Screenshot Element: #card-red\n  const el7 = page.locator(\"#card-red\").first();\n  await el7.screenshot({ path: \"screenshot_element_step7.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 8: wait\n  await page.waitForTimeout(500);\n\n  // Step 9: screenshot element — Screenshot Element: #card-green\n  const el9 = page.locator(\"#card-green\").first();\n  await el9.screenshot({ path: \"screenshot_element_step9.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 10: wait\n  await page.waitForTimeout(500);\n\n  // Step 11: screenshot element — Screenshot Element: #card-blue\n  const el11 = page.locator(\"#card-blue\").first();\n  await el11.screenshot({ path: \"screenshot_element_step11.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 12: wait\n  await page.waitForTimeout(500);\n\n  // Step 13: screenshot element — Screenshot Element: #card-gold\n  const el13 = page.locator(\"#card-gold\").first();\n  await el13.screenshot({ path: \"screenshot_element_step13.png\" });\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 13,
+   "supported": 13,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 07 — Screenshots (Screen 3) | strings": {
+  "code": "// SCENARIO: TEST 07 — Screenshots (Screen 3)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\ntest(\"TEST 07 — Screenshots (Screen 3)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 3\n  await page.evaluate(\"showScreen(3, document.querySelectorAll('nav button')[2])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(500);\n\n  // Step 3: screenshot (visible) — Screenshot: Visible viewport\n  await page.screenshot({ path: \"screenshot_step3.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 4: wait\n  await page.waitForTimeout(800);\n\n  // Step 5: screenshot (full page) — Screenshot: Full page\n  await page.screenshot({ path: \"screenshot_full_step5.png\", fullPage: true });\n  await page.waitForTimeout(300);\n\n  // Step 6: wait\n  await page.waitForTimeout(1000);\n\n  // Step 7: screenshot element — Screenshot Element: #card-red\n  const el7 = page.locator(\"#card-red\").first();\n  await el7.screenshot({ path: \"screenshot_element_step7.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 8: wait\n  await page.waitForTimeout(500);\n\n  // Step 9: screenshot element — Screenshot Element: #card-green\n  const el9 = page.locator(\"#card-green\").first();\n  await el9.screenshot({ path: \"screenshot_element_step9.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 10: wait\n  await page.waitForTimeout(500);\n\n  // Step 11: screenshot element — Screenshot Element: #card-blue\n  const el11 = page.locator(\"#card-blue\").first();\n  await el11.screenshot({ path: \"screenshot_element_step11.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 12: wait\n  await page.waitForTimeout(500);\n\n  // Step 13: screenshot element — Screenshot Element: #card-gold\n  const el13 = page.locator(\"#card-gold\").first();\n  await el13.screenshot({ path: \"screenshot_element_step13.png\" });\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 13,
+   "supported": 13,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 08 — CSV Variable Form Fill (dùng với test-data.csv) | none": {
+  "code": "// SCENARIO: TEST 08 — CSV Variable Form Fill (dùng với test-data.csv)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"TEST 08 — CSV Variable Form Fill (dùng với test-data.csv)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  let screenshot = '';\n  let formResult = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 1\n  await page.evaluate(\"showScreen(1, document.querySelectorAll('nav button')[0])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: input — Fill: name → ${name}\n  const el3 = page.locator(\"#inputName\").first();\n  await _input(el3, `${name}`);\n  await page.waitForTimeout(300);\n\n  // Step 4: input — Fill: email → ${email}\n  const el4 = page.locator(\"#inputEmail\").first();\n  await _input(el4, `${email}`);\n  await page.waitForTimeout(300);\n\n  // Step 5: input — Select: country → ${country}\n  const el5 = page.locator(\"#selectCountry\").first();\n  await _input(el5, `${country}`);\n  await page.waitForTimeout(300);\n\n  // Step 6: input — Fill: message → ${message}\n  const el6 = page.locator(\"#inputMessage\").first();\n  await _input(el6, `${message}`);\n  await page.waitForTimeout(300);\n\n  // Step 7: click — Click: Submit\n  const el7 = page.locator(\"#btnSubmit\").first();\n  await el7.click();\n  await page.waitForTimeout(300);\n\n  // Step 8: wait\n  await page.waitForTimeout(400);\n\n  // Step 9: script — Go to Screen 3 + inject vars into display\n  await page.evaluate(\"showScreen(3, document.querySelectorAll('nav button')[2]); document.getElementById('csvVarDisplay').textContent = '\" + _js(name) + \" | \" + _js(email) + \" | \" + _js(country) + \"'\");\n  await page.waitForTimeout(300);\n\n  // Step 10: wait\n  await page.waitForTimeout(400);\n\n  // Step 11: screenshot → variable \"screenshot\" — Screenshot Element → ${screenshot}\n  screenshot = \"screenshot_screenshot_step11.png\";\n  const el11 = page.locator(\"#csvVarDisplay\").first();\n  await el11.screenshot({ path: screenshot });\n  await page.waitForTimeout(300);\n\n  // Step 12: readdom — Read DOM: form status → ${formResult} — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 12,
+   "supported": 11,
+   "skipped": 1
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": [
+   "${name} is used by a step but not defined in the Variables tab",
+   "${email} is used by a step but not defined in the Variables tab",
+   "${country} is used by a step but not defined in the Variables tab",
+   "${message} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "TEST 08 — CSV Variable Form Fill (dùng với test-data.csv) | strings": {
+  "code": "// SCENARIO: TEST 08 — CSV Variable Form Fill (dùng với test-data.csv)\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"TEST 08 — CSV Variable Form Fill (dùng với test-data.csv)\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n  let screenshot = '';\n  let formResult = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: script — Go to Screen 1\n  await page.evaluate(\"showScreen(1, document.querySelectorAll('nav button')[0])\");\n  await page.waitForTimeout(300);\n\n  // Step 2: wait\n  await page.waitForTimeout(300);\n\n  // Step 3: input — Fill: name → ${name}\n  const el3 = page.locator(\"#inputName\").first();\n  await _input(el3, `${name}`);\n  await page.waitForTimeout(300);\n\n  // Step 4: input — Fill: email → ${email}\n  const el4 = page.locator(\"#inputEmail\").first();\n  await _input(el4, `${email}`);\n  await page.waitForTimeout(300);\n\n  // Step 5: input — Select: country → ${country}\n  const el5 = page.locator(\"#selectCountry\").first();\n  await _input(el5, `${country}`);\n  await page.waitForTimeout(300);\n\n  // Step 6: input — Fill: message → ${message}\n  const el6 = page.locator(\"#inputMessage\").first();\n  await _input(el6, `${message}`);\n  await page.waitForTimeout(300);\n\n  // Step 7: click — Click: Submit\n  const el7 = page.locator(\"#btnSubmit\").first();\n  await el7.click();\n  await page.waitForTimeout(300);\n\n  // Step 8: wait\n  await page.waitForTimeout(400);\n\n  // Step 9: script — Go to Screen 3 + inject vars into display\n  await page.evaluate(\"showScreen(3, document.querySelectorAll('nav button')[2]); document.getElementById('csvVarDisplay').textContent = '\" + _js(name) + \" | \" + _js(email) + \" | \" + _js(country) + \"'\");\n  await page.waitForTimeout(300);\n\n  // Step 10: wait\n  await page.waitForTimeout(400);\n\n  // Step 11: screenshot → variable \"screenshot\" — Screenshot Element → ${screenshot}\n  screenshot = \"screenshot_screenshot_step11.png\";\n  const el11 = page.locator(\"#csvVarDisplay\").first();\n  await el11.screenshot({ path: screenshot });\n  await page.waitForTimeout(300);\n\n  // Step 12: readdom — Read DOM: form status → ${formResult} — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 12,
+   "supported": 11,
+   "skipped": 1
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": [
+   "${name} is used by a step but not defined in the Variables tab",
+   "${email} is used by a step but not defined in the Variables tab",
+   "${country} is used by a step but not defined in the Variables tab",
+   "${message} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Every action type | none": {
+  "code": "// SCENARIO: Every action type\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"Every action type\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  let greeting = '';\n  let order = '';\n  let orderId = '';\n  let customer = '';\n  let href = '';\n  let shot = '';\n\n  // Step 1: navigate — Open login\n  await page.goto(`https://example.com/login?next=${page_v}`);\n  await page.waitForTimeout(300);\n\n  // Step 2: wait — Settle\n  await page.waitForTimeout(250);\n\n  // Step 3: click — Start\n  const el3 = await _find(page, [\"xpath=//*[@id=\\\"start\\\"]\", \"#start\"]);\n  await el3.click();\n\n  // Step 4: input — User\n  const el4 = await _find(page, [\"xpath=//*[@id=\\\"user\\\"]\", \"#user\"]);\n  await _input(el4, `${user}`);\n  await page.waitForTimeout(300);\n\n  // Step 5: input\n  const el5 = await _find(page, [\"xpath=//*[@id=\\\"pass\\\"]\", \"#pass\"]);\n  await _input(el5, \"p@ss \\\"quoted\\\" \\\\ back`tick`\");\n  await page.waitForTimeout(300);\n\n  // Step 6: hover\n  const el6 = await _find(page, [\"xpath=//*[@id=\\\"menu\\\"]\", \"#menu\"]);\n  await el6.hover();\n  await page.waitForTimeout(300);\n\n  // Step 7: dropdown — [not exported to Playwright yet]\n\n  // Step 8: dragdrop — [not exported to Playwright yet]\n\n  // Step 9: script — Inline script\n  await page.evaluate(\"const n = '\" + _js(user) + \"';\\nconsole.log(n, \" + _js(t_n) + \");\\nreturn 1;\");\n  await page.waitForTimeout(300);\n\n  // Step 10: readdom — [not exported to Playwright yet]\n\n  // Step 11: readdom — [not exported to Playwright yet]\n\n  // Step 12: readdom — [not exported to Playwright yet]\n\n  // Step 13: screenshot (visible) — Visible\n  await page.screenshot({ path: \"screenshot_step13.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 14: screenshot (full page)\n  await page.screenshot({ path: \"screenshot_full_step14.png\", fullPage: true });\n  await page.waitForTimeout(300);\n\n  // Step 15: screenshot element\n  const el15 = await _find(page, [\"xpath=//*[@id=\\\"chart\\\"]\", \"#chart\"]);\n  await el15.screenshot({ path: \"screenshot_element_step15.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 16: screenshot → variable \"shot\"\n  shot = \"screenshot_shot_step16.png\";\n  await page.screenshot({ path: shot });\n  await page.waitForTimeout(300);\n\n  // Step 17: uploadFile — [not exported to Playwright yet]\n\n  // Step 18: click\n  const el18 = await _find(page, [\"xpath=//*[@id=\\\"row\\\"]\", \"#row\"]);\n  await el18.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 18,
+   "supported": 12,
+   "skipped": 6
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "navigate",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "dropdown",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 8,
+    "type": "dragdrop",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 18,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "${page} is used by a step but not defined in the Variables tab",
+   "${user} is used by a step but not defined in the Variables tab",
+   "${tên} is used by a step but not defined in the Variables tab",
+   "${attr} is used by a step but not defined in the Variables tab",
+   "${fileName} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Every action type | strings": {
+  "code": "// SCENARIO: Every action type\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"Every action type\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n  let greeting = '';\n  let order = '';\n  let orderId = '';\n  let customer = '';\n  let href = '';\n  let shot = '';\n\n  // Step 1: navigate — Open login\n  await page.goto(`https://example.com/login?next=${page_v}`);\n  await page.waitForTimeout(300);\n\n  // Step 2: wait — Settle\n  await page.waitForTimeout(250);\n\n  // Step 3: click — Start\n  const el3 = await _find(page, [\"xpath=//*[@id=\\\"start\\\"]\", \"#start\"]);\n  await el3.click();\n\n  // Step 4: input — User\n  const el4 = await _find(page, [\"xpath=//*[@id=\\\"user\\\"]\", \"#user\"]);\n  await _input(el4, `${user}`);\n  await page.waitForTimeout(300);\n\n  // Step 5: input\n  const el5 = await _find(page, [\"xpath=//*[@id=\\\"pass\\\"]\", \"#pass\"]);\n  await _input(el5, \"p@ss \\\"quoted\\\" \\\\ back`tick`\");\n  await page.waitForTimeout(300);\n\n  // Step 6: hover\n  const el6 = await _find(page, [\"xpath=//*[@id=\\\"menu\\\"]\", \"#menu\"]);\n  await el6.hover();\n  await page.waitForTimeout(300);\n\n  // Step 7: dropdown — [not exported to Playwright yet]\n\n  // Step 8: dragdrop — [not exported to Playwright yet]\n\n  // Step 9: script — Inline script\n  await page.evaluate(\"const n = '\" + _js(user) + \"';\\nconsole.log(n, \" + _js(t_n) + \");\\nreturn 1;\");\n  await page.waitForTimeout(300);\n\n  // Step 10: readdom — [not exported to Playwright yet]\n\n  // Step 11: readdom — [not exported to Playwright yet]\n\n  // Step 12: readdom — [not exported to Playwright yet]\n\n  // Step 13: screenshot (visible) — Visible\n  await page.screenshot({ path: \"screenshot_step13.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 14: screenshot (full page)\n  await page.screenshot({ path: \"screenshot_full_step14.png\", fullPage: true });\n  await page.waitForTimeout(300);\n\n  // Step 15: screenshot element\n  const el15 = await _find(page, [\"xpath=//*[@id=\\\"chart\\\"]\", \"#chart\"]);\n  await el15.screenshot({ path: \"screenshot_element_step15.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 16: screenshot → variable \"shot\"\n  shot = \"screenshot_shot_step16.png\";\n  await page.screenshot({ path: shot });\n  await page.waitForTimeout(300);\n\n  // Step 17: uploadFile — [not exported to Playwright yet]\n\n  // Step 18: click\n  const el18 = await _find(page, [\"xpath=//*[@id=\\\"row\\\"]\", \"#row\"]);\n  await el18.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 18,
+   "supported": 12,
+   "skipped": 6
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "navigate",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "dropdown",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 8,
+    "type": "dragdrop",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 18,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Every action type | configs": {
+  "code": "// SCENARIO: Every action type\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"Every action type\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"bob\";\n  const token = (() => Array.from({length:12},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join(''))();\n  const pin = (() => Array.from({length:4},()=>String(Math.floor(Math.random()*10))).join(''))();\n  const stamp = (() => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); })();\n  const word = (() => Array.from({length:5},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))();\n  const role = [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)];\n  const lang = \"{fallback:vi|en}\";\n  const t_n = \"Đức \\\"the\\\" \\\\ `bold`\";\n  const empty = \"\";\n  let greeting = '';\n  let order = '';\n  let orderId = '';\n  let customer = '';\n  let href = '';\n  let shot = '';\n\n  // Step 1: navigate — Open login\n  await page.goto(`https://example.com/login?next=${page_v}`);\n  await page.waitForTimeout(300);\n\n  // Step 2: wait — Settle\n  await page.waitForTimeout(250);\n\n  // Step 3: click — Start\n  const el3 = await _find(page, [\"xpath=//*[@id=\\\"start\\\"]\", \"#start\"]);\n  await el3.click();\n\n  // Step 4: input — User\n  const el4 = await _find(page, [\"xpath=//*[@id=\\\"user\\\"]\", \"#user\"]);\n  await _input(el4, `${user}`);\n  await page.waitForTimeout(300);\n\n  // Step 5: input\n  const el5 = await _find(page, [\"xpath=//*[@id=\\\"pass\\\"]\", \"#pass\"]);\n  await _input(el5, \"p@ss \\\"quoted\\\" \\\\ back`tick`\");\n  await page.waitForTimeout(300);\n\n  // Step 6: hover\n  const el6 = await _find(page, [\"xpath=//*[@id=\\\"menu\\\"]\", \"#menu\"]);\n  await el6.hover();\n  await page.waitForTimeout(300);\n\n  // Step 7: dropdown — [not exported to Playwright yet]\n\n  // Step 8: dragdrop — [not exported to Playwright yet]\n\n  // Step 9: script — Inline script\n  await page.evaluate(\"const n = '\" + _js(user) + \"';\\nconsole.log(n, \" + _js(t_n) + \");\\nreturn 1;\");\n  await page.waitForTimeout(300);\n\n  // Step 10: readdom — [not exported to Playwright yet]\n\n  // Step 11: readdom — [not exported to Playwright yet]\n\n  // Step 12: readdom — [not exported to Playwright yet]\n\n  // Step 13: screenshot (visible) — Visible\n  await page.screenshot({ path: \"screenshot_step13.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 14: screenshot (full page)\n  await page.screenshot({ path: \"screenshot_full_step14.png\", fullPage: true });\n  await page.waitForTimeout(300);\n\n  // Step 15: screenshot element\n  const el15 = await _find(page, [\"xpath=//*[@id=\\\"chart\\\"]\", \"#chart\"]);\n  await el15.screenshot({ path: \"screenshot_element_step15.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 16: screenshot → variable \"shot\"\n  shot = \"screenshot_shot_step16.png\";\n  await page.screenshot({ path: shot });\n  await page.waitForTimeout(300);\n\n  // Step 17: uploadFile — [not exported to Playwright yet]\n\n  // Step 18: click\n  const el18 = await _find(page, [\"xpath=//*[@id=\\\"row\\\"]\", \"#row\"]);\n  await el18.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 18,
+   "supported": 12,
+   "skipped": 6
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "navigate",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "dropdown",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 8,
+    "type": "dragdrop",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 18,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "${page} is used by a step but not defined in the Variables tab",
+   "${attr} is used by a step but not defined in the Variables tab",
+   "${fileName} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Every action type | legacy": {
+  "code": "// SCENARIO: Every action type\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"Every action type\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const token = (() => Array.from({length:8},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))();\n  const role = [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)];\n  const lang = \"{fallback:vi|en}\";\n  const n = \"\";\n  const z = \"\";\n  let greeting = '';\n  let order = '';\n  let orderId = '';\n  let customer = '';\n  let href = '';\n  let shot = '';\n\n  // Step 1: navigate — Open login\n  await page.goto(`https://example.com/login?next=${page_v}`);\n  await page.waitForTimeout(300);\n\n  // Step 2: wait — Settle\n  await page.waitForTimeout(250);\n\n  // Step 3: click — Start\n  const el3 = await _find(page, [\"xpath=//*[@id=\\\"start\\\"]\", \"#start\"]);\n  await el3.click();\n\n  // Step 4: input — User\n  const el4 = await _find(page, [\"xpath=//*[@id=\\\"user\\\"]\", \"#user\"]);\n  await _input(el4, `${user}`);\n  await page.waitForTimeout(300);\n\n  // Step 5: input\n  const el5 = await _find(page, [\"xpath=//*[@id=\\\"pass\\\"]\", \"#pass\"]);\n  await _input(el5, \"p@ss \\\"quoted\\\" \\\\ back`tick`\");\n  await page.waitForTimeout(300);\n\n  // Step 6: hover\n  const el6 = await _find(page, [\"xpath=//*[@id=\\\"menu\\\"]\", \"#menu\"]);\n  await el6.hover();\n  await page.waitForTimeout(300);\n\n  // Step 7: dropdown — [not exported to Playwright yet]\n\n  // Step 8: dragdrop — [not exported to Playwright yet]\n\n  // Step 9: script — Inline script\n  await page.evaluate(\"const n = '\" + _js(user) + \"';\\nconsole.log(n, \" + _js(t_n) + \");\\nreturn 1;\");\n  await page.waitForTimeout(300);\n\n  // Step 10: readdom — [not exported to Playwright yet]\n\n  // Step 11: readdom — [not exported to Playwright yet]\n\n  // Step 12: readdom — [not exported to Playwright yet]\n\n  // Step 13: screenshot (visible) — Visible\n  await page.screenshot({ path: \"screenshot_step13.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 14: screenshot (full page)\n  await page.screenshot({ path: \"screenshot_full_step14.png\", fullPage: true });\n  await page.waitForTimeout(300);\n\n  // Step 15: screenshot element\n  const el15 = await _find(page, [\"xpath=//*[@id=\\\"chart\\\"]\", \"#chart\"]);\n  await el15.screenshot({ path: \"screenshot_element_step15.png\" });\n  await page.waitForTimeout(300);\n\n  // Step 16: screenshot → variable \"shot\"\n  shot = \"screenshot_shot_step16.png\";\n  await page.screenshot({ path: shot });\n  await page.waitForTimeout(300);\n\n  // Step 17: uploadFile — [not exported to Playwright yet]\n\n  // Step 18: click\n  const el18 = await _find(page, [\"xpath=//*[@id=\\\"row\\\"]\", \"#row\"]);\n  await el18.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 18,
+   "supported": 12,
+   "skipped": 6
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "navigate",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "dropdown",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 8,
+    "type": "dragdrop",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   },
+   {
+    "n": 18,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "${page} is used by a step but not defined in the Variables tab",
+   "${user} is used by a step but not defined in the Variables tab",
+   "${tên} is used by a step but not defined in the Variables tab",
+   "${attr} is used by a step but not defined in the Variables tab",
+   "${fileName} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Conditions | none": {
+  "code": "// SCENARIO: Conditions\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"Conditions\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 4: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 6: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 8: click\n  const el8 = await _find(page, [\"xpath=//*[@id=\\\"nested\\\"]\", \"#nested\"]);\n  await el8.click();\n  await page.waitForTimeout(300);\n\n  // Step 9: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 10: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 12: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 14: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 17: uploadFile — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 17,
+   "supported": 1,
+   "skipped": 16
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 1"
+   },
+   {
+    "n": 3,
+    "type": "wait",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 1"
+   },
+   {
+    "n": 4,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 4"
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 6"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 10"
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 12"
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   },
+   {
+    "n": 16,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": [
+   "${expected} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Conditions | strings": {
+  "code": "// SCENARIO: Conditions\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"Conditions\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 4: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 6: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 8: click\n  const el8 = await _find(page, [\"xpath=//*[@id=\\\"nested\\\"]\", \"#nested\"]);\n  await el8.click();\n  await page.waitForTimeout(300);\n\n  // Step 9: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 10: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 12: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 14: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 17: uploadFile — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 17,
+   "supported": 1,
+   "skipped": 16
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 1"
+   },
+   {
+    "n": 3,
+    "type": "wait",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 1"
+   },
+   {
+    "n": 4,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 4"
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 6"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 10"
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 12"
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   },
+   {
+    "n": 16,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": []
+ },
+ "Conditions | configs": {
+  "code": "// SCENARIO: Conditions\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"Conditions\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"bob\";\n  const token = (() => Array.from({length:12},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join(''))();\n  const pin = (() => Array.from({length:4},()=>String(Math.floor(Math.random()*10))).join(''))();\n  const stamp = (() => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); })();\n  const word = (() => Array.from({length:5},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))();\n  const role = [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)];\n  const lang = \"{fallback:vi|en}\";\n  const t_n = \"Đức \\\"the\\\" \\\\ `bold`\";\n  const empty = \"\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 4: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 6: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 8: click\n  const el8 = await _find(page, [\"xpath=//*[@id=\\\"nested\\\"]\", \"#nested\"]);\n  await el8.click();\n  await page.waitForTimeout(300);\n\n  // Step 9: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 10: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 12: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 14: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 17: uploadFile — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 17,
+   "supported": 1,
+   "skipped": 16
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 1"
+   },
+   {
+    "n": 3,
+    "type": "wait",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 1"
+   },
+   {
+    "n": 4,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 4"
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 6"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 10"
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 12"
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   },
+   {
+    "n": 16,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": [
+   "${expected} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Conditions | legacy": {
+  "code": "// SCENARIO: Conditions\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"Conditions\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const token = (() => Array.from({length:8},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))();\n  const role = [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)];\n  const lang = \"{fallback:vi|en}\";\n  const n = \"\";\n  const z = \"\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 4: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 6: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 8: click\n  const el8 = await _find(page, [\"xpath=//*[@id=\\\"nested\\\"]\", \"#nested\"]);\n  await el8.click();\n  await page.waitForTimeout(300);\n\n  // Step 9: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 10: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 12: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 14: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 17: uploadFile — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 17,
+   "supported": 1,
+   "skipped": 16
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 1"
+   },
+   {
+    "n": 3,
+    "type": "wait",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 1"
+   },
+   {
+    "n": 4,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 4"
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 6"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 10"
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 12"
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   },
+   {
+    "n": 16,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 14"
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": [
+   "${expected} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Switch blocks | none": {
+  "code": "// SCENARIO: Switch blocks\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"Switch blocks\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: switch block [SKIPPED] — steps 2–6 not exported (requires extension scenario routing)\n\n  // Step 7: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 9: switch [SKIPPED] — requires extension scenario routing\n\n  // Step 10: wait\n  await page.waitForTimeout(50);\n\n  // Step 11: switch block [SKIPPED] — steps 12–11 not exported (requires extension scenario routing)\n\n  // Step 12: click\n  const el12 = await _find(page, [\"xpath=//*[@id=\\\"end\\\"]\", \"#end\"]);\n  await el12.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 12,
+   "supported": 2,
+   "skipped": 10
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch block plays one case, which only the extension can choose"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 4,
+    "type": "switch",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 7"
+   },
+   {
+    "n": 9,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch needs the extension to choose what plays"
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch block plays one case, which only the extension can choose"
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "Switch block at step 1 skipped together with its 5 action(s)",
+   "Switch block at step 11 skipped together with its 0 action(s)",
+   "${role} is used by a step but not defined in the Variables tab",
+   "${lang} is used by a step but not defined in the Variables tab",
+   "${jump} is used by a step but not defined in the Variables tab",
+   "${broken} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Switch blocks | strings": {
+  "code": "// SCENARIO: Switch blocks\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"Switch blocks\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: switch block [SKIPPED] — steps 2–6 not exported (requires extension scenario routing)\n\n  // Step 7: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 9: switch [SKIPPED] — requires extension scenario routing\n\n  // Step 10: wait\n  await page.waitForTimeout(50);\n\n  // Step 11: switch block [SKIPPED] — steps 12–11 not exported (requires extension scenario routing)\n\n  // Step 12: click\n  const el12 = await _find(page, [\"xpath=//*[@id=\\\"end\\\"]\", \"#end\"]);\n  await el12.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 12,
+   "supported": 2,
+   "skipped": 10
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch block plays one case, which only the extension can choose"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 4,
+    "type": "switch",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 7"
+   },
+   {
+    "n": 9,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch needs the extension to choose what plays"
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch block plays one case, which only the extension can choose"
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "Switch block at step 1 skipped together with its 5 action(s)",
+   "Switch block at step 11 skipped together with its 0 action(s)",
+   "${jump} is used by a step but not defined in the Variables tab",
+   "${broken} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Switch blocks | configs": {
+  "code": "// SCENARIO: Switch blocks\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"Switch blocks\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"bob\";\n  const token = (() => Array.from({length:12},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join(''))();\n  const pin = (() => Array.from({length:4},()=>String(Math.floor(Math.random()*10))).join(''))();\n  const stamp = (() => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); })();\n  const word = (() => Array.from({length:5},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))();\n  const role = [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)];\n  const lang = \"{fallback:vi|en}\";\n  const t_n = \"Đức \\\"the\\\" \\\\ `bold`\";\n  const empty = \"\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: switch block [SKIPPED] — steps 2–6 not exported (requires extension scenario routing)\n\n  // Step 7: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 9: switch [SKIPPED] — requires extension scenario routing\n\n  // Step 10: wait\n  await page.waitForTimeout(50);\n\n  // Step 11: switch block [SKIPPED] — steps 12–11 not exported (requires extension scenario routing)\n\n  // Step 12: click\n  const el12 = await _find(page, [\"xpath=//*[@id=\\\"end\\\"]\", \"#end\"]);\n  await el12.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 12,
+   "supported": 2,
+   "skipped": 10
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch block plays one case, which only the extension can choose"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 4,
+    "type": "switch",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 7"
+   },
+   {
+    "n": 9,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch needs the extension to choose what plays"
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch block plays one case, which only the extension can choose"
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "Switch block at step 1 skipped together with its 5 action(s)",
+   "Switch block at step 11 skipped together with its 0 action(s)",
+   "${jump} is used by a step but not defined in the Variables tab",
+   "${broken} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Switch blocks | legacy": {
+  "code": "// SCENARIO: Switch blocks\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\ntest(\"Switch blocks\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const token = (() => Array.from({length:8},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))();\n  const role = [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)];\n  const lang = \"{fallback:vi|en}\";\n  const n = \"\";\n  const z = \"\";\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: switch block [SKIPPED] — steps 2–6 not exported (requires extension scenario routing)\n\n  // Step 7: condition [SKIPPED] — not exported to Playwright yet, nor the steps it guards\n\n  // Step 9: switch [SKIPPED] — requires extension scenario routing\n\n  // Step 10: wait\n  await page.waitForTimeout(50);\n\n  // Step 11: switch block [SKIPPED] — steps 12–11 not exported (requires extension scenario routing)\n\n  // Step 12: click\n  const el12 = await _find(page, [\"xpath=//*[@id=\\\"end\\\"]\", \"#end\"]);\n  await el12.click();\n  await page.waitForTimeout(300);\n\n});",
+  "stats": {
+   "total": 12,
+   "supported": 2,
+   "skipped": 10
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch block plays one case, which only the extension can choose"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 4,
+    "type": "switch",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "skip",
+    "reason": "inside the Switch block at step 1"
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "skip",
+    "reason": "a Condition is not exported to Playwright yet"
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "skip",
+    "reason": "guarded by the Condition at step 7"
+   },
+   {
+    "n": 9,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch needs the extension to choose what plays"
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "switch",
+    "status": "skip",
+    "reason": "a Switch block plays one case, which only the extension can choose"
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "Switch block at step 1 skipped together with its 5 action(s)",
+   "Switch block at step 11 skipped together with its 0 action(s)",
+   "${jump} is used by a step but not defined in the Variables tab",
+   "${broken} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Tên có dấu & \"quotes\" | none": {
+  "code": "// SCENARIO: Tên có dấu & \"quotes\"\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"Tên có dấu & \\\"quotes\\\"\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  let m_ = '';\n  let a = '';\n  let b = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: input\n  const el1 = await _find(page, [\"xpath=//*[@id=\\\"ten\\\"]\", \"#ten\"]);\n  await _input(el1, `${t_n} — ${h__t_n}`);\n  await page.waitForTimeout(300);\n\n  // Step 2: script\n  await page.evaluate(\"document.title = \\\"\" + _js(t_n) + \"\\\";\");\n  await page.waitForTimeout(300);\n\n  // Step 3: readdom — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 3,
+   "supported": 2,
+   "skipped": 1
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 3,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": [
+   "${tên} is used by a step but not defined in the Variables tab",
+   "${họ_tên} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Tên có dấu & \"quotes\" | strings": {
+  "code": "// SCENARIO: Tên có dấu & \"quotes\"\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"Tên có dấu & \\\"quotes\\\"\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page_v = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n  let m_ = '';\n  let a = '';\n  let b = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: input\n  const el1 = await _find(page, [\"xpath=//*[@id=\\\"ten\\\"]\", \"#ten\"]);\n  await _input(el1, `${t_n} — ${h__t_n}`);\n  await page.waitForTimeout(300);\n\n  // Step 2: script\n  await page.evaluate(\"document.title = \\\"\" + _js(t_n) + \"\\\";\");\n  await page.waitForTimeout(300);\n\n  // Step 3: readdom — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 3,
+   "supported": 2,
+   "skipped": 1
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 3,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": []
+ },
+ "Tên có dấu & \"quotes\" | configs": {
+  "code": "// SCENARIO: Tên có dấu & \"quotes\"\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"Tên có dấu & \\\"quotes\\\"\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = \"bob\";\n  const token = (() => Array.from({length:12},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join(''))();\n  const pin = (() => Array.from({length:4},()=>String(Math.floor(Math.random()*10))).join(''))();\n  const stamp = (() => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); })();\n  const word = (() => Array.from({length:5},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))();\n  const role = [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)];\n  const lang = \"{fallback:vi|en}\";\n  const t_n = \"Đức \\\"the\\\" \\\\ `bold`\";\n  const empty = \"\";\n  let m_ = '';\n  let a = '';\n  let b = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: input\n  const el1 = await _find(page, [\"xpath=//*[@id=\\\"ten\\\"]\", \"#ten\"]);\n  await _input(el1, `${t_n} — ${h__t_n}`);\n  await page.waitForTimeout(300);\n\n  // Step 2: script\n  await page.evaluate(\"document.title = \\\"\" + _js(t_n) + \"\\\";\");\n  await page.waitForTimeout(300);\n\n  // Step 3: readdom — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 3,
+   "supported": 2,
+   "skipped": 1
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 3,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": [
+   "${họ_tên} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Tên có dấu & \"quotes\" | legacy": {
+  "code": "// SCENARIO: Tên có dấu & \"quotes\"\nimport { test } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT });\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\ntest(\"Tên có dấu & \\\"quotes\\\"\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const token = (() => Array.from({length:8},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))();\n  const role = [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)];\n  const lang = \"{fallback:vi|en}\";\n  const n = \"\";\n  const z = \"\";\n  let m_ = '';\n  let a = '';\n  let b = '';\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(\"https://your-url-here.com\");\n\n  // Step 1: input\n  const el1 = await _find(page, [\"xpath=//*[@id=\\\"ten\\\"]\", \"#ten\"]);\n  await _input(el1, `${t_n} — ${h__t_n}`);\n  await page.waitForTimeout(300);\n\n  // Step 2: script\n  await page.evaluate(\"document.title = \\\"\" + _js(t_n) + \"\\\";\");\n  await page.waitForTimeout(300);\n\n  // Step 3: readdom — [not exported to Playwright yet]\n\n});",
+  "stats": {
+   "total": 3,
+   "supported": 2,
+   "skipped": 1
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "script",
+    "status": "verify",
+    "reason": "custom JS run through page.evaluate() — check it"
+   },
+   {
+    "n": 3,
+    "type": "readdom",
+    "status": "skip",
+    "reason": "not exported to Playwright yet"
+   }
+  ],
+  "warnings": [
+   "${tên} is used by a step but not defined in the Variables tab",
+   "${họ_tên} is used by a step but not defined in the Variables tab"
+  ]
+ }
+}
