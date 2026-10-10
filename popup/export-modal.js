@@ -42,7 +42,6 @@ let modalWired = false;
  * @param {string}   cfg.format        - its Settings block ([data-format]) and strip / chip style ('js', 'py', 'pw')
  * @param {string}   cfg.badge         - the chip's text ('JS', 'PY', 'PW')
  * @param {string}   cfg.title         - header, followed by " — <scenario>"
- * @param {string}   cfg.downloadLabel - the Download button's text ('⬇ .js')
  * @param {Function} cfg.fileName      - (base, options) → the file name, from the scenario's safe name
  *                                       and the options the code was made with
  * @param {Function} cfg.readOptions   - () → the generator's options, read from its Settings block
@@ -174,7 +173,6 @@ function render(result) {
   byId('Title').textContent = `${run.cfg.title} — ${run.scenarioName}`;
   byId('Sub').textContent = `${filename} · ${result.stats.supported} steps`;
   byId('CodeLabel').textContent = filename;
-  byId('Download').textContent = run.cfg.downloadLabel;
 
   // Code preview
   const codeEl = byId('Code')?.querySelector('code');

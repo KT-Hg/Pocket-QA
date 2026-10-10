@@ -403,7 +403,6 @@ export function initExportPlaywright() {
     format: 'pw',
     badge: 'PW',
     title: 'Export Playwright',
-    downloadLabel: '⬇ .spec.js',
     remember: ['exportPwStepDelay', 'exportPwElTimeout'],
     fileName: (base) => `${base}.spec.js`,
     readOptions: () => ({

@@ -1016,7 +1016,6 @@ export function initExportSelenium() {
     format: 'py',
     badge: 'PY',
     title: 'Export Python',
-    downloadLabel: '⬇ .py',
     // The driver before Headless, which Safari turns off. The start URL follows the tab instead.
     remember: ['exportSeleniumDriver', 'exportSeleniumHeadless', 'exportSeleniumOutput', 'exportSeleniumStepDelay', 'exportSeleniumElTimeout'],
     fileName: (base, o) => (o?.output === 'pytest' ? `test_${base}.py` : `${base}_selenium.py`),

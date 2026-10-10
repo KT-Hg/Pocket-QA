@@ -81,8 +81,8 @@
  *   export-settings  each format's Settings come back in a new popup, apart from the
  *                 other format's; stored values an input cannot take leave defaults
  *   export-formats  the Export Code card offers the bookmarklet, Selenium and Playwright,
- *                 each opening its own export; the last button keeps the others' size,
- *                 in the middle of its row
+ *                 each opening its own export with a "⬇ Download" button; the last
+ *                 button keeps the others' size, in the middle of its row
  *   export-playwright  Playwright Test opens a <name>.spec.js holding one test
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, Edge exported
@@ -934,7 +934,7 @@ async function checkExportFileName(ctx) {
       document.getElementById('exportSelenium').click();
     })()`);
     await sleep(POPUP_SETTLE_MS);
-    await popup.evaluate(`[...document.querySelectorAll('#exportModal button')].find((b) => /\\.py/.test(b.textContent)).click()`);
+    await popup.evaluate(`document.getElementById('exportDownload').click()`);
     await sleep(SETTLE_MS);
     const dl = await popup.evaluate('window.__dl[0] || null');
     check(dl?.name === 'đăng_nhập__admin__selenium.py' && dl.bytes > 0,
@@ -1199,8 +1199,9 @@ async function checkExportFormats(ctx) {
     await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabData"]').click()`);
     await sleep(SETTLE_MS);
     const buttons = await popup.evaluate(`[...document.querySelectorAll('.export-code-grid > button')].map((b) => b.id)`);
-    // Each one opens the modal as its own format.
+    // Each one opens the modal as its own format, with the same Download button.
     const badges = [];
+    const downloads = [];
     for (const button of buttons) {
       await popup.evaluate(`(() => {
         const s = document.getElementById('exportCodeSelect');
@@ -1211,11 +1212,13 @@ async function checkExportFormats(ctx) {
       await sleep(POPUP_SETTLE_MS);
       badges.push(await popup.evaluate(`document.getElementById('exportModal').classList.contains('show')
         ? document.getElementById('exportBadge').textContent : 'not open'`));
+      downloads.push(await popup.evaluate(`document.getElementById('exportDownload').textContent`));
       await popup.evaluate(`document.getElementById('exportClose').click()`);
       await sleep(SETTLE_MS);
     }
     check(buttons.join() === 'exportBookmarklet,exportSelenium,exportPlaywright' && badges.join() === 'JS,PY,PW',
       'The Export Code card offers the bookmarklet, Selenium and Playwright, each opening its own export', { buttons, badges });
+    check(downloads.every((d) => d === '⬇ Download'), 'each export\'s Download button reads "⬇ Download"', downloads);
     // The last button, alone on its row, keeps the others' size and sits in the middle.
     const box = await popup.evaluate(`(() => {
       const r = (el) => el.getBoundingClientRect();
@@ -1246,7 +1249,7 @@ async function checkExportPlaywright(ctx) {
       download: document.getElementById('exportDownload').textContent,
       code: document.querySelector('#exportCode code').textContent,
     })`);
-    check(shown.label === 'đăng_nhập_pw.spec.js' && shown.download === '⬇ .spec.js'
+    check(shown.label === 'đăng_nhập_pw.spec.js' && shown.download === '⬇ Download'
       && /^import \{ test \} from '@playwright\/test';$/m.test(shown.code) && shown.code.includes('test("Đăng nhập pw", async ({ page }) => {'),
       'Playwright Test opens a .spec.js with one test', { label: shown.label, download: shown.download });
   } finally {
