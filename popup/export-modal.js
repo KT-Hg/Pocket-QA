@@ -1,7 +1,8 @@
 /**
  * export-modal.js — the one modal every code export opens (JS bookmarklet,
  * Python Selenium, …): the code preview and its warnings, the variables and
- * actions it reviews, the tabs, Copy, Download, Regenerate, and focus.
+ * actions it reviews, the tabs, Copy, Download, Reload scenario, and focus.
+ * The code follows the Settings tab: it is generated again whenever one changes.
  *
  * Each export registers what is its own with initExportModal(cfg): the button
  * that opens it, its strip, chip and title, how its code is generated, copied
@@ -25,6 +26,8 @@ const exportFileBase = (scenarioName) => safeFileName(scenarioName).replace(/\s+
 
 // How long the Copy button says "Copied".
 const COPIED_LABEL_MS = 1500;
+// How long typing in a Settings field has to pause before the code follows it.
+const TYPING_SETTLE_MS = 300;
 
 // The modal's elements are #export<Suffix>.
 const PREFIX = 'export';
@@ -140,10 +143,13 @@ function showFormat(cfg) {
 
 const fileName = () => run.cfg.fileName(exportFileBase(run.scenarioName), run.options);
 
-// The code for what `run` holds, with the options the Settings tab has now.
+// Generate the code for what `run` holds, with the options the Settings tab has
+// now, and show it: Copy and Download take what is shown.
 function generate() {
   run.options = run.cfg.readOptions();
-  return run.cfg.generate(run.scenarioName, run.actions, run.variables, run.options);
+  const result = run.cfg.generate(run.scenarioName, run.actions, run.variables, run.options);
+  run.code = result.code;
+  render(result);
 }
 
 function close() {
@@ -225,9 +231,7 @@ function open() {
   const modal = byId('Modal');
   if (!modal) return;
   const show = () => {
-    const result = generate();
-    run.code = result.code;
-    render(result);
+    generate();
     modal.classList.add('show');
     modal.setAttribute('aria-hidden', 'false');
     lockScroll();
@@ -241,8 +245,8 @@ function open() {
 
 /**
  * Read the scenario chosen in the card and the variables it uses into `run`,
- * then call `done`. Opening the modal and Regenerate both come through here:
- * Regenerate of the Python export reused what was read on opening (a step
+ * then call `done`. Opening the modal and Reload scenario both come through here:
+ * a reload of the Python export once reused what was read on opening (a step
  * added since never showed), the JS one passed every variable there is.
  */
 function load(done) {
@@ -290,13 +294,34 @@ function download() {
   downloadBlob(new Blob([text], { type }), fileName());
 }
 
-function regenerate() {
+// The scenario as saved now, for one edited while the modal is open.
+function reload() {
   load(() => {
-    const result = generate();
-    run.code = result.code;
-    render(result);
+    generate();
     switchTab('preview');
-    showToast('Code regenerated');
+    showToast('Scenario reloaded');
+  });
+}
+
+/**
+ * Generate the code again whenever a Settings input changes: a choice at once,
+ * typing once it pauses. Not for the values restoreSettings puts back, nor for
+ * what a format fills in before the modal opens: opening generates once.
+ */
+function followSettings(modal) {
+  const settings = byId('TabSettings');
+  let typing = null;
+  const isOpen = () => modal.classList.contains('show');
+  const follow = () => {
+    clearTimeout(typing);
+    if (!restoring && isOpen()) generate();
+  };
+  settings?.addEventListener('change', follow);
+  settings?.addEventListener('input', (e) => {
+    // A select and a switch say it with their change event.
+    if (e.target.matches('select, [type="checkbox"]') || !isOpen()) return;
+    clearTimeout(typing);
+    typing = setTimeout(follow, TYPING_SETTLE_MS);
   });
 }
 
@@ -308,7 +333,8 @@ function wireModal() {
   byId('Cancel')?.addEventListener('click', close);
   byId('Copy')?.addEventListener('click', copy);
   byId('Download')?.addEventListener('click', download);
-  byId('Regenerate')?.addEventListener('click', regenerate);
+  byId('Reload')?.addEventListener('click', reload);
+  followSettings(modal);
 
   byId('WrapBtn')?.addEventListener('click', () => {
     const code = byId('Code');

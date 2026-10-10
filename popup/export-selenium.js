@@ -1078,7 +1078,8 @@ function _fillCurrentUrl() {
     const input = document.getElementById('exportSeleniumStartUrl');
     if (input) {
       input.value = url;
-      input.dispatchEvent(new Event('input'));
+      // Bubbling, as a change made by hand: the modal generates the code again.
+      input.dispatchEvent(new Event('change', { bubbles: true }));
       const badge = document.getElementById('exportSeleniumUrlFromTab');
       if (badge) badge.style.display = '';
     }

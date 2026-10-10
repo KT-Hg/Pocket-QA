@@ -67,8 +67,8 @@
  *   export-steps  the bookmarklet's export modal shows an Upload File step as skipped
  *                 in the Actions tab, the counts and the warning bar (it showed
  *                 "✓ OK"); Selenium's, which exports it, as "✓ OK"
- *   export-regenerate  Regenerate in either export modal shows a step added to the
- *                 scenario since it opened, and lists and declares only the
+ *   export-regenerate  Reload scenario in either export modal shows a step added to
+ *                 the scenario since it opened, and lists and declares only the
  *                 variables the scenario uses
  *   export-headless  the Selenium modal's Headless switch exports a headless driver,
  *                 and turns off (disabled) with Safari
@@ -80,6 +80,9 @@
  *                 left-aligned, not an 80-pixel box showing "https://sl"
  *   export-settings  each format's Settings come back in a new popup, apart from the
  *                 other format's; stored values an input cannot take leave defaults
+ *   export-live-settings  the Selenium code follows each Settings change with no button
+ *                 pressed — Copy right after takes the new code; typing is followed
+ *                 once it pauses; opening with remembered Settings generates it once
  *   export-formats  the Export Code card offers the bookmarklet, Selenium and Playwright,
  *                 each opening its own export with a "⬇ Download" button; the last
  *                 button keeps the others' size, in the middle of its row
@@ -992,18 +995,18 @@ async function checkExportRegenerate(ctx) {
     for (const button of ['exportSelenium', 'exportBookmarklet']) {
       await popup.evaluate(`document.getElementById(${JSON.stringify(button)}).click()`);
       await sleep(POPUP_SETTLE_MS);
-      // The scenario changes while the modal is open; Regenerate has to show it.
+      // The scenario changes while the modal is open; Reload scenario has to show it.
       const marker = `regen${++added}`;
       await ctx.send({ type: 'ADD_MANUAL_ACTION', scenarioId: id,
         action: { type: 'click', selector: `#${marker}`, selectors: { css: `#${marker}` } } });
-      await popup.evaluate(`document.getElementById('exportRegenerate').click()`);
+      await popup.evaluate(`document.getElementById('exportReload').click()`);
       await sleep(POPUP_SETTLE_MS);
       const shown = await popup.evaluate(`({
         vars: [...document.querySelectorAll('#exportVarList .export-bm-var-name')].map((el) => el.textContent),
         code: document.querySelector('#exportCode code').textContent,
       })`);
       check(JSON.stringify(shown.vars) === '["${used}"]' && shown.code.includes(`#${marker}`) && !/\bunused\b/.test(shown.code),
-        `${button}: Regenerate reads the scenario again and keeps to the variables it uses`,
+        `${button}: Reload scenario reads the scenario again and keeps to the variables it uses`,
         { vars: shown.vars, hasNewStep: shown.code.includes(`#${marker}`), declaresUnused: /\bunused\b/.test(shown.code) });
       await popup.evaluate(`document.getElementById('exportClose').click()`);
     }
@@ -1024,20 +1027,18 @@ async function checkExportHeadless(ctx) {
       document.getElementById('exportSelenium').click();
     })()`);
     await sleep(POPUP_SETTLE_MS);
-    // A click on the row's text flips the switch, as on any switch row.
-    await popup.evaluate(`document.querySelector('#exportSeleniumHeadlessRow .export-bm-setting-label').click();
-      document.getElementById('exportRegenerate').click()`);
-    await sleep(POPUP_SETTLE_MS);
+    // A click on the row's text flips the switch, as on any switch row; the code follows.
+    await popup.evaluate(`document.querySelector('#exportSeleniumHeadlessRow .export-bm-setting-label').click()`);
+    await sleep(SETTLE_MS);
     const on = await code();
     check(/_options\.add_argument\("--headless=new"\)\ndriver = webdriver\.Chrome\(options=_options\)/.test(on),
       'Headless on: the script starts Chrome without a window', on.split('\n').filter((l) => /driver = |_options/.test(l)));
     await popup.evaluate(`(() => {
       const d = document.getElementById('exportSeleniumDriver');
       d.value = 'Safari';
-      d.dispatchEvent(new Event('change'));
-      document.getElementById('exportRegenerate').click();
+      d.dispatchEvent(new Event('change', { bubbles: true }));
     })()`);
-    await sleep(POPUP_SETTLE_MS);
+    await sleep(SETTLE_MS);
     const box = await popup.evaluate(`(({ checked, disabled }) => ({ checked, disabled }))(document.getElementById('exportSeleniumHeadless'))`);
     const safari = await code();
     check(!box.checked && box.disabled && /^driver = webdriver\.Safari\(\)$/m.test(safari),
@@ -1119,10 +1120,9 @@ async function checkExportOutput(ctx) {
     await popup.evaluate(`(() => {
       const o = document.getElementById('exportSeleniumOutput');
       o.value = 'pytest';
-      o.dispatchEvent(new Event('change'));
-      document.getElementById('exportRegenerate').click();
+      o.dispatchEvent(new Event('change', { bubbles: true }));
     })()`);
-    await sleep(POPUP_SETTLE_MS);
+    await sleep(SETTLE_MS);
     const shown = await popup.evaluate(`({
       label: document.getElementById('exportCodeLabel').textContent,
       code: document.querySelector('#exportCode code').textContent,
@@ -1190,6 +1190,59 @@ async function checkExportSettings(ctx) {
   check(bad.exportSeleniumDriver === 'Chrome' && bad.exportSeleniumElTimeout === '10000' && bad.exportSeleniumHeadless === false,
     'a stored value an input cannot take leaves its default', bad);
   await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
+}
+
+async function checkExportLiveSettings(ctx) {
+  const id = await makeScenario(ctx, 'e2e export live', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  await ctx.ext.evaluate(`chrome.storage.local.set({ exportCodeSettings: { py: { exportSeleniumOutput: 'pytest', exportSeleniumStepDelay: '700' } } })`);
+  const popup = await openPopup(ctx);
+  try {
+    // Every time the code is shown, and what Copy put on the clipboard.
+    await popup.evaluate(`(() => {
+      window.__renders = 0;
+      new MutationObserver((records) => { window.__renders += records.length; })
+        .observe(document.querySelector('#exportCode code'), { childList: true });
+      window.__copied = [];
+      navigator.clipboard.writeText = async (t) => { window.__copied.push(t); };
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+      document.getElementById('exportSelenium').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    const opened = await popup.evaluate(`({ renders: window.__renders, label: document.getElementById('exportCodeLabel').textContent,
+      code: document.querySelector('#exportCode code').textContent })`);
+    check(opened.renders === 1 && opened.label === 'test_e2e_export_live.py' && opened.code.includes('time.sleep(0.7)'),
+      'opening with remembered Settings shows code made with them, generated once', { ...opened, code: undefined });
+
+    // A change, then Copy at once, nothing else pressed: the clipboard has the code made with it.
+    const thenCopy = (js) => popup.evaluate(`(() => {
+      ${js}
+      document.getElementById('exportCopy').click();
+      return { copied: window.__copied.at(-1) || '', label: document.getElementById('exportCodeLabel').textContent };
+    })()`);
+    const pick = (id, value) => `(() => { const el = document.getElementById(${JSON.stringify(id)}); el.value = ${JSON.stringify(value)};
+      el.dispatchEvent(new Event('change', { bubbles: true })); })();`;
+    const headless = await thenCopy(`document.querySelector('#exportSeleniumHeadlessRow .export-bm-setting-label').click();`);
+    check(headless.copied.includes('_options.add_argument("--headless=new")'), 'Headless switched on: Copy takes the headless code', headless.label);
+    const driver = await thenCopy(pick('exportSeleniumDriver', 'Firefox'));
+    check(/webdriver\.Firefox\(options=_options\)/.test(driver.copied), 'WebDriver Firefox: Copy takes the Firefox code', driver.label);
+    const output = await thenCopy(pick('exportSeleniumOutput', 'script'));
+    check(output.label === 'e2e_export_live_selenium.py' && !/^import pytest$/m.test(output.copied),
+      'Output Script: the file name and the code follow', output.label);
+    // Typing: the code follows once it pauses; leaving the field (change) at once.
+    await popup.evaluate(`(() => { const el = document.getElementById('exportSeleniumStepDelay'); el.value = '1234';
+      el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await sleep(SETTLE_MS * 2);
+    const typed = await popup.evaluate(`document.querySelector('#exportCode code').textContent`);
+    check(typed.includes('time.sleep(1.234)'), 'a delay typed in is in the code once typing pauses', typed.match(/time\.sleep\([^)]*\)/)?.[0]);
+    const left = await thenCopy(`(() => { const el = document.getElementById('exportSeleniumStepDelay'); el.value = '2345';
+      el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); })();`);
+    check(left.copied.includes('time.sleep(2.345)'), 'a delay typed in, then Copy: the clipboard has it', left.copied.match(/time\.sleep\([^)]*\)/)?.[0]);
+  } finally {
+    await popup.close();
+    await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
+  }
 }
 
 async function checkExportFormats(ctx) {
@@ -1833,6 +1886,7 @@ const CHECKS = [
   ['export-url-field', 'The Starting URL field of the export Settings', checkExportUrlField],
   ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
   ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
+  ['export-live-settings', 'The export code follows its Settings', checkExportLiveSettings],
   ['export-formats', 'The formats the Export Code card offers', checkExportFormats],
   ['export-playwright', 'The Playwright Test export in the popup', checkExportPlaywright],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
