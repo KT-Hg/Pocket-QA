@@ -34,22 +34,6 @@ export function renderCsvScenarioSelect() {
     });
 }
 
-export function renderExportCodeSelect() {
-  const sel = document.getElementById("exportCodeSelect");
-  if (!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">-- Select scenario --</option>';
-  Object.entries(ui.scenariosCache)
-    .sort(([, a], [, b]) => a.name.localeCompare(b.name))
-    .forEach(([id, s]) => {
-      const o = document.createElement("option");
-      o.value = id;
-      o.textContent = s.name;
-      sel.appendChild(o);
-    });
-  if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
-}
-
 let _csvCountdownInterval = null;
 const COUNTDOWN_TICK_MS = 1000;
 

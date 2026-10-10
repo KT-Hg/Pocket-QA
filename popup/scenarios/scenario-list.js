@@ -2,8 +2,9 @@
  * scenarios/scenario-list.js — loading scenarios and the lists that show them.
  */
 
-import { renderCsvScenarioSelect, renderExportCodeSelect } from '../csv/csv-run.js';
+import { renderCsvScenarioSelect } from '../csv/csv-run.js';
 import { filterFolder, scenarioList, scenarioSearch, scenarioSort, sequenceScenarioList } from '../dom.js';
+import { renderExportCodeSelect } from '../export/code-card.js';
 import { previewActions } from '../record/preview.js';
 import { refreshSwitchScenarioSelect } from '../record/switch-case-builder.js';
 import { renderScheduleScenarioSelect } from '../run/schedule.js';
