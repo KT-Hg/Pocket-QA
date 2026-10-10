@@ -1,33 +1,20 @@
 import { showToast, getUsedVarNames, commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
-import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../shared/switch-blocks.js';
+import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
-import { mark, newStep, blockSteps } from './export/steps.js';
+import { mark } from './export/steps.js';
+import { locatorsFor, walkActions } from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS,
 } from './export/page-js.js';
-import { locatorsOf } from '../shared/locator-order.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
-}
-
-/**
- * The locators of the element an action acts on — of its drop target with
- * `target` — in the order playback tries them (shared/locator-order.js), the
- * selector type chosen in the form first. Never empty: an action without any
- * keeps the empty CSS selector it always exported.
- */
-function locatorsFor(action, target = false) {
-  const locs = target
-    ? locatorsOf(action.targetSelectors, action.targetSelector, action.targetSelectorType)
-    : locatorsOf(action.selectors, action.selector, action.selectorType);
-  return locs.length ? locs : [{ type: 'css', value: '' }];
 }
 
 // One locator as Python: a (By…, value) pair, or ("text", value[, tag]) for
@@ -667,73 +654,35 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
   return out;
 }
 
-// Recursively processes an action array, grouping condition blocks
-// Disabled actions are skipped inline so skipCount stays aligned with the original array.
-function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
-  const out = [];
-  let i = 0;
-
-  while (i < actions.length) {
-    const action  = actions[i];
-    const abs     = baseIdx + i;
-
-    // A Switch block only ever runs one of its cases; the script cannot pick
-    // one, and emitting the block would run every case in a row.
-    if (ctx.all && hasBlock(ctx.all[abs])) {
-      const end = blockEnd(ctx.all, abs);
-      out.push(`# Step ${abs + 1}: switch block [SKIPPED] — steps ${abs + 2}–${end + 1} not exported (requires extension scenario routing)`);
-      out.push('');
-      ctx.warnings?.add(`Switch block at step ${abs + 1} skipped together with its ${end - abs} action(s)`);
-      ctx.steps?.push(...blockSteps(ctx.all, abs, end));
-      i = end - baseIdx + 1;
-      continue;
-    }
-
-    if (action.disabled) {
-      i++;
-      continue;
-    }
-
-    const stepNum = baseIdx + i + 1;
-    const step    = newStep(action, stepNum);
-    ctx.steps?.push(step);
-
-    if (action.type === 'condition') {
-      const skipCount = conditionSkip(action); // 0 for an emptied Condition: empty body
-      const lbl  = action.label ? ` — ${commentText(action.label)}` : '';
-
-      out.push(`# Step ${stepNum}: condition — ${commentText(action.conditionType)}${lbl}`);
-      const condPy = condExprPy(action, locatorsFor(action));
-      if (condPy === null) {
-        // As a run does: it stops there. The name stays in the comment above, never
-        // in code; the block is kept for a check put in by hand.
-        ctx.warnings?.add(`Condition step ${stepNum}: type "${action.conditionType}" is unknown — the exported code stops there, as a run does`);
-        mark(step, 'verify', 'unknown condition type — the exported code stops there, as a run does');
-        out.push(`raise Exception(${JSON.stringify(`Condition step ${stepNum}: unknown condition type, named in the comment above`)})`);
-      }
-      out.push(`if ${condPy ?? 'True'}:`);
-
-      // Same span playback skips: a Switch and its block count as one action.
-      const bodyEnd   = ctx.all ? conditionSkipTarget(ctx.all, abs, skipCount, ctx.layout) - baseIdx : i + 1 + skipCount;
-      const body      = actions.slice(i + 1, bodyEnd);
-      const bodyLines = processActions(body, baseIdx + i + 1, stepDelay, elTimeout, ctx);
-      if (bodyLines.length === 0 || bodyLines.every(l => l === '')) {
-        out.push('    pass');
-      } else {
-        for (const line of bodyLines) {
-          out.push(line === '' ? '' : '    ' + line);
-        }
-      }
-      out.push('');
-      i = Math.max(i + 1, bodyEnd);
-    } else {
-      out.push(...actionLines(action, step, stepDelay, elTimeout, ctx));
-      out.push('');
-      i++;
-    }
+/**
+ * The lines that open a Condition's block: the comment, then `if <check>:`. A
+ * type this version does not know stops the run there, as a run does: its name
+ * stays in the comment, never in code, and the block is kept for a check put in
+ * by hand.
+ */
+function conditionHeadPy(action, step, ctx) {
+  const lbl = action.label ? ` — ${commentText(action.label)}` : '';
+  const out = [`# Step ${step.n}: condition — ${commentText(action.conditionType)}${lbl}`];
+  const condPy = condExprPy(action, locatorsFor(action));
+  if (condPy === null) {
+    ctx.warnings.add(`Condition step ${step.n}: type "${action.conditionType}" is unknown — the exported code stops there, as a run does`);
+    mark(step, 'verify', 'unknown condition type — the exported code stops there, as a run does');
+    out.push(`raise Exception(${JSON.stringify(`Condition step ${step.n}: unknown condition type, named in the comment above`)})`);
   }
-
+  out.push(`if ${condPy ?? 'True'}:`);
   return out;
+}
+
+// The steps, walked as playback walks them (export/walk.js).
+function stepLines(stepDelay, elTimeout, ctx) {
+  return walkActions(ctx, {
+    step: (action, step) => actionLines(action, step, stepDelay, elTimeout, ctx),
+    conditionHead: (action, step) => conditionHeadPy(action, step, ctx),
+    // An empty block is `pass`.
+    conditionBody: (lines) => (lines.every((l) => l === '') ? ['    pass'] : lines.map((l) => (l === '' ? '' : `    ${l}`))),
+    // The script cannot pick a case.
+    skippedBlock: (start, end) => [`# Step ${start + 1}: switch block [SKIPPED] — steps ${start + 2}–${end + 1} not exported (requires extension scenario routing)`],
+  });
 }
 
 /**
@@ -808,7 +757,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   // The steps first: whether a step looks an element up by several locators (or
   // by text) decides which helpers and imports the script needs.
-  const bodyLines   = processActions(all, 0, stepDelay, elTimeout, { all, layout, warnings, steps, driverType });
+  const bodyLines   = stepLines(stepDelay, elTimeout, { all, layout, warnings, steps, driverType });
   const needsLocate = needsCondition || bodyLines.some(l => l.includes('_find(['));
   const needsFullPage = bodyLines.some(l => l.includes('_save_full_page('));
 

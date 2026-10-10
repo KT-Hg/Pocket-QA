@@ -1,17 +1,17 @@
 import { getUsedVarNames, commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
-import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../shared/switch-blocks.js';
+import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
-import { mark, newStep, blockSteps } from './export/steps.js';
+import { mark } from './export/steps.js';
+import { locatorsFor, walkActions } from './export/walk.js';
 import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
   PICK_ITEM_JS,
 } from './export/page-js.js';
-import { locatorsOf } from '../shared/locator-order.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
 
 const SKIPPED_TYPES = new Set([
@@ -28,19 +28,6 @@ const _RESERVED_JS = new Set([
 
 // The names of the steps' own values (_el3, _el3_t, _nav1, _at1) and of the Random generators.
 const _sanitizeVarName = jsIdentifier(_RESERVED_JS, /^_(el|nav|at)\d+(_|$)|^_gen_/);
-
-/**
- * The locators of the element an action acts on — of its drop target with
- * `target` — in the order playback tries them (shared/locator-order.js), the
- * selector type chosen in the form first. Never empty: an action without any
- * keeps the empty selector it always exported.
- */
-function locatorsFor(action, target = false) {
-  const locs = target
-    ? locatorsOf(action.targetSelectors, action.targetSelector, action.targetSelectorType)
-    : locatorsOf(action.selectors, action.selector, action.selectorType);
-  return locs.length ? locs : [{ type: 'css', value: '' }];
-}
 
 // One locator as _qsel takes it: a CSS or XPath string (XPath when it starts with
 // / or (), or { text, tag } for the Text search.
@@ -311,56 +298,15 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
   return out;
 }
 
-// Recursively processes an action array, grouping condition blocks
-// Disabled actions are skipped inline so skipCount stays aligned with the original array.
-function processActions(actions, baseIdx, stepDelay, elTimeout, ctx) {
-  const out = [];
-  let i = 0;
-
-  while (i < actions.length) {
-    const action = actions[i];
-    const abs    = baseIdx + i;
-
-    // A Switch block only ever runs one of its cases, which a bookmarklet
-    // cannot choose — emitting the block would run every case in a row.
-    if (ctx.all && hasBlock(ctx.all[abs])) {
-      const end = blockEnd(ctx.all, abs);
-      out.push(`// Step ${abs + 1}: [SKIPPED] switch block — steps ${abs + 2}–${end + 1} not exported (requires Chrome Extension API)`);
-      out.push('');
-      ctx.warnings.add(`Switch block at step ${abs + 1} skipped together with its ${end - abs} action(s)`);
-      ctx.steps.push(...blockSteps(ctx.all, abs, end));
-      i = end - baseIdx + 1;
-      continue;
-    }
-
-    if (action.disabled) {
-      i++;
-      continue;
-    }
-
-    const stepNum = baseIdx + i + 1;
-    const step    = newStep(action, stepNum);
-    ctx.steps.push(step);
-
-    if (action.type === 'condition') {
-      const skipCount = conditionSkip(action); // 0 for an emptied Condition: empty body
-      out.push(...condHeader(action, stepNum, step, ctx));
-      // Same span playback skips: a Switch and its block count as one action.
-      const bodyEnd = ctx.all ? conditionSkipTarget(ctx.all, abs, skipCount, ctx.layout) - baseIdx : i + 1 + skipCount;
-      const body = actions.slice(i + 1, bodyEnd);
-      const bodyLines = processActions(body, baseIdx + i + 1, stepDelay, elTimeout, ctx);
-      out.push(...indentLines(bodyLines, '  '));
-      out.push('}');
-      out.push('');
-      i = Math.max(i + 1, bodyEnd);
-    } else {
-      out.push(...actionLines(action, step, stepDelay, elTimeout, ctx));
-      out.push('');
-      i++;
-    }
-  }
-
-  return out;
+// The steps, walked as playback walks them (export/walk.js).
+function stepLines(stepDelay, elTimeout, ctx) {
+  return walkActions(ctx, {
+    step: (action, step) => actionLines(action, step, stepDelay, elTimeout, ctx),
+    conditionHead: (action, step) => condHeader(action, step.n, step, ctx),
+    conditionBody: (lines) => [...indentLines(lines, '  '), '}'],
+    // A bookmarklet cannot choose a case.
+    skippedBlock: (start, end) => [`// Step ${start + 1}: [SKIPPED] switch block — steps ${start + 2}–${end + 1} not exported (requires Chrome Extension API)`],
+  });
 }
 
 /**
@@ -430,7 +376,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   const firstNavigate = first?.type === 'navigate' ? all.indexOf(first) + 1 : 0;
   const ctx = { staticVars, warnings, all, layout, steps, firstNavigate };
   // The steps first: the helpers declared below depend on what they use.
-  const bodyLines = processActions(all, 0, stepDelay, elTimeout, ctx);
+  const bodyLines = stepLines(stepDelay, elTimeout, ctx);
 
   const out = [];
 

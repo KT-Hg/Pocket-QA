@@ -10,14 +10,14 @@
 
 import { getUsedVarNames, commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
-import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip } from '../shared/switch-blocks.js';
+import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
-import { locatorsOf } from '../shared/locator-order.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
-import { mark, newStep, blockSteps } from './export/steps.js';
+import { mark } from './export/steps.js';
+import { locatorsFor, walkActions } from './export/walk.js';
 import { SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS } from './export/page-js.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
 
@@ -27,14 +27,6 @@ const RESERVED = new Set(['test', 'page', 'TIMEOUT', '_find', '_first', '_input'
 // The steps' elements (el3, el3_t) share the test function with the variables.
 const ident = jsIdentifier(RESERVED, /^el\d+(_|$)/);
 const valueJS = jsValue(ident);
-
-// The locators of an action's element (of its drop target with `target`), in playback's order.
-function locatorsFor(action, target = false) {
-  const locs = target
-    ? locatorsOf(action.targetSelectors, action.targetSelector, action.targetSelectorType)
-    : locatorsOf(action.selectors, action.selector, action.selectorType);
-  return locs.length ? locs : [{ type: 'css', value: '' }];
-}
 
 /**
  * One locator as a Playwright selector: CSS as it is, xpath=… for an XPath, and
@@ -281,38 +273,14 @@ function conditionHeader(action, step, ctx) {
   return [head, `if (await page.evaluate(_checkCond, [${JSON.stringify(type)}, ${el}, ${valueJS(action.expectedValue)}])) {`];
 }
 
-// The steps, a Switch block skipped whole as the other exports skip it.
-function processActions(actions, baseIdx, ctx) {
-  const out = [];
-  let i = 0;
-  while (i < actions.length) {
-    const action = actions[i];
-    const abs = baseIdx + i;
-    if (hasBlock(ctx.all[abs])) {
-      const end = blockEnd(ctx.all, abs);
-      out.push(`// Step ${abs + 1}: switch block [SKIPPED] — steps ${abs + 2}–${end + 1} not exported (requires extension scenario routing)`, '');
-      ctx.warnings.add(`Switch block at step ${abs + 1} skipped together with its ${end - abs} action(s)`);
-      ctx.steps.push(...blockSteps(ctx.all, abs, end));
-      i = end - baseIdx + 1;
-      continue;
-    }
-    if (action.disabled) { i++; continue; }
-    const step = newStep(action, abs + 1);
-    ctx.steps.push(step);
-    if (action.type === 'condition') {
-      // The same span playback skips: a Switch and its block count as one action.
-      const bodyEnd = conditionSkipTarget(ctx.all, abs, conditionSkip(action), ctx.layout) - baseIdx;
-      out.push(...conditionHeader(action, step, ctx));
-      out.push(...processActions(actions.slice(i + 1, bodyEnd), abs + 1, ctx).map((l) => (l === '' ? '' : `  ${l}`)));
-      out.push('}', '');
-      i = Math.max(i + 1, bodyEnd);
-      continue;
-    }
-    out.push(...actionLines(action, step, ctx), '');
-    i++;
-  }
-  return out;
-}
+// The steps, walked as playback walks them (export/walk.js).
+const stepLines = (ctx) => walkActions(ctx, {
+  step: (action, step) => actionLines(action, step, ctx),
+  conditionHead: (action, step) => conditionHeader(action, step, ctx),
+  conditionBody: (lines) => [...lines.map((l) => (l === '' ? '' : `  ${l}`)), '}'],
+  // The spec cannot pick a case.
+  skippedBlock: (start, end) => [`// Step ${start + 1}: switch block [SKIPPED] — steps ${start + 2}–${end + 1} not exported (requires extension scenario routing)`],
+});
 
 // The scenario's variables, declared at the top of the test: `let` for the ones a step writes.
 function variableLines(variables, written) {
@@ -351,7 +319,7 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
   const warnings = new Set();
   const steps = [];
   const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set() };
-  const body = processActions(all, 0, ctx);
+  const body = stepLines(ctx);
   const written = new Set(enabled.flatMap((a) => writtenVarNames(a)).map(ident));
 
   // The start page, unless the scenario opens one first (waits aside).
