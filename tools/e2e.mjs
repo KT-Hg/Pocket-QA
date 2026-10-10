@@ -76,6 +76,8 @@
  *                 test function
  *   export-start-url  the Selenium start URL filled from the active tab is in the code
  *                 the modal first shows, not the TODO placeholder
+ *   export-url-field  the Starting URL field (Selenium, Playwright) spans its Settings row,
+ *                 left-aligned, not an 80-pixel box showing "https://sl"
  *   export-settings  each format's Settings come back in a new popup, apart from the
  *                 other format's; stored values an input cannot take leave defaults
  *   export-formats  the Export Code card offers the bookmarklet, Selenium and Playwright,
@@ -1072,6 +1074,37 @@ async function checkExportStartUrl(ctx) {
   }
 }
 
+async function checkExportUrlField(ctx) {
+  const id = await makeScenario(ctx, 'e2e export url field', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  const popup = await openPopup(ctx);
+  try {
+    for (const [button, field] of [['exportSelenium', 'exportSeleniumStartUrl'], ['exportPlaywright', 'exportPwStartUrl']]) {
+      await popup.evaluate(`(() => {
+        const s = document.getElementById('exportCodeSelect');
+        s.value = ${JSON.stringify(id)};
+        s.dispatchEvent(new Event('change'));
+        document.getElementById(${JSON.stringify(button)}).click();
+      })()`);
+      await sleep(POPUP_SETTLE_MS);
+      await popup.evaluate(`document.querySelector('#exportModal .export-bm-tab[data-tab="settings"]').click()`);
+      await sleep(SETTLE_MS);
+      const box = await popup.evaluate(`(() => {
+        const f = document.getElementById(${JSON.stringify(field)});
+        const row = f.closest('.export-bm-setting-row');
+        return { field: Math.round(f.getBoundingClientRect().width), row: Math.round(row.getBoundingClientRect().width),
+          align: getComputedStyle(f).textAlign };
+      })()`);
+      // The row's width less its padding and the 🔄 button: a URL is read from its start.
+      check(box.field >= box.row - 80 && box.align !== 'right',
+        `${button === 'exportSelenium' ? 'Selenium' : 'Playwright'}: the Starting URL field spans its row, the URL read from its start`, box);
+      await popup.evaluate(`document.getElementById('exportClose').click()`);
+      await sleep(SETTLE_MS);
+    }
+  } finally {
+    await popup.close();
+  }
+}
+
 async function checkExportOutput(ctx) {
   const id = await makeScenario(ctx, 'Đăng nhập pytest', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
   const popup = await openPopup(ctx);
@@ -1794,6 +1827,7 @@ const CHECKS = [
   ['export-regenerate', 'Regenerate in the export modals', checkExportRegenerate],
   ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],
   ['export-start-url', 'The Selenium start URL taken from the tab', checkExportStartUrl],
+  ['export-url-field', 'The Starting URL field of the export Settings', checkExportUrlField],
   ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
   ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
   ['export-formats', 'The formats the Export Code card offers', checkExportFormats],

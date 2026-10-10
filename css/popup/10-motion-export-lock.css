@@ -453,6 +453,33 @@
   flex-shrink: 0;
 }
 
+/* A setting whose value is long text (the Starting URL): its field under the
+   label, the row's full width, read from the start. Beside the label, at the
+   number fields' 80px, a URL showed as "https://sl". */
+.export-bm-setting-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.export-bm-url-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-bm-url-field .export-bm-setting-input {
+  flex: 1 1 auto;
+  width: auto !important;
+  min-width: 0;
+  text-align: left;
+}
+
+.export-bm-setting-row-stack .export-bm-url-from-tab {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
 /* An on/off setting: the whole row is its <label>. Off limits for the chosen
    driver (Headless on Safari), it is dimmed. */
 label.export-bm-setting-row { cursor: pointer; }

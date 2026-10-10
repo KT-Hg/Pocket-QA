@@ -1673,14 +1673,13 @@
           </div>
         </div>
         <div data-format="py" hidden>
-          <div class="export-bm-setting-row">
+          <div class="export-bm-setting-row export-bm-setting-row-stack">
             <div class="export-bm-setting-label">
-              Starting URL
+              Starting URL <span class="export-bm-url-from-tab" id="exportSeleniumUrlFromTab" style="display:none;">📍 Current tab</span>
               <small>Initial page to navigate to</small>
             </div>
-            <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
-              <span class="export-bm-url-from-tab" id="exportSeleniumUrlFromTab" style="display:none;">📍 Current tab</span>
-              <input type="url" id="exportSeleniumStartUrl" class="export-bm-setting-input" placeholder="https://…" style="width:130px;" />
+            <div class="export-bm-url-field">
+              <input type="url" id="exportSeleniumStartUrl" class="export-bm-setting-input" placeholder="https://…" />
               <button id="exportSeleniumGetUrl" class="export-bm-icon-btn" title="Get URL from current tab" style="font-size:11px;">🔄</button>
             </div>
           </div>
@@ -1731,12 +1730,14 @@
           </div>
         </div>
         <div data-format="pw" hidden>
-          <div class="export-bm-setting-row">
+          <div class="export-bm-setting-row export-bm-setting-row-stack">
             <div class="export-bm-setting-label">
               Starting URL
               <small>Opened first, unless the scenario starts with a Navigate</small>
             </div>
-            <input type="url" id="exportPwStartUrl" class="export-bm-setting-input" placeholder="https://…" style="width:130px;" />
+            <div class="export-bm-url-field">
+              <input type="url" id="exportPwStartUrl" class="export-bm-setting-input" placeholder="https://…" />
+            </div>
           </div>
           <div class="export-bm-setting-row">
             <div class="export-bm-setting-label">
