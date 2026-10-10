@@ -656,3 +656,14 @@ test('Test steps (CSV): Step, Action, Data, Expected, read back as written', asy
   assert.deepEqual([upload.Action, upload.Data], ['Upload a.txt, b, "c".txt into `#f`', 'C:\\in'], 'commas and quotes survive');
   assert.equal(rows.find((r) => r.Step === '4').Expected, 'The text of `#greet` contains "Hello" — if not, skip steps 5–6');
 });
+
+test('Test steps: a step under a disabled Condition is not indented, as it always runs', async () => {
+  const { generateTestSteps } = await import('../popup/export-steps.js');
+  const steps = [
+    { type: 'condition', conditionType: 'elementExists', selector: '#x', selectors: { css: '#x' }, skipCount: 1, disabled: true },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+  ];
+  const { code } = generateTestSteps('off', steps, {}, { format: 'markdown' });
+  assert.match(code, /^\| 2 \| Click `#a` \|/m);
+  assert.doesNotMatch(code, /^\| 1 \|/m, 'the disabled Condition itself is not written');
+});

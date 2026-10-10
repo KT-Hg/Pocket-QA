@@ -171,7 +171,8 @@ function stepRows(actions) {
   all.forEach((a, i) => {
     // Not run: a disabled step, and every step of a disabled Switch's block.
     if (!a || a.disabled || layout[i].chain.some((c) => all[c.switchIdx]?.disabled)) return;
-    const depth = layout[i].depth + conds[i].conds.length;
+    // A disabled Condition guards nothing: playback passes over it.
+    const depth = layout[i].depth + conds[i].conds.filter((c) => !all[c].disabled).length;
     const { action, data, expected } = describe(a, { all, i, layout, numberOf });
     rows.push({ n: i + 1, type: a.type, no: numberOf(i), action: `${depth ? `${' '.repeat(depth - 1)}↳ ` : ''}${action}`, data, expected });
   });
