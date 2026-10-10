@@ -881,3 +881,17 @@ test('Selenium: a one-line Script that ends in a quote still compiles', () => {
     assert.match(py, /^ {4}"""\)$/m, 'the closing quotes on their own line');
   }
 });
+
+test('a ${ that names no variable stays text in the JS exports, as in a run', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const { jsValue, jsIdentifier } = await import('../popup/export/js-code.js');
+  const { applyVars } = await import('../bg/interpolate.js');
+  const values = ['price ${', 'a ${} b', 'tick ` and ${who}', 'cost $${who}', 'x \\ ${who} ${', '${who}${'];
+  const value = jsValue(jsIdentifier(new Set()));
+  for (const v of values) {
+    assert.equal(new Function('who', `return ${value(v)};`)('Bob'), applyVars(v, { who: 'Bob' }), v);
+  }
+  const steps = values.map((v) => ({ type: 'input', selector: '#a', selectors: { css: '#a' }, value: v }));
+  new Function(generateBookmarklet('d', steps, { who: 'Bob' }).code.replace(/^javascript:/, ''));
+  assert.equal(checkModule(generatePlaywright('d', steps, { who: 'Bob' }).code), null);
+});

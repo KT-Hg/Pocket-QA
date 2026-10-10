@@ -43,16 +43,17 @@ export function jsValue(ident) {
   return (val) => {
     if (val == null) return "''";
     const s = String(val);
-    if (/\$\{/.test(s)) {
-      const escaped = s
-        .replace(/\\/g, '\\\\')   // backslash first
-        .replace(/`/g, '\\`')     // backtick — ${varName} is kept to reference declared vars
-        // The reference must be sanitized exactly like the declaration: `${user-name}`
-        // otherwise reads as subtraction and `${mã đơn}` is a SyntaxError.
-        .replace(/\$\{([^}]+)\}/g, (_m, name) => '${' + ident(name.trim()) + '}');
-      return '`' + escaped + '`';
-    }
-    return JSON.stringify(s);
+    if (!/\$\{[^}]+\}/.test(s)) return JSON.stringify(s);
+    // Each ${name} becomes a substitution, sanitized exactly like the declaration:
+    // `${user-name}` otherwise reads as subtraction and `${mã đơn}` is a SyntaxError.
+    // The text between keeps its backslashes, backticks and any other `${` (unclosed,
+    // or `${}`) as characters, as a run keeps them: left as they were, the template
+    // literal did not parse and took the whole script down.
+    const body = s.split(/(\$\{[^}]+\})/g).map((part) => {
+      const m = part.match(/^\$\{([^}]+)\}$/);
+      return m ? '${' + ident(m[1].trim()) + '}' : part.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+    }).join('');
+    return '`' + body + '`';
   };
 }
 

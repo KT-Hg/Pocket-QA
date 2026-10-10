@@ -1467,6 +1467,17 @@ const EXPORT_CASES = [
     actions: [{ type: 'script', code: 'alert("hi"); window.done = "yes"' }],
     expect: { alerts: ['hi'] },
   },
+  {
+    // A ${ that names no variable, beside one that does, stays text: the JS exports'
+    // template literal did not parse.
+    name: 'dollar-brace',
+    variables: { who: 'Bob' },
+    actions: [
+      { type: 'input', selector: '#name', selectors: { css: '#name' }, value: 'price ${' },
+      { type: 'input', selector: '#echo', selectors: { css: '#echo' }, value: 'tick ` ${who} ${}' },
+    ],
+    expect: { fields: { name: 'price ${', echo: 'tick ` Bob ${}' } },
+  },
 ];
 
 // A folder with @playwright/test installed (npm install @playwright/test): the Playwright
