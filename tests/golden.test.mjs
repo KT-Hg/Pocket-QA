@@ -12,6 +12,7 @@ const FILES = {
   switchBlocks: 'switch-blocks.json',
   exportBookmarklet: 'export-bookmarklet.json',
   exportSelenium: 'export-selenium.json',
+  exportSteps: 'export-steps.json',
 };
 
 const actual = await computeGolden();

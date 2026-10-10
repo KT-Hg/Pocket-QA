@@ -118,10 +118,11 @@ async function _compute() {
   const variables = await import('../../popup/variables.js');
   const { generateBookmarklet } = await import('../../popup/export-bookmarklet.js');
   const { generateSeleniumPy } = await import('../../popup/export-selenium.js');
+  const { generateTestSteps } = await import('../../popup/export-steps.js');
 
   const all = scenarios();
   const allActions = all.flatMap((s) => s.actions);
-  const out = { pure: {}, switchBlocks: {}, exportBookmarklet: {}, exportSelenium: {} };
+  const out = { pure: {}, switchBlocks: {}, exportBookmarklet: {}, exportSelenium: {}, exportSteps: {} };
   const P = out.pure;
 
   // ── var-name ──────────────────────────────────────────────────────────────
@@ -313,12 +314,14 @@ async function _compute() {
       const key = `${s.name} | ${setName}`;
       out.exportBookmarklet[key] = run(() => generateBookmarklet(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
       out.exportSelenium[key] = run(() => generateSeleniumPy(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
+      out.exportSteps[key] = run(() => generateTestSteps(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
     }
   });
   const syn = SYNTHETIC_SCENARIOS[0];
   out.exportBookmarklet[`${syn.name} | opts`] = run(() => generateBookmarklet(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs), { stepDelay: 0, elTimeout: 1234 }));
   out.exportSelenium[`${syn.name} | opts`] = run(() => generateSeleniumPy(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs),
     { stepDelay: 0, elTimeout: 1234, driverType: 'Firefox', startUrl: 'https://start.example/${page}' }));
+  out.exportSteps[`${syn.name} | csv`] = run(() => generateTestSteps(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs), { format: 'csv' }));
   out.exportSelenium[`${syn.name} | pytest`] = run(() => generateSeleniumPy(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs),
     { driverType: 'Edge', headless: true, output: 'pytest', startUrl: 'https://start.example/' }));
 

@@ -602,3 +602,57 @@ test('Selenium as a script, the default, is unchanged by the pytest option', () 
   assert.equal(generateSeleniumPy('s', steps, {}, { output: 'script' }).code, generateSeleniumPy('s', steps, {}).code);
   assert.doesNotMatch(generateSeleniumPy('s', steps, {}).code, /pytest/);
 });
+
+// One step of most kinds, a Condition guarding two, a Switch block, and one this version does not know.
+const tcBlk = (value, startAt, endAt) => ({ value, scenarioId: '__self__', startAt, endAt });
+const tcSteps = [
+  { type: 'navigate', url: 'https://shop.test/login' },
+  { type: 'input', selector: '#user', selectors: { css: '#user', id: 'user' }, value: '${user}', label: 'Fill: User name' },
+  { type: 'click', selectors: { text: 'Log in', css: 'button.go' } },
+  { type: 'condition', conditionType: 'textContains', selector: '#greet', selectors: { css: '#greet' }, expectedValue: 'Hello', skipCount: 2 },
+  { type: 'readdom', selector: '#total', selectors: { css: '#total' }, readFrom: 'text', pattern: 'Total: ${amount}' },
+  { type: 'click', selector: '#people', selectors: { css: '#people' }, conditions: { matchMode: 'all', textContains: 'Bob', classContains: 'row' } },
+  { type: 'switch', switchVar: '${role}', cases: [tcBlk('admin', 8, 8), tcBlk('guest', 9, 9)] },
+  { type: 'click', selector: '#admin', selectors: { css: '#admin' } },
+  { type: 'click', selector: '#guest', selectors: { css: '#guest' } },
+  { type: 'click', selector: '#off', selectors: { css: '#off' }, disabled: true },
+  { type: 'uploadFile', selector: '#f', selectors: { css: '#f' }, folderPath: 'C:\\in', fileNames: ['a.txt', 'b, "c".txt'] },
+  { type: 'teleport' },
+];
+const tcVars = { user: 'bob', amount: '', role: '{pick:admin|guest}', token: '{random:numeric:6}' };
+
+test('Test steps (Markdown): each step written out, numbered and indented as the scenario list shows it', async () => {
+  const { generateTestSteps } = await import('../popup/export-steps.js');
+  const { code, steps, stats } = generateTestSteps('Log in & check', tcSteps, tcVars, { format: 'markdown' });
+  const row = (n) => code.split('\n').find((l) => l.startsWith(`| ${n} |`));
+  assert.match(code, /^# Log in & check$/m);
+  assert.match(code, /^\| `\$\{user\}` \| bob \|$/m, 'the test data');
+  assert.match(code, /^\| `\$\{role\}` \| One of: admin, guest \|$/m);
+  assert.match(code, /^\| `\$\{token\}` \| Random: 6 digits \|$/m);
+  assert.equal(row(1), '| 1 | Open https://shop.test/login |  |  |');
+  assert.equal(row(2), '| 2 | Fill: User name | ${user} |  |', 'a step with a label reads as its label');
+  assert.equal(row(3), '| 3 | Click "Log in" |  |  |', 'an element by its text first');
+  assert.equal(row(4), '| 4 | Check: the text of `#greet` contains "Hello" |  | The text of `#greet` contains "Hello" — if not, skip steps 5–6 |');
+  assert.equal(row(5), '| 5 | ↳ Read the text of `#total` and take `${amount}` from it |  | The text matches `Total: ${amount}` |');
+  assert.match(row(6), /^\| 6 \| ↳ Click the element in `#people` whose text contains "Bob" and class contains "row" \|/);
+  assert.match(row(7), /^\| 7 \| Depending on `\$\{role\}`, play its case: "admin" → step 7\.1\.1; "guest" → step 7\.2\.1; anything else → nothing \|/);
+  assert.match(row('7.1.1'), /^\| 7\.1\.1 \| ↳ Click `#admin` \|/, 'a block step numbered as the scenario list numbers it');
+  // After the block the scenario list numbers on from the Switch: 8 (disabled), 9, 10.
+  assert.equal(row(8), undefined, 'a disabled step does not run, so it is not written');
+  assert.equal(row(9), '| 9 | Upload a.txt, b, "c".txt into `#f` | C:\\in |  |');
+  assert.equal(row(10), '| 10 | teleport |  |  |', 'an unknown step by its type');
+  assert.ok(steps.every((s) => s.status === 'ok'), 'documentation leaves nothing out');
+  assert.deepEqual([stats.supported, stats.skipped], [11, 0]);
+});
+
+test('Test steps (CSV): Step, Action, Data, Expected, read back as written', async () => {
+  const { generateTestSteps } = await import('../popup/export-steps.js');
+  const { parseCSV } = await import('../popup/csv/csv-parse.js');
+  const { code } = generateTestSteps('Log in & check', tcSteps, tcVars, { format: 'csv' });
+  const { headers, rows } = parseCSV(code);
+  assert.deepEqual(headers, ['Step', 'Action', 'Data', 'Expected']);
+  assert.deepEqual(rows.map((r) => r.Step), ['1', '2', '3', '4', '5', '6', '7', '7.1.1', '7.2.1', '9', '10']);
+  const upload = rows.find((r) => r.Step === '9');
+  assert.deepEqual([upload.Action, upload.Data], ['Upload a.txt, b, "c".txt into `#f`', 'C:\\in'], 'commas and quotes survive');
+  assert.equal(rows.find((r) => r.Step === '4').Expected, 'The text of `#greet` contains "Hello" — if not, skip steps 5–6');
+});

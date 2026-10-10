@@ -14,6 +14,7 @@ const FILES = {
   switchBlocks: 'switch-blocks.json',
   exportBookmarklet: 'export-bookmarklet.json',
   exportSelenium: 'export-selenium.json',
+  exportSteps: 'export-steps.json',
 };
 
 // Indented down to `depth`, one line per value below it: small files whose diff

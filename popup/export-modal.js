@@ -42,13 +42,13 @@ let modalWired = false;
  * @param {string}   cfg.format        - its Settings block ([data-format]) and strip / chip style ('js', 'py')
  * @param {string}   cfg.badge         - the chip's text ('JS', 'PY')
  * @param {string}   cfg.title         - header, followed by " — <scenario>"
- * @param {string}   cfg.downloadLabel - the Download button's text ('⬇ .js')
+ * @param {string|Function} cfg.downloadLabel - the Download button's text ('⬇ .js'), or (options) → it
  * @param {Function} cfg.fileName      - (base, options) → the file name, from the scenario's safe name
  *                                       and the options the code was made with
  * @param {Function} cfg.readOptions   - () → the generator's options, read from its Settings block
  * @param {Function} cfg.generate      - (scenarioName, actions, variables, options) → { code, stats, steps, warnings }
  * @param {Function} cfg.copyText      - (code) → what Copy puts on the clipboard
- * @param {Function} cfg.file          - (code) → { text, type } that Download saves
+ * @param {Function} cfg.file          - (code, options) → { text, type } that Download saves
  * @param {string[]} [cfg.remember]    - ids of its Settings inputs kept between popups, in the
  *                                       order they are put back
  * @param {Function} [cfg.beforeOpen]  - run first each time the modal opens for it
@@ -128,14 +128,13 @@ function rememberSettings(cfg) {
   }
 }
 
-// The parts that are the format's own: the strip, the chip, its Settings block, Download.
+// The parts that are the format's own: the strip, the chip, its Settings block.
 function showFormat(cfg) {
   byId('Modal').dataset.format = cfg.format;
   byId('Accent').className = `export-bm-accent-bar export-bm-accent-${cfg.format}`;
   const badge = byId('Badge');
   badge.className = `export-bm-lang-badge export-bm-lang-badge-${cfg.format}`;
   badge.textContent = cfg.badge;
-  byId('Download').textContent = cfg.downloadLabel;
   for (const block of byId('TabSettings').querySelectorAll('[data-format]')) block.hidden = block.dataset.format !== cfg.format;
 }
 
@@ -174,6 +173,8 @@ function render(result) {
   byId('Title').textContent = `${run.cfg.title} — ${run.scenarioName}`;
   byId('Sub').textContent = `${filename} · ${result.stats.supported} steps`;
   byId('CodeLabel').textContent = filename;
+  const label = run.cfg.downloadLabel;
+  byId('Download').textContent = typeof label === 'function' ? label(run.options) : label;
 
   // Code preview
   const codeEl = byId('Code')?.querySelector('code');
@@ -281,7 +282,7 @@ async function copy() {
 
 function download() {
   if (!run.code) return;
-  const { text, type } = run.cfg.file(run.code);
+  const { text, type } = run.cfg.file(run.code, run.options);
   // Through downloadBlob, which revokes the URL a moment later: revoked right
   // after click() it can go before the browser has read the file.
   downloadBlob(new Blob([text], { type }), fileName());

@@ -76,6 +76,8 @@
  *                 test function
  *   export-settings  each format's Settings come back in a new popup, apart from the
  *                 other format's; stored values an input cannot take leave defaults
+ *   export-testcase  Test steps opens as Markdown; CSV gives the same steps, quoted,
+ *                 saved as .csv with a BOM
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, Edge exported
  *                 headless — with a window under --headed),
@@ -1124,6 +1126,59 @@ async function checkExportSettings(ctx) {
   await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
 }
 
+async function checkExportTestcase(ctx) {
+  await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
+  const id = await makeScenario(ctx, 'Đăng nhập steps', [
+    { type: 'navigate', url: 'https://shop.test/' },
+    { type: 'click', selector: '#go', selectors: { css: '#go', text: 'Go, "now"' } },
+  ]);
+  const popup = await openPopup(ctx);
+  try {
+    // The file Download saves: its name and its first bytes (a BOM is EF BB BF).
+    await popup.evaluate(`(() => {
+      window.__dl = [];
+      HTMLAnchorElement.prototype.click = function () {
+        const entry = { name: this.download };
+        window.__dl.push(entry);
+        setTimeout(() => fetch(this.href).then((r) => r.arrayBuffer()).then((b) => { entry.head = [...new Uint8Array(b).slice(0, 3)]; }), 50);
+      };
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+      document.getElementById('exportSteps').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    const shown = () => popup.evaluate(`({
+      title: document.getElementById('exportTitle').textContent,
+      label: document.getElementById('exportCodeLabel').textContent,
+      download: document.getElementById('exportDownload').textContent,
+      code: document.querySelector('#exportCode code').textContent,
+    })`);
+    const md = await shown();
+    check(md.label === 'đăng_nhập_steps_steps.md' && md.download === '⬇ .md' && md.code.startsWith('# Đăng nhập steps')
+      && md.code.includes('| 2 | Click "Go, "now"" |  |  |'), 'Test steps opens as Markdown, a step a line', { ...md, code: md.code.split('\n').slice(0, 9) });
+    await popup.evaluate(`(() => {
+      const f = document.getElementById('exportStepsFormat');
+      f.value = 'csv';
+      f.dispatchEvent(new Event('change'));
+      document.getElementById('exportRegenerate').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    const csv = await shown();
+    await popup.evaluate(`document.getElementById('exportDownload').click()`);
+    await sleep(SETTLE_MS);
+    const dl = await popup.evaluate('window.__dl[0] || null');
+    check(csv.label === 'đăng_nhập_steps_steps.csv' && csv.download === '⬇ .csv'
+      // Every cell quoted, its quotes doubled.
+      && csv.code.split('\n')[2] === ['2', 'Click "Go, "now""', '', ''].map((c) => `"${c.replace(/"/g, '""')}"`).join(',')
+      && dl?.name === 'đăng_nhập_steps_steps.csv' && JSON.stringify(dl.head) === '[239,187,191]',
+      'CSV: the same steps, quoted, saved with a BOM for spreadsheets', { label: csv.label, line: csv.code.split('\n')[2], dl });
+  } finally {
+    await popup.close();
+    await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
+  }
+}
+
 /**
  * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
  * every input, select, textarea and contenteditable with an id (a checkbox by
@@ -1617,6 +1672,7 @@ const CHECKS = [
   ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],
   ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
   ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
+  ['export-testcase', 'The Test steps export: Markdown and CSV', checkExportTestcase],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],
