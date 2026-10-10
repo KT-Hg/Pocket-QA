@@ -74,6 +74,9 @@ export function warnUndefinedVars(enabled, variables, warnings, dataFile = '') {
   }
 }
 
+/** Whether `action` was recorded inside a frame: its frameId (the recording's) is not the page's, 0. */
+export const inFrame = (action) => action.frameId != null && action.frameId !== 0;
+
 /**
  * The locators of the element an action acts on — of its drop target with
  * `target` — in the order playback tries them (shared/locator-order.js), the
@@ -95,7 +98,8 @@ export function locatorsFor(action, target = false) {
  *   skippedBlock(start, end)    → the lines left for a Switch block (0-based, inclusive)
  *   at(title)                   → optional: the line that records which step runs
  *                                 ("Step 3: click — Sign in"), for the error to name it
- * Each step's lines are followed by an empty one. ctx: { all, layout, steps, warnings }.
+ * Each step's lines are followed by an empty one. ctx: { all, layout, steps, warnings, frames }
+ * (frames: newStep's, where the export looks for an element recorded in a frame).
  */
 export function walkActions(ctx, gen) {
   return walk(ctx, gen, 0, ctx.all.length);
@@ -132,7 +136,7 @@ function walk(ctx, gen, from, to) {
       i++;
       continue;
     }
-    const step = newStep(action, i + 1);
+    const step = newStep(action, i + 1, ctx.frames);
     ctx.steps.push(step);
     if (action.type !== 'condition') {
       out.push(...withAt(gen, step, gen.step(action, step)), '');

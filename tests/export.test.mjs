@@ -371,14 +371,15 @@ const stepKinds = [
 const statusOf = (steps) => Object.fromEntries(steps.map((s) => [s.n, s.status]));
 
 test('each export says, step by step, what it exported, skipped or wants checked', () => {
+  // Step 7 was recorded in a frame: Selenium looks for it there too, the bookmarklet in the page only.
   const py = generateSeleniumPy('kinds', stepKinds, {});
-  assert.deepEqual(statusOf(py.steps), { 1: 'ok', 3: 'ok', 4: 'ok', 5: 'skip', 6: 'verify', 7: 'verify', 8: 'ok' });
+  assert.deepEqual(statusOf(py.steps), { 1: 'ok', 3: 'ok', 4: 'ok', 5: 'skip', 6: 'verify', 7: 'ok', 8: 'ok' });
   const js = generateBookmarklet('kinds', stepKinds, {});
   assert.deepEqual(statusOf(js.steps), { 1: 'verify', 3: 'ok', 4: 'skip', 5: 'skip', 6: 'verify', 7: 'verify', 8: 'skip' });
+  assert.match(js.steps.find((s) => s.n === 7).reason, /iframe/);
   for (const { steps } of [py, js]) {
     assert.ok(steps.every((s) => s.type === stepKinds[s.n - 1].type), 'each step names its action type');
     assert.ok(steps.filter((s) => s.status !== 'ok').every((s) => s.reason), 'a step not exported as is says why');
-    assert.match(steps.find((s) => s.n === 7).reason, /iframe/);
   }
   // What the code leaves out counts as skipped: an unknown type in both, Upload File in the bookmarklet.
   assert.deepEqual([py.stats.supported, py.stats.skipped], [6, 1]);
@@ -1085,4 +1086,31 @@ test('a data file: a test per row; pytest reads the CSV as the CSV run does', as
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('a step recorded in a frame: Selenium and Playwright look for its element in the frames too', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const steps = [
+    { type: 'input', selector: '#fName', selectors: { css: '#fName' }, value: 'Zoe', frameId: 7 },
+    { type: 'click', selector: '#after', selectors: { id: 'after' } },
+    { type: 'condition', conditionType: 'elementExists', selector: '#x', selectors: { css: '#x' }, frameId: 7, skipCount: 1 },
+    { type: 'script', code: 'go()' },
+  ];
+  const py = generateSeleniumPy('frames', steps, {});
+  // Every lookup from the page and into its frames: a framed step leaves the driver in its frame.
+  assert.match(py.code, /^ {4}el1 = _find\(\[\(By\.CSS_SELECTOR, "#fName"\)\], 10, frames=True\)$/m);
+  assert.match(py.code, /^ {4}el2 = _find\(\[\(By\.ID, "after"\)\], 10, clickable=True, frames=True\)$/m);
+  assert.match(py.code, /^def _locate_in_frames\(locators\):$/m);
+  assert.match(py.code, /^def _check_cond\(cond_type, locators, expected\):\n {4}driver\.switch_to\.default_content\(\)$/m);
+  assert.match(py.code, /^ {8}driver\.switch_to\.default_content\(\)\n {8}driver\.execute_script\("""go\(\)"""\)$/m, 'a script runs in the page');
+  assert.deepEqual(statusOf(py.steps), { 1: 'ok', 2: 'ok', 3: 'verify', 4: 'verify' }, 'a Condition is still checked in the page');
+  assert.equal(compilePy(py.code), null);
+
+  const pw = generatePlaywright('frames', steps, {}, { stepDelay: 0 });
+  assert.match(pw.code, /const el1 = await _inFrames\(page, \["#fName"\]\);/);
+  assert.match(pw.code, /const el2 = page\.locator\("#after"\)\.first\(\);/, 'a step of the page stays one');
+  assert.deepEqual(statusOf(pw.steps), { 1: 'ok', 2: 'ok', 3: 'verify', 4: 'verify' });
+  assert.equal(checkModule(pw.code), null);
+  // No step in a frame: none of it.
+  assert.doesNotMatch(generateSeleniumPy('top', [steps[1]], {}).code, /frames|_locate_in_frames/);
 });

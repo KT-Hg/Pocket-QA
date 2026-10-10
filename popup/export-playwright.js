@@ -16,14 +16,14 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import { parseCSV, _delimiterOf } from './csv/csv-parse.js';
 import { SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS } from './export/page-js.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
 
 // What the generated spec declares for itself, beside the JS reserved words.
 const RESERVED = new Set(['test', 'page', 'TIMEOUT', '_find', '_first', '_input', '_setInput', '_js', '_SCRIPT_INPUT_TYPES',
-  '_checkCond', '_findChild', '_readVal', '_pick', '_var', '_url', '_firstOrigin', 'process', '_row', '_rows', '_column',
+  '_checkCond', '_findChild', '_readVal', '_pick', '_inFrames', '_var', '_url', '_firstOrigin', 'process', '_row', '_rows', '_column',
   'readFileSync', 'join', '_delimiterOf', 'parseCSV', ...JS_RESERVED]);
 // The steps' elements (el3, el3_t) share the test function with the variables.
 const ident = jsIdentifier(RESERVED, /^el\d+(_|$)/);
@@ -53,10 +53,12 @@ const selectorsPW = (locs) => [...new Set(locs.map(selectorPW))];
 /**
  * The line that finds an element into `elVar`: a plain locator for one selector,
  * else _find over all of them in order. .first(): playback acts on the first
- * match where Playwright would refuse several.
+ * match where Playwright would refuse several. `framed`: recorded in a frame, the
+ * element is looked for in the page and then each frame (_inFrames).
  */
-function findPW(locs, elVar) {
+function findPW(locs, elVar, framed = false) {
   const sels = selectorsPW(locs);
+  if (framed) return `const ${elVar} = await _inFrames(page, [${sels.join(', ')}]);`;
   return sels.length === 1
     ? `const ${elVar} = page.locator(${sels[0]}).first();`
     : `const ${elVar} = await _find(page, [${sels.join(', ')}]);`;
@@ -140,6 +142,22 @@ async function _input(el, value) {
   else await el.fill(value);
 }`;
 
+const FRAMES_HELPER = String.raw`// An element recorded inside a frame: looked for in the page, then in each of its frames,
+// each selector in turn, for up to TIMEOUT.
+async function _inFrames(page, selectors) {
+  const end = Date.now() + TIMEOUT;
+  for (;;) {
+    for (const frame of page.frames()) {
+      for (const s of selectors) {
+        const el = frame.locator(s).first();
+        if (await el.count().catch(() => 0)) return el;
+      }
+    }
+    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | ') + ' in the page or its frames');
+    await page.waitForTimeout(100);
+  }
+}`;
+
 const FIRST_HELPER = String.raw`// The element a Condition checks: the first selector that finds one now, without waiting.
 async function _first(page, selectors) {
   for (const s of selectors) {
@@ -184,9 +202,9 @@ const pageShot = (a, s) => {
 
 // The lines that find the step's element into `el`: its parent first when a Child Condition picks it.
 function findLines(action, el, ctx) {
-  if (!action.conditions || !['click', 'input', 'hover', 'readdom'].includes(action.type)) return [findPW(locatorsFor(action), el)];
+  if (!action.conditions || !['click', 'input', 'hover', 'readdom'].includes(action.type)) return [findPW(locatorsFor(action), el, inFrame(action))];
   ctx.uses.add('child');
-  return [findPW(locatorsFor(action), `${el}_p`),
+  return [findPW(locatorsFor(action), `${el}_p`, inFrame(action)),
     `const ${el} = (await ${el}_p.evaluateHandle(_findChild, ${jsConditions(action.conditions, valueJS)})).asElement();`,
     `if (!${el}) throw new Error('Child condition not matched (step ${el.slice(2)})');`];
 }
@@ -274,8 +292,8 @@ const STEP_LINES = {
       `await ${s.el}.evaluate(_pick, [${valueJS(a.pick.index)}, ${valueJS(a.pick.itemSelector || '')}, TIMEOUT]);`];
   },
   // Playwright's drag fires the HTML5 drag events, as a real mouse does.
-  dragdrop: (a, s) => [`// Step ${s.n}: drag & drop${s.lbl}`, findPW(locatorsFor(a), `${s.el}_s`),
-    findPW(locatorsFor(a, true), `${s.el}_t`), `await ${s.el}_s.dragTo(${s.el}_t);`],
+  dragdrop: (a, s) => [`// Step ${s.n}: drag & drop${s.lbl}`, findPW(locatorsFor(a), `${s.el}_s`, inFrame(a)),
+    findPW(locatorsFor(a, true), `${s.el}_t`, inFrame(a)), `await ${s.el}_s.dragTo(${s.el}_t);`],
   uploadFile: uploadLines,
 };
 
@@ -400,7 +418,7 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
   const warnings = new Set();
   const steps = [];
   const vars = exportVariables(variables, enabled, ident, 'JS', warnings);
-  const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set() };
+  const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set(), frames: 'all' };
   const body = stepLines(ctx);
 
   // The start page, unless the scenario opens one first (waits aside).
@@ -421,6 +439,7 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
   out.push(ENV_HELPERS, '');
   if (dataFile) out.push(CSV_HELPERS, '');
   if (body.some((l) => l.includes('await _find('))) out.push(FIND_HELPER, '');
+  if (body.some((l) => l.includes('await _inFrames('))) out.push(FRAMES_HELPER, '');
   if (ctx.uses.has('first')) out.push(FIRST_HELPER, '');
   for (const name of ['check', 'child', 'read', 'pick']) if (ctx.uses.has(name)) out.push(PAGE_HELPERS[name], '');
   if (ctx.uses.has('input')) out.push(INPUT_HELPER, '');

@@ -5,7 +5,7 @@ import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark } from './export/steps.js';
-import { exportVariables, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
 } from './export/page-js.js';
@@ -50,9 +50,12 @@ const locsPy = (locs) => `[${locs.map(locToPy).join(', ')}]`;
 /**
  * The expression that waits for an element: WebDriverWait on its one By locator
  * (an id, a name, an XPath), else _find over all its locators in order — a CSS
- * one too, which _find also looks for inside shadow roots.
+ * one too, which _find also looks for inside shadow roots. With `frames` (a
+ * scenario with a step recorded in a frame), always _find, in the page and then
+ * its frames, from the page: a step before may have left the driver in a frame.
  */
-function waitPy(locs, tout, clickable = false) {
+function waitPy(locs, tout, clickable = false, frames = false) {
+  if (frames) return `_find(${locsPy(locs)}, ${tout}${clickable ? ', clickable=True' : ''}, frames=True)`;
   if (locs.length === 1 && locs[0].type !== 'text' && locParts(locs[0])[0] !== 'By.CSS_SELECTOR') {
     return `WebDriverWait(driver, ${tout}).until(EC.${clickable ? 'element_to_be_clickable' : 'presence_of_element_located'}(${locToPy(locs[0])}), ${notFoundPy(locs[0])})`;
   }
@@ -64,7 +67,7 @@ function waitPy(locs, tout, clickable = false) {
  * each locator in turn until one finds the element, a selector the browser
  * cannot parse passed over as playback passes it over.
  */
-function _locateHelperPy() {
+function _locateHelperPy(frames) {
   return [
     '# How the extension finds an element (content.js _locators): each locator in turn',
     '# until one finds it; ("text", t[, tag]) is its Text search, run in the page. A CSS',
@@ -90,14 +93,45 @@ function _locateHelperPy() {
     '    return None',
     '',
     '',
-    'def _find(locators, timeout, clickable=False):',
+    // With a step recorded in a frame, `frames` looks there too (_locate_in_frames).
+    `def _find(locators, timeout, clickable=False${frames ? ', frames=False' : ''}):`,
     '    def ready(_):',
-    '        el = _locate(locators)',
+    frames ? '        el = _locate_in_frames(locators) if frames else _locate(locators)' : '        el = _locate(locators)',
     '        if el is None or (clickable and not (el.is_displayed() and el.is_enabled())):',
     '            return False',
     '        return el',
     '    wait = WebDriverWait(driver, timeout, ignored_exceptions=(StaleElementReferenceException,))',
     '    return wait.until(ready, f"no element found by {locators}")',
+  ];
+}
+
+/**
+ * The _locate_in_frames() runtime helper, for a scenario with a step recorded in
+ * a frame: from the page, the element in it or in one of its frames (frames in
+ * frames too), the driver left in the frame that holds it for the step to act.
+ */
+function _framesHelperPy() {
+  return [
+    'def _locate_in_frames(locators):',
+    '    """The element in the page or one of its frames; the driver is left in the frame that holds it."""',
+    '    driver.switch_to.default_content()',
+    '',
+    '    def search():',
+    '        el = _locate(locators)',
+    '        if el is not None:',
+    '            return el',
+    '        for frame in driver.find_elements(By.CSS_SELECTOR, "iframe, frame"):',
+    '            try:',
+    '                driver.switch_to.frame(frame)',
+    '            except Exception:',
+    '                continue',
+    '            el = search()',
+    '            if el is not None:',
+    '                return el',
+    '            driver.switch_to.parent_frame()',
+    '        return None',
+    '',
+    '    return search()',
   ];
 }
 
@@ -139,7 +173,7 @@ function valueToPy(val) {
 // fail to parse, `re` or `open` hide what a helper calls, so those get a `_v` suffix.
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
-  '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS', '_QUERY_DEEP_JS',
+  '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS', '_QUERY_DEEP_JS', '_locate_in_frames',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
   'pytest', 'browser', 'dom_var', '_at', 'os', '_save_failure', '_var', '_url', '_first_origin', '_start_browser',
   'urlsplit', 'urlunsplit', '_row', '_rows', '_column',
@@ -246,14 +280,16 @@ function condExprPy(action, locs) {
   return `_check_cond(${JSON.stringify(type)}, ${locator}, ${valueToPy(action.expectedValue)})`;
 }
 
-// The _check_cond() runtime helper: content.js CHECK_CONDITION, run in the page.
-function _checkCondHelperPy() {
+// The _check_cond() runtime helper: content.js CHECK_CONDITION, run in the page — from the
+// page itself with `frames`: a step before may have left the driver in a frame.
+function _checkCondHelperPy(frames) {
   return [
     '# Same check as the extension (content.js CHECK_CONDITION), on the element found now.',
     ...pyPageJs('_CHECK_COND_JS', CHECK_COND_JS),
     '',
     '',
     'def _check_cond(cond_type, locators, expected):',
+    ...(frames ? ['    driver.switch_to.default_content()'] : []),
     '    el = _locate(locators) if locators else None',
     '    return driver.execute_script(_CHECK_COND_JS, cond_type, el, expected)',
   ];
@@ -594,7 +630,7 @@ function _findChildHelperPy() {
  * unrolled version did — compared against the literal spec text and never matched.
  * The dict reaches the page's _findChild as an object, matchMode included.
  */
-function _buildChildCondPy(conditions, elVar, tout, locs, stepNum) {
+function _buildChildCondPy(conditions, elVar, tout, locs, stepNum, frames) {
   const cond  = conditions;
   const lines = [];
 
@@ -605,7 +641,7 @@ function _buildChildCondPy(conditions, elVar, tout, locs, stepNum) {
     }
   }
 
-  lines.push(`${elVar}_p = ${waitPy(locs, tout)}`);
+  lines.push(`${elVar}_p = ${waitPy(locs, tout, false, frames)}`);
   lines.push(`${elVar} = _find_child(${elVar}_p, {${parts.join(', ')}})`);
   lines.push(`if ${elVar} is None:`);
   lines.push(`    raise Exception("Child condition not matched (step ${stepNum})")`);
@@ -627,9 +663,9 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'click':
       out.push(`# Step ${stepNum}: click${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum));
+        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum, ctx.frames === 'all'));
       } else {
-        out.push(`${elVar} = ${waitPy(locs, tout, true)}`);
+        out.push(`${elVar} = ${waitPy(locs, tout, true, ctx.frames === 'all')}`);
       }
       out.push(`${elVar}.click()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
@@ -639,9 +675,9 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       const val = valueToPy(action.value);
       out.push(`# Step ${stepNum}: input${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum));
+        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum, ctx.frames === 'all'));
       } else {
-        out.push(`${elVar} = ${waitPy(locs, tout)}`);
+        out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
       }
       out.push(`if ${elVar}.tag_name == 'select':`);
       out.push(`    try:`);
@@ -660,9 +696,9 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'hover':
       out.push(`# Step ${stepNum}: hover${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum));
+        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum, ctx.frames === 'all'));
       } else {
-        out.push(`${elVar} = ${waitPy(locs, tout)}`);
+        out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
       }
       out.push(`ActionChains(driver).move_to_element(${elVar}).perform()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
@@ -671,21 +707,21 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'dropdown':
       if (action.pick) {
         out.push(`# Step ${stepNum}: dropdown → item #${String(action.pick.index ?? '?').replace(/\s+/g, ' ')}${lbl}`);
-        out.push(`${elVar} = ${waitPy(locs, tout, true)}`);
+        out.push(`${elVar} = ${waitPy(locs, tout, true, ctx.frames === 'all')}`);
         out.push(`_pick_item(${elVar}, ${valueToPy(action.pick.index)}, ${valueToPy(action.pick.itemSelector || '')}, ${tout})`);
         if (delay > 0) out.push(`time.sleep(${delay})`);
         break;
       }
       out.push(`# Step ${stepNum}: open dropdown (freeze)${lbl}`);
-      out.push(`${elVar} = ${waitPy(locs, tout, true)}`);
+      out.push(`${elVar} = ${waitPy(locs, tout, true, ctx.frames === 'all')}`);
       out.push(`${elVar}.click()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
 
     case 'dragdrop': {
       out.push(`# Step ${stepNum}: drag & drop${lbl}`);
-      out.push(`${elVar}_src = ${waitPy(locs, tout)}`);
-      out.push(`${elVar}_tgt = ${waitPy(locatorsFor(action, true), tout)}`);
+      out.push(`${elVar}_src = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
+      out.push(`${elVar}_tgt = ${waitPy(locatorsFor(action, true), tout, false, ctx.frames === 'all')}`);
       out.push(`ActionChains(driver).drag_and_drop(${elVar}_src, ${elVar}_tgt).perform()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -711,6 +747,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       out.push(`# Step ${stepNum}: execute script${lbl}`);
       out.push(`# ⚠ Original JS — verify logic works via execute_script()`);
       mark(step, 'verify', 'custom JS run through driver.execute_script() — check it');
+      if (ctx.frames === 'all') out.push('driver.switch_to.default_content()');
       out.push(..._scriptToPy(code));
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -727,9 +764,9 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       const targets = [varName, ...slots.map(safeVarName)].filter(Boolean);
       out.push(`# Step ${stepNum}: read DOM → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum));
+        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum, ctx.frames === 'all'));
       } else {
-        out.push(`${elVar} = ${waitPy(locs, tout)}`);
+        out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
       }
       // _read_val runs the extension's own reader in the page, so "Text content"
       // (textContent) and "Visible text" (innerText) match playback exactly.
@@ -764,7 +801,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
 
     case 'screenshot_element':
       out.push(`# Step ${stepNum}: screenshot element${lbl}`);
-      out.push(`${elVar} = ${waitPy(locs, tout)}`);
+      out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
       out.push(`${elVar}.screenshot(f"screenshot_element_step${stepNum}.png")`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -774,7 +811,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       out.push(`# Step ${stepNum}: screenshot → variable "${varName}"${lbl}`);
       out.push(`_ss_file${stepNum} = f"screenshot_${varName}_step${stepNum}.png"`);
       if (action.target === 'element' && locs[0].value) {
-        out.push(`${elVar} = ${waitPy(locs, tout)}`);
+        out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
         out.push(`${elVar}.screenshot(_ss_file${stepNum})`);
       } else if (action.target === 'full') {
         out.push(fullPagePy(`_ss_file${stepNum}`, ctx.driverType, step));
@@ -813,7 +850,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       const sep   = folder.includes('\\') ? '\\' : '/';
       const paths = names.map((n) => valueToPy(`${folder}${sep}${n}`));
       // Present is enough: pages hide their file inputs, and send_keys still fills one.
-      out.push(`${elVar} = ${waitPy(locs, tout)}`);
+      out.push(`${elVar} = ${waitPy(locs, tout, false, ctx.frames === 'all')}`);
       out.push(`${elVar}.send_keys(${paths.length === 1 ? paths[0] : `"\\n".join([${paths.join(', ')}])`})`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -906,7 +943,9 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   // The steps first: whether a step looks an element up by several locators (or
   // by text) decides which helpers and imports the script needs.
-  const bodyLines   = stepLines(stepDelay, elTimeout, { all, layout, warnings, steps, driverType });
+  // A step recorded in a frame: every element is looked for in the page and its frames.
+  const frames = enabled.some((a) => inFrame(a) && a.type !== 'condition') ? 'all' : 'none';
+  const bodyLines   = stepLines(stepDelay, elTimeout, { all, layout, warnings, steps, driverType, frames });
   const needsLocate = needsCondition || bodyLines.some(l => l.includes('_find(['));
   const needsFullPage = bodyLines.some(l => l.includes('_save_full_page('));
 
@@ -957,12 +996,17 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     out.push('');
   }
   if (needsLocate) {
-    out.push(..._locateHelperPy());
+    out.push(..._locateHelperPy(frames === 'all'));
+    out.push('');
+    out.push('');
+  }
+  if (frames === 'all') {
+    out.push(..._framesHelperPy());
     out.push('');
     out.push('');
   }
   if (needsCondition) {
-    out.push(..._checkCondHelperPy());
+    out.push(..._checkCondHelperPy(frames === 'all'));
     out.push('');
     out.push('');
   }

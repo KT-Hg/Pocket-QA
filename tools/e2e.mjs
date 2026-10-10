@@ -1704,6 +1704,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
 <ul id="pickMenu" style="display:none"><li>One</li><li>Two</li><li>Three</li></ul>
 <select id="pickSel"><option value="">-</option><option value="a">A</option><option value="b">B</option></select>
 <shadow-box id="sbox"></shadow-box>
+<iframe id="frm" src="/frame" style="height:60px"></iframe>
 <div id="tall" style="height:3000px"></div>
 <script>
   const run = new URLSearchParams(location.search).get('run');
@@ -1739,6 +1740,8 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   }));
   const files = document.getElementById('files');
   files.addEventListener('change', () => mark('files ' + [...files.files].map((f) => f.name).join(',')));
+  // The frame (/frame) reports what is done in it through its parent.
+  window.frameMark = (m) => mark(m);
   // A web component: a button in its open shadow root, and one added there a moment later.
   customElements.define('shadow-box', class extends HTMLElement {
     constructor() {
@@ -1756,6 +1759,13 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
     }
   });
   report();
+</script></body></html>`;
+
+/** The page EXPORT_PAGE frames (same origin): a field and a button whose click its parent marks. */
+const FRAME_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>frame</title></head>
+<body><input id="fName"><button id="fGo">go</button>
+<script>
+  document.getElementById('fGo').addEventListener('click', () => parent.frameMark('frame go ' + document.getElementById('fName').value));
 </script></body></html>`;
 
 /** The latest state each run of EXPORT_PAGE posted, by its ?run= key. */
@@ -1936,6 +1946,18 @@ const EXPORT_CASES = [
     ],
     // A click inside the shadow root reaches the document as one on its host.
     expect: { clicks: ['sbox', 'sbox'], marks: ['shadow inShadow', 'shadow lateShadow'] },
+  },
+  {
+    // A field and a button inside the page's iframe, then a button of the page. `inFrame`
+    // steps get the frameId playback knows the frame by (as recording gives it).
+    name: 'iframe',
+    runners: ['selenium', 'pytest', 'playwright'],
+    actions: [
+      { type: 'input', selector: '#fName', selectors: { css: '#fName' }, value: 'Zoe', inFrame: true },
+      { type: 'click', selector: '#fGo', selectors: { css: '#fGo' }, inFrame: true },
+      { type: 'click', selector: '#after', selectors: { css: '#after' } },
+    ],
+    expect: { clicks: ['after'], marks: ['frame go Zoe'] },
   },
   {
     // A one-line Script that ends in a quote: the Selenium literal closed early on it.
@@ -2160,6 +2182,11 @@ async function checkCsvData(ctx, run) {
   }
 }
 
+/** The frameId the extension knows the test tab's frame at `path` by, or null. */
+const frameIdOf = (ctx, path) => ctx.ext.evaluate(`new Promise((res) => chrome.scripting.executeScript(
+  { target: { tabId: ${ctx.webTabId}, allFrames: true }, func: () => location.pathname },
+  (r) => res((r || []).find((f) => f.result === ${JSON.stringify(path)})?.frameId ?? null)))`);
+
 async function checkExportRun(ctx) {
   const extModule = (p) => pathToFileURL(join(EXT, p)).href;
   const { generateBookmarklet, toBookmarkletUrl } = await import(extModule('popup/export-bookmarklet.js'));
@@ -2189,7 +2216,12 @@ async function checkExportRun(ctx) {
       const pageVars = (runner) => (c.pageVar ? { [c.pageVar]: pageUrl(`${c.name}:${runner}`) } : {});
       const startUrl = (runner) => pageUrl(`${c.name}:${c.pageVar ? 'start' : runner}`);
       await ctx.send({ type: 'SAVE_VARIABLES', variables: { ...c.variables, ...pageVars('playback') } });
-      const id = await makeScenario(ctx, `e2e export ${c.name}`, c.actions);
+      // The playback page first: a step in its frame needs the frameId the frame has there.
+      await ctx.web.goto(startUrl('playback'));
+      await sleep(PAGE_SETTLE_MS);
+      const frameId = c.actions.some((a) => a.inFrame) ? await frameIdOf(ctx, '/frame') : null;
+      const id = await makeScenario(ctx, `e2e export ${c.name}`,
+        c.actions.map(({ inFrame, ...a }) => (inFrame ? { ...a, frameId } : a)));
       // The exports get what the modal hands them: the stored actions, and the variables they use.
       const actions = (await ctx.send({ type: 'GET_SCENARIOS' })).scenarios[id].actions;
       const used = getUsedVarNames(actions);
@@ -2198,8 +2230,6 @@ async function checkExportRun(ctx) {
       const states = {};
       const runners = c.runners || ['bookmarklet', 'selenium', 'playwright'];
 
-      await ctx.web.goto(startUrl('playback'));
-      await sleep(PAGE_SETTLE_MS);
       const played = await play(ctx, id);
       if (played.timedOut) fail(`${c.name}: playback did not finish`);
       states.playback = exportStates.get(`${c.name}:playback`)?.state;
@@ -2420,7 +2450,8 @@ async function main() {
     const s = createServer((req, reply) => {
       if (req.method === 'POST' && req.url === '/state') { saveExportState(req, reply); return; }
       reply.setHeader('content-type', 'text/html; charset=utf-8');
-      reply.end(req.url.startsWith('/export') ? EXPORT_PAGE : TEST_PAGE);
+      if (req.url.startsWith('/frame')) reply.end(FRAME_PAGE);
+      else reply.end(req.url.startsWith('/export') ? EXPORT_PAGE : TEST_PAGE);
     });
     s.listen(0, '127.0.0.1', () => res(s));
   });
