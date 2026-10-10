@@ -49,6 +49,8 @@ let modalWired = false;
  * @param {Function} cfg.generate      - (scenarioName, actions, variables, options) → { code, stats, steps, warnings }
  * @param {Function} cfg.copyText      - (code) → what Copy puts on the clipboard
  * @param {Function} cfg.file          - (code) → { text, type } that Download saves
+ * @param {string[]} [cfg.remember]    - ids of its Settings inputs kept between popups, in the
+ *                                       order they are put back
  * @param {Function} [cfg.beforeOpen]  - run first each time the modal opens for it
  * @param {Function} [cfg.wire]        - wires its own extra controls
  */
@@ -57,9 +59,73 @@ export function initExportModal(cfg) {
   document.getElementById(cfg.triggerId)?.addEventListener('click', () => {
     run.cfg = cfg;
     showFormat(cfg);
-    load(open);
+    restoreSettings(cfg, () => load(open));
   });
+  rememberSettings(cfg);
   cfg.wire?.();
+}
+
+// Where each format's Settings are kept between popups: { [format]: { [inputId]: value } }.
+// Only this modal reads it.
+const SETTINGS_KEY = 'exportCodeSettings';
+// True while restoreSettings puts values back: their change events are not new settings.
+let restoring = false;
+// SETTINGS_KEY as last read or written in this popup.
+let settingsCache = null;
+
+const isMap = (v) => v && typeof v === 'object' && !Array.isArray(v);
+
+const settingValue = (el) => (el.type === 'checkbox' ? el.checked : el.value);
+
+// Whether a stored value is one `el` can take: storage may be edited, an option dropped.
+function settingFits(el, value) {
+  if (el.type === 'checkbox') return typeof value === 'boolean';
+  if (el.tagName === 'SELECT') return [...el.options].some((o) => o.value === value);
+  return el.type === 'number' && typeof value === 'string' && /^\d+$/.test(value);
+}
+
+/**
+ * Put back what was last set in `cfg`'s remembered Settings inputs (cfg.remember,
+ * in order), then call `done`. A value an input cannot take is left out, and so is
+ * an input an earlier one disabled (Headless, once Safari is back): it keeps its
+ * default. Each one put back fires its change event, as if chosen.
+ */
+function restoreSettings(cfg, done) {
+  if (!cfg.remember?.length) { done(); return; }
+  chrome.storage.local.get(SETTINGS_KEY, (res) => {
+    settingsCache = isMap(res?.[SETTINGS_KEY]) ? res[SETTINGS_KEY] : {};
+    const saved = settingsCache[cfg.format];
+    restoring = true;
+    try {
+      for (const id of cfg.remember) {
+        const el = document.getElementById(id);
+        if (!el || el.disabled || !isMap(saved) || !settingFits(el, saved[id])) continue;
+        if (el.type === 'checkbox') el.checked = saved[id]; else el.value = saved[id];
+        el.dispatchEvent(new Event('change'));
+      }
+    } finally {
+      restoring = false;
+    }
+    done();
+  });
+}
+
+/**
+ * Keep each of `cfg`'s remembered Settings inputs when it changes, apart from
+ * the other formats'. Written straight from settingsCache, which restoreSettings
+ * read before the modal opened: a read before each write let two changes in a
+ * row write each other away, and one made just before the popup closed be lost.
+ */
+function rememberSettings(cfg) {
+  for (const id of cfg.remember || []) {
+    document.getElementById(id)?.addEventListener('change', (e) => {
+      if (restoring) return;
+      const all  = settingsCache || {};
+      const mine = isMap(all[cfg.format]) ? all[cfg.format] : {};
+      settingsCache = { ...all, [cfg.format]: { ...mine, [id]: settingValue(e.target) } };
+      chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });
+    });
+  }
 }
 
 // The parts that are the format's own: the strip, the chip, its Settings block, Download.

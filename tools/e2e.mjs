@@ -74,6 +74,8 @@
  *                 and turns off (disabled) with Safari
  *   export-output  the Selenium modal's Output pytest gives a test_….py file with a
  *                 test function
+ *   export-settings  each format's Settings come back in a new popup, apart from the
+ *                 other format's; stored values an input cannot take leave defaults
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, Edge exported
  *                 headless — with a window under --headed),
@@ -1064,6 +1066,64 @@ async function checkExportOutput(ctx) {
   }
 }
 
+async function checkExportSettings(ctx) {
+  const id = await makeScenario(ctx, 'e2e export settings', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  // Open the popup, pick the scenario, open `button`'s export, run `then`, close the popup.
+  const withModal = async (button, then) => {
+    const popup = await openPopup(ctx);
+    try {
+      await popup.evaluate(`(() => {
+        const s = document.getElementById('exportCodeSelect');
+        s.value = ${JSON.stringify(id)};
+        s.dispatchEvent(new Event('change'));
+        document.getElementById(${JSON.stringify(button)}).click();
+      })()`);
+      await sleep(POPUP_SETTLE_MS);
+      return await then(popup);
+    } finally {
+      await popup.close();
+    }
+  };
+  const set = (popup, values) => popup.evaluate(`(() => {
+    for (const [id, v] of Object.entries(${JSON.stringify(values)})) {
+      const el = document.getElementById(id);
+      if (el.type === 'checkbox') el.checked = v; else el.value = v;
+      el.dispatchEvent(new Event('change'));
+    }
+  })()`);
+  const read = (popup, ids) => popup.evaluate(`Object.fromEntries(${JSON.stringify(ids)}.map((id) => {
+    const el = document.getElementById(id);
+    return [id, el.type === 'checkbox' ? el.checked : el.value];
+  }))`);
+  const PY = ['exportSeleniumElTimeout', 'exportSeleniumDriver', 'exportSeleniumHeadless', 'exportSeleniumOutput'];
+
+  await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
+  await withModal('exportSelenium', (p) => set(p, { exportSeleniumElTimeout: '4321', exportSeleniumDriver: 'Firefox',
+    exportSeleniumHeadless: true, exportSeleniumOutput: 'pytest' }));
+  await withModal('exportBookmarklet', (p) => set(p, { exportBmElTimeout: '2222' }));
+  const py = await withModal('exportSelenium', async (p) => ({ ...await read(p, PY),
+    code: await p.evaluate(`document.querySelector('#exportCode code').textContent`) }));
+  check(py.exportSeleniumElTimeout === '4321' && py.exportSeleniumDriver === 'Firefox' && py.exportSeleniumHeadless === true
+    && py.exportSeleniumOutput === 'pytest' && /webdriver\.Firefox\(options=_options\)/.test(py.code) && /WebDriverWait\(driver, 4\.321\)/.test(py.code),
+    'the Selenium Settings come back in a new popup, and the code is made with them', { ...py, code: undefined });
+  const js = await withModal('exportBookmarklet', (p) => read(p, ['exportBmElTimeout', 'exportBmStepDelay']));
+  check(js.exportBmElTimeout === '2222' && js.exportBmStepDelay === '300', 'the JS Settings come back, untouched by the Selenium ones', js);
+
+  // Headless on, then Safari: Headless was kept on; Safari, put back first, turns it off again.
+  await withModal('exportSelenium', (p) => set(p, { exportSeleniumHeadless: true, exportSeleniumDriver: 'Safari' }));
+  const safari = await withModal('exportSelenium', (p) => p.evaluate(`(({ checked, disabled }) => ({ checked, disabled,
+    driver: document.getElementById('exportSeleniumDriver').value }))(document.getElementById('exportSeleniumHeadless'))`));
+  check(safari.driver === 'Safari' && !safari.checked && safari.disabled, 'Safari comes back with Headless off', safari);
+
+  // Broken or stale storage: the defaults, not the bad values.
+  await ctx.ext.evaluate(`chrome.storage.local.set({ exportCodeSettings: { py: { exportSeleniumDriver: 'Opera',
+    exportSeleniumElTimeout: 'abc', exportSeleniumHeadless: 'yes' }, js: 'garbage' } })`);
+  const bad = await withModal('exportSelenium', (p) => read(p, PY));
+  check(bad.exportSeleniumDriver === 'Chrome' && bad.exportSeleniumElTimeout === '10000' && bad.exportSeleniumHeadless === false,
+    'a stored value an input cannot take leaves its default', bad);
+  await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
+}
+
 /**
  * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
  * every input, select, textarea and contenteditable with an id (a checkbox by
@@ -1556,6 +1616,7 @@ const CHECKS = [
   ['export-regenerate', 'Regenerate in the export modals', checkExportRegenerate],
   ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],
   ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
+  ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],

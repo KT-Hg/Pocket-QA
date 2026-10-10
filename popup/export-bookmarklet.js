@@ -718,6 +718,7 @@ export function initExportBookmarklet() {
     badge: 'JS',
     title: 'Export JS',
     downloadLabel: '⬇ .js',
+    remember: ['exportBmStepDelay', 'exportBmElTimeout'],
     fileName: (base) => `${base}_bookmarklet.js`,
     readOptions: () => ({
       stepDelay: parseInt(document.getElementById('exportBmStepDelay')?.value) || 300,
