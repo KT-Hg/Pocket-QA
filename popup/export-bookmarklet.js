@@ -4,14 +4,14 @@ import { getSwitchLayout, hasBlock, blockEnd, conditionSkipTarget, conditionSkip
 import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
-import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
 import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
+  PICK_ITEM_JS,
 } from './export/page-js.js';
 import { locatorsOf } from '../shared/locator-order.js';
-import { JS_RESERVED, jsIdentifier, jsValue, randomFnJS } from './export/js-code.js';
+import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -96,51 +96,6 @@ function _scriptCodeWithVars(rawCode, ctx) {
   return { code, unresolved };
 }
 
-/**
- * _pickIdx / _pickItem: a Dropdown's "Choose item #" in the bookmarklet. _pickIdx
- * is pickItemIndex of shared/dropdown-pick.js (tests/dropdown-pick.test.mjs
- * compares the two). A <select> gets its option set; anything else is clicked
- * open and the item clicked once the list shows it.
- */
-const PICK_ITEM_HELPER_JS = String.raw`
-  const _pickIdx = (raw, count, ok) => {
-    const s = String(raw == null ? '' : raw).trim();
-    if (/^random$/i.test(s)) {
-      const pool = [];
-      for (let k = 0; k < count; k++) if (ok(k)) pool.push(k);
-      if (!pool.length) throw new Error('Dropdown: no item to choose at random (' + count + ' found)');
-      return pool[Math.floor(Math.random() * pool.length)];
-    }
-    if (!/^-?\d+$/.test(s) || Number(s) === 0) throw new Error('Dropdown: "' + s + '" is not an item number');
-    const n = Number(s), k = n > 0 ? n - 1 : count + n;
-    if (k < 0 || k >= count) throw new Error('Dropdown: there is no item #' + n + ' (' + count + ' found)');
-    return k;
-  };
-  const _pickItem = async (el, raw, itemSel, timeout) => {
-    if (el.tagName === 'SELECT') {
-      const o = Array.from(el.options);
-      const k = _pickIdx(raw, o.length, i => !o[i].disabled && o[i].value !== '');
-      if (o[k].disabled) throw new Error('Dropdown: item #' + (k + 1) + ' is disabled');
-      el.selectedIndex = k;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      return;
-    }
-    el.click();
-    const shown = e => e.getClientRects().length > 0 && (e.checkVisibility ? e.checkVisibility({ visibilityProperty: true }) : getComputedStyle(e).visibility !== 'hidden');
-    const off = e => e.getAttribute('aria-disabled') === 'true' || e.hasAttribute('disabled');
-    const end = Date.now() + timeout;
-    for (;;) {
-      const items = Array.from(document.querySelectorAll(itemSel || '[role="option"]')).filter(shown);
-      let k;
-      try { k = _pickIdx(raw, items.length, i => !off(items[i]) && items[i].textContent.trim() !== ''); }
-      catch (e) { if (Date.now() >= end) throw e; await sleep(100); continue; }
-      if (off(items[k])) throw new Error('Dropdown: item #' + (k + 1) + ' is disabled');
-      items[k].click();
-      return;
-    }
-  };`.split('\n').slice(1);
-
 /** A page-js.js function, declared in the bookmarklet at the indent of its body. */
 function declarePageJs(name, src) {
   return `const ${name} = ${src};`.split('\n').map((l) => `  ${l}`);
@@ -153,25 +108,6 @@ function _pickLabel(action) {
 
 function indentLines(lines, spaces) {
   return lines.map(l => (l === '' ? '' : spaces + l));
-}
-
-// Serializes a conditions object into a JS object literal, interpolating
-// ${varName} references via valueToJS(). {fallback:...} specs are passed as
-// JSON string literals — the runtime _findChild handles iteration.
-function _conditionsToJS(cond) {
-  if (!cond) return '{}';
-  const parts = [];
-  if (cond.matchMode) parts.push(`matchMode: ${JSON.stringify(cond.matchMode)}`);
-  const FALLBACK_RE = /^\{fallback:(.+)\}$/;
-  for (const f of CHILD_COND_KEYS) {
-    if (cond[f] != null && cond[f] !== '') {
-      const v = String(cond[f]);
-      // {fallback:...} is passed as a plain string literal — _findChild iterates at runtime.
-      // ${varName} references are interpolated via template literals as usual.
-      parts.push(`${f}: ${FALLBACK_RE.test(v) ? JSON.stringify(v) : valueToJS(v)}`);
-    }
-  }
-  return `{${parts.join(', ')}}`;
 }
 
 /**
@@ -215,7 +151,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       out.push(`// Step ${stepNum}: click${lbl}`);
       if (action.conditions) {
         out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
-        out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
+        out.push(`const ${v} = _findChild(${v}_p, ${jsConditions(action.conditions, valueToJS)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
         out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
@@ -228,7 +164,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       out.push(`// Step ${stepNum}: input${lbl}`);
       if (action.conditions) {
         out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
-        out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
+        out.push(`const ${v} = _findChild(${v}_p, ${jsConditions(action.conditions, valueToJS)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
         out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
@@ -241,7 +177,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       out.push(`// Step ${stepNum}: hover${lbl}`);
       if (action.conditions) {
         out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
-        out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
+        out.push(`const ${v} = _findChild(${v}_p, ${jsConditions(action.conditions, valueToJS)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
         out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
@@ -342,7 +278,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       out.push(`// Step ${stepNum}: readdom → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
         out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
-        out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
+        out.push(`const ${v} = _findChild(${v}_p, ${jsConditions(action.conditions, valueToJS)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
         out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
@@ -557,7 +493,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
 
   if (enabled.some(a => a.type === 'dropdown' && a.pick)) {
     out.push('');
-    out.push(...PICK_ITEM_HELPER_JS);
+    out.push(...PICK_ITEM_JS.split('\n').map((l) => `  ${l}`));
   }
 
   if (Object.keys(randomSpecs).length > 0) {

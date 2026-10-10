@@ -4,6 +4,8 @@
  * names the identifiers its own code declares; the rest is shared.
  */
 
+import { CHILD_COND_KEYS } from '../../shared/child-cond.js';
+
 /** Words no variable may be named in JavaScript, and globals an export relies on. */
 export const JS_RESERVED = [
   'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete',
@@ -68,4 +70,23 @@ export function randomFnJS(type, length) {
   if (type === 'numeric')
     return `() => Array.from({length:${length}},()=>String(Math.floor(Math.random()*10))).join('')`;
   return `() => Array.from({length:${length}},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join('')`;
+}
+
+/**
+ * A Child Condition as a JS object literal, its values through `value` (jsValue)
+ * so ${name}s interpolate. A {fallback:A|B|C} spec stays a plain string: the
+ * page's _findChild tries its values.
+ */
+export function jsConditions(cond, value) {
+  if (!cond) return '{}';
+  const parts = [];
+  if (cond.matchMode) parts.push(`matchMode: ${JSON.stringify(cond.matchMode)}`);
+  const FALLBACK_RE = /^\{fallback:(.+)\}$/;
+  for (const f of CHILD_COND_KEYS) {
+    if (cond[f] != null && cond[f] !== '') {
+      const v = String(cond[f]);
+      parts.push(`${f}: ${FALLBACK_RE.test(v) ? JSON.stringify(v) : value(v)}`);
+    }
+  }
+  return `{${parts.join(', ')}}`;
 }

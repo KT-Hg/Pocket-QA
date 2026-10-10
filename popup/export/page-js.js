@@ -239,3 +239,48 @@ export const READ_VAL_JS = String.raw`(el, from, attr) => {
   }
   return (el.textContent || '').trim();
 }`;
+
+/**
+ * A Dropdown's "Choose item #", as statements declaring _pickIdx and _pickItem
+ * (el, raw, itemSel, timeout); they need a `sleep` in scope. _pickIdx is
+ * pickItemIndex of shared/dropdown-pick.js (tests/dropdown-pick.test.mjs
+ * compares the two). A <select> gets its option set; anything else is clicked
+ * open and the item clicked once the list shows it.
+ */
+export const PICK_ITEM_JS = String.raw`const _pickIdx = (raw, count, ok) => {
+  const s = String(raw == null ? '' : raw).trim();
+  if (/^random$/i.test(s)) {
+    const pool = [];
+    for (let k = 0; k < count; k++) if (ok(k)) pool.push(k);
+    if (!pool.length) throw new Error('Dropdown: no item to choose at random (' + count + ' found)');
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  if (!/^-?\d+$/.test(s) || Number(s) === 0) throw new Error('Dropdown: "' + s + '" is not an item number');
+  const n = Number(s), k = n > 0 ? n - 1 : count + n;
+  if (k < 0 || k >= count) throw new Error('Dropdown: there is no item #' + n + ' (' + count + ' found)');
+  return k;
+};
+const _pickItem = async (el, raw, itemSel, timeout) => {
+  if (el.tagName === 'SELECT') {
+    const o = Array.from(el.options);
+    const k = _pickIdx(raw, o.length, i => !o[i].disabled && o[i].value !== '');
+    if (o[k].disabled) throw new Error('Dropdown: item #' + (k + 1) + ' is disabled');
+    el.selectedIndex = k;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return;
+  }
+  el.click();
+  const shown = e => e.getClientRects().length > 0 && (e.checkVisibility ? e.checkVisibility({ visibilityProperty: true }) : getComputedStyle(e).visibility !== 'hidden');
+  const off = e => e.getAttribute('aria-disabled') === 'true' || e.hasAttribute('disabled');
+  const end = Date.now() + timeout;
+  for (;;) {
+    const items = Array.from(document.querySelectorAll(itemSel || '[role="option"]')).filter(shown);
+    let k;
+    try { k = _pickIdx(raw, items.length, i => !off(items[i]) && items[i].textContent.trim() !== ''); }
+    catch (e) { if (Date.now() >= end) throw e; await sleep(100); continue; }
+    if (off(items[k])) throw new Error('Dropdown: item #' + (k + 1) + ' is disabled');
+    items[k].click();
+    return;
+  }
+};`;
