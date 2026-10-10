@@ -960,10 +960,11 @@ async function checkExportFileName(ctx) {
  * The 11 steps the export modal is checked with (tasks/plan-6): named steps, a
  * Condition, a script, a full-page screenshot and an upload the bookmarklet
  * leaves out. With the variable pass-word saved, the exports note its new name.
+ * A value is markup, which the code box must show as text.
  */
 const EXPORT_SAMPLE = [
   { type: 'navigate', url: 'https://shop.test/login' },
-  { type: 'input', selector: '#user', selectors: { css: '#user' }, value: 'alice', label: 'Username' },
+  { type: 'input', selector: '#user', selectors: { css: '#user' }, value: 'alice<img src=x onerror="window.__xss=1">', label: 'Username' },
   { type: 'input', selector: '#pass', selectors: { css: '#pass' }, value: '${pass-word}' },
   { type: 'click', selector: '#login', selectors: { css: '#login' }, label: 'Sign in' },
   { type: 'condition', conditionType: 'elementExists', selector: '.welcome', selectors: { css: '.welcome' } },
@@ -1241,6 +1242,17 @@ async function checkExportSettings(ctx) {
     driver: document.getElementById('exportSeleniumDriver').value }))(document.getElementById('exportSeleniumHeadless'))`));
   check(safari.driver === 'Safari' && !safari.checked && safari.disabled, 'Safari comes back with Headless off', safari);
 
+  // Wrap: turned on in one popup, still on in the next, for another format too.
+  const wrapOf = (p) => p.evaluate(`({ pressed: document.getElementById('exportWrapBtn').getAttribute('aria-pressed'),
+    wraps: getComputedStyle(document.getElementById('exportCode')).whiteSpace })`);
+  const turnedOn = await withModal('exportSelenium', async (p) => {
+    await p.evaluate(`document.getElementById('exportWrapBtn').click()`);
+    return wrapOf(p);
+  });
+  const kept = await withModal('exportBookmarklet', wrapOf);
+  check(turnedOn.pressed === 'true' && turnedOn.wraps === 'pre-wrap' && kept.pressed === 'true' && kept.wraps === 'pre-wrap',
+    'wrap shows it is on, and is still on in a new popup', { turnedOn, kept });
+
   // Broken or stale storage: the defaults, not the bad values.
   await ctx.ext.evaluate(`chrome.storage.local.set({ exportCodeSettings: { py: { exportSeleniumDriver: 'Opera',
     exportSeleniumElTimeout: 'abc', exportSeleniumHeadless: 'yes' }, js: 'garbage' } })`);
@@ -1412,6 +1424,22 @@ async function checkExportJump(ctx) {
     check(ten.codeTab && ten.inView && ten.tinted && ten.codeFocused, 'Enter on row 10 shows step 10 in the code, which takes the focus', ten);
     const text = await popup.evaluate(`document.querySelector('#exportCode code').textContent`);
     check(text.split('\n').length > 50 && /\n\s*# Step 10: /.test(text), 'the code box\'s text is still the code, line for line', text.length);
+    const markup = await popup.evaluate(`({ elements: document.querySelectorAll('#exportCode img').length, xss: window.__xss ?? null,
+      shown: document.querySelector('#exportCode code').textContent.includes('alice<img src=x onerror=') })`);
+    check(markup.elements === 0 && markup.xss === null && markup.shown, 'a value holding <img onerror> shows as text, not as an element', markup);
+
+    // Colours in both themes: comments, strings and keywords apart from the code's own colour, a step's comment apart too.
+    const colours = () => popup.evaluate(`(() => {
+      const c = (sel) => { const el = document.querySelector('#exportCode ' + sel); return el && getComputedStyle(el).color; };
+      return { text: c('code'), cmt: c('.export-bm-line:not([data-step]) .tok-cmt'), str: c('.tok-str'), kw: c('.tok-kw'),
+        step: c('.export-bm-line[data-step] .tok-cmt'), stepWeight: getComputedStyle(document.querySelector('#exportCode .export-bm-line[data-step] .tok-cmt')).fontWeight };
+    })()`);
+    for (const theme of ['light', 'dark']) {
+      await popup.evaluate(`document.documentElement.setAttribute('data-theme', '${theme}')`);
+      const c = await colours();
+      check(new Set([c.text, c.cmt, c.str, c.kw, c.step]).size === 5 && Number(c.stepWeight) >= 700,
+        `${theme} theme: comments, strings, keywords and step comments each have a colour`, c);
+    }
   } finally {
     await popup.close();
   }

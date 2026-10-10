@@ -16,6 +16,7 @@ import { isAlwaysSwitch } from '../shared/switch-blocks.js';
 import { normalizeVarName } from '../shared/var-name.js';
 import { activeValue, parseRandomSpec, parsePickSpec, previewRandom } from '../shared/var-spec.js';
 import { downloadBlob, safeFileName } from './lib/download.js';
+import { highlightLines } from './export/highlight.js';
 
 /**
  * The file name a scenario's code is saved as, before the suffix: its name with
@@ -103,6 +104,7 @@ function restoreSettings(cfg, done) {
   if (!cfg.remember?.length) { done(); return; }
   chrome.storage.local.get(SETTINGS_KEY, (res) => {
     settingsCache = isMap(res?.[SETTINGS_KEY]) ? res[SETTINGS_KEY] : {};
+    setWrap(settingsCache.wrap === true);
     const saved = settingsCache[cfg.format];
     restoring = true;
     try {
@@ -135,6 +137,19 @@ function rememberSettings(cfg) {
       chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });
     });
   }
+}
+
+// Wrap of the code, on or off; kept with the Settings, for every format.
+function setWrap(on) {
+  byId('Code')?.classList.toggle('export-bm-code-wrap', on);
+  byId('WrapBtn')?.setAttribute('aria-pressed', String(on));
+}
+
+function toggleWrap() {
+  const on = byId('WrapBtn')?.getAttribute('aria-pressed') !== 'true';
+  setWrap(on);
+  settingsCache = { ...(settingsCache || {}), wrap: on };
+  chrome.storage.local.set({ [SETTINGS_KEY]: settingsCache });
 }
 
 // The parts that are the format's own: the strip, the chip, its Settings block.
@@ -189,7 +204,7 @@ function render(result) {
 
   // Code preview
   const codeEl = byId('Code')?.querySelector('code');
-  if (codeEl) renderCode(codeEl, result.code);
+  if (codeEl) renderCode(codeEl, result.code, run.cfg.format === 'py' ? 'py' : 'js');
 
   // Warning bar (Code tab): one line counting the steps not exported as is and
   // what the generator could not express faithfully (renamed identifiers,
@@ -283,19 +298,24 @@ function download() {
 }
 
 /**
- * The code into `codeEl`, a span per line, the line breaks between them as
- * text: its text is the code as is (Select all, the checks that read it). A
- * line that opens a step carries its number (data-step).
+ * The code into `codeEl`, coloured as `lang` ('py' or 'js'): a span per line,
+ * the line breaks between them as text, so its text is the code as is (Select
+ * all, the checks that read it). A line that opens a step carries its number
+ * (data-step). Built from text nodes, never parsed as HTML: the code holds the
+ * scenario's values, and a value may be markup.
  */
-function renderCode(codeEl, code) {
+function renderCode(codeEl, code, lang) {
   const lines = document.createDocumentFragment();
-  code.split('\n').forEach((text, i) => {
+  const texts = code.split('\n');
+  highlightLines(code, lang).forEach((pieces, i) => {
     if (i) lines.append('\n');
     const line = document.createElement('span');
     line.className = 'export-bm-line';
-    const step = STEP_LINE.exec(text);
+    const step = STEP_LINE.exec(texts[i]);
     if (step) line.dataset.step = step[1];
-    line.textContent = text;
+    for (const [text, kind] of pieces) {
+      line.append(kind ? Object.assign(document.createElement('span'), { className: `tok-${kind}`, textContent: text }) : text);
+    }
     lines.append(line);
   });
   codeEl.replaceChildren(lines);
@@ -378,10 +398,7 @@ function wireModal() {
   });
   followSettings(modal);
 
-  byId('WrapBtn')?.addEventListener('click', () => {
-    const code = byId('Code');
-    if (code) code.style.whiteSpace = code.style.whiteSpace === 'pre-wrap' ? 'pre' : 'pre-wrap';
-  });
+  byId('WrapBtn')?.addEventListener('click', toggleWrap);
 
   byId('SelectAllBtn')?.addEventListener('click', () => {
     const code = byId('Code')?.querySelector('code');

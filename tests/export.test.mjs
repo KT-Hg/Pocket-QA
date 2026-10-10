@@ -916,3 +916,32 @@ test('the export modal\'s Actions tab: a badge for every action type the exports
   assert.equal(actionDesc({ type: 'condition', conditionType: 'elementExists', selectors: { css: '.welcome' } }), 'elementExists · .welcome');
   assert.equal(actionDesc({ type: 'condition', conditionType: 'urlContains', expectedValue: '/home' }), 'urlContains · /home');
 });
+
+test('the export code colours: joined, the pieces are the code of every golden export, line for line', async () => {
+  const { highlightLines } = await import('../popup/export/highlight.js');
+  const { readFileSync } = await import('node:fs');
+  let checked = 0;
+  for (const [file, lang] of [['export-bookmarklet', 'js'], ['export-selenium', 'py'], ['export-playwright', 'js']]) {
+    const golden = JSON.parse(readFileSync(new URL(`./golden/${file}.json`, import.meta.url), 'utf8'));
+    for (const [key, { code }] of Object.entries(golden)) {
+      if (typeof code !== 'string') continue;
+      const lines = highlightLines(code, lang);
+      assert.equal(lines.map((pieces) => pieces.map(([text]) => text).join('')).join('\n'), code, `${file}: ${key}`);
+      checked++;
+    }
+  }
+  assert.ok(checked > 50, `only ${checked} golden exports`);
+});
+
+test('the export code colours: strings, comments and keywords, each where it is', async () => {
+  const { highlightLines } = await import('../popup/export/highlight.js');
+  const kinds = (code, lang) => highlightLines(code, lang).map((pieces) => pieces.filter(([, k]) => k).map(([t, k]) => `${k}:${t}`));
+  assert.deepEqual(kinds('x = "a # b"  # note\nif x is None: pass', 'py'),
+    [['str:"a # b"', 'cmt:# note'], ['kw:if', 'kw:is', 'kw:None', 'kw:pass']]);
+  assert.deepEqual(kinds('s = f"{a}\'" + r\'\d\'\n"""one\n# two"""', 'py'),
+    [['str:f"{a}\'"', 'str:r\'\d\''], ['str:"""one'], ['str:# two"""']]);
+  assert.deepEqual(kinds('const u = "http://x"; // go\nlet t = `a ${b ? "}" : `c`} d`;', 'js'),
+    [['kw:const', 'str:"http://x"', 'cmt:// go'], ['kw:let', 'str:`a ${', 'str:"}"', 'str:`c`} d`']]);
+  assert.deepEqual(kinds('if (/["\']/.test(s)) return a / b / c; x.default', 'js'),
+    [['kw:if', 'str:/["\']/', 'kw:return']]);
+});

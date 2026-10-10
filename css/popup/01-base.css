@@ -52,6 +52,10 @@
   --code-toolbar-btn-bg: #f8fafc;
   --code-toolbar-btn-border: #cbd5e1;
   --code-toolbar-btn-text: #475569;
+  --code-comment: #64748b;
+  --code-string: #047857;
+  --code-keyword: #7c3aed;
+  --code-step: #1d4ed8;
   /* Switch case colours (preview + form). Dark text-safe on a light surface. */
   --sw-c0: #c026d3;
   --sw-c1: #0284c7;
@@ -100,6 +104,10 @@
   --code-toolbar-btn-bg: rgba(255, 255, 255, 0.05);
   --code-toolbar-btn-border: rgba(255, 255, 255, 0.1);
   --code-toolbar-btn-text: #9ca3af;
+  --code-comment: #7f8899;
+  --code-string: #98c379;
+  --code-keyword: #c678dd;
+  --code-step: #61afef;
   --sw-c0: #e879f9;
   --sw-c1: #38bdf8;
   --sw-c2: #fbbf24;

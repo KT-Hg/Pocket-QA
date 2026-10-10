@@ -332,6 +332,13 @@
   transform: none !important;
 }
 
+/* A toolbar switch that is on (wrap). */
+.export-bm-code-toolbar-btn[aria-pressed="true"] {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
 /* ── Code block ── */
 .export-bm-code {
   margin: 0;
@@ -363,6 +370,22 @@
 [data-theme="dark"] .export-bm-line-flash { background: rgba(96, 165, 250, 0.22); }
 
 .export-bm-code:focus-visible { outline-offset: -2px; }
+
+/* Wrap on: long lines fold, a long selector or URL too. */
+.export-bm-code.export-bm-code-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The code's colours (popup/export/highlight.js); the comment that opens a step stands out. */
+.export-bm-code .tok-cmt { color: var(--code-comment); font-style: italic; }
+.export-bm-code .tok-str { color: var(--code-string); }
+.export-bm-code .tok-kw  { color: var(--code-keyword); }
+.export-bm-code .export-bm-line[data-step] .tok-cmt {
+  color: var(--code-step);
+  font-style: normal;
+  font-weight: 700;
+}
 
 .export-bm-code::-webkit-scrollbar { width: 6px; height: 6px; }
 .export-bm-code::-webkit-scrollbar-track { background: transparent; }
