@@ -1690,6 +1690,7 @@
   ],
   "warnings": [
    "\"tên\" is not a valid Python identifier — exported as `t_n`",
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "${page} is used by a step but not defined in the Variables tab",
    "${attr} is used by a step but not defined in the Variables tab",
    "${fileName} is used by a step but not defined in the Variables tab"
@@ -1813,6 +1814,7 @@
    }
   ],
   "warnings": [
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "${page} is used by a step but not defined in the Variables tab",
    "${user} is used by a step but not defined in the Variables tab",
    "${tên} is used by a step but not defined in the Variables tab",
@@ -2166,6 +2168,7 @@
   ],
   "warnings": [
    "\"tên\" is not a valid Python identifier — exported as `t_n`",
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "Condition step 10: type \"unknownKind\" is unknown — the exported code stops there, as a run does",
    "${expected} is used by a step but not defined in the Variables tab"
   ]
@@ -2282,6 +2285,7 @@
    }
   ],
   "warnings": [
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "Condition step 10: type \"unknownKind\" is unknown — the exported code stops there, as a run does",
    "${expected} is used by a step but not defined in the Variables tab"
   ]
@@ -2549,6 +2553,7 @@
   ],
   "warnings": [
    "\"tên\" is not a valid Python identifier — exported as `t_n`",
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "Switch block at step 1 skipped together with its 5 action(s)",
    "Switch block at step 11 skipped together with its 0 action(s)",
    "${jump} is used by a step but not defined in the Variables tab",
@@ -2637,6 +2642,7 @@
    }
   ],
   "warnings": [
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "Switch block at step 1 skipped together with its 5 action(s)",
    "Switch block at step 11 skipped together with its 0 action(s)",
    "${jump} is used by a step but not defined in the Variables tab",
@@ -2736,6 +2742,7 @@
   ],
   "warnings": [
    "\"tên\" is not a valid Python identifier — exported as `t_n`",
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "${họ_tên} is used by a step but not defined in the Variables tab"
   ]
  },
@@ -2767,6 +2774,7 @@
    }
   ],
   "warnings": [
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "${tên} is used by a step but not defined in the Variables tab",
    "${họ_tên} is used by a step but not defined in the Variables tab"
   ]
@@ -2890,6 +2898,7 @@
   ],
   "warnings": [
    "\"tên\" is not a valid Python identifier — exported as `t_n`",
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "${page} is used by a step but not defined in the Variables tab",
    "${attr} is used by a step but not defined in the Variables tab",
    "${fileName} is used by a step but not defined in the Variables tab"
@@ -3014,6 +3023,7 @@
   ],
   "warnings": [
    "\"tên\" is not a valid Python identifier — exported as `t_n`",
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
    "${page} is used by a step but not defined in the Variables tab",
    "${attr} is used by a step but not defined in the Variables tab",
    "${fileName} is used by a step but not defined in the Variables tab"
