@@ -997,7 +997,7 @@ test('the export code colours: joined, the pieces are the code of every golden e
   const { highlightLines } = await import('../popup/export/highlight.js');
   const { readFileSync } = await import('node:fs');
   let checked = 0;
-  for (const [file, lang] of [['export-bookmarklet', 'js'], ['export-selenium', 'py'], ['export-playwright', 'js']]) {
+  for (const [file, lang] of [['export-bookmarklet', 'js'], ['export-selenium', 'py'], ['export-playwright', 'js'], ['export-robot', 'robot']]) {
     const golden = JSON.parse(readFileSync(new URL(`./golden/${file}.json`, import.meta.url), 'utf8'));
     for (const [key, { code }] of Object.entries(golden)) {
       if (typeof code !== 'string') continue;
@@ -1020,6 +1020,9 @@ test('the export code colours: strings, comments and keywords, each where it is'
     [['kw:const', 'str:"http://x"', 'cmt:// go'], ['kw:let', 'str:`a ${', 'str:"}"', 'str:`c`} d`']]);
   assert.deepEqual(kinds('if (/["\']/.test(s)) return a / b / c; x.default', 'js'),
     [['kw:if', 'str:/["\']/', 'kw:return']]);
+  // Robot: a header, a comment that starts a cell (not an escaped \# or one inside a cell), a control word in a cell.
+  assert.deepEqual(kinds('*** Test Cases ***\n    # Step 1\n    IF    $ok    Log    a #b    \\#c\n    END\n    Log    IFrame  # note', 'robot'),
+    [['kw:*** Test Cases ***'], ['cmt:# Step 1'], ['kw:IF'], ['kw:END'], ['cmt:# note']]);
 });
 
 test('the exports warn alike about the variables: one identifier for two names, a name that is not one, a Fallback', async () => {

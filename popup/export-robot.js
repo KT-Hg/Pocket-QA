@@ -11,6 +11,7 @@
  */
 
 import { commentText } from './utils.js';
+import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
@@ -645,4 +646,44 @@ export function generateRobot(scenarioName, actions, variables, opts = {}) {
     steps,
     warnings: [...warnings],
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI MODULE — the modal is popup/export-modal.js; what is particular to this export
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Wire the Robot Framework export. */
+export function initExportRobot() {
+  const number = (id, fallback) => parseInt(document.getElementById(id)?.value) || fallback;
+  initExportModal({
+    triggerId: 'exportRobot',
+    format: 'rf',
+    badge: 'RF',
+    title: 'Export Robot Framework',
+    // The browser before Headless, which Safari turns off. The start URL follows the tab instead.
+    remember: ['exportRfBrowser', 'exportRfHeadless', 'exportRfStepDelay', 'exportRfElTimeout'],
+    fileName: (base) => `${base}.robot`,
+    readOptions: () => ({
+      stepDelay: number('exportRfStepDelay', 500),
+      elTimeout: number('exportRfElTimeout', 10000),
+      driverType: document.getElementById('exportRfBrowser')?.value || 'Chrome',
+      headless: !!document.getElementById('exportRfHeadless')?.checked,
+      startUrl: document.getElementById('exportRfStartUrl')?.value.trim() || '',
+    }),
+    generate: generateRobot,
+    copyText: (code) => code,
+    file: (code) => ({ text: code, type: 'text/plain' }),
+    startUrl: { field: 'exportRfStartUrl', button: 'exportRfGetUrl', badge: 'exportRfUrlFromTab' },
+    wire: () => document.getElementById('exportRfBrowser')?.addEventListener('change', syncHeadless),
+  });
+}
+
+// Safari has no headless mode: with it chosen, Headless is off and cannot be turned on.
+function syncHeadless() {
+  const safari = document.getElementById('exportRfBrowser')?.value === 'Safari';
+  const box = document.getElementById('exportRfHeadless');
+  if (!box) return;
+  if (safari) box.checked = false;
+  box.disabled = safari;
+  document.getElementById('exportRfHeadlessRow').title = safari ? 'Safari has no headless mode' : '';
 }

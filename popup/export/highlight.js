@@ -1,6 +1,7 @@
 /**
  * highlight.js — the colours of the export modal's code: the comments, strings
- * and keywords of Python and JavaScript, nothing more, with no library (no
+ * and keywords of Python and JavaScript — of Robot Framework its comments, section
+ * headers and control words (IF, FOR, END…) — nothing more, with no library (no
  * dependency, no build step). The code is read a character at a time, in or out
  * of a string or comment, so a # or // inside a string stays string and a quote
  * inside a comment stays comment.
@@ -17,6 +18,7 @@ const KEYWORDS = {
     'else', 'export', 'false', 'finally', 'for', 'from', 'function', 'if', 'import', 'in', 'instanceof', 'let', 'new',
     'null', 'of', 'return', 'switch', 'this', 'throw', 'true', 'try', 'typeof', 'undefined', 'var', 'void', 'while',
     'yield']),
+  robot: new Set(['IF', 'ELSE', 'END', 'FOR', 'IN', 'WHILE', 'RETURN', 'BREAK', 'CONTINUE', 'TRY', 'EXCEPT', 'FINALLY', 'VAR']),
 };
 
 // What may come before a JS regex literal (else a / divides): an operator or an
@@ -28,11 +30,12 @@ const PY_PREFIX = /^[rRbBuUfF]{1,2}$/;
 
 /**
  * The code in coloured pieces, a list per line: [text, kind], kind 'cmt', 'str',
- * 'kw' or null. `lang` is 'py' for Python, anything else JavaScript.
+ * 'kw' or null. `lang` is 'py' for Python, 'robot' for Robot Framework, anything
+ * else JavaScript.
  */
 export function highlightLines(code, lang) {
   const lines = [[]];
-  for (const [text, kind] of tokens(code, lang === 'py')) {
+  for (const [text, kind] of tokens(code, { py: pyToken, robot: robotToken }[lang] || jsToken)) {
     text.split('\n').forEach((part, i) => {
       if (i) lines.push([]);
       if (part) lines[lines.length - 1].push([part, kind]);
@@ -41,12 +44,11 @@ export function highlightLines(code, lang) {
   return lines;
 }
 
-function tokens(code, py) {
+function tokens(code, next) {
   const out = [];
   // JS: for each template literal whose ${…} is open, the { depth inside it; and
   // the last thing in the code proper, after which a / opens a regex or divides.
   const state = { braces: [], prev: '' };
-  const next = py ? pyToken : jsToken;
   for (let i = 0; i < code.length;) {
     const [end, kind] = next(code, i, state);
     const text = code.slice(i, end);
@@ -73,6 +75,21 @@ function pyToken(code, i) {
   const [end, kind, word] = wordAt(code, i, KEYWORDS.py);
   // f"…", rb'…': the prefix is part of the string.
   if (PY_PREFIX.test(word) && (code[end] === '"' || code[end] === "'")) return [pyStringEnd(code, end), 'str'];
+  return [end, kind];
+}
+
+/**
+ * The Robot Framework piece at `i`: [where it ends, its kind]. Robot has no quotes;
+ * a cell starts a line or follows two spaces, and only there is a # a comment
+ * (an escaped \# is text) or IF / END… a control word.
+ */
+function robotToken(code, i) {
+  const lineStart = i === 0 || code[i - 1] === '\n';
+  if (lineStart && code.startsWith('***', i)) return [lineEnd(code, i), 'kw'];
+  if (!lineStart && !(i >= 2 && code.startsWith('  ', i - 2))) return [i + 1, null];
+  if (code[i] === '#') return [lineEnd(code, i), 'cmt'];
+  if (!/[A-Z]/.test(code[i])) return [i + 1, null];
+  const [end, kind] = wordAt(code, i, KEYWORDS.robot);
   return [end, kind];
 }
 

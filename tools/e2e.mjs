@@ -78,7 +78,7 @@
  *                 test function
  *   export-start-url  the Selenium start URL filled from the active tab is in the code
  *                 the modal first shows, not the TODO placeholder
- *   export-url-field  the Starting URL field (Selenium, Playwright) spans its Settings row,
+ *   export-url-field  the Starting URL field (Selenium, Playwright, Robot) spans its Settings row,
  *                 left-aligned, not an 80-pixel box showing "https://sl"
  *   export-settings  each format's Settings come back in a new popup, apart from the
  *                 other format's; stored values an input cannot take leave defaults
@@ -92,9 +92,9 @@
  *   export-jump   a row of the export Actions tab, clicked or entered, opens the Code
  *                 tab with its "Step n" line in view and its lines tinted; ↧ Steps
  *                 shows Step 1
- *   export-formats  the Export Code card offers the bookmarklet, Selenium and Playwright,
- *                 each opening its own export with a "⬇ Download" button; the last
- *                 button keeps the others' size, in the middle of its row
+ *   export-formats  the Export Code card offers the bookmarklet, Selenium, Playwright and
+ *                 Robot Framework, each opening its own export with a "⬇ Download"
+ *                 button (Robot's a <name>.robot file); two by two, all one size
  *   export-card   the Export Code card's format buttons are off until a scenario is
  *                 chosen; its list has the scenarios in no folder first, then a
  *                 group per folder; it opens on the scenario Manage Scenarios has
@@ -1172,7 +1172,8 @@ async function checkExportUrlField(ctx) {
   const id = await makeScenario(ctx, 'e2e export url field', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
   const popup = await openPopup(ctx);
   try {
-    for (const [button, field] of [['exportSelenium', 'exportSeleniumStartUrl'], ['exportPlaywright', 'exportPwStartUrl']]) {
+    const NAMES = { exportSelenium: 'Selenium', exportPlaywright: 'Playwright', exportRobot: 'Robot' };
+    for (const [button, field] of [['exportSelenium', 'exportSeleniumStartUrl'], ['exportPlaywright', 'exportPwStartUrl'], ['exportRobot', 'exportRfStartUrl']]) {
       await popup.evaluate(`(() => {
         const s = document.getElementById('exportCodeSelect');
         s.value = ${JSON.stringify(id)};
@@ -1190,7 +1191,7 @@ async function checkExportUrlField(ctx) {
       })()`);
       // The row's width less its padding and the 🔄 button: a URL is read from its start.
       check(box.field >= box.row - 80 && box.align !== 'right',
-        `${button === 'exportSelenium' ? 'Selenium' : 'Playwright'}: the Starting URL field spans its row, the URL read from its start`, box);
+        `${NAMES[button]}: the Starting URL field spans its row, the URL read from its start`, box);
       await popup.evaluate(`document.getElementById('exportClose').click()`);
       await sleep(SETTLE_MS);
     }
@@ -1278,6 +1279,13 @@ async function checkExportSettings(ctx) {
     'the Selenium Settings come back in a new popup, and the code is made with them', { ...py, code: undefined });
   const js = await withModal('exportBookmarklet', (p) => read(p, ['exportBmElTimeout', 'exportBmStepDelay']));
   check(js.exportBmElTimeout === '2222' && js.exportBmStepDelay === '300', 'the JS Settings come back, untouched by the Selenium ones', js);
+  const RF = ['exportRfElTimeout', 'exportRfBrowser', 'exportRfHeadless', 'exportRfStepDelay'];
+  await withModal('exportRobot', (p) => set(p, { exportRfElTimeout: '4321', exportRfBrowser: 'Firefox', exportRfHeadless: true, exportRfStepDelay: '0' }));
+  const rf = await withModal('exportRobot', async (p) => ({ ...await read(p, RF),
+    code: await p.evaluate(`document.querySelector('#exportCode code').textContent`) }));
+  check(rf.exportRfElTimeout === '4321' && rf.exportRfBrowser === 'Firefox' && rf.exportRfHeadless === true && rf.exportRfStepDelay === '0'
+    && /^\$\{PQA_TIMEOUT\} +\$\{4\.321\}$/m.test(rf.code) && /^\$\{PQA_BROWSER\} +Firefox$/m.test(rf.code) && /^\$\{PQA_HEADLESS\} +1$/m.test(rf.code),
+    'the Robot Settings come back in a new popup, and the code is made with them', { ...rf, code: undefined });
 
   // Headless on, then Safari: Headless was kept on; Safari, put back first, turns it off again.
   await withModal('exportSelenium', (p) => set(p, { exportSeleniumHeadless: true, exportSeleniumDriver: 'Safari' }));
@@ -1498,6 +1506,7 @@ async function checkExportFormats(ctx) {
     // Each one opens the modal as its own format, with the same Download button.
     const badges = [];
     const downloads = [];
+    const labels = [];
     for (const button of buttons) {
       await popup.evaluate(`(() => {
         const s = document.getElementById('exportCodeSelect');
@@ -1509,21 +1518,21 @@ async function checkExportFormats(ctx) {
       badges.push(await popup.evaluate(`document.getElementById('exportModal').classList.contains('show')
         ? document.getElementById('exportBadge').textContent : 'not open'`));
       downloads.push(await popup.evaluate(`document.getElementById('exportDownload').textContent`));
+      labels.push(await popup.evaluate(`document.getElementById('exportCodeLabel').textContent`));
       await popup.evaluate(`document.getElementById('exportClose').click()`);
       await sleep(SETTLE_MS);
     }
-    check(buttons.join() === 'exportBookmarklet,exportSelenium,exportPlaywright' && badges.join() === 'JS,PY,PW',
-      'The Export Code card offers the bookmarklet, Selenium and Playwright, each opening its own export', { buttons, badges });
+    check(buttons.join() === 'exportBookmarklet,exportSelenium,exportPlaywright,exportRobot' && badges.join() === 'JS,PY,PW,RF',
+      'The Export Code card offers the bookmarklet, Selenium, Playwright and Robot Framework, each opening its own export', { buttons, badges });
     check(downloads.every((d) => d === '⬇ Download'), 'each export\'s Download button reads "⬇ Download"', downloads);
-    // The last button, alone on its row, keeps the others' size and sits in the middle.
+    check(labels[3] === 'e2e_export_formats.robot', 'Robot Framework opens a <name>.robot file', labels);
+    // Two by two, every button the same size.
     const box = await popup.evaluate(`(() => {
-      const r = (el) => el.getBoundingClientRect();
-      const grid = r(document.querySelector('.export-code-grid'));
-      const [first, , last] = [...document.querySelectorAll('.export-code-grid > button')].map(r);
-      return { width: [first?.width, last?.width], offCentre: last ? last.left + last.width / 2 - (grid.left + grid.width / 2) : null };
+      const rs = [...document.querySelectorAll('.export-code-grid > button')].map((el) => el.getBoundingClientRect());
+      return { widths: rs.map((r) => Math.round(r.width)), rows: [...new Set(rs.map((r) => Math.round(r.top)))].length };
     })()`);
-    check(Math.abs(box.width[0] - box.width[1]) <= 1 && Math.abs(box.offCentre) <= 1,
-      'the Playwright button is as wide as the others, in the middle of its row', box);
+    check(box.rows === 2 && Math.max(...box.widths) - Math.min(...box.widths) <= 1,
+      'the four buttons sit two by two, all one size', box);
   } finally {
     await popup.close();
   }
@@ -1600,8 +1609,8 @@ async function checkExportCard(ctx) {
     await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabData"]').click()`);
     await sleep(SETTLE_MS);
     const none = await state(popup);
-    check(none.value === '' && none.buttons.length === 3 && none.buttons.every((b) => b.off && b.title === 'Select a scenario first'),
-      'no scenario chosen: the three format buttons are off and say why', none);
+    check(none.value === '' && none.buttons.length === 4 && none.buttons.every((b) => b.off && b.title === 'Select a scenario first'),
+      'no scenario chosen: the four format buttons are off and say why', none);
     await popup.evaluate(`(() => { const s = document.getElementById('exportCodeSelect'); s.value = ${JSON.stringify(loose)};
       s.dispatchEvent(new Event('change')); })()`);
     const chosen = await state(popup);
