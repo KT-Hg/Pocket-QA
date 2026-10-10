@@ -687,20 +687,28 @@ function checkModule(code) {
  * Run a generated spec against a fake Playwright: `test` keeps the test function,
  * `page` records every call. Returns the calls, as "method arg…" strings.
  */
-async function runSpec(code, { kind = 'text' } = {}) {
+async function runSpec(code, { kind = 'text', checks = {}, text = 'read' } = {}) {
   const calls = [];
   const fmt = (v) => (typeof v === 'function' ? 'fn' : JSON.stringify(v));
+  const READS = ['text', 'visible', 'value', 'attr'];
   const locator = (sel) => {
     const el = {
+      sel,
       first: () => el,
       count: async () => 1,
+      elementHandle: async () => el,
       click: async () => calls.push(`click ${sel}`),
       hover: async () => calls.push(`hover ${sel}`),
       fill: async (v) => calls.push(`fill ${sel} ${fmt(v)}`),
       screenshot: async (o) => calls.push(`shot ${sel} ${fmt(o)}`),
-      // _input asks the field's kind first; the rest is a page function on the element.
+      dragTo: async (t) => calls.push(`drag ${sel} ${t.sel}`),
+      setInputFiles: async (f) => calls.push(`upload ${sel} ${fmt(f)}`),
+      // A Child Condition's search: the child it finds.
+      evaluateHandle: async (fn, cond) => ({ asElement: () => locator(`child of ${sel} ${fmt(cond)}`) }),
+      // _input asks the field's kind first; Read DOM reads; the rest is a page function on the element.
       evaluate: async (fn, arg) => {
         if (arg === undefined) return kind;
+        if (Array.isArray(arg) && READS.includes(arg[0])) { calls.push(`read ${sel} ${fmt(arg)}`); return text; }
         calls.push(`evaluate ${sel} ${fmt(arg)}`);
         return undefined;
       },
@@ -711,7 +719,12 @@ async function runSpec(code, { kind = 'text' } = {}) {
     locator,
     goto: async (u) => calls.push(`goto ${u}`),
     waitForTimeout: async (ms) => calls.push(`wait ${ms}`),
-    evaluate: async (src) => calls.push(`script ${fmt(src)}`),
+    // A string is a script step; a function with [type, element, expected] a Condition.
+    evaluate: async (src, arg) => {
+      if (typeof src !== 'function') return calls.push(`script ${fmt(src)}`);
+      calls.push(`check ${arg[0]} ${arg[1] ? arg[1].sel : null} ${fmt(arg[2])}`);
+      return checks[arg[0]] ?? true;
+    },
     screenshot: async (o) => calls.push(`shot page ${fmt(o)}`),
   };
   let body = null;
@@ -762,16 +775,58 @@ test('Playwright: a spec npx playwright test runs, each step through the page', 
   assert.deepEqual(await runSpec(date, { kind: 'date' }), ['goto https://your-url-here.com', 'evaluate #d "2026-10-10"']);
 });
 
-test('Playwright: what it does not export yet is said, and left out', async () => {
+test('Playwright: Conditions decide with the in-page check, and guard their steps', async () => {
   const { generatePlaywright } = await import('../popup/export-playwright.js');
   const steps = [
-    { type: 'condition', conditionType: 'elementExists', selector: '#x', selectors: { css: '#x' }, skipCount: 1 },
+    { type: 'condition', conditionType: 'textContains', selector: '#greet', selectors: { css: '#greet' }, expectedValue: '${who}', skipCount: 1 },
     { type: 'click', selector: '#a', selectors: { css: '#a' } },
-    { type: 'readdom', selector: '#t', selectors: { css: '#t' }, varName: 'v' },
+    { type: 'condition', conditionType: 'urlContains', expectedValue: 'cart', skipCount: 1 },
     { type: 'click', selector: '#b', selectors: { css: '#b' } },
+    { type: 'condition', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' }, skipCount: 1 },
+    { type: 'click', selector: '#d', selectors: { css: '#d' } },
   ];
-  const { code, steps: status } = generatePlaywright('later', steps, {}, {});
-  assert.deepEqual(status.map((s) => s.status), ['skip', 'skip', 'skip', 'ok']);
-  assert.doesNotMatch(code, /#a/, 'a step under a Condition not exported does not run unguarded');
+  const { code, steps: status, warnings } = generatePlaywright('conds', steps, { who: 'Bob' }, { stepDelay: 0 });
+  assert.match(code, /^ {2}if \(await page\.evaluate\(_checkCond, \["textContains", await _first\(page, \["#greet"\]\), `\$\{who\}`\]\)\) \{$/m);
+  assert.match(code, /^ {2}if \(await page\.evaluate\(_checkCond, \["urlContains", null, "cart"\]\)\) \{$/m);
+  // An unknown type stops there, as a run does; its name stays in the comment.
+  assert.match(code, /^ {2}throw new Error\("Condition step 5: unknown condition type, named in the comment above"\);\n {2}if \(true\) \{$/m);
+  assert.ok(warnings.some((w) => /Condition step 5: type "isChecked" is unknown/.test(w)));
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'verify', 'ok']);
   assert.equal(checkModule(code), null);
+  const calls = await runSpec(code.replace(/^ {2}throw new Error\("Condition step 5.*$/m, ''), { checks: { textContains: false, urlContains: true } });
+  assert.deepEqual(calls.filter((c) => !c.startsWith('goto')), [
+    'check textContains #greet "Bob"', 'check urlContains null "cart"', 'click #b', 'click #d',
+  ], 'the guarded step runs only when its check holds');
+});
+
+test('Playwright: Child Condition, Read DOM, Choose item #, drag and Upload File, as the other exports do them', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const { FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS } = await import('../popup/export/page-js.js');
+  const steps = [
+    { type: 'click', selector: '#people', selectors: { css: '#people' }, conditions: { matchMode: 'all', textContains: '${who}', classContains: 'row' } },
+    { type: 'readdom', selector: '#t', selectors: { css: '#t' }, varName: 'full', readFrom: 'visible', pattern: 'Total: ${amount}' },
+    { type: 'dropdown', selector: '#dd', selectors: { css: '#dd' }, pick: { by: 'index', index: '-1', itemSelector: '#menu li' } },
+    { type: 'dragdrop', selector: '#s', selectors: { css: '#s' }, targetSelector: '#z', targetSelectors: { css: '#z' } },
+    { type: 'uploadFile', selector: '#f', selectors: { css: '#f' }, folderPath: 'C:\\in\\', fileNames: ['a.txt', '${name}'] },
+    { type: 'uploadFile', selector: '#zone', selectors: { css: '#zone' }, folderPath: 'C:\\in', fileNames: ['a.txt'], uploadMode: 'dropzone' },
+    { type: 'input', selector: '#o', selectors: { css: '#o' }, value: '${full} ${amount}' },
+  ];
+  const { code, steps: status } = generatePlaywright('more', steps, { who: 'Bob', name: 'b.txt' }, { stepDelay: 0 });
+  // The extension's own in-page code, written out once each.
+  assert.ok(code.includes(FIND_CHILD_JS) && code.includes(READ_VAL_JS), 'Child Condition and Read DOM as the page-js sources');
+  assert.ok(code.includes(PICK_ITEM_JS.split('\n').map((l) => `  ${l}`).join('\n')), 'Choose item # inside _pick');
+  assert.match(code, /const el1 = \(await el1_p\.evaluateHandle\(_findChild, \{matchMode: "all", textContains: `\$\{who\}`, classContains: "row"\}\)\)\.asElement\(\);/);
+  assert.match(code, /if \(!el1\) throw new Error\('Child condition not matched \(step 1\)'\);/);
+  assert.match(code, /const el2_m = new RegExp\(.*, "i"\)\.exec\(el2_t\);/);
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'ok', 'skip', 'ok']);
+  assert.equal(checkModule(code), null);
+  const calls = await runSpec(code, { text: 'Total: 42' });
+  assert.deepEqual(calls.filter((c) => !c.startsWith('goto')), [
+    'click child of #people {"matchMode":"all","textContains":"Bob","classContains":"row"}',
+    'read #t ["visible",""]',
+    'evaluate #dd ["-1","#menu li",10000]',
+    'drag #s #z',
+    'upload #f ["C:\\\\in\\\\a.txt","C:\\\\in\\\\b.txt"]',
+    'fill #o "Total: 42 42"',
+  ], 'the extract fills its variables, and the step after uses them');
 });

@@ -84,8 +84,8 @@
  *                 headless — with a window under --headed),
  *                 leaves the export page the same way; the form case runs as the
  *                 exported pytest test too, and a pytest test with a failing step
- *                 names it; the cases the Playwright export covers run as the exported
- *                 .spec.js too (PQA_PLAYWRIGHT_DIR: a folder with @playwright/test).
+ *                 names it; every case runs as the exported Playwright .spec.js too
+ *                 (PQA_PLAYWRIGHT_DIR: a folder with @playwright/test).
  *                 No python, selenium, pytest or Playwright: those runs are skipped,
  *                 not failed
  *   record-untrusted  a click and an input event the page's own script dispatches
@@ -1252,6 +1252,9 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   <button id="okCancel">OK Cancel</button> <button id="okBtn"><span id="okSpan">OK</span></button>
 </div>
 <input type="file" id="files" multiple style="display:none">
+<div id="pickBox">Choose…</div>
+<ul id="pickMenu" style="display:none"><li>One</li><li>Two</li><li>Three</li></ul>
+<select id="pickSel"><option value="">-</option><option value="a">A</option><option value="b">B</option></select>
 <div id="tall" style="height:3000px"></div>
 <script>
   const run = new URLSearchParams(location.search).get('run');
@@ -1279,6 +1282,12 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   const zone = document.getElementById('dropZone');
   zone.addEventListener('dragover', (e) => e.preventDefault());
   zone.addEventListener('drop', (e) => { e.preventDefault(); mark('dropZone drop'); });
+  const pickMenu = document.getElementById('pickMenu');
+  document.getElementById('pickBox').addEventListener('click', () => { pickMenu.style.display = 'block'; });
+  pickMenu.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => {
+    pickMenu.style.display = 'none';
+    mark('picked ' + li.textContent);
+  }));
   const files = document.getElementById('files');
   files.addEventListener('change', () => mark('files ' + [...files.files].map((f) => f.name).join(',')));
   report();
@@ -1304,7 +1313,7 @@ function saveExportState(req, reply) {
  * Scenarios export-run plays, then runs as each export, on EXPORT_PAGE. `expect`
  * is what playback must leave (fields listed; clicks, alerts and marks in full,
  * none when left out); each export of `runners` (default both) must then leave
- * exactly what playback left; `files` are what the Selenium run must save, by
+ * exactly what playback left; `files` are what the Selenium and Playwright runs must save, by
  * name, each with a check on the PNG's { width, height }. With `pageVar`, each run
  * starts on another page and that variable holds the URL of its own; with
  * `bookmarkletClicks: 2` the bookmark is clicked once there, then again on the
@@ -1318,7 +1327,7 @@ const EXPORT_CASES = [
   {
     name: 'form',
     // Also as the exported pytest test (python -m pytest).
-    runners: ['bookmarklet', 'selenium', 'pytest'],
+    runners: ['bookmarklet', 'selenium', 'pytest', 'playwright'],
     variables: { salute: 'Hi' },
     actions: [
       { type: 'input', selector: '#name', selectors: { css: '#name' }, value: 'Alice' },
@@ -1372,7 +1381,6 @@ const EXPORT_CASES = [
     // Events a page may wait for, fired as playback fires them: mousedown before a
     // click, mousemove on a hover, text into a contenteditable, blur after an Input.
     name: 'actions',
-    runners: ['bookmarklet', 'selenium', 'playwright'],
     actions: [
       { type: 'click', selector: '#mdBtn', selectors: { css: '#mdBtn' } },
       { type: 'hover', selector: '#hoverMenu', selectors: { css: '#hoverMenu' } },
@@ -1395,7 +1403,6 @@ const EXPORT_CASES = [
     // Fields send_keys cannot fill the same way everywhere: a date or time is typed
     // in the browser locale's format, a color takes no typing.
     name: 'typed-fields',
-    runners: ['bookmarklet', 'selenium', 'playwright'],
     actions: [
       { type: 'input', selector: '#when', selectors: { css: '#when' }, value: '2026-10-10' },
       { type: 'input', selector: '#at', selectors: { css: '#at' }, value: '13:45' },
@@ -1407,7 +1414,6 @@ const EXPORT_CASES = [
     // Every locator tried in playback's order until one finds the element; a Text
     // locator matches the exact text, innermost.
     name: 'locators',
-    runners: ['bookmarklet', 'selenium', 'playwright'],
     actions: [
       // The CSS is stale; the id, which playback tries before it, is not.
       { type: 'click', selector: '#broken1', selectors: { css: '#broken1', id: 'okA' } },
@@ -1421,16 +1427,25 @@ const EXPORT_CASES = [
     // Upload File into a file input the page hides, a ${var} file name included.
     // Two of the harness's own files; a bookmarklet cannot read files.
     name: 'upload',
-    runners: ['selenium'],
+    runners: ['selenium', 'playwright'],
     variables: { second: 'verify.mjs' },
     actions: [{ type: 'uploadFile', selector: '#files', selectors: { css: '#files' }, uploadMode: 'input',
       folderPath: TOOLS_DIR, fileNames: ['e2e.mjs', '${second}'] }],
     expect: { marks: ['files e2e.mjs,verify.mjs'] },
   },
   {
+    // Dropdown "Choose item #": item 2 of a list that opens on a click, the last option of a <select>.
+    name: 'dropdown-pick',
+    actions: [
+      { type: 'dropdown', selector: '#pickBox', selectors: { css: '#pickBox' }, pick: { by: 'index', index: '2', itemSelector: '#pickMenu li' } },
+      { type: 'dropdown', selector: '#pickSel', selectors: { css: '#pickSel' }, pick: { by: 'index', index: '-1' } },
+    ],
+    expect: { fields: { pickSel: 'b' }, clicks: ['pickBox'], marks: ['picked Two'] },
+  },
+  {
     // A full-page screenshot holds the whole page (3000px of #tall), not the window.
     name: 'full-shot',
-    runners: ['selenium'],
+    runners: ['selenium', 'playwright'],
     actions: [{ type: 'screenshot_full' }],
     files: { 'screenshot_full_step1.png': ({ height }) => height > 3000 },
   },
@@ -1438,7 +1453,6 @@ const EXPORT_CASES = [
     // A Navigate first. The bookmarklet, clicked on another page, opens the page
     // and stops; clicked again there, it plays the rest.
     name: 'navigate-first',
-    runners: ['bookmarklet', 'selenium', 'playwright'],
     pageVar: 'page',
     bookmarkletClicks: 2,
     actions: [
@@ -1476,6 +1490,14 @@ async function pythonMissing() {
   const { error, stderr } = await runFile('python', ['-c', 'import selenium']);
   if (!error) return null;
   return error.code === 'ENOENT' ? 'no python on PATH' : `no selenium for python (${String(stderr).trim().split('\n').pop()})`;
+}
+
+/** The files a case expects (c.files) that a run saved into `folder`, checked on the PNG's size. */
+function checkFiles(c, runner, folder) {
+  for (const [name, ok] of Object.entries(c.files || {})) {
+    const size = existsSync(join(folder, name)) ? pngSize(join(folder, name)) : null;
+    check(size && ok(size), `${c.name}: the ${runner} run saves ${name} as expected`, size);
+  }
 }
 
 /** Wait (up to PLAY_TIMEOUT_MS) until `page` has loaded `url`, then a moment more. */
@@ -1536,7 +1558,7 @@ async function checkExportRun(ctx) {
       const variables = Object.fromEntries(Object.entries((await ctx.send({ type: 'GET_VARIABLES' })).variables || {})
         .filter(([k]) => used.has(k)));
       const states = {};
-      const runners = c.runners || ['bookmarklet', 'selenium'];
+      const runners = c.runners || ['bookmarklet', 'selenium', 'playwright'];
 
       await ctx.web.goto(startUrl('playback'));
       await sleep(PAGE_SETTLE_MS);
@@ -1570,10 +1592,7 @@ async function checkExportRun(ctx) {
           headlessChecked = true;
           check(states.selenium.headless === !HEADED, `the Selenium script runs ${HEADED ? 'with' : 'without'} a window, as exported`, states.selenium.headless);
         }
-        for (const [name, ok] of Object.entries(c.files || {})) {
-          const size = existsSync(join(dir, name)) ? pngSize(join(dir, name)) : null;
-          check(size && ok(size), `${c.name}: the Selenium run saves ${name} as expected`, size);
-        }
+        checkFiles(c, 'Selenium', dir);
       }
 
       if (pwRun && runners.includes('playwright')) {
@@ -1586,6 +1605,7 @@ async function checkExportRun(ctx) {
         if (r.error) fail(`${c.name}: the Playwright test failed: ${String(r.stdout).trim().split('\n').slice(-4).join(' | ')}`);
         await sleep(SETTLE_MS);
         states.playwright = exportStates.get(`${c.name}:playwright`)?.state;
+        checkFiles(c, 'Playwright', pwRun);
       }
 
       if (pytestHere && runners.includes('pytest')) {
