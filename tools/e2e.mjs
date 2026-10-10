@@ -1100,8 +1100,9 @@ async function checkExportHeadless(ctx) {
     await popup.evaluate(`document.querySelector('#exportSeleniumHeadlessRow .export-bm-setting-label').click()`);
     await sleep(SETTLE_MS);
     const on = await code();
-    check(/_options\.add_argument\("--headless=new"\)\ndriver = webdriver\.Chrome\(options=_options\)/.test(on),
-      'Headless on: the script starts Chrome without a window', on.split('\n').filter((l) => /driver = |_options/.test(l)));
+    // The exported browser and window are what _start_browser falls back on.
+    check(/os\.environ\.get\("PQA_BROWSER", "Chrome"\)\n {4}headless = os\.environ\.get\("PQA_HEADLESS", "1"\) == "1"/.test(on),
+      'Headless on: the script starts Chrome without a window', on.split('\n').filter((l) => /PQA_BROWSER|PQA_HEADLESS/.test(l)));
     await popup.evaluate(`(() => {
       const d = document.getElementById('exportSeleniumDriver');
       d.value = 'Safari';
@@ -1110,7 +1111,7 @@ async function checkExportHeadless(ctx) {
     await sleep(SETTLE_MS);
     const box = await popup.evaluate(`(({ checked, disabled }) => ({ checked, disabled }))(document.getElementById('exportSeleniumHeadless'))`);
     const safari = await code();
-    check(!box.checked && box.disabled && /^driver = webdriver\.Safari\(\)$/m.test(safari),
+    check(!box.checked && box.disabled && /os\.environ\.get\("PQA_BROWSER", "Safari"\)\n {4}headless = os\.environ\.get\("PQA_HEADLESS", "0"\)/.test(safari),
       'Safari: Headless is off and cannot be turned on', box);
   } finally {
     await popup.close();
@@ -1241,7 +1242,7 @@ async function checkExportSettings(ctx) {
   const py = await withModal('exportSelenium', async (p) => ({ ...await read(p, PY),
     code: await p.evaluate(`document.querySelector('#exportCode code').textContent`) }));
   check(py.exportSeleniumElTimeout === '4321' && py.exportSeleniumDriver === 'Firefox' && py.exportSeleniumHeadless === true
-    && py.exportSeleniumOutput === 'pytest' && /webdriver\.Firefox\(options=_options\)/.test(py.code) && /WebDriverWait\(driver, 4\.321\)/.test(py.code),
+    && py.exportSeleniumOutput === 'pytest' && /os\.environ\.get\("PQA_BROWSER", "Firefox"\)/.test(py.code) && /WebDriverWait\(driver, 4\.321\)/.test(py.code),
     'the Selenium Settings come back in a new popup, and the code is made with them', { ...py, code: undefined });
   const js = await withModal('exportBookmarklet', (p) => read(p, ['exportBmElTimeout', 'exportBmStepDelay']));
   check(js.exportBmElTimeout === '2222' && js.exportBmStepDelay === '300', 'the JS Settings come back, untouched by the Selenium ones', js);
@@ -1304,9 +1305,9 @@ async function checkExportLiveSettings(ctx) {
     const pick = (id, value) => `(() => { const el = document.getElementById(${JSON.stringify(id)}); el.value = ${JSON.stringify(value)};
       el.dispatchEvent(new Event('change', { bubbles: true })); })();`;
     const headless = await thenCopy(`document.querySelector('#exportSeleniumHeadlessRow .export-bm-setting-label').click();`);
-    check(headless.copied.includes('_options.add_argument("--headless=new")'), 'Headless switched on: Copy takes the headless code', headless.label);
+    check(headless.copied.includes('os.environ.get("PQA_HEADLESS", "1")'), 'Headless switched on: Copy takes the headless code', headless.label);
     const driver = await thenCopy(pick('exportSeleniumDriver', 'Firefox'));
-    check(/webdriver\.Firefox\(options=_options\)/.test(driver.copied), 'WebDriver Firefox: Copy takes the Firefox code', driver.label);
+    check(driver.copied.includes('os.environ.get("PQA_BROWSER", "Firefox")'), 'WebDriver Firefox: Copy takes the Firefox code', driver.label);
     const output = await thenCopy(pick('exportSeleniumOutput', 'script'));
     check(output.label === 'e2e_export_live_selenium.py' && !/^import pytest$/m.test(output.copied),
       'Output Script: the file name and the code follow', output.label);
@@ -2033,6 +2034,36 @@ async function checkFailsAtStep(ctx, run) {
   }
 }
 
+/**
+ * One export, run with the environment set (PQA_BASE_URL, PQA_<name>), changes the
+ * run without an export: its start URL is on a site nothing answers on, and the
+ * echo field gets the variable's value from the environment.
+ */
+async function checkEnvOverrides(ctx, run) {
+  const steps = [{ type: 'input', selector: '#echo', selectors: { css: '#echo' }, value: '${salute} there' }];
+  const env = (runner) => ({ ...process.env, PQA_BASE_URL: ctx.base, PQA_salute: 'Yo', PQA_TEST_RUN: runner });
+  // Port 9 (discard): nothing to open there; the run has to go to PQA_BASE_URL instead.
+  const deadStart = (runner) => `http://127.0.0.1:9/export?run=${encodeURIComponent(`env:${runner}`)}`;
+  const reached = (runner) => exportStates.get(`env:${runner}`)?.state;
+  if (!run.noPython) {
+    const file = join(run.dir, 'env.py');
+    writeFileSync(file, run.generateSeleniumPy('env', steps, { salute: 'Hi' },
+      { driverType: 'Edge', startUrl: deadStart('selenium'), headless: !HEADED, stepDelay: 0 }).code);
+    const r = await runFile('python', [file], { cwd: run.dir, timeout: PYTHON_RUN_TIMEOUT_MS, env: env('selenium') });
+    await sleep(SETTLE_MS);
+    check(!r.error && reached('selenium')?.fields?.echo === 'Yo there',
+      'env: the Selenium script opens PQA_BASE_URL\'s site and takes PQA_salute, with no export', r.error ? String(r.stdout).trim().split('\n').pop() : reached('selenium')?.fields?.echo);
+  }
+  if (run.pwRun) {
+    writeFileSync(join(run.pwRun, 'env.spec.js'), run.generatePlaywright('env', steps, { salute: 'Hi' }, { startUrl: deadStart('playwright'), stepDelay: 0 }).code);
+    const r = await runFile(process.execPath, [run.pwCli, 'test', 'env.spec.js', '--config', 'playwright.config.mjs'],
+      { cwd: run.pwRun, timeout: PYTHON_RUN_TIMEOUT_MS, env: env('playwright') });
+    await sleep(SETTLE_MS);
+    check(!r.error && reached('playwright')?.fields?.echo === 'Yo there',
+      'env: the Playwright test opens PQA_BASE_URL\'s site and takes PQA_salute, with no export', r.error ? String(r.stdout).trim().split('\n').slice(-3) : reached('playwright')?.fields?.echo);
+  }
+}
+
 async function checkExportRun(ctx) {
   const extModule = (p) => pathToFileURL(join(EXT, p)).href;
   const { generateBookmarklet, toBookmarkletUrl } = await import(extModule('popup/export-bookmarklet.js'));
@@ -2140,6 +2171,7 @@ async function checkExportRun(ctx) {
           `${c.name}: the ${runner} export leaves the page as playback does`, states[runner] ? diff : 'no state posted');
       }
     }
+    if (!CASES || CASES.includes('env')) await checkEnvOverrides(ctx, { dir, noPython, pwRun, pwCli, generateSeleniumPy, generatePlaywright });
     if (!CASES || CASES.includes('fails-at-step')) await checkFailsAtStep(ctx, { dir, pageUrl, noPython, pytestHere, pwRun, pwCli, generateBookmarklet, toBookmarkletUrl, generateSeleniumPy, generatePlaywright });
     if (pytestHere && !CASES) {
       const file = join(dir, 'test_failing_step.py');

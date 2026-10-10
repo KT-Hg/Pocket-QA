@@ -22,7 +22,7 @@ import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './
 
 // What the generated spec declares for itself, beside the JS reserved words.
 const RESERVED = new Set(['test', 'page', 'TIMEOUT', '_find', '_first', '_input', '_setInput', '_js', '_SCRIPT_INPUT_TYPES',
-  '_checkCond', '_findChild', '_readVal', '_pick', ...JS_RESERVED]);
+  '_checkCond', '_findChild', '_readVal', '_pick', '_var', '_url', '_firstOrigin', 'process', ...JS_RESERVED]);
 // The steps' elements (el3, el3_t) share the test function with the variables.
 const ident = jsIdentifier(RESERVED, /^el\d+(_|$)/);
 const valueJS = jsValue(ident);
@@ -69,6 +69,27 @@ function scriptPW(code) {
   });
   return `await page.evaluate(${pieces.join(' + ') || '""'});`;
 }
+
+// What the environment changes without an export: a variable (PQA_<name>), the site (PQA_BASE_URL).
+const ENV_HELPERS = String.raw`// A variable's value: PQA_<name> from the environment when it is set, else the exported one.
+const _var = (name, value) => process.env['PQA_' + name] ?? value;
+
+// u — or, with PQA_BASE_URL set and u on the site of the first page opened, the same page there.
+let _firstOrigin = null;
+function _url(u) {
+  const x = new URL(u);
+  _firstOrigin ??= x.origin;
+  const base = process.env.PQA_BASE_URL;
+  return base && x.origin === _firstOrigin ? base.replace(/\/+$/, '') + x.pathname + x.search + x.hash : u;
+}`;
+
+// The comment the spec opens with: how to run it, and what the environment can change.
+const runNotes = (varNames) => [
+  '// How to run: npm install -D @playwright/test, then: npx playwright test <this file>',
+  '// Without exporting again, the environment can set:',
+  "//   PQA_BASE_URL  a site to open instead of the first page's (staging, production): its steps go there",
+  ...(varNames.length ? [`//   PQA_<name>    a variable's value: ${commentText(varNames.map((n) => `PQA_${n}`).join(', '))}`] : []),
+];
 
 // The spec's own helpers, each written out only when a step uses it.
 const FIND_HELPER = String.raw`// How the extension finds an element (content.js _locators): each selector in turn
@@ -191,7 +212,7 @@ function uploadLines(a, s) {
  * step } — find() is the line that finds the step's element into `el`.
  */
 const STEP_LINES = {
-  navigate: (a, s) => [`// Step ${s.n}: navigate${s.lbl}`, `await page.goto(${valueJS(a.url || a.value)});`],
+  navigate: (a, s) => [`// Step ${s.n}: navigate${s.lbl}`, `await page.goto(_url(${valueJS(a.url || a.value)}));`],
   click:    (a, s) => [`// Step ${s.n}: click${s.lbl}`, ...s.find(), `await ${s.el}.click();`],
   hover:    (a, s) => [`// Step ${s.n}: hover${s.lbl}`, ...s.find(), `await ${s.el}.hover();`],
   input:    (a, s) => {
@@ -296,7 +317,8 @@ const stepLines = (ctx) => walkActions(ctx, {
 });
 
 // The scenario's variables (exportVariables), declared at the top of the test, in the
-// Variables tab's order: `let` for the ones a step writes.
+// Variables tab's order — each PQA_<name> when the environment sets it: `let` for the
+// ones a step writes.
 function variableLines(variables, { staticVars, randomSpecs, pickSpecs, written }) {
   const out = [];
   const declared = new Set();
@@ -308,9 +330,10 @@ function variableLines(variables, { staticVars, randomSpecs, pickSpecs, written 
   for (const k of Object.keys(variables || {})) {
     const random = randomSpecs[k];
     const pick = pickSpecs[k];
-    if (random) declare(ident(k), `(${randomFnJS(random.type, random.length)})()`);
-    else if (pick) declare(ident(k), `${JSON.stringify(pick)}[Math.floor(Math.random() * ${pick.length})]`);
-    else declare(ident(k), JSON.stringify(staticVars[k]));
+    let value = JSON.stringify(staticVars[k]);
+    if (random) value = `(${randomFnJS(random.type, random.length)})()`;
+    else if (pick) value = `${JSON.stringify(pick)}[Math.floor(Math.random() * ${pick.length})]`;
+    declare(ident(k), `_var(${JSON.stringify(k)}, ${value})`);
   }
   for (const k of written) declare(k, "''");
   return out.length ? ['// --- VARIABLES ---', ...out, ''] : [];
@@ -340,14 +363,15 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
   let start = [];
   if (first?.type !== 'navigate') {
     start = startUrl
-      ? [`await page.goto(${JSON.stringify(startUrl)});`, '']
-      : ['// ⚠ TODO: Set the starting URL (go to Settings tab to configure)', 'await page.goto("https://your-url-here.com");', ''];
+      ? [`await page.goto(_url(${JSON.stringify(startUrl)}));`, '']
+      : ['// ⚠ TODO: Set the starting URL (go to Settings tab to configure)', 'await page.goto(_url("https://your-url-here.com"));', ''];
   }
 
-  const out = [`// SCENARIO: ${commentText(scenarioName)}`, "import { test } from '@playwright/test';", ''];
+  const out = [`// SCENARIO: ${commentText(scenarioName)}`, ...runNotes(Object.keys(variables || {})), "import { test } from '@playwright/test';", ''];
   // A failed test keeps a screenshot and a trace of the page (test-results/).
   out.push('// How long a step waits for its element, as set in the export.', `const TIMEOUT = ${elTimeout};`,
     "test.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });", '');
+  out.push(ENV_HELPERS, '');
   if (body.some((l) => l.includes('await _find('))) out.push(FIND_HELPER, '');
   if (ctx.uses.has('first')) out.push(FIRST_HELPER, '');
   for (const name of ['check', 'child', 'read', 'pick']) if (ctx.uses.has(name)) out.push(PAGE_HELPERS[name], '');

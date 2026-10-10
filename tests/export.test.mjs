@@ -340,8 +340,8 @@ test('Random: the length is capped at 512 in both exports and the preview, as a 
   assert.match(js, /_gen_big = \(\) => Array\.from\(\{length:512\}/);
   assert.match(js, /_gen_small = \(\) => Array\.from\(\{length:12\}/);
   const py = generateSeleniumPy('rand', steps, v).code;
-  assert.match(py, /^big = ''\.join\(random\.choices\(string\.ascii_letters, k=512\)\)$/m);
-  assert.match(py, /^small = ''\.join\(random\.choices\(string\.digits, k=12\)\)$/m);
+  assert.match(py, /^big = _var\("big", ''\.join\(random\.choices\(string\.ascii_letters, k=512\)\)\)$/m);
+  assert.match(py, /^small = _var\("small", ''\.join\(random\.choices\(string\.digits, k=12\)\)\)$/m);
 });
 
 test('the Selenium script switches stdout to UTF-8 before its first print', () => {
@@ -496,13 +496,15 @@ test('Selenium saves the whole page for a full-page screenshot, the way each dri
     assert.ok(status.every((s) => s.status === 'ok'));
     assert.equal(compilePy(code), null);
   }
-  // Firefox has its own; Safari saves the window only, and says so.
+  // The browser it runs in decides (PQA_BROWSER may not be the one exported): Firefox
+  // has its own, Safari saves the window only — exported for Safari, the step says so.
   const ff = generateSeleniumPy('full', steps, {}, { driverType: 'Firefox' });
-  assert.match(ff.code, /^ {4}driver\.save_full_page_screenshot\(f"screenshot_full_step1\.png"\)$/m);
-  assert.doesNotMatch(ff.code, /_save_full_page|import base64/, 'no helper it does not use');
+  assert.match(ff.code, /^ {4}_save_full_page\(f"screenshot_full_step1\.png"\)$/m);
+  assert.match(ff.code, /^ {4}if hasattr\(driver, "save_full_page_screenshot"\):\n {8}driver\.save_full_page_screenshot\(path\)$/m);
+  assert.match(ff.code, /^ {4}if not hasattr\(driver, "execute_cdp_cmd"\):\n {8}driver\.save_screenshot\(path\)$/m);
   assert.equal(compilePy(ff.code), null);
   const safari = generateSeleniumPy('full', steps, {}, { driverType: 'Safari' });
-  assert.match(safari.code, /^ {4}driver\.save_screenshot\(f"screenshot_full_step1\.png"\)$/m);
+  assert.match(safari.code, /^ {4}_save_full_page\(f"screenshot_full_step1\.png"\)$/m);
   assert.deepEqual(safari.steps.map((s) => s.status), ['verify', 'verify', 'ok']);
   assert.match(safari.steps[0].reason, /Safari/);
 });
@@ -551,24 +553,26 @@ test('a Navigate after the first step still ends a bookmarklet, and says so', ()
 test('Selenium Headless: each driver its own way, and none for Safari', () => {
   const steps = [{ type: 'click', selector: '#a', selectors: { css: '#a' } }];
   const head = (driverType) => generateSeleniumPy('h', steps, {}, { driverType, headless: true });
-  for (const [driverType, options, arg] of [['Chrome', 'ChromeOptions', '--headless=new'], ['Edge', 'EdgeOptions', '--headless=new'],
-    ['Firefox', 'FirefoxOptions', '-headless']]) {
+  // The browser and the window exported are the defaults of PQA_BROWSER and PQA_HEADLESS.
+  for (const driverType of ['Chrome', 'Edge', 'Firefox']) {
     const { code } = head(driverType);
-    assert.ok(code.includes(`_options = webdriver.${options}()\n_options.add_argument("${arg}")\ndriver = webdriver.${driverType}(options=_options)\n`), driverType);
+    assert.ok(code.includes(`    name = os.environ.get("PQA_BROWSER", "${driverType}")\n    headless = os.environ.get("PQA_HEADLESS", "1") == "1"\n`), driverType);
+    assert.match(code, /^driver = _start_browser\(\)$/m);
     assert.equal(compilePy(code), null);
   }
+  assert.match(head('Chrome').code, /options\.add_argument\("-headless" if name == "Firefox" else "--headless=new"\)|options\.add_argument\("-headless"\)/);
   const safari = head('Safari');
-  assert.match(safari.code, /^driver = webdriver\.Safari\(\)$/m);
+  assert.match(safari.code, /^ {4}if name == "Safari":\n {8}return webdriver\.Safari\(\) {2}# no headless mode$/m);
   assert.ok(safari.warnings.some((w) => /Safari has no headless mode/.test(w)));
   // Off, the script opens its window as it always did.
-  assert.match(generateSeleniumPy('h', steps, {}, { driverType: 'Edge' }).code, /^driver = webdriver\.Edge\(\)$/m);
+  assert.match(generateSeleniumPy('h', steps, {}, { driverType: 'Edge' }).code, /os\.environ\.get\("PQA_HEADLESS", "0"\)/);
 });
 
 test('Selenium: a driver name that is not one of the four becomes Chrome, never code', () => {
   const steps = [{ type: 'click', selector: '#a', selectors: { css: '#a' } }];
   for (const driverType of ['Chrome(); import os', 'Opera', '']) {
     const { code } = generateSeleniumPy('d', steps, {}, { driverType });
-    assert.match(code, /^driver = webdriver\.Chrome\(\)$/m, JSON.stringify(driverType));
+    assert.match(code, /os\.environ\.get\("PQA_BROWSER", "Chrome"\)/, JSON.stringify(driverType));
     // The file imports os itself: what must not be there is the name's own text.
     assert.doesNotMatch(code, /Chrome\(\); import os/);
   }
@@ -584,21 +588,21 @@ test('Selenium as a pytest test: a fixture opens and quits the browser, the step
   assert.match(code, /^import pytest$/m);
   // The helpers use the module's `driver`; the fixture starts it and always quits it.
   assert.ok(code.includes('\ndriver = None\n\n\n@pytest.fixture\ndef browser():\n'), 'a fixture named browser');
-  assert.ok(code.includes('    global driver\n    driver = webdriver.Chrome()\n    yield driver\n    driver.quit()\n'));
+  assert.ok(code.includes('    global driver\n    driver = _start_browser()\n    yield driver\n    driver.quit()\n'));
   // The test: named after the scenario, letters folded to ASCII; it opens the start page.
   // Its steps in a try whose error names the step that failed.
-  assert.match(code, /^def test_dang_nhap_admin\(browser\):\n {4}_at = ""\n {4}try:\n {8}driver\.get\("https:\/\/shop\.test\/"\)$/m);
+  assert.match(code, /^def test_dang_nhap_admin\(browser\):\n {4}_at = ""\n {4}try:\n {8}driver\.get\(_url\("https:\/\/shop\.test\/"\)\)$/m);
   assert.match(code, /^ {4}except Exception as e:\n {8}_save_failure\(\)\n {8}raise Exception\(f"\{_at or 'Error'\}: \{e\}"\) from e$/m);
   // Variables inside the test: a step writing `seed` makes it a local of the function.
-  assert.match(code, /^ {8}salute = "Hi"$/m);
-  assert.match(code, /^ {8}seed = "INIT"$/m);
+  assert.match(code, /^ {8}salute = _var\("salute", "Hi"\)$/m);
+  assert.match(code, /^ {8}seed = _var\("seed", "INIT"\)$/m);
   assert.match(code, /^ {8}seed = _read_val\(el1, "text", ""\)$/m);
   // pytest reports the failure; the script's own prints and module-level try / except are gone.
   assert.doesNotMatch(code, /print\(|^try:|^except|reconfigure|^import sys$/m);
   assert.equal(compilePy(code), null);
 
   const head = generateSeleniumPy('x', steps, vars, { output: 'pytest', driverType: 'Edge', headless: true }).code;
-  assert.ok(head.includes('    global driver\n    _options = webdriver.EdgeOptions()\n    _options.add_argument("--headless=new")\n    driver = webdriver.Edge(options=_options)\n'));
+  assert.ok(head.includes('    name = os.environ.get("PQA_BROWSER", "Edge")\n    headless = os.environ.get("PQA_HEADLESS", "1") == "1"\n'));
   assert.equal(compilePy(head), null);
 });
 
@@ -868,8 +872,8 @@ test('a variable never takes a name the generated code uses for itself', async (
   // Selenium: step 2's element was written over the variable el2; `re` hid the module.
   const py = generateSeleniumPy('n', [{ type: 'click', ...el }, { type: 'input', ...el, value: '${el2} ${re} ${dom_var} ${open}' },
     { ...read, pattern: 'Total: ${amount}' }, read], { el2: 'x', re: 'r', dom_var: 'd', open: 'o' }).code;
-  assert.match(py, /^el2_v = "x"$/m);
-  assert.match(py, /^re_v = "r"$/m);
+  assert.match(py, /^el2_v = _var\("el2", "x"\)$/m);
+  assert.match(py, /^re_v = _var\("re", "r"\)$/m);
   assert.match(py, /send_keys\(f"\{el2_v\} \{re_v\} \{dom_var_v\} \{open_v\}"\)/);
   assert.equal(checkPython(py), null);
 });
@@ -999,4 +1003,44 @@ test('an error names the step that failed: one line per step that runs records i
   assert.match(py, /^ {4}print\(f"❌ \{_at or 'Error'\}: \{e\}"\)$/m);
   assert.match(generateBookmarklet('e', steps, {}).code, /alert\('Error' \+ \(_at \? ' at ' \+ _at : ''\) \+ ': ' \+ err\.message\);/);
   assert.equal(compilePy(py), null);
+});
+
+test('the environment changes an exported run without an export: PQA_<name>, PQA_BASE_URL', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const steps = [
+    { type: 'input', selector: '#u', selectors: { css: '#u' }, value: '${user}' },
+    { type: 'navigate', url: 'https://shop.test/cart' },
+    { type: 'navigate', url: 'https://other.test/x' },
+  ];
+  const opts = { stepDelay: 0, startUrl: 'https://shop.test/login?next=1#top' };
+  const pw = generatePlaywright('env', steps, { user: 'bob' }, opts).code;
+  assert.match(pw, /^\/\/ {3}PQA_<name> {4}a variable's value: PQA_user$/m);
+  assert.match(pw, /^ {2}const user = _var\("user", "bob"\);$/m);
+  const saved = { ...process.env };
+  try {
+    Object.assign(process.env, { PQA_user: 'amy', PQA_BASE_URL: 'https://staging.shop.test/app/' });
+    assert.deepEqual(await runSpec(pw), ['goto https://staging.shop.test/app/login?next=1#top', 'fill #u "amy"',
+      'goto https://staging.shop.test/app/cart', 'goto https://other.test/x'], 'the first page\'s site moves; another site stays');
+    delete process.env.PQA_user;
+    delete process.env.PQA_BASE_URL;
+    assert.deepEqual(await runSpec(pw), ['goto https://shop.test/login?next=1#top', 'fill #u "bob"',
+      'goto https://shop.test/cart', 'goto https://other.test/x'], 'unset: as exported');
+  } finally {
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    Object.assign(process.env, saved);
+  }
+
+  // Selenium's _var and _url, run by Python itself.
+  const py = generateSeleniumPy('env', steps, { user: 'bob' }, opts).code;
+  assert.match(py, /^user = _var\("user", "bob"\)$/m);
+  assert.match(py, /^driver\.get\(_url\("https:\/\/shop\.test\/login\?next=1#top"\)\)$/m);
+  const helpers = py.slice(py.indexOf('def _var('), py.indexOf('def _start_browser('));
+  const probe = `import os\nfrom urllib.parse import urlsplit, urlunsplit\n${helpers}\n`
+    + 'print(_var("user", "bob"), _url("https://shop.test/login?next=1#top"), _url("https://shop.test/cart"), _url("https://other.test/x"))';
+  try {
+    const out = execFileSync('python', ['-c', probe], { env: { ...process.env, PQA_user: 'amy', PQA_BASE_URL: 'https://staging.shop.test/app/' } }).toString().trim();
+    assert.equal(out, 'amy https://staging.shop.test/app/login?next=1#top https://staging.shop.test/app/cart https://other.test/x');
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e; // no Python on this machine — nothing to run
+  }
 });

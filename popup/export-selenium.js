@@ -136,7 +136,8 @@ const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
-  'pytest', 'browser', 'dom_var', '_at', 'os', '_save_failure',
+  'pytest', 'browser', 'dom_var', '_at', 'os', '_save_failure', '_var', '_url', '_first_origin', '_start_browser',
+  'urlsplit', 'urlunsplit',
   're', 'sys', 'open', 'str', 'int', 'len', 'range', 'hasattr', 'Exception',
   'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
@@ -280,21 +281,65 @@ function _setInputHelperPy() {
 // The drivers the Settings tab offers.
 const DRIVER_TYPES = new Set(['Chrome', 'Edge', 'Firefox', 'Safari']);
 
-/**
- * The lines that start the browser: `driver = webdriver.<driverType>()`, or, with
- * `headless`, with the options that run it without a window (Firefox's flag is
- * its own; Safari has none, which is a warning). Headless is what CI needs.
- */
+// The line that starts the browser (_start_browser); Safari has no headless mode, which is a warning.
 function driverPy(driverType, headless, warnings) {
-  if (!headless) return [`driver = webdriver.${driverType}()`];
-  if (driverType === 'Safari') {
-    warnings.add('Safari has no headless mode — the script opens a window');
-    return ['driver = webdriver.Safari()'];
-  }
+  if (headless && driverType === 'Safari') warnings.add('Safari has no headless mode — the script opens a window');
+  return ['driver = _start_browser()'];
+}
+
+/**
+ * The runtime helpers through which the environment changes a run without an
+ * export: _var (PQA_<name>), _url (PQA_BASE_URL), _start_browser (PQA_BROWSER,
+ * PQA_HEADLESS — the browser and the window exported are the defaults). Headless
+ * is what CI needs; Firefox's flag is its own.
+ */
+function _envHelpersPy(driverType, headless) {
   return [
-    `_options = webdriver.${driverType}Options()`,
-    `_options.add_argument("${driverType === 'Firefox' ? '-headless' : '--headless=new'}")`,
-    `driver = webdriver.${driverType}(options=_options)`,
+    'def _var(name, value):',
+    '    """A variable\'s value: PQA_<name> from the environment when it is set, else the exported one."""',
+    '    return os.environ.get("PQA_" + name, value)',
+    '',
+    '',
+    '_first_origin = None',
+    '',
+    '',
+    'def _url(u):',
+    '    """u — or, with PQA_BASE_URL set and u on the site of the first page opened, the same page there."""',
+    '    global _first_origin',
+    '    p = urlsplit(u)',
+    '    if _first_origin is None:',
+    '        _first_origin = (p.scheme, p.netloc)',
+    '    base = os.environ.get("PQA_BASE_URL")',
+    '    if not base or (p.scheme, p.netloc) != _first_origin:',
+    '        return u',
+    '    return base.rstrip("/") + urlunsplit(("", "", p.path, p.query, p.fragment))',
+    '',
+    '',
+    'def _start_browser():',
+    '    """PQA_BROWSER (Chrome, Edge, Firefox or Safari), else the exported one; PQA_HEADLESS=1: no window."""',
+    `    name = os.environ.get("PQA_BROWSER", "${driverType}")`,
+    `    headless = os.environ.get("PQA_HEADLESS", "${headless ? 1 : 0}") == "1"`,
+    '    if name not in ("Chrome", "Edge", "Firefox", "Safari"):',
+    '        raise Exception(f"PQA_BROWSER={name}: not Chrome, Edge, Firefox or Safari")',
+    '    if name == "Safari":',
+    '        return webdriver.Safari()  # no headless mode',
+    '    options = getattr(webdriver, name + "Options")()',
+    '    if headless:',
+    '        options.add_argument("-headless" if name == "Firefox" else "--headless=new")',
+    '    return getattr(webdriver, name)(options=options)',
+  ];
+}
+
+// The comment the file opens with: how to run it, and what the environment can change.
+function runNotesPy(pytest, driverType, headless, varNames) {
+  return [
+    `# How to run: pip install selenium${pytest ? ' pytest, then: pytest <this file>' : ', then: python <this file>'}`,
+    '# Without exporting again, the environment can set:',
+    '#   PQA_BASE_URL  a site to open instead of the first page\'s (staging, production): its steps go there',
+    `#   PQA_BROWSER   Chrome, Edge, Firefox or Safari (exported: ${driverType})`,
+    `#   PQA_HEADLESS  1: no browser window, 0: a window (exported: ${headless ? 1 : 0})`,
+    ...(varNames.length ? [`#   PQA_<name>    a variable's value: ${commentText(varNames.map((n) => `PQA_${n}`).join(', '))}`] : []),
+    '',
   ];
 }
 
@@ -346,24 +391,26 @@ function testFunctionName(scenarioName) {
 
 /**
  * The line that saves the whole page to `file` (a Python expression), as the
- * driver can: Chrome and Edge through CDP (_save_full_page), Firefox with its own
- * save_full_page_screenshot, Safari only the window (and the step says so).
- * save_screenshot alone saves the window everywhere.
+ * browser it runs in can (_save_full_page decides then: PQA_BROWSER may differ
+ * from the export's); exported for Safari, which saves only the window, the step
+ * says so.
  */
 function fullPagePy(file, driverType, step) {
-  if (driverType === 'Firefox') return `driver.save_full_page_screenshot(${file})`;
-  if (driverType === 'Safari') {
-    mark(step, 'verify', 'Safari saves only the visible part of the page');
-    return `driver.save_screenshot(${file})`;
-  }
+  if (driverType === 'Safari') mark(step, 'verify', 'Safari saves only the visible part of the page');
   return `_save_full_page(${file})`;
 }
 
-// The _save_full_page() runtime helper: the page at its full size, through CDP.
+// The _save_full_page() runtime helper: Firefox's own, Chrome / Edge through CDP; Safari, the window.
 function _saveFullPageHelperPy() {
   return [
     'def _save_full_page(path):',
-    '    """The whole page, not just the window (Chrome / Edge, through CDP)."""',
+    '    """The whole page, not just the window — as the browser can: Safari saves only the window."""',
+    '    if hasattr(driver, "save_full_page_screenshot"):',
+    '        driver.save_full_page_screenshot(path)',
+    '        return',
+    '    if not hasattr(driver, "execute_cdp_cmd"):',
+    '        driver.save_screenshot(path)',
+    '        return',
     '    size = driver.execute_cdp_cmd("Page.getLayoutMetrics", {})["cssContentSize"]',
     '    clip = {"x": 0, "y": 0, "width": size["width"], "height": size["height"], "scale": 1}',
     '    shot = driver.execute_cdp_cmd("Page.captureScreenshot", {"format": "png", "captureBeyondViewport": True, "clip": clip})',
@@ -559,7 +606,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'navigate': {
       const url = valueToPy(action.value || action.url);
       out.push(`# Step ${stepNum}: navigate${lbl}`);
-      out.push(`driver.get(${url})`);
+      out.push(`driver.get(_url(${url}))`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
     }
@@ -774,6 +821,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const needsFullPage = bodyLines.some(l => l.includes('_save_full_page('));
 
   const out = [];
+  out.push(...runNotesPy(pytest, driverType, headless, Object.keys(variables || {})));
 
   // ── Imports ──
   if (needsFullPage) out.push('import base64');
@@ -785,6 +833,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   if (needsExtract || needsDropdownPick) out.push('import re');
   if (needsDatetime)  out.push('from datetime import datetime');
   if (pytest) out.push('import pytest');
+  out.push('from urllib.parse import urlsplit, urlunsplit');
   out.push('from selenium import webdriver');
   out.push('from selenium.webdriver.common.by import By');
   out.push('from selenium.webdriver.support.ui import WebDriverWait, Select');
@@ -806,6 +855,9 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
 
   // ── Runtime helpers ──
+  out.push(..._envHelpersPy(driverType, headless));
+  out.push('');
+  out.push('');
   out.push(..._saveFailureHelperPy());
   out.push('');
   out.push('');
@@ -862,10 +914,10 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const firstAction = enabled.find(a => a.type !== 'wait');
   if (!firstAction || firstAction.type !== 'navigate') {
     if (startUrl) {
-      startLines.push(`driver.get(${JSON.stringify(startUrl)})`);
+      startLines.push(`driver.get(_url(${JSON.stringify(startUrl)}))`);
     } else {
       startLines.push('# ⚠ TODO: Set the starting URL (go to Settings tab to configure)');
-      startLines.push('driver.get("https://your-url-here.com")');
+      startLines.push('driver.get(_url("https://your-url-here.com"))');
     }
     startLines.push('');
   }
@@ -874,6 +926,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const hasVars = Object.keys(staticVars).length > 0 || needsRandom || writtenVars.size > 0;
   const varLines = [];
   if (hasVars) {
+    // Each one PQA_<name> from the environment when it is set (_var).
     varLines.push('# --- VARIABLES ---');
     const declared = new Set();
 
@@ -881,7 +934,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
       const safe = safeVarName(k);
       if (declared.has(safe)) continue;
       declared.add(safe);
-      varLines.push(`${safe} = ${JSON.stringify(v)}`);
+      varLines.push(`${safe} = _var(${JSON.stringify(k)}, ${JSON.stringify(v)})`);
     }
     for (const [k, spec] of Object.entries(randomSpecs)) {
       const safe = safeVarName(k);
@@ -891,21 +944,21 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
       // in bg/interpolate.js implements; it used to fall through to the alphanumeric
       // charset here and produce random junk instead of the run's timestamp.
       if (spec.type === 'datetime') {
-        varLines.push(`${safe} = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")`);
+        varLines.push(`${safe} = _var(${JSON.stringify(k)}, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))`);
         continue;
       }
       let charset;
       if (spec.type === 'alpha') charset = 'string.ascii_letters';
       else if (spec.type === 'numeric') charset = 'string.digits';
       else charset = 'string.ascii_letters + string.digits';
-      varLines.push(`${safe} = ''.join(random.choices(${charset}, k=${spec.length}))`);
+      varLines.push(`${safe} = _var(${JSON.stringify(k)}, ''.join(random.choices(${charset}, k=${spec.length})))`);
     }
     for (const [k, vals] of Object.entries(pickSpecs)) {
       const safe = safeVarName(k);
       if (declared.has(safe)) continue;
       declared.add(safe);
       const pyList = '[' + vals.map(v => JSON.stringify(v)).join(', ') + ']';
-      varLines.push(`${safe} = random.choice(${pyList})`);
+      varLines.push(`${safe} = _var(${JSON.stringify(k)}, random.choice(${pyList}))`);
     }
     // Only the written names nothing above already seeded. This loop used to run
     // unconditionally, so `seed = "INIT"` from the Variables tab was immediately
