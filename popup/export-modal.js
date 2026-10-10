@@ -1,11 +1,12 @@
 /**
- * export-modal.js — the modal both code exports open (JS bookmarklet, Python
- * Selenium): the code preview and its warnings, the variables and actions it
- * reviews, the tabs, Copy, Download, Regenerate, and focus.
+ * export-modal.js — the one modal every code export opens (JS bookmarklet,
+ * Python Selenium, …): the code preview and its warnings, the variables and
+ * actions it reviews, the tabs, Copy, Download, Regenerate, and focus.
  *
- * Each export passes what is its own (see initExportModal): its element ids,
- * how its code is generated, and how the code is copied and saved. What became
- * of each action comes from the generator itself (popup/export/steps.js).
+ * Each export registers what is its own with initExportModal(cfg): the button
+ * that opens it, its strip, chip and title, how its code is generated, copied
+ * and saved, and its block of the Settings tab ([data-format]). What became of
+ * each action comes from the generator itself (popup/export/steps.js).
  */
 
 import { showToast, lockScroll, unlockScroll, escHtml, getUsedVarNames } from './utils.js';
@@ -25,194 +26,220 @@ const exportFileBase = (scenarioName) => safeFileName(scenarioName).replace(/\s+
 // How long the Copy button says "Copied".
 const COPIED_LABEL_MS = 1500;
 
+// The modal's elements are #export<Suffix>.
+const PREFIX = 'export';
+const byId = (suffix) => document.getElementById(PREFIX + suffix);
+
+// What the modal shows: the format that opened it (its cfg), the scenario, the code.
+const run = { cfg: null, code: '', scenarioName: '', actions: [], variables: {}, options: {}, releaseFocus: null };
+let modalWired = false;
+
 /**
- * Wire one export's modal.
+ * Register one export with the modal.
  *
  * @param {object}   cfg
- * @param {string}   cfg.triggerId    - the button that opens it
- * @param {string}   cfg.prefix       - prefix of the modal's element ids ('exportBm', …)
- * @param {string}   cfg.tabClass     - class of its tab buttons
- * @param {string}   cfg.title        - header, followed by " — <scenario>"
- * @param {Function} cfg.fileName     - (base, options) → the file name, from the scenario's safe name
- *                                      and the options the code was made with
- * @param {Function} cfg.readOptions  - () → the generator's options, read from the Settings tab
- * @param {Function} cfg.generate     - (scenarioName, actions, variables, options) → { code, stats, steps, warnings }
- * @param {Function} cfg.copyText     - (code) → what Copy puts on the clipboard
- * @param {Function} cfg.file         - (code) → { text, type } that Download saves
- * @param {Function} [cfg.beforeOpen] - run first each time the modal opens
- * @param {Function} [cfg.wire]       - wires the export's own extra controls
+ * @param {string}   cfg.triggerId     - the button that opens the modal for it
+ * @param {string}   cfg.format        - its Settings block ([data-format]) and strip / chip style ('js', 'py')
+ * @param {string}   cfg.badge         - the chip's text ('JS', 'PY')
+ * @param {string}   cfg.title         - header, followed by " — <scenario>"
+ * @param {string}   cfg.downloadLabel - the Download button's text ('⬇ .js')
+ * @param {Function} cfg.fileName      - (base, options) → the file name, from the scenario's safe name
+ *                                       and the options the code was made with
+ * @param {Function} cfg.readOptions   - () → the generator's options, read from its Settings block
+ * @param {Function} cfg.generate      - (scenarioName, actions, variables, options) → { code, stats, steps, warnings }
+ * @param {Function} cfg.copyText      - (code) → what Copy puts on the clipboard
+ * @param {Function} cfg.file          - (code) → { text, type } that Download saves
+ * @param {Function} [cfg.beforeOpen]  - run first each time the modal opens for it
+ * @param {Function} [cfg.wire]        - wires its own extra controls
  */
 export function initExportModal(cfg) {
-  const { prefix, tabClass } = cfg;
-  const byId = (suffix) => document.getElementById(prefix + suffix);
-  const run = { code: '', scenarioName: '', actions: [], variables: {}, options: {}, releaseFocus: null };
-  const fileName = () => cfg.fileName(exportFileBase(run.scenarioName), run.options);
-  // The code for what `run` holds, with the options the Settings tab has now.
-  const generate = () => {
-    run.options = cfg.readOptions();
-    return cfg.generate(run.scenarioName, run.actions, run.variables, run.options);
-  };
+  if (!modalWired) modalWired = wireModal();
+  document.getElementById(cfg.triggerId)?.addEventListener('click', () => {
+    run.cfg = cfg;
+    showFormat(cfg);
+    load(open);
+  });
+  cfg.wire?.();
+}
 
-  const close = () => {
-    const modal = byId('Modal');
-    modal?.classList.remove('show');
-    modal?.setAttribute('aria-hidden', 'true');
-    if (run.releaseFocus) { run.releaseFocus(); run.releaseFocus = null; }
-    unlockScroll();
-  };
+// The parts that are the format's own: the strip, the chip, its Settings block, Download.
+function showFormat(cfg) {
+  byId('Modal').dataset.format = cfg.format;
+  byId('Accent').className = `export-bm-accent-bar export-bm-accent-${cfg.format}`;
+  const badge = byId('Badge');
+  badge.className = `export-bm-lang-badge export-bm-lang-badge-${cfg.format}`;
+  badge.textContent = cfg.badge;
+  byId('Download').textContent = cfg.downloadLabel;
+  for (const block of byId('TabSettings').querySelectorAll('[data-format]')) block.hidden = block.dataset.format !== cfg.format;
+}
 
-  const switchTab = (tab) => {
-    document.querySelectorAll(`.${tabClass}`).forEach(btn => {
-      const active = btn.dataset.tab === tab;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-selected', String(active));
+const fileName = () => run.cfg.fileName(exportFileBase(run.scenarioName), run.options);
+
+// The code for what `run` holds, with the options the Settings tab has now.
+function generate() {
+  run.options = run.cfg.readOptions();
+  return run.cfg.generate(run.scenarioName, run.actions, run.variables, run.options);
+}
+
+function close() {
+  const modal = byId('Modal');
+  modal?.classList.remove('show');
+  modal?.setAttribute('aria-hidden', 'true');
+  if (run.releaseFocus) { run.releaseFocus(); run.releaseFocus = null; }
+  unlockScroll();
+}
+
+function switchTab(tab) {
+  byId('Modal').querySelectorAll('.export-bm-tab').forEach(btn => {
+    const active = btn.dataset.tab === tab;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', String(active));
+  });
+  byId('TabPreview').hidden   = tab !== 'preview';
+  byId('TabVariables').hidden = tab !== 'variables';
+  byId('TabActions').hidden   = tab !== 'actions';
+  byId('TabSettings').hidden  = tab !== 'settings';
+}
+
+function render(result) {
+  const filename = fileName();
+
+  // Header
+  byId('Title').textContent = `${run.cfg.title} — ${run.scenarioName}`;
+  byId('Sub').textContent = `${filename} · ${result.stats.supported} steps`;
+  byId('CodeLabel').textContent = filename;
+
+  // Code preview
+  const codeEl = byId('Code')?.querySelector('code');
+  if (codeEl) codeEl.textContent = result.code;
+
+  // Warning bar — steps not exported as is, plus anything the generator could
+  // not express faithfully (renamed identifiers, unresolved ${...}, script
+  // placeholders). These used to surface only when the exported code was run.
+  const warning = byId('Warning');
+  const skipMsg = byId('SkipMsg');
+  const msgs = [...stepNotices(result.steps), ...(result.warnings || [])];
+  if (msgs.length) {
+    skipMsg.style.whiteSpace = 'pre-line';
+    skipMsg.textContent = msgs.join('\n');
+    warning.style.display = '';
+  } else {
+    warning.style.display = 'none';
+  }
+
+  // Variables — row layout
+  const vars = Object.entries(run.variables || {});
+  byId('VarCount').textContent = vars.length;
+  renderVariables(byId('NoVars'), byId('VarList'), vars);
+
+  // Actions review tab
+  const actStats = renderActionsTab(PREFIX, run.actions, result.steps);
+
+  // Stats pills
+  const { supported, skipped } = result.stats;
+  byId('StatSteps').textContent = `${supported} steps`;
+  byId('StatVars').textContent  = `${vars.length} variables`;
+
+  const warnPill    = byId('StatWarnPill');
+  const skippedPill = byId('StatSkippedPill');
+  if (actStats.warnCount > 0) {
+    byId('StatWarn').textContent = `${actStats.warnCount} verify`;
+    warnPill.style.display = '';
+  } else {
+    warnPill.style.display = 'none';
+  }
+  if (skipped > 0) {
+    byId('StatSkipped').textContent = `${skipped} skipped`;
+    skippedPill.style.display = '';
+  } else {
+    skippedPill.style.display = 'none';
+  }
+}
+
+function open() {
+  const modal = byId('Modal');
+  if (!modal) return;
+  run.cfg.beforeOpen?.();
+  const result = generate();
+  run.code = result.code;
+  render(result);
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  lockScroll();
+  switchTab('preview');
+  run.releaseFocus = trapFocus(modal);
+}
+
+/**
+ * Read the scenario chosen in the card and the variables it uses into `run`,
+ * then call `done`. Opening the modal and Regenerate both come through here:
+ * Regenerate of the Python export reused what was read on opening (a step
+ * added since never showed), the JS one passed every variable there is.
+ */
+function load(done) {
+  const sel = document.getElementById('exportCodeSelect');
+  const scenarioId = sel?.value;
+  if (!scenarioId) { showToast('Please select a scenario first', 'error'); return; }
+
+  run.scenarioName = sel.options[sel.selectedIndex]?.text || 'Scenario';
+
+  chrome.runtime.sendMessage({ type: 'GET_SCENARIOS' }, res => {
+    const scenario = (res?.scenarios || {})[scenarioId];
+    run.actions = scenario?.actions || [];
+    chrome.runtime.sendMessage({ type: 'GET_VARIABLES' }, varRes => {
+      const allVariables = varRes?.variables || {};
+      const usedNames = getUsedVarNames(run.actions);
+      run.variables = Object.fromEntries(
+        Object.entries(allVariables).filter(([k]) => usedNames.has(k))
+      );
+      done();
     });
-    byId('TabPreview').hidden   = tab !== 'preview';
-    byId('TabVariables').hidden = tab !== 'variables';
-    byId('TabActions').hidden   = tab !== 'actions';
-    byId('TabSettings').hidden  = tab !== 'settings';
-  };
+  });
+}
 
-  const render = (scenarioName, result, variables) => {
-    const filename = fileName();
-
-    // Header
-    byId('Title').textContent = `${cfg.title} — ${scenarioName}`;
-    byId('Sub').textContent = `${filename} · ${result.stats.supported} steps`;
-    byId('CodeLabel').textContent = filename;
-
-    // Code preview
-    const codeEl = document.querySelector(`#${prefix}Code code`);
-    if (codeEl) codeEl.textContent = result.code;
-
-    // Warning bar — steps not exported as is, plus anything the generator could
-    // not express faithfully (renamed identifiers, unresolved ${...}, script
-    // placeholders). These used to surface only when the exported code was run.
-    const warning = byId('Warning');
-    const skipMsg = byId('SkipMsg');
-    const msgs = [...stepNotices(result.steps), ...(result.warnings || [])];
-    if (msgs.length) {
-      skipMsg.style.whiteSpace = 'pre-line';
-      skipMsg.textContent = msgs.join('\n');
-      warning.style.display = '';
-    } else {
-      warning.style.display = 'none';
+async function copy() {
+  if (!run.code) return;
+  try {
+    await navigator.clipboard.writeText(run.cfg.copyText(run.code));
+    const btn = byId('Copy');
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, COPIED_LABEL_MS);
     }
+  } catch {
+    showToast('Clipboard not available', 'error');
+  }
+}
 
-    // Variables — row layout
-    const vars = Object.entries(variables || {});
-    byId('VarCount').textContent = vars.length;
-    renderVariables(byId('NoVars'), byId('VarList'), vars);
+function download() {
+  if (!run.code) return;
+  const { text, type } = run.cfg.file(run.code);
+  // Through downloadBlob, which revokes the URL a moment later: revoked right
+  // after click() it can go before the browser has read the file.
+  downloadBlob(new Blob([text], { type }), fileName());
+}
 
-    // Actions review tab
-    const actStats = renderActionsTab(prefix, run.actions, result.steps);
-
-    // Stats pills
-    const { supported, skipped } = result.stats;
-    byId('StatSteps').textContent = `${supported} steps`;
-    byId('StatVars').textContent  = `${vars.length} variables`;
-
-    const warnPill    = byId('StatWarnPill');
-    const skippedPill = byId('StatSkippedPill');
-    if (actStats.warnCount > 0) {
-      byId('StatWarn').textContent = `${actStats.warnCount} verify`;
-      warnPill.style.display = '';
-    } else {
-      warnPill.style.display = 'none';
-    }
-    if (skipped > 0) {
-      byId('StatSkipped').textContent = `${skipped} skipped`;
-      skippedPill.style.display = '';
-    } else {
-      skippedPill.style.display = 'none';
-    }
-  };
-
-  const open = (scenarioName, actions, variables) => {
-    const modal = byId('Modal');
-    if (!modal) return;
-    cfg.beforeOpen?.();
+function regenerate() {
+  load(() => {
     const result = generate();
     run.code = result.code;
-    render(scenarioName, result, variables);
-    modal.classList.add('show');
-    modal.setAttribute('aria-hidden', 'false');
-    lockScroll();
-    switchTab('preview');
-    run.releaseFocus = trapFocus(modal);
-  };
-
-  /**
-   * Read the scenario chosen in the card and the variables it uses into `run`,
-   * then call `done`. Opening the modal and Regenerate both come through here:
-   * Regenerate of the Python export reused what was read on opening (a step
-   * added since never showed), the JS one passed every variable there is.
-   */
-  const load = (done) => {
-    const sel = document.getElementById('exportCodeSelect');
-    const scenarioId = sel?.value;
-    if (!scenarioId) { showToast('Please select a scenario first', 'error'); return; }
-
-    run.scenarioName = sel.options[sel.selectedIndex]?.text || 'Scenario';
-
-    chrome.runtime.sendMessage({ type: 'GET_SCENARIOS' }, res => {
-      const scenario = (res?.scenarios || {})[scenarioId];
-      run.actions = scenario?.actions || [];
-      chrome.runtime.sendMessage({ type: 'GET_VARIABLES' }, varRes => {
-        const allVariables = varRes?.variables || {};
-        const usedNames = getUsedVarNames(run.actions);
-        run.variables = Object.fromEntries(
-          Object.entries(allVariables).filter(([k]) => usedNames.has(k))
-        );
-        done();
-      });
-    });
-  };
-
-  const onTrigger = () => load(() => open(run.scenarioName, run.actions, run.variables));
-
-  const copy = async () => {
-    if (!run.code) return;
-    try {
-      await navigator.clipboard.writeText(cfg.copyText(run.code));
-      const btn = byId('Copy');
-      if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = 'Copied';
-        btn.classList.add('copied');
-        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, COPIED_LABEL_MS);
-      }
-    } catch {
-      showToast('Clipboard not available', 'error');
-    }
-  };
-
-  const download = () => {
-    if (!run.code) return;
-    const { text, type } = cfg.file(run.code);
-    // Through downloadBlob, which revokes the URL a moment later: revoked right
-    // after click() it can go before the browser has read the file.
-    downloadBlob(new Blob([text], { type }), fileName());
-  };
-
-  const regenerate = () => load(() => {
-    const result = generate();
-    run.code = result.code;
-    render(run.scenarioName, result, run.variables);
+    render(result);
     switchTab('preview');
     showToast('Code regenerated');
   });
+}
 
-  const triggerBtn = document.getElementById(cfg.triggerId);
-  if (!triggerBtn) return;
-
-  triggerBtn.addEventListener('click', onTrigger);
+/** Wire what every format shares; false when the page has no export modal. */
+function wireModal() {
+  const modal = byId('Modal');
+  if (!modal) return false;
   byId('Close')?.addEventListener('click', close);
   byId('Cancel')?.addEventListener('click', close);
   byId('Copy')?.addEventListener('click', copy);
   byId('Download')?.addEventListener('click', download);
   byId('Regenerate')?.addEventListener('click', regenerate);
-  cfg.wire?.();
 
   byId('WrapBtn')?.addEventListener('click', () => {
     const code = byId('Code');
@@ -220,7 +247,7 @@ export function initExportModal(cfg) {
   });
 
   byId('SelectAllBtn')?.addEventListener('click', () => {
-    const code = document.querySelector(`#${prefix}Code code`);
+    const code = byId('Code')?.querySelector('code');
     if (!code) return;
     const range = document.createRange();
     range.selectNodeContents(code);
@@ -229,13 +256,13 @@ export function initExportModal(cfg) {
     sel.addRange(range);
   });
 
-  document.querySelectorAll(`.${tabClass}`).forEach(btn => {
+  modal.querySelectorAll('.export-bm-tab').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  const modal = byId('Modal');
-  modal?.addEventListener('click', e => { if (e.target === modal) close(); });
-  modal?.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  return true;
 }
 
 /** Warning-bar lines for the steps not exported as is: one per reason, with its step numbers. */

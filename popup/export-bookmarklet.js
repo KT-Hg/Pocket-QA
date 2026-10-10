@@ -714,9 +714,10 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
 export function initExportBookmarklet() {
   initExportModal({
     triggerId: 'exportBookmarklet',
-    prefix: 'exportBm',
-    tabClass: 'export-bm-tab',
+    format: 'js',
+    badge: 'JS',
     title: 'Export JS',
+    downloadLabel: '⬇ .js',
     fileName: (base) => `${base}_bookmarklet.js`,
     readOptions: () => ({
       stepDelay: parseInt(document.getElementById('exportBmStepDelay')?.value) || 300,

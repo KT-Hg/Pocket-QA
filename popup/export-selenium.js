@@ -1011,9 +1011,10 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 export function initExportSelenium() {
   initExportModal({
     triggerId: 'exportSelenium',
-    prefix: 'exportSelenium',
-    tabClass: 'export-py-tab',
+    format: 'py',
+    badge: 'PY',
     title: 'Export Python',
+    downloadLabel: '⬇ .py',
     fileName: (base, o) => (o?.output === 'pytest' ? `test_${base}.py` : `${base}_selenium.py`),
     readOptions: _getOpts,
     generate: generateSeleniumPy,

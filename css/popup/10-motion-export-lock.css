@@ -847,39 +847,8 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
 }
 
 /* === Export modal — top accent strip & lang chip === */
-#exportBmModal .export-bm-content {
+#exportModal[data-format="js"] .export-bm-content {
   border-top: 3px solid #d97706;
-}
-
-/* Python modal tabs — same pill style as .export-bm-tab */
-.export-py-tab {
-  padding: 5px 12px !important;
-  border-radius: 20px !important;
-  border: 1.5px solid transparent !important;
-  font-size: 11px !important;
-  font-weight: 600;
-  cursor: pointer;
-  background: transparent !important;
-  color: var(--muted) !important;
-  transition: all 0.15s !important;
-  width: auto !important;
-  box-shadow: none !important;
-  line-height: 1.4 !important;
-  margin-bottom: 0 !important;
-}
-
-.export-py-tab:hover {
-  color: var(--text) !important;
-  background: var(--card) !important;
-  border-color: var(--border) !important;
-  transform: none !important;
-}
-
-.export-py-tab.active {
-  background: var(--card) !important;
-  color: var(--primary) !important;
-  border-color: var(--primary) !important;
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--primary) 20%, transparent) !important;
 }
 
 /* ── Tab count — warn variant (orange) ── */

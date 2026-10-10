@@ -922,7 +922,7 @@ async function checkExportFileName(ctx) {
       document.getElementById('exportSelenium').click();
     })()`);
     await sleep(POPUP_SETTLE_MS);
-    await popup.evaluate(`[...document.querySelectorAll('#exportSeleniumModal button')].find((b) => /\\.py/.test(b.textContent)).click()`);
+    await popup.evaluate(`[...document.querySelectorAll('#exportModal button')].find((b) => /\\.py/.test(b.textContent)).click()`);
     await sleep(SETTLE_MS);
     const dl = await popup.evaluate('window.__dl[0] || null');
     check(dl?.name === 'đăng_nhập__admin__selenium.py' && dl.bytes > 0,
@@ -944,20 +944,20 @@ async function checkExportSteps(ctx) {
       s.value = ${JSON.stringify(id)};
       s.dispatchEvent(new Event('change'));
     })()`);
-    for (const [button, prefix, skipped] of [['exportSelenium', 'exportSelenium', false], ['exportBookmarklet', 'exportBm', true]]) {
+    for (const [button, skipped] of [['exportSelenium', false], ['exportBookmarklet', true]]) {
       await popup.evaluate(`document.getElementById(${JSON.stringify(button)}).click()`);
       await sleep(POPUP_SETTLE_MS);
       const tab = await popup.evaluate(`({
-        rows: [...document.querySelectorAll('#${prefix}ActList .export-bm-action-status')].map((el) => el.textContent.trim()),
-        skipped: document.getElementById('${prefix}StatSkippedPill').style.display === 'none' ? null
-          : document.getElementById('${prefix}StatSkipped').textContent,
-        warning: document.getElementById('${prefix}SkipMsg').textContent,
+        rows: [...document.querySelectorAll('#exportActList .export-bm-action-status')].map((el) => el.textContent.trim()),
+        skipped: document.getElementById('exportStatSkippedPill').style.display === 'none' ? null
+          : document.getElementById('exportStatSkipped').textContent,
+        warning: document.getElementById('exportSkipMsg').textContent,
       })`);
       const said = skipped
         ? JSON.stringify(tab.rows) === '["✓ OK","— Skip"]' && tab.skipped === '1 skipped' && /local files/.test(tab.warning)
         : JSON.stringify(tab.rows) === '["✓ OK","✓ OK"]' && tab.skipped === null && tab.warning === '';
       check(said, `${button}: the Actions tab, the counts and the warning bar say whether Upload File is exported`, tab);
-      await popup.evaluate(`document.getElementById('${prefix}Close').click()`);
+      await popup.evaluate(`document.getElementById('exportClose').click()`);
     }
   } finally {
     await popup.close();
@@ -977,23 +977,23 @@ async function checkExportRegenerate(ctx) {
       s.dispatchEvent(new Event('change'));
     })()`);
     let added = 0;
-    for (const [button, prefix] of [['exportSelenium', 'exportSelenium'], ['exportBookmarklet', 'exportBm']]) {
+    for (const button of ['exportSelenium', 'exportBookmarklet']) {
       await popup.evaluate(`document.getElementById(${JSON.stringify(button)}).click()`);
       await sleep(POPUP_SETTLE_MS);
       // The scenario changes while the modal is open; Regenerate has to show it.
       const marker = `regen${++added}`;
       await ctx.send({ type: 'ADD_MANUAL_ACTION', scenarioId: id,
         action: { type: 'click', selector: `#${marker}`, selectors: { css: `#${marker}` } } });
-      await popup.evaluate(`document.getElementById('${prefix}Regenerate').click()`);
+      await popup.evaluate(`document.getElementById('exportRegenerate').click()`);
       await sleep(POPUP_SETTLE_MS);
       const shown = await popup.evaluate(`({
-        vars: [...document.querySelectorAll('#${prefix}VarList .export-bm-var-name')].map((el) => el.textContent),
-        code: document.querySelector('#${prefix}Code code').textContent,
+        vars: [...document.querySelectorAll('#exportVarList .export-bm-var-name')].map((el) => el.textContent),
+        code: document.querySelector('#exportCode code').textContent,
       })`);
       check(JSON.stringify(shown.vars) === '["${used}"]' && shown.code.includes(`#${marker}`) && !/\bunused\b/.test(shown.code),
         `${button}: Regenerate reads the scenario again and keeps to the variables it uses`,
         { vars: shown.vars, hasNewStep: shown.code.includes(`#${marker}`), declaresUnused: /\bunused\b/.test(shown.code) });
-      await popup.evaluate(`document.getElementById('${prefix}Close').click()`);
+      await popup.evaluate(`document.getElementById('exportClose').click()`);
     }
   } finally {
     await popup.close();
@@ -1004,7 +1004,7 @@ async function checkExportHeadless(ctx) {
   const id = await makeScenario(ctx, 'e2e export headless', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
   const popup = await openPopup(ctx);
   try {
-    const code = () => popup.evaluate(`document.querySelector('#exportSeleniumCode code').textContent`);
+    const code = () => popup.evaluate(`document.querySelector('#exportCode code').textContent`);
     await popup.evaluate(`(() => {
       const s = document.getElementById('exportCodeSelect');
       s.value = ${JSON.stringify(id)};
@@ -1014,7 +1014,7 @@ async function checkExportHeadless(ctx) {
     await sleep(POPUP_SETTLE_MS);
     // A click on the row's text flips the switch, as on any switch row.
     await popup.evaluate(`document.querySelector('#exportSeleniumHeadlessRow .export-bm-setting-label').click();
-      document.getElementById('exportSeleniumRegenerate').click()`);
+      document.getElementById('exportRegenerate').click()`);
     await sleep(POPUP_SETTLE_MS);
     const on = await code();
     check(/_options\.add_argument\("--headless=new"\)\ndriver = webdriver\.Chrome\(options=_options\)/.test(on),
@@ -1023,7 +1023,7 @@ async function checkExportHeadless(ctx) {
       const d = document.getElementById('exportSeleniumDriver');
       d.value = 'Safari';
       d.dispatchEvent(new Event('change'));
-      document.getElementById('exportSeleniumRegenerate').click();
+      document.getElementById('exportRegenerate').click();
     })()`);
     await sleep(POPUP_SETTLE_MS);
     const box = await popup.evaluate(`(({ checked, disabled }) => ({ checked, disabled }))(document.getElementById('exportSeleniumHeadless'))`);
@@ -1050,12 +1050,12 @@ async function checkExportOutput(ctx) {
       const o = document.getElementById('exportSeleniumOutput');
       o.value = 'pytest';
       o.dispatchEvent(new Event('change'));
-      document.getElementById('exportSeleniumRegenerate').click();
+      document.getElementById('exportRegenerate').click();
     })()`);
     await sleep(POPUP_SETTLE_MS);
     const shown = await popup.evaluate(`({
-      label: document.getElementById('exportSeleniumCodeLabel').textContent,
-      code: document.querySelector('#exportSeleniumCode code').textContent,
+      label: document.getElementById('exportCodeLabel').textContent,
+      code: document.querySelector('#exportCode code').textContent,
     })`);
     check(shown.label === 'test_đăng_nhập_pytest.py' && /^import pytest$/m.test(shown.code) && /^def test_dang_nhap_pytest\(browser\):$/m.test(shown.code),
       'Output pytest: a test_….py file pytest finds, with a test function', { label: shown.label });

@@ -1590,230 +1590,156 @@
     </div>
   </div>
 
-  <!-- Export Bookmarklet Modal -->
-  <div id="exportBmModal" class="export-bm-modal" role="dialog" aria-modal="true" aria-labelledby="exportBmTitle" aria-hidden="true">
+  <!-- Export Code Modal: one for every format. popup/export-modal.js puts in what is
+       the format's own (strip, chip, title, Settings block, Download label). -->
+  <div id="exportModal" class="export-bm-modal" role="dialog" aria-modal="true" aria-labelledby="exportTitle" aria-hidden="true">
     <div class="export-bm-content">
 
       <div class="export-bm-header">
-        <div class="export-bm-accent-bar export-bm-accent-js"></div>
+        <div class="export-bm-accent-bar" id="exportAccent"></div>
         <div class="export-bm-header-inner">
-          <div class="export-bm-lang-badge export-bm-lang-badge-js">JS</div>
+          <div class="export-bm-lang-badge" id="exportBadge"></div>
           <div class="export-bm-header-text">
-            <div class="export-bm-header-title" id="exportBmTitle">Export JS Bookmarklet</div>
-            <div class="export-bm-header-sub" id="exportBmSub">scenario.js · 0 steps</div>
+            <div class="export-bm-header-title" id="exportTitle">Export</div>
+            <div class="export-bm-header-sub" id="exportSub"></div>
           </div>
           <div class="export-bm-header-actions">
-            <button class="export-bm-icon-btn export-bm-icon-btn-danger" id="exportBmClose" aria-label="Close">✕</button>
+            <button class="export-bm-icon-btn export-bm-icon-btn-danger" id="exportClose" aria-label="Close">✕</button>
           </div>
         </div>
       </div>
 
       <div class="export-bm-tabs" role="tablist">
         <button class="export-bm-tab active" data-tab="preview" role="tab" aria-selected="true">Code</button>
-        <button class="export-bm-tab" data-tab="variables" role="tab" aria-selected="false">Variables <span class="export-bm-tab-count" id="exportBmVarCount">0</span></button>
-        <button class="export-bm-tab" data-tab="actions" role="tab" aria-selected="false">Actions <span class="export-bm-tab-count" id="exportBmActCount">0</span></button>
+        <button class="export-bm-tab" data-tab="variables" role="tab" aria-selected="false">Variables <span class="export-bm-tab-count" id="exportVarCount">0</span></button>
+        <button class="export-bm-tab" data-tab="actions" role="tab" aria-selected="false">Actions <span class="export-bm-tab-count" id="exportActCount">0</span></button>
         <button class="export-bm-tab" data-tab="settings" role="tab" aria-selected="false">Settings</button>
       </div>
 
-      <div id="exportBmWarning" class="export-bm-warning" style="display:none;">
+      <div id="exportWarning" class="export-bm-warning" style="display:none;">
         <span class="export-bm-warning-icon">⚠</span>
-        <span id="exportBmSkipMsg"></span>
+        <span id="exportSkipMsg"></span>
       </div>
 
       <!-- Tab: Preview Code -->
-      <div id="exportBmTabPreview" class="export-bm-tab-panel">
+      <div id="exportTabPreview" class="export-bm-tab-panel">
         <div class="export-bm-code-toolbar">
-          <span class="export-bm-code-label" id="exportBmCodeLabel">scenario.js</span>
+          <span class="export-bm-code-label" id="exportCodeLabel"></span>
           <div class="export-bm-code-toolbar-btns">
-            <button class="export-bm-code-toolbar-btn" id="exportBmWrapBtn">wrap</button>
-            <button class="export-bm-code-toolbar-btn" id="exportBmSelectAllBtn">select all</button>
+            <button class="export-bm-code-toolbar-btn" id="exportWrapBtn">wrap</button>
+            <button class="export-bm-code-toolbar-btn" id="exportSelectAllBtn">select all</button>
           </div>
         </div>
-        <pre id="exportBmCode" class="export-bm-code"><code></code></pre>
+        <pre id="exportCode" class="export-bm-code"><code></code></pre>
       </div>
 
       <!-- Tab: Variables -->
-      <div id="exportBmTabVariables" class="export-bm-tab-panel" hidden>
-        <div id="exportBmNoVars" class="export-bm-no-vars">No variables defined</div>
-        <div id="exportBmVarList"></div>
+      <div id="exportTabVariables" class="export-bm-tab-panel" hidden>
+        <div id="exportNoVars" class="export-bm-no-vars">No variables defined</div>
+        <div id="exportVarList"></div>
       </div>
 
       <!-- Tab: Actions Review -->
-      <div id="exportBmTabActions" class="export-bm-tab-panel" hidden>
-        <div class="export-bm-act-summary" id="exportBmActSummary"></div>
-        <div id="exportBmActList"></div>
+      <div id="exportTabActions" class="export-bm-tab-panel" hidden>
+        <div class="export-bm-act-summary" id="exportActSummary"></div>
+        <div id="exportActList"></div>
       </div>
 
-      <!-- Tab: Settings -->
-      <div id="exportBmTabSettings" class="export-bm-tab-panel" hidden>
-        <div class="export-bm-setting-row">
-          <div class="export-bm-setting-label">
-            Delay between steps
-            <small>Time to wait after each action</small>
+      <!-- Tab: Settings: one block per format, the open one shown -->
+      <div id="exportTabSettings" class="export-bm-tab-panel" hidden>
+        <div data-format="js" hidden>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Delay between steps
+              <small>Time to wait after each action</small>
+            </div>
+            <input type="number" id="exportBmStepDelay" class="export-bm-setting-input" value="300" min="0" max="10000" />
+            <span class="export-bm-setting-unit">ms</span>
           </div>
-          <input type="number" id="exportBmStepDelay" class="export-bm-setting-input" value="300" min="0" max="10000" />
-          <span class="export-bm-setting-unit">ms</span>
-        </div>
-        <div class="export-bm-setting-row">
-          <div class="export-bm-setting-label">
-            Element timeout
-            <small>Max wait time for elements</small>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Element timeout
+              <small>Max wait time for elements</small>
+            </div>
+            <input type="number" id="exportBmElTimeout" class="export-bm-setting-input" value="5000" min="500" max="30000" />
+            <span class="export-bm-setting-unit">ms</span>
           </div>
-          <input type="number" id="exportBmElTimeout" class="export-bm-setting-input" value="5000" min="500" max="30000" />
-          <span class="export-bm-setting-unit">ms</span>
         </div>
-        <button id="exportBmRegenerate" class="export-bm-regen-btn">↺ Regenerate Code</button>
+        <div data-format="py" hidden>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Starting URL
+              <small>Initial page to navigate to</small>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+              <span class="export-bm-url-from-tab" id="exportSeleniumUrlFromTab" style="display:none;">📍 Current tab</span>
+              <input type="url" id="exportSeleniumStartUrl" class="export-bm-setting-input" placeholder="https://…" style="width:130px;" />
+              <button id="exportSeleniumGetUrl" class="export-bm-icon-btn" title="Get URL from current tab" style="font-size:11px;">🔄</button>
+            </div>
+          </div>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">WebDriver</div>
+            <select id="exportSeleniumDriver" class="export-bm-setting-select">
+              <option value="Chrome" selected>Chrome</option>
+              <option value="Firefox">Firefox</option>
+              <option value="Edge">Edge</option>
+              <option value="Safari">Safari</option>
+            </select>
+          </div>
+          <label class="export-bm-setting-row" id="exportSeleniumHeadlessRow">
+            <span class="export-bm-setting-label">
+              Headless
+              <small>No browser window, as on a CI server</small>
+            </span>
+            <span class="hl-toggle-switch">
+              <input type="checkbox" id="exportSeleniumHeadless" role="switch" />
+              <span class="hl-toggle-slider" aria-hidden="true"></span>
+            </span>
+          </label>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Output
+              <small>pytest: a test_….py with a browser fixture</small>
+            </div>
+            <select id="exportSeleniumOutput" class="export-bm-setting-select">
+              <option value="script" selected>Script</option>
+              <option value="pytest">pytest</option>
+            </select>
+          </div>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Delay between steps
+              <small>Time to wait after each action</small>
+            </div>
+            <input type="number" id="exportSeleniumStepDelay" class="export-bm-setting-input" value="500" min="0" max="10000" />
+            <span class="export-bm-setting-unit">ms</span>
+          </div>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Element timeout
+              <small>Max wait time for elements</small>
+            </div>
+            <input type="number" id="exportSeleniumElTimeout" class="export-bm-setting-input" value="10000" min="500" max="60000" />
+            <span class="export-bm-setting-unit">ms</span>
+          </div>
+        </div>
+        <button id="exportRegenerate" class="export-bm-regen-btn">↺ Regenerate Code</button>
       </div>
 
       <!-- Stats pills -->
       <div class="export-bm-stats-row">
-        <div class="export-bm-stat-pill"><span class="export-bm-dot dot-blue"></span><span id="exportBmStatSteps">0 steps</span></div>
-        <div class="export-bm-stat-pill"><span class="export-bm-dot dot-green"></span><span id="exportBmStatVars">0 variables</span></div>
-        <div class="export-bm-stat-pill" id="exportBmStatWarnPill" style="display:none;"><span class="export-bm-dot dot-orange"></span><span id="exportBmStatWarn">0 verify</span></div>
-        <div class="export-bm-stat-pill" id="exportBmStatSkippedPill" style="display:none;"><span class="export-bm-dot dot-red"></span><span id="exportBmStatSkipped">0 skipped</span></div>
+        <div class="export-bm-stat-pill"><span class="export-bm-dot dot-blue"></span><span id="exportStatSteps">0 steps</span></div>
+        <div class="export-bm-stat-pill"><span class="export-bm-dot dot-green"></span><span id="exportStatVars">0 variables</span></div>
+        <div class="export-bm-stat-pill" id="exportStatWarnPill" style="display:none;"><span class="export-bm-dot dot-orange"></span><span id="exportStatWarn">0 verify</span></div>
+        <div class="export-bm-stat-pill" id="exportStatSkippedPill" style="display:none;"><span class="export-bm-dot dot-red"></span><span id="exportStatSkipped">0 skipped</span></div>
       </div>
 
       <div class="export-bm-footer">
         <div class="export-bm-footer-spacer"></div>
         <div class="export-bm-footer-btns">
-          <button id="exportBmCancel" class="export-bm-nf-btn">Cancel</button>
-          <button id="exportBmDownload" class="export-bm-nf-btn">⬇ .js</button>
-          <button id="exportBmCopy" class="export-bm-nf-btn export-bm-nf-btn-primary">📋 Copy Code</button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Export Selenium Python Modal -->
-  <div id="exportSeleniumModal" class="export-bm-modal" role="dialog" aria-modal="true" aria-labelledby="exportSeleniumTitle" aria-hidden="true">
-    <div class="export-bm-content">
-
-      <div class="export-bm-header">
-        <div class="export-bm-accent-bar export-bm-accent-py"></div>
-        <div class="export-bm-header-inner">
-          <div class="export-bm-lang-badge export-bm-lang-badge-py">PY</div>
-          <div class="export-bm-header-text">
-            <div class="export-bm-header-title" id="exportSeleniumTitle">Export Selenium Python</div>
-            <div class="export-bm-header-sub" id="exportSeleniumSub">scenario.py · 0 steps</div>
-          </div>
-          <div class="export-bm-header-actions">
-            <button class="export-bm-icon-btn export-bm-icon-btn-danger" id="exportSeleniumClose" aria-label="Close">✕</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="export-bm-tabs" role="tablist">
-        <button class="export-py-tab active" data-tab="preview" role="tab" aria-selected="true">Code</button>
-        <button class="export-py-tab" data-tab="variables" role="tab" aria-selected="false">Variables <span class="export-bm-tab-count" id="exportSeleniumVarCount">0</span></button>
-        <button class="export-py-tab" data-tab="actions" role="tab" aria-selected="false">Actions <span class="export-bm-tab-count" id="exportSeleniumActCount">0</span></button>
-        <button class="export-py-tab" data-tab="settings" role="tab" aria-selected="false">Settings</button>
-      </div>
-
-      <div id="exportSeleniumWarning" class="export-bm-warning" style="display:none;">
-        <span class="export-bm-warning-icon">⚠</span>
-        <span id="exportSeleniumSkipMsg"></span>
-      </div>
-
-      <!-- Tab: Preview Code -->
-      <div id="exportSeleniumTabPreview" class="export-bm-tab-panel">
-        <div class="export-bm-code-toolbar">
-          <span class="export-bm-code-label" id="exportSeleniumCodeLabel">scenario.py</span>
-          <div class="export-bm-code-toolbar-btns">
-            <button class="export-bm-code-toolbar-btn" id="exportSeleniumWrapBtn">wrap</button>
-            <button class="export-bm-code-toolbar-btn" id="exportSeleniumSelectAllBtn">select all</button>
-          </div>
-        </div>
-        <pre id="exportSeleniumCode" class="export-bm-code"><code></code></pre>
-      </div>
-
-      <!-- Tab: Variables -->
-      <div id="exportSeleniumTabVariables" class="export-bm-tab-panel" hidden>
-        <div id="exportSeleniumNoVars" class="export-bm-no-vars">No variables defined</div>
-        <div id="exportSeleniumVarList"></div>
-      </div>
-
-      <!-- Tab: Actions Review -->
-      <div id="exportSeleniumTabActions" class="export-bm-tab-panel" hidden>
-        <div class="export-bm-act-summary" id="exportSeleniumActSummary"></div>
-        <div id="exportSeleniumActList"></div>
-      </div>
-
-      <!-- Tab: Settings -->
-      <div id="exportSeleniumTabSettings" class="export-bm-tab-panel" hidden>
-        <div class="export-bm-setting-row">
-          <div class="export-bm-setting-label">
-            Starting URL
-            <small>Initial page to navigate to</small>
-          </div>
-          <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
-            <span class="export-bm-url-from-tab" id="exportSeleniumUrlFromTab" style="display:none;">📍 Current tab</span>
-            <input type="url" id="exportSeleniumStartUrl" class="export-bm-setting-input" placeholder="https://…" style="width:130px;" />
-            <button id="exportSeleniumGetUrl" class="export-bm-icon-btn" title="Get URL from current tab" style="font-size:11px;">🔄</button>
-          </div>
-        </div>
-        <div class="export-bm-setting-row">
-          <div class="export-bm-setting-label">WebDriver</div>
-          <select id="exportSeleniumDriver" class="export-bm-setting-select">
-            <option value="Chrome" selected>Chrome</option>
-            <option value="Firefox">Firefox</option>
-            <option value="Edge">Edge</option>
-            <option value="Safari">Safari</option>
-          </select>
-        </div>
-        <label class="export-bm-setting-row" id="exportSeleniumHeadlessRow">
-          <span class="export-bm-setting-label">
-            Headless
-            <small>No browser window, as on a CI server</small>
-          </span>
-          <span class="hl-toggle-switch">
-            <input type="checkbox" id="exportSeleniumHeadless" role="switch" />
-            <span class="hl-toggle-slider" aria-hidden="true"></span>
-          </span>
-        </label>
-        <div class="export-bm-setting-row">
-          <div class="export-bm-setting-label">
-            Output
-            <small>pytest: a test_….py with a browser fixture</small>
-          </div>
-          <select id="exportSeleniumOutput" class="export-bm-setting-select">
-            <option value="script" selected>Script</option>
-            <option value="pytest">pytest</option>
-          </select>
-        </div>
-        <div class="export-bm-setting-row">
-          <div class="export-bm-setting-label">
-            Delay between steps
-            <small>Time to wait after each action</small>
-          </div>
-          <input type="number" id="exportSeleniumStepDelay" class="export-bm-setting-input" value="500" min="0" max="10000" />
-          <span class="export-bm-setting-unit">ms</span>
-        </div>
-        <div class="export-bm-setting-row">
-          <div class="export-bm-setting-label">
-            Element timeout
-            <small>Max wait time for elements</small>
-          </div>
-          <input type="number" id="exportSeleniumElTimeout" class="export-bm-setting-input" value="10000" min="500" max="60000" />
-          <span class="export-bm-setting-unit">ms</span>
-        </div>
-        <button id="exportSeleniumRegenerate" class="export-bm-regen-btn">↺ Regenerate Code</button>
-      </div>
-
-      <!-- Stats pills -->
-      <div class="export-bm-stats-row">
-        <div class="export-bm-stat-pill"><span class="export-bm-dot dot-blue"></span><span id="exportSeleniumStatSteps">0 steps</span></div>
-        <div class="export-bm-stat-pill"><span class="export-bm-dot dot-green"></span><span id="exportSeleniumStatVars">0 variables</span></div>
-        <div class="export-bm-stat-pill" id="exportSeleniumStatWarnPill" style="display:none;"><span class="export-bm-dot dot-orange"></span><span id="exportSeleniumStatWarn">0 verify</span></div>
-        <div class="export-bm-stat-pill" id="exportSeleniumStatSkippedPill" style="display:none;"><span class="export-bm-dot dot-red"></span><span id="exportSeleniumStatSkipped">0 skipped</span></div>
-      </div>
-
-      <div class="export-bm-footer">
-        <div class="export-bm-footer-spacer"></div>
-        <div class="export-bm-footer-btns">
-          <button id="exportSeleniumCancel" class="export-bm-nf-btn">Cancel</button>
-          <button id="exportSeleniumDownload" class="export-bm-nf-btn">⬇ .py</button>
-          <button id="exportSeleniumCopy" class="export-bm-nf-btn export-bm-nf-btn-primary">📋 Copy Code</button>
+          <button id="exportCancel" class="export-bm-nf-btn">Cancel</button>
+          <button id="exportDownload" class="export-bm-nf-btn">⬇</button>
+          <button id="exportCopy" class="export-bm-nf-btn export-bm-nf-btn-primary">📋 Copy Code</button>
         </div>
       </div>
 

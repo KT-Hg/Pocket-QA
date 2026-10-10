@@ -1,7 +1,7 @@
 {
-  "total": 98,
+  "total": 97,
   "byRule": {
     "complexity": 56,
-    "max-lines-per-function": 42
+    "max-lines-per-function": 41
   }
 }
