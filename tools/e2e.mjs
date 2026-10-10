@@ -1208,6 +1208,8 @@ async function checkExportOutput(ctx) {
       document.getElementById('exportSelenium').click();
     })()`);
     await sleep(POPUP_SETTLE_MS);
+    const dataRow = () => popup.evaluate(`getComputedStyle(document.getElementById('exportSeleniumDataRow')).display !== 'none'`);
+    const scriptRow = await dataRow();
     await popup.evaluate(`(() => {
       const o = document.getElementById('exportSeleniumOutput');
       o.value = 'pytest';
@@ -1220,6 +1222,13 @@ async function checkExportOutput(ctx) {
     })`);
     check(shown.label === 'test_đăng_nhập_pytest.py' && /^import pytest$/m.test(shown.code) && /^def test_dang_nhap_pytest\(browser\):$/m.test(shown.code),
       'Output pytest: a test_….py file pytest finds, with a test function', { label: shown.label });
+    // The data file is pytest's: its field shows only then, and the code follows what is typed in it.
+    await popup.evaluate(`(() => { const f = document.getElementById('exportSeleniumData'); f.value = 'data.csv';
+      f.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await sleep(SETTLE_MS);
+    const withData = await popup.evaluate(`document.querySelector('#exportCode code').textContent`);
+    check(!scriptRow && await dataRow() && /^@pytest\.mark\.parametrize\("_row", _rows\("data\.csv"\)\)$/m.test(withData),
+      'Output pytest: the Data file (CSV) field shows, and a file named there gives a test per row', { scriptRow });
   } finally {
     await popup.close();
   }
@@ -2085,6 +2094,44 @@ async function checkEnvOverrides(ctx, run) {
   }
 }
 
+/**
+ * A pytest test and a Playwright spec exported with a data file run once per row
+ * of it, each with its row's values: the page to open (a column no variable has)
+ * and "who", whose column wins over the variable's "Zed" — one value quoted,
+ * holding the delimiter.
+ */
+async function checkCsvData(ctx, run) {
+  const steps = [
+    { type: 'navigate', url: '${page}' },
+    { type: 'input', selector: '#name', selectors: { css: '#name' }, value: '${who}' },
+  ];
+  const who = ['Ann', 'Bo, Jr.', 'Cy'];
+  const writeCsv = (folder, runner) => writeFileSync(join(folder, 'data.csv'),
+    ['page,who', ...who.map((w, k) => `${run.pageUrl(`csv:${runner}:${k + 1}`)},"${w}"`)].join('\r\n') + '\r\n');
+  const names = (runner) => who.map((w, k) => exportStates.get(`csv:${runner}:${k + 1}`)?.state?.fields?.name);
+  if (run.pytestHere) {
+    writeCsv(run.dir, 'pytest');
+    writeFileSync(join(run.dir, 'test_csv_data.py'), run.generateSeleniumPy('csv data', steps, { who: 'Zed' },
+      { driverType: 'Edge', headless: !HEADED, output: 'pytest', dataFile: 'data.csv', stepDelay: 0 }).code);
+    const r = await runPytest('test_csv_data.py', run.dir);
+    await sleep(SETTLE_MS);
+    const summary = String(r.stdout).trim().split('\n').pop();
+    check(!r.error && /^3 passed/.test(summary) && JSON.stringify(names('pytest')) === JSON.stringify(who),
+      'csv-data: pytest runs a test per row of data.csv, each with its row', { summary, names: names('pytest') });
+  }
+  if (run.pwRun) {
+    writeCsv(run.pwRun, 'playwright');
+    writeFileSync(join(run.pwRun, 'csv_data.spec.js'), run.generatePlaywright('csv data', steps, { who: 'Zed' },
+      { dataFile: 'data.csv', stepDelay: 0 }).code);
+    const r = await runFile(process.execPath, [run.pwCli, 'test', 'csv_data.spec.js', '--config', 'playwright.config.mjs'],
+      { cwd: run.pwRun, timeout: PYTHON_RUN_TIMEOUT_MS });
+    await sleep(SETTLE_MS);
+    const out = String(r.stdout);
+    check(!r.error && /\b3 passed\b/.test(out) && JSON.stringify(names('playwright')) === JSON.stringify(who),
+      'csv-data: Playwright runs a test per row of data.csv, each with its row', { out: out.trim().split('\n').slice(-2), names: names('playwright') });
+  }
+}
+
 async function checkExportRun(ctx) {
   const extModule = (p) => pathToFileURL(join(EXT, p)).href;
   const { generateBookmarklet, toBookmarkletUrl } = await import(extModule('popup/export-bookmarklet.js'));
@@ -2195,6 +2242,7 @@ async function checkExportRun(ctx) {
           `${c.name}: the ${runner} export leaves the page as playback does`, states[runner] ? diff : 'no state posted');
       }
     }
+    if (!CASES || CASES.includes('csv-data')) await checkCsvData(ctx, { dir, pageUrl, pytestHere, pwRun, pwCli, generateSeleniumPy, generatePlaywright });
     if (!CASES || CASES.includes('env')) await checkEnvOverrides(ctx, { dir, noPython, pwRun, pwCli, generateSeleniumPy, generatePlaywright });
     if (!CASES || CASES.includes('fails-at-step')) await checkFailsAtStep(ctx, { dir, pageUrl, noPython, pytestHere, pwRun, pwCli, generateBookmarklet, toBookmarkletUrl, generateSeleniumPy, generatePlaywright });
     if (pytestHere && !CASES) {

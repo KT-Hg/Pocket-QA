@@ -1046,3 +1046,41 @@ test('the environment changes an exported run without an export: PQA_<name>, PQA
     if (e.code !== 'ENOENT') throw e; // no Python on this machine — nothing to run
   }
 });
+
+test('a data file: a test per row; pytest reads the CSV as the CSV run does', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const { parseCSV } = await import('../popup/csv/csv-parse.js');
+  const steps = [{ type: 'navigate', url: '${page}' }, { type: 'input', selector: '#n', selectors: { css: '#n' }, value: '${who}' }];
+  const py = generateSeleniumPy('csv', steps, { who: 'Zed' }, { output: 'pytest', dataFile: 'data.csv' });
+  assert.match(py.code, /^@pytest\.mark\.parametrize\("_row", _rows\("data\.csv"\)\)\ndef test_csv\(browser, _row\):$/m);
+  assert.match(py.code, /^ {8}who = _row\.get\("who", _var\("who", "Zed"\)\)$/m, 'a column wins, then the environment, then the variable');
+  assert.match(py.code, /^ {8}page = _column\(_row, "page"\)$/m, 'a name only a column gives');
+  assert.deepEqual(py.warnings, ['${page} is not in the Variables tab: it comes from the column "page" of data.csv']);
+  assert.equal(compilePy(py.code), null);
+  // The Script runs once: no data file there.
+  assert.doesNotMatch(generateSeleniumPy('csv', steps, { who: 'Zed' }, { dataFile: 'data.csv' }).code, /_rows|parametrize/);
+
+  const pw = generatePlaywright('csv', steps, { who: 'Zed' }, { dataFile: 'data.csv' }).code;
+  assert.match(pw, /^for \(const \[n, _row\] of _rows\("data\.csv"\)\.entries\(\)\) \{\n {2}test\("csv" \+ ' #' \+ \(n \+ 1\), async \(\{ page \}\) => \{$/m);
+  assert.match(pw, /^ {4}const who = _row\["who"\] \?\? _var\("who", "Zed"\);$/m);
+  assert.equal(checkModule(pw), null);
+
+  // _rows, run by Python on CSV text the CSV run reads: the same rows.
+  const texts = [
+    '\uFEFFname;note\r\nAnn;"two\nlines"\r\n  Bo  ;" kept "\r\n\r\n',
+    'a,b,c\n1,"x, ""y""",\n2\n',
+    'a\tb\n1\t2',
+  ];
+  const helpers = py.code.slice(py.code.indexOf('def _rows('), py.code.indexOf('def _column('));
+  const dir = mkdtempSync(join(tmpdir(), 'pqa-csv-'));
+  try {
+    texts.forEach((t, k) => writeFileSync(join(dir, `d${k}.csv`), t));
+    writeFileSync(join(dir, 'probe.py'), `import json, os\n${helpers}\nprint(json.dumps([_rows(f"d{k}.csv") for k in range(${texts.length})]))\n`);
+    const out = execFileSync('python', [join(dir, 'probe.py')], { env: { ...process.env, PYTHONIOENCODING: 'utf-8' } }).toString();
+    assert.deepEqual(JSON.parse(out), texts.map((t) => parseCSV(t).rows));
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e; // no Python on this machine — nothing to run
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

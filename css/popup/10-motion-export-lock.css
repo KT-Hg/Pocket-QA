@@ -480,6 +480,7 @@
   border-bottom: 1px solid var(--border);
   gap: 10px;
 }
+.export-bm-setting-row[hidden] { display: none; }
 
 .export-bm-setting-label {
   flex: 1;

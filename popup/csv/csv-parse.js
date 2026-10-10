@@ -6,7 +6,7 @@
  * whose decimal mark is a comma (vi-VN, most of Europe) saves "CSV" with
  * semicolons, and a Tab-separated paste is common too.
  */
-function _delimiterOf(text) {
+export function _delimiterOf(text) {
   const counts = { ',': 0, ';': 0, '\t': 0 };
   let inQuote = false;
   for (const ch of text) {

@@ -11,18 +11,20 @@
 import { commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName } from '../shared/var-name.js';
+import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
+import { parseCSV, _delimiterOf } from './csv/csv-parse.js';
 import { SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS } from './export/page-js.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
 
 // What the generated spec declares for itself, beside the JS reserved words.
 const RESERVED = new Set(['test', 'page', 'TIMEOUT', '_find', '_first', '_input', '_setInput', '_js', '_SCRIPT_INPUT_TYPES',
-  '_checkCond', '_findChild', '_readVal', '_pick', '_var', '_url', '_firstOrigin', 'process', ...JS_RESERVED]);
+  '_checkCond', '_findChild', '_readVal', '_pick', '_var', '_url', '_firstOrigin', 'process', '_row', '_rows', '_column',
+  'readFileSync', 'join', '_delimiterOf', 'parseCSV', ...JS_RESERVED]);
 // The steps' elements (el3, el3_t) share the test function with the variables.
 const ident = jsIdentifier(RESERVED, /^el\d+(_|$)/);
 const valueJS = jsValue(ident);
@@ -90,6 +92,28 @@ const runNotes = (varNames) => [
   "//   PQA_BASE_URL  a site to open instead of the first page's (staging, production): its steps go there",
   ...(varNames.length ? [`//   PQA_<name>    a variable's value: ${commentText(varNames.map((n) => `PQA_${n}`).join(', '))}`] : []),
 ];
+
+// A spec with a data file: its rows, read as the extension's CSV run reads them (its
+// own parser, popup/csv/csv-parse.js), and the value of a column a step needs. The
+// file is the one beside the spec (__dirname; an ES module project has none: the
+// folder npx runs from).
+const lf = (fn) => fn.toString().replace(/\r\n?/g, '\n');
+const CSV_HELPERS = `// The rows of a CSV file beside this spec, read as the extension's CSV run reads them.
+${lf(_delimiterOf)}
+
+${lf(parseCSV)}
+
+function _rows(name) {
+  const parsed = parseCSV(readFileSync(join(typeof __dirname === 'string' ? __dirname : process.cwd(), name), 'utf8'));
+  if (!parsed) throw new Error(name + ': a header row and at least one row of data are needed');
+  return parsed.rows;
+}
+
+// The row's value of a column a step needs.
+function _column(row, name) {
+  if (!(name in row)) throw new Error('the data file has no column "' + name + '"');
+  return row[name];
+}`;
 
 // The spec's own helpers, each written out only when a step uses it.
 const FIND_HELPER = String.raw`// How the extension finds an element (content.js _locators): each selector in turn
@@ -317,9 +341,10 @@ const stepLines = (ctx) => walkActions(ctx, {
 });
 
 // The scenario's variables (exportVariables), declared at the top of the test, in the
-// Variables tab's order — each PQA_<name> when the environment sets it: `let` for the
-// ones a step writes.
-function variableLines(variables, { staticVars, randomSpecs, pickSpecs, written }) {
+// Variables tab's order — each PQA_<name> when the environment sets it, and with a
+// data file the row's column of its name first, as a CSV run lets a column win:
+// `let` for the ones a step writes.
+function variableLines(variables, { staticVars, randomSpecs, pickSpecs, written }, csv = null) {
   const out = [];
   const declared = new Set();
   const declare = (safe, expr) => {
@@ -333,10 +358,28 @@ function variableLines(variables, { staticVars, randomSpecs, pickSpecs, written 
     let value = JSON.stringify(staticVars[k]);
     if (random) value = `(${randomFnJS(random.type, random.length)})()`;
     else if (pick) value = `${JSON.stringify(pick)}[Math.floor(Math.random() * ${pick.length})]`;
-    declare(ident(k), `_var(${JSON.stringify(k)}, ${value})`);
+    const env = `_var(${JSON.stringify(k)}, ${value})`;
+    declare(ident(k), csv ? `_row[${JSON.stringify(k)}] ?? ${env}` : env);
   }
+  // A name only the data file gives: its column, which every row must have; one a step
+  // writes, seeded by the row's column when it has one.
+  for (const name of csv?.fromColumns || []) declare(ident(name), `_column(_row, ${JSON.stringify(name)})`);
+  for (const name of csv?.written || []) declare(ident(name), `_row[${JSON.stringify(name)}] ?? ''`);
   for (const k of written) declare(k, "''");
   return out.length ? ['// --- VARIABLES ---', ...out, ''] : [];
+}
+
+// The test of `lines`; with a data file, one test per row of it, named "<scenario> #<row>".
+function testBlock(scenarioName, lines, dataFile) {
+  const indent = (l) => (l === '' ? '' : `  ${l}`);
+  const test = [
+    `test(${JSON.stringify(String(scenarioName))}${dataFile ? " + ' #' + (n + 1)" : ''}, async ({ page }) => {`,
+    '  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.',
+    '  test.setTimeout(0);',
+    ...lines.map(indent),
+    '});',
+  ];
+  return dataFile ? [`for (const [n, _row] of _rows(${JSON.stringify(dataFile)}).entries()) {`, ...test.map(indent), '}'] : test;
 }
 
 /**
@@ -350,6 +393,8 @@ function variableLines(variables, { staticVars, randomSpecs, pickSpecs, written 
  */
 export function generatePlaywright(scenarioName, actions, variables, opts = {}) {
   const { stepDelay = 300, elTimeout = 10000, startUrl = '' } = opts;
+  // A CSV file of rows to run with: a test per row.
+  const dataFile = String(opts.dataFile || '').trim();
   const all = actions || [];
   const enabled = all.filter((a) => a && !a.disabled);
   const warnings = new Set();
@@ -367,23 +412,23 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
       : ['// ⚠ TODO: Set the starting URL (go to Settings tab to configure)', 'await page.goto(_url("https://your-url-here.com"));', ''];
   }
 
-  const out = [`// SCENARIO: ${commentText(scenarioName)}`, ...runNotes(Object.keys(variables || {})), "import { test } from '@playwright/test';", ''];
+  const out = [`// SCENARIO: ${commentText(scenarioName)}`, ...runNotes(Object.keys(variables || {})), "import { test } from '@playwright/test';"];
+  if (dataFile) out.push("import { readFileSync } from 'node:fs';", "import { join } from 'node:path';");
+  out.push('');
   // A failed test keeps a screenshot and a trace of the page (test-results/).
   out.push('// How long a step waits for its element, as set in the export.', `const TIMEOUT = ${elTimeout};`,
     "test.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });", '');
   out.push(ENV_HELPERS, '');
+  if (dataFile) out.push(CSV_HELPERS, '');
   if (body.some((l) => l.includes('await _find('))) out.push(FIND_HELPER, '');
   if (ctx.uses.has('first')) out.push(FIRST_HELPER, '');
   for (const name of ['check', 'child', 'read', 'pick']) if (ctx.uses.has(name)) out.push(PAGE_HELPERS[name], '');
   if (ctx.uses.has('input')) out.push(INPUT_HELPER, '');
   if (ctx.uses.has('js')) out.push(JS_HELPER, '');
-  out.push(`test(${JSON.stringify(String(scenarioName))}, async ({ page }) => {`,
-    '  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.',
-    '  test.setTimeout(0);');
-  for (const line of [...variableLines(variables, vars), ...start, ...body]) out.push(line === '' ? '' : `  ${line}`);
-  out.push('});');
+  const csv = dataFile ? { fromColumns: undefinedVarNames(enabled, variables), written: enabled.flatMap((a) => writtenVarNames(a)) } : null;
+  out.push(...testBlock(scenarioName, [...variableLines(variables, vars, csv), ...start, ...body], dataFile));
 
-  warnUndefinedVars(enabled, variables, warnings);
+  warnUndefinedVars(enabled, variables, warnings, dataFile);
   const skipped = steps.filter((s) => s.status === 'skip').length;
   return {
     code: out.join('\n'),
@@ -411,6 +456,7 @@ export function initExportPlaywright() {
       stepDelay: number('exportPwStepDelay', 300),
       elTimeout: number('exportPwElTimeout', 10000),
       startUrl: document.getElementById('exportPwStartUrl')?.value.trim() || '',
+      dataFile: document.getElementById('exportPwData')?.value.trim() || '',
     }),
     generate: generatePlaywright,
     copyText: (code) => code,

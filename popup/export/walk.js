@@ -53,14 +53,24 @@ export function exportVariables(variables, enabled, ident, lang, warnings) {
 }
 
 /**
- * Into `warnings`: each `${name}` a step uses that neither the Variables tab
- * (`variables`) nor a step defines — the exported code fails on it when the step
- * runs, with no clue where it came from.
+ * Each `${name}` a step uses that neither the Variables tab (`variables`) nor a
+ * step defines, in order.
  */
-export function warnUndefinedVars(enabled, variables, warnings) {
+export function undefinedVarNames(enabled, variables) {
   const known = new Set([...Object.keys(variables || {}), ...enabled.flatMap((a) => writtenVarNames(a))]);
-  for (const name of getUsedVarNames(enabled)) {
-    if (!known.has(name)) warnings.add(`\${${name}} is used by a step but not defined in the Variables tab`);
+  return [...getUsedVarNames(enabled)].filter((name) => !known.has(name));
+}
+
+/**
+ * Into `warnings`: each undefinedVarNames — the exported code fails on it when the
+ * step runs, with no clue where it came from; with a `dataFile`, it is that file's
+ * column of the name, and the code fails without one.
+ */
+export function warnUndefinedVars(enabled, variables, warnings, dataFile = '') {
+  for (const name of undefinedVarNames(enabled, variables)) {
+    warnings.add(dataFile
+      ? `\${${name}} is not in the Variables tab: it comes from the column "${name}" of ${dataFile}`
+      : `\${${name}} is used by a step but not defined in the Variables tab`);
   }
 }
 

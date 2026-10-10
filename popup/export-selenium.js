@@ -1,11 +1,11 @@
 import { commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName } from '../shared/var-name.js';
+import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark } from './export/steps.js';
-import { exportVariables, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS,
 } from './export/page-js.js';
@@ -137,7 +137,7 @@ const _RESERVED_PY = new Set([
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
   'pytest', 'browser', 'dom_var', '_at', 'os', '_save_failure', '_var', '_url', '_first_origin', '_start_browser',
-  'urlsplit', 'urlunsplit',
+  'urlsplit', 'urlunsplit', '_row', '_rows', '_column',
   're', 'sys', 'open', 'str', 'int', 'len', 'range', 'hasattr', 'Exception',
   'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
@@ -356,7 +356,7 @@ function runNotesPy(pytest, driverType, headless, varNames) {
  * that writes a variable makes it a local of the function, so a seed of it has to
  * be there as well, not at module level.
  */
-function pytestLines(driverLines, testName, body) {
+function pytestLines(driverLines, testName, body, dataFile) {
   // A failed step's error names it (_at), in the report as in the script's output.
   const steps = [
     '_at = ""',
@@ -379,9 +379,86 @@ function pytestLines(driverLines, testName, body) {
     '    driver.quit()',
     '',
     '',
-    `def ${testName}(browser):`,
+    // With a data file, a test per row of it.
+    ...(dataFile ? [`@pytest.mark.parametrize("_row", _rows(${JSON.stringify(dataFile)}))`, `def ${testName}(browser, _row):`] : [`def ${testName}(browser):`]),
     ...steps.map((l) => (l === '' ? '' : `    ${l}`)),
   ];
+}
+
+/**
+ * The _rows() and _column() runtime helpers of a pytest test with a data file:
+ * the CSV file's rows as the extension's CSV run reads them (parseCSV of
+ * popup/csv/csv-parse.js, line for line) — the delimiter its header uses most
+ * (comma, semicolon or Tab), quotes, line breaks in them, a BOM — and the value of
+ * a column a step needs, which a row must have.
+ */
+function _csvHelpersPy() {
+  return String.raw`
+def _rows(name):
+    """The rows of the CSV file of that name beside this file, each {column: value}."""
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), name), encoding="utf-8-sig", newline="") as f:
+        text = f.read()
+    counts = {",": 0, ";": 0, "\t": 0}
+    quote = False
+    for ch in text:
+        if ch == '"':
+            quote = not quote
+        elif not quote and ch in "\r\n":
+            break
+        elif not quote and ch in counts:
+            counts[ch] += 1
+    delimiter = max(counts, key=counts.get)
+    records, record, field, quoted, in_quote, dirty, i = [], [], "", False, False, False, 0
+
+    def end_field():
+        nonlocal field, quoted
+        record.append(field if quoted else field.strip())
+        field, quoted = "", False
+
+    def end_record():
+        nonlocal record, dirty
+        end_field()
+        if dirty:
+            records.append(record)
+        record, dirty = [], False
+
+    while i < len(text):
+        ch = text[i]
+        if in_quote:
+            if ch == '"' and text[i + 1:i + 2] == '"':
+                field += '"'
+                i += 1
+            elif ch == '"':
+                in_quote = False
+            else:
+                field += ch
+        elif ch == '"':
+            in_quote = quoted = dirty = True
+        elif ch == delimiter:
+            end_field()
+            dirty = True
+        elif ch == "\r":
+            if text[i + 1:i + 2] == "\n":
+                i += 1
+            end_record()
+        elif ch == "\n":
+            end_record()
+        else:
+            field += ch
+            dirty = True
+        i += 1
+    if dirty:
+        end_record()
+    if len(records) < 2:
+        raise Exception(f"{name}: a header row and at least one row of data are needed")
+    return [{h: (r[k] if k < len(r) else "") for k, h in enumerate(records[0])} for r in records[1:]]
+
+
+def _column(row, name):
+    """The row's value of a column a step needs."""
+    if name not in row:
+        raise Exception(f'the data file has no column "{name}"')
+    return row[name]`.split('\n').slice(1);
 }
 
 /**
@@ -797,6 +874,8 @@ function stepLines(stepDelay, elTimeout, ctx) {
 export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) {
   const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false } = opts;
   const pytest = opts.output === 'pytest';
+  // A CSV file of rows to run with: pytest only, a test per row.
+  const dataFile = pytest ? String(opts.dataFile || '').trim() : '';
   // Written into `webdriver.<driverType>()`: only a class the script can call, never code.
   const driverType = DRIVER_TYPES.has(opts.driverType) ? opts.driverType : 'Chrome';
 
@@ -907,6 +986,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     out.push('');
     out.push('');
   }
+  if (dataFile) {
+    out.push(..._csvHelpersPy());
+    out.push('');
+    out.push('');
+  }
 
   // ── Header ──
   out.push(`# ============================`);
@@ -929,10 +1013,13 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
 
   // ── Variables ──
-  const hasVars = Object.keys(staticVars).length > 0 || needsRandom || writtenVars.size > 0;
+  // Each one PQA_<name> from the environment when it is set (_var); with a data
+  // file, the row's column of its name first, as a CSV run lets a column win.
+  const value = (k, expr) => (dataFile ? `_row.get(${JSON.stringify(k)}, _var(${JSON.stringify(k)}, ${expr}))` : `_var(${JSON.stringify(k)}, ${expr})`);
+  const fromColumns = dataFile ? undefinedVarNames(enabled, variables) : [];
+  const hasVars = Object.keys(staticVars).length > 0 || needsRandom || writtenVars.size > 0 || fromColumns.length > 0;
   const varLines = [];
   if (hasVars) {
-    // Each one PQA_<name> from the environment when it is set (_var).
     varLines.push('# --- VARIABLES ---');
     const declared = new Set();
 
@@ -940,7 +1027,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
       const safe = safeVarName(k);
       if (declared.has(safe)) continue;
       declared.add(safe);
-      varLines.push(`${safe} = _var(${JSON.stringify(k)}, ${JSON.stringify(v)})`);
+      varLines.push(`${safe} = ${value(k, JSON.stringify(v))}`);
     }
     for (const [k, spec] of Object.entries(randomSpecs)) {
       const safe = safeVarName(k);
@@ -950,21 +1037,37 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
       // in bg/interpolate.js implements; it used to fall through to the alphanumeric
       // charset here and produce random junk instead of the run's timestamp.
       if (spec.type === 'datetime') {
-        varLines.push(`${safe} = _var(${JSON.stringify(k)}, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))`);
+        varLines.push(`${safe} = ${value(k, 'datetime.now().strftime("%Y-%m-%d_%H-%M-%S")')}`);
         continue;
       }
       let charset;
       if (spec.type === 'alpha') charset = 'string.ascii_letters';
       else if (spec.type === 'numeric') charset = 'string.digits';
       else charset = 'string.ascii_letters + string.digits';
-      varLines.push(`${safe} = _var(${JSON.stringify(k)}, ''.join(random.choices(${charset}, k=${spec.length})))`);
+      varLines.push(`${safe} = ${value(k, `''.join(random.choices(${charset}, k=${spec.length}))`)}`);
     }
     for (const [k, vals] of Object.entries(pickSpecs)) {
       const safe = safeVarName(k);
       if (declared.has(safe)) continue;
       declared.add(safe);
       const pyList = '[' + vals.map(v => JSON.stringify(v)).join(', ') + ']';
-      varLines.push(`${safe} = _var(${JSON.stringify(k)}, random.choice(${pyList}))`);
+      varLines.push(`${safe} = ${value(k, `random.choice(${pyList})`)}`);
+    }
+    // A name only the data file gives: its column, which every row must have.
+    for (const name of fromColumns) {
+      const safe = safeVarName(name);
+      if (declared.has(safe)) continue;
+      declared.add(safe);
+      varLines.push(`${safe} = _column(_row, ${JSON.stringify(name)})`);
+    }
+    // A name a step writes, seeded by the row's column when it has one.
+    if (dataFile) {
+      for (const name of enabled.flatMap((a) => writtenVarNames(a))) {
+        const safe = safeVarName(name);
+        if (declared.has(safe)) continue;
+        declared.add(safe);
+        varLines.push(`${safe} = _row.get(${JSON.stringify(name)}, "")`);
+      }
     }
     // Only the written names nothing above already seeded. This loop used to run
     // unconditionally, so `seed = "INIT"` from the Variables tab was immediately
@@ -979,7 +1082,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   if (pytest) {
     out.push(...pytestLines(driverPy(driverType, headless, warnings), testFunctionName(scenarioName),
-      [...startLines, ...varLines, ...bodyLines]));
+      [...startLines, ...varLines, ...bodyLines], dataFile));
   } else {
     out.push(...driverPy(driverType, headless, warnings));
     // implicitly_wait is intentionally omitted — it conflicts with WebDriverWait/EC.
@@ -1007,7 +1110,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     out.push('    driver.quit()');
   }
 
-  warnUndefinedVars(enabled, variables, warnings);
+  warnUndefinedVars(enabled, variables, warnings, dataFile);
 
   const skipped = steps.filter((s) => s.status === 'skip').length;
   return {
@@ -1039,6 +1142,8 @@ export function initExportSelenium() {
     startUrl: { field: 'exportSeleniumStartUrl', button: 'exportSeleniumGetUrl', badge: 'exportSeleniumUrlFromTab' },
     wire: () => {
       document.getElementById('exportSeleniumDriver')?.addEventListener('change', _syncHeadless);
+      document.getElementById('exportSeleniumOutput')?.addEventListener('change', _syncDataRow);
+      _syncDataRow();
     },
   });
 }
@@ -1051,7 +1156,14 @@ function _getOpts() {
     startUrl:   document.getElementById('exportSeleniumStartUrl')?.value.trim() || '',
     headless:   !!document.getElementById('exportSeleniumHeadless')?.checked,
     output:     document.getElementById('exportSeleniumOutput')?.value === 'pytest' ? 'pytest' : 'script',
+    dataFile:   document.getElementById('exportSeleniumData')?.value.trim() || '',
   };
+}
+
+// The data file is pytest's: a Script runs once, so its row is not there.
+function _syncDataRow() {
+  const row = document.getElementById('exportSeleniumDataRow');
+  if (row) row.hidden = document.getElementById('exportSeleniumOutput')?.value !== 'pytest';
 }
 
 // Safari has no headless mode: with it chosen, Headless is off and cannot be turned on.
