@@ -1675,6 +1675,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   <div class="row"><span id="nameAlice">Alice</span> <button id="editAlice" class="edit">Edit</button></div>
   <div class="row"><span id="nameBob">Bob <i id="tagBob">VIP</i></span> <button id="editBob" class="edit special">Edit</button></div>
   <span id="note" style="display:none">ref 7731</span>
+  <span id="ownTxt">Hello<b id="ownB">x</b>World</span>
 </div>
 <input id="picked">
 <div id="conds">
@@ -1836,8 +1837,10 @@ const EXPORT_CASES = [
       { type: 'readdom', selector: '#people', selectors: { css: '#people' }, varName: 'ref', readFrom: 'text',
         conditions: { textContains: 'ref' } },
       { type: 'input', selector: '#picked', selectors: { css: '#picked' }, value: '${ref}' },
+      // Text the element holds in its own text nodes, a child between them: only those match it.
+      { type: 'click', selector: '#people', selectors: { css: '#people' }, conditions: { textContains: 'HelloWorld' } },
     ],
-    expect: { fields: { picked: 'ref 7731' }, clicks: ['tagBob', 'editBob', 'nameBob'], alerts: [] },
+    expect: { fields: { picked: 'ref 7731' }, clicks: ['tagBob', 'editBob', 'nameBob', 'ownTxt'], alerts: [] },
   },
   {
     // Each Condition guards one click: hasAttribute name=value, visible / hidden by

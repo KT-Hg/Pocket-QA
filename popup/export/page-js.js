@@ -17,8 +17,10 @@ import { CHILD_COND_KEYS } from '../../shared/child-cond.js';
  * A field may hold a {fallback:A|B|C} spec — a Fallback variable only becomes one
  * at run time — and each value is then tried in order. An empty value is a Blank:
  * it matches a child whose field is empty. "select" is any <select> (its type is
- * select-one / select-multiple). Every wrapper's textContent holds the text too,
- * so a text match goes down to the innermost element that still matches.
+ * select-one / select-multiple). A text matches the element's own text nodes
+ * joined, or its whole textContent (_findElementSingle). Every wrapper's
+ * textContent holds the text too, so a text match goes down to the innermost
+ * element that still matches.
  */
 export const FIND_CHILD_JS = String.raw`(parent, cond) => {
   const _fbRe = /^\{fallback:(.+)\}$/;
@@ -29,7 +31,12 @@ export const FIND_CHILD_JS = String.raw`(parent, cond) => {
     const norm = s => (s == null ? '' : String(s).trim().toLowerCase());
     const checks = [];
     if (c.valueEquals   != null && c.valueEquals   !== '') checks.push(el => el.value !== undefined && String(el.value) === String(c.valueEquals));
-    if (c.textContains  != null && c.textContains  !== '') { const n = norm(c.textContains);  checks.push(el => norm(el.textContent).includes(n)); }
+    if (c.textContains  != null && c.textContains  !== '') {
+      // The element's own text (its text nodes, not its children's) or all of it, as playback matches.
+      const n = norm(c.textContains);
+      const own = el => [...el.childNodes].filter(x => x.nodeType === 3).map(x => x.textContent).join('');
+      checks.push(el => norm(own(el)).includes(n) || norm(el.textContent).includes(n));
+    }
     if (c.idContains    != null && c.idContains    !== '') { const n = norm(c.idContains);    checks.push(el => norm(el.id).includes(n)); }
     if (c.classContains != null && c.classContains !== '') { const n = norm(c.classContains); checks.push(el => norm(el.className).includes(n)); }
     if (c.typeEquals    != null && c.typeEquals    !== '') checks.push(el => (c.typeEquals === 'select' ? el.tagName === 'SELECT' : el.type === c.typeEquals));

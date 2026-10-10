@@ -68,8 +68,5 @@ xuất đánh dấu ⚠ Verify hoặc — Skip cho từng bước liên quan, k�
 - **Bookmarklet và Navigate:** Navigate đầu tiên cần bấm 2 lần (mở trang rồi dừng, bấm lại khi trang đã tải). Nếu
   trang đích chuyển hướng sang địa chỉ khác (ví dụ về trang đăng nhập), lần bấm sau vẫn không thấy mình ở đích nên lại
   mở trang và dừng, không bao giờ chạy tiếp. Navigate ở giữa scenario tải lại trang, các bước sau nó không chạy.
-- **Child Condition "Text contains":** phát lại khớp cả chữ của riêng element (các text node con trực tiếp) lẫn
-  `textContent`; các bản xuất chỉ khớp `textContent`. Chỉ khác khi chữ cần tìm bị một phần tử con chen ngang, ví dụ
-  `Hello <b>x</b> world` với "Hello world".
 - **Kéo thả trong Selenium** dùng ActionChains; mới kiểm chạy thật trên Edge (e2e `export-run`), chưa kiểm trên
   Firefox và Safari.
