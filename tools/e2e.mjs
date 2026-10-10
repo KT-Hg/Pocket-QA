@@ -108,8 +108,10 @@
  *                 leaves the export page the same way; the form case runs as the
  *                 exported pytest test too, and a pytest test with a failing step
  *                 names it; every case runs as the exported Playwright .spec.js too
- *                 (PQA_PLAYWRIGHT_DIR: a folder with @playwright/test).
- *                 No python, selenium, pytest or Playwright: those runs are skipped,
+ *                 (PQA_PLAYWRIGHT_DIR: a folder with @playwright/test), and every case
+ *                 the Selenium script runs as the exported Robot Framework test too
+ *                 (PQA_ROBOT_PYTHON: a python with robotframework-seleniumlibrary).
+ *                 No python, selenium, pytest, Playwright or Robot: those runs are skipped,
  *                 not failed. fails-at-step: a scenario whose step 3 finds nothing,
  *                 run by each export, has its error name the step, its label and the
  *                 locator
@@ -2064,6 +2066,20 @@ async function hasPytest() {
 const runPytest = (file, dir) => runFile('python', ['-m', 'pytest', '-q', '-p', 'no:cacheprovider', file],
   { cwd: dir, timeout: PYTHON_RUN_TIMEOUT_MS, env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
 
+// A python with Robot Framework and SeleniumLibrary (pip install robotframework-seleniumlibrary):
+// the Robot runs use it. Without, they are skipped, not failed.
+const ROBOT_PYTHON = process.env.PQA_ROBOT_PYTHON || 'python';
+
+/** Whether ROBOT_PYTHON runs Robot Framework with SeleniumLibrary. */
+async function hasRobot() {
+  return !(await runFile(ROBOT_PYTHON, ['-c', 'import robot, SeleniumLibrary'])).error;
+}
+
+/** Run a .robot file, its output (log, screenshots) into `outDir`; its console in UTF-8. */
+const runRobot = (file, outDir, env = process.env) => runFile(ROBOT_PYTHON,
+  ['-m', 'robot', '--outputdir', outDir, '--consolecolors', 'off', '--consolewidth', '160', file],
+  { cwd: outDir, timeout: PYTHON_RUN_TIMEOUT_MS, env: { ...env, PYTHONIOENCODING: 'utf-8' } });
+
 /** Why the Selenium run cannot happen on this machine, or null when it can. */
 async function pythonMissing() {
   const { error, stderr } = await runFile('python', ['-c', 'import selenium']);
@@ -2163,6 +2179,17 @@ async function checkFailsAtStep(ctx, run) {
       'fails-at-step: the pytest report\'s error names step 3, its label and what it looked for', report.split('\n').filter((l) => /^E\s/.test(l)).slice(0, 2));
     check(existsSync(join(run.dir, 'test_fails_at_step_failure.png')), 'fails-at-step: the pytest test leaves test_fails_at_step_failure.png', null);
   }
+  if (run.robotHere) {
+    const out = mkdtempSync(join(run.dir, 'robot-'));
+    const file = join(out, 'fails_at_step.robot');
+    writeFileSync(file, run.generateRobot('fails at step', FAILING_STEPS, {},
+      { ...opts, driverType: 'Edge', startUrl: page('robot'), headless: !HEADED }).code);
+    const r = await runRobot(file, out);
+    const report = String(r.stdout);
+    check(r.error && report.split('\n').some((l) => NAMES_STEP_3.test(l) && NAMES_LOCATOR.test(l)),
+      'fails-at-step: the Robot report\'s message names step 3, its label and what it looked for', report.split('\n').filter((l) => /Step 3|nope/.test(l)).slice(0, 2));
+    check(existsSync(join(out, 'fails_at_step_failure.png')), 'fails-at-step: the Robot test leaves fails_at_step_failure.png', null);
+  }
 }
 
 /**
@@ -2192,6 +2219,15 @@ async function checkEnvOverrides(ctx, run) {
     await sleep(SETTLE_MS);
     check(!r.error && reached('playwright')?.fields?.echo === 'Yo there',
       'env: the Playwright test opens PQA_BASE_URL\'s site and takes PQA_salute, with no export', r.error ? String(r.stdout).trim().split('\n').slice(-3) : reached('playwright')?.fields?.echo);
+  }
+  if (run.robotHere) {
+    const out = mkdtempSync(join(run.dir, 'robot-'));
+    writeFileSync(join(out, 'env.robot'), run.generateRobot('env', steps, { salute: 'Hi' },
+      { driverType: 'Edge', startUrl: deadStart('robot'), headless: !HEADED, stepDelay: 0 }).code);
+    const r = await runRobot(join(out, 'env.robot'), out, env('robot'));
+    await sleep(SETTLE_MS);
+    check(!r.error && reached('robot')?.fields?.echo === 'Yo there',
+      'env: the Robot test opens PQA_BASE_URL\'s site and takes PQA_salute, with no export', r.error ? String(r.stdout).trim().split('\n').slice(-6) : reached('robot')?.fields?.echo);
   }
 }
 
@@ -2258,6 +2294,9 @@ async function checkExportRun(ctx) {
     console.log('  – the Playwright runs are skipped: set PQA_PLAYWRIGHT_DIR to a folder with @playwright/test installed');
   }
   if (!noPython && !pytestHere) console.log('  – the pytest runs are skipped: no pytest for python');
+  const { generateRobot } = await import(extModule('popup/export-robot.js')).catch(() => ({}));
+  const robotHere = !!generateRobot && await hasRobot();
+  if (generateRobot && !robotHere) console.log(`  – the Robot runs are skipped: no robotframework-seleniumlibrary for ${ROBOT_PYTHON} (set PQA_ROBOT_PYTHON)`);
   const dir = mkdtempSync(join(tmpdir(), 'pqa-export-'));
   let headlessChecked = false;
   const pageUrl = (key) => `${ctx.base}/export?run=${encodeURIComponent(key)}`;
@@ -2342,11 +2381,24 @@ async function checkExportRun(ctx) {
         states.pytest = exportStates.get(`${c.name}:pytest`)?.state;
       }
 
+      // Every case the Selenium script runs, the Robot test runs too.
+      if (robotHere && runners.includes('selenium')) {
+        const out = mkdtempSync(join(dir, 'robot-'));
+        const file = join(out, `${c.name.replace(/\W/g, '_')}.robot`);
+        writeFileSync(file, generateRobot(c.name, actions, { ...variables, ...pageVars('robot') },
+          { driverType: 'Edge', startUrl: startUrl('robot'), headless: !HEADED }).code);
+        const r = await runRobot(file, out);
+        if (r.error) fail(`${c.name}: the Robot test failed: ${String(r.stdout).trim().split('\n').filter((l) => !/^(Output|Log|Report):/.test(l)).slice(-6).join(' | ')}`);
+        await sleep(SETTLE_MS);
+        states.robot = exportStates.get(`${c.name}:robot`)?.state;
+        checkFiles(c, 'Robot', out);
+      }
+
       // Fields not named in `expect` are taken as playback left them.
       const expected = { clicks: [], alerts: [], marks: [], ...c.expect, fields: { ...states.playback?.fields, ...c.expect?.fields } };
       const wanted = stateDiff(states.playback, expected);
       check(states.playback && !Object.keys(wanted).length, `${c.name}: playback leaves the expected page`, wanted);
-      for (const runner of ['bookmarklet', 'selenium', 'pytest', 'playwright']) {
+      for (const runner of ['bookmarklet', 'selenium', 'pytest', 'playwright', 'robot']) {
         if (!(runner in states)) continue;
         const diff = stateDiff(states.playback, states[runner]);
         check(states[runner] && !Object.keys(diff).length,
@@ -2354,8 +2406,10 @@ async function checkExportRun(ctx) {
       }
     }
     if (!CASES || CASES.includes('csv-data')) await checkCsvData(ctx, { dir, pageUrl, pytestHere, pwRun, pwCli, generateSeleniumPy, generatePlaywright });
-    if (!CASES || CASES.includes('env')) await checkEnvOverrides(ctx, { dir, noPython, pwRun, pwCli, generateSeleniumPy, generatePlaywright });
-    if (!CASES || CASES.includes('fails-at-step')) await checkFailsAtStep(ctx, { dir, pageUrl, noPython, pytestHere, pwRun, pwCli, generateBookmarklet, toBookmarkletUrl, generateSeleniumPy, generatePlaywright });
+    if (!CASES || CASES.includes('env')) await checkEnvOverrides(ctx, { dir, noPython, pwRun, pwCli, robotHere, generateSeleniumPy, generatePlaywright, generateRobot });
+    if (!CASES || CASES.includes('fails-at-step')) {
+      await checkFailsAtStep(ctx, { dir, pageUrl, noPython, pytestHere, pwRun, pwCli, robotHere, generateBookmarklet, toBookmarkletUrl, generateSeleniumPy, generatePlaywright, generateRobot });
+    }
     if (pytestHere && !CASES) {
       const file = join(dir, 'test_failing_step.py');
       writeFileSync(file, generateSeleniumPy('failing step', [
