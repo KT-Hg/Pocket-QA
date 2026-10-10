@@ -136,7 +136,7 @@ const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
-  'pytest', 'browser', 'dom_var', '_at',
+  'pytest', 'browser', 'dom_var', '_at', 'os', '_save_failure',
   're', 'sys', 'open', 'str', 'int', 'len', 'range', 'hasattr', 'Exception',
   'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
@@ -197,6 +197,22 @@ function _scriptToPy(rawCode) {
   // run into it: `"""x = "y""""` closes after y and leaves a stray quote.
   if (!body.includes('\n') && !body.endsWith('"')) return [`driver.execute_script(${prefix}"""${body}""")`];
   return [`driver.execute_script(${prefix}"""`, ...body.split('\n'), `""")`];
+}
+
+/**
+ * The _save_failure() runtime helper: the page as a step left it when it failed,
+ * as <file name>_failure.png where the script runs. With no browser left to take
+ * it, nothing: the step's own error is what is reported.
+ */
+function _saveFailureHelperPy() {
+  return [
+    'def _save_failure():',
+    '    """The page when a step failed: <this file\'s name>_failure.png."""',
+    '    try:',
+    '        driver.save_screenshot(os.path.splitext(os.path.basename(__file__))[0] + "_failure.png")',
+    '    except Exception:',
+    '        pass',
+  ];
 }
 
 // The _js() runtime helper — same escaping as _applyVarsToCode() in bg/interpolate.js.
@@ -296,6 +312,7 @@ function pytestLines(driverLines, testName, body) {
     'try:',
     ...body.map((l) => (l === '' ? '' : `    ${l}`)),
     'except Exception as e:',
+    '    _save_failure()',
     '    raise Exception(f"{_at or \'Error\'}: {e}") from e',
   ];
   return [
@@ -760,6 +777,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   // ── Imports ──
   if (needsFullPage) out.push('import base64');
+  out.push('import os');
   if (!pytest) out.push('import sys');
   out.push('import time');
   if (needsRandom)   { out.push('import random'); out.push('import string'); }
@@ -788,6 +806,9 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
 
   // ── Runtime helpers ──
+  out.push(..._saveFailureHelperPy());
+  out.push('');
+  out.push('');
   if (needsFullPage) {
     out.push(..._saveFullPageHelperPy());
     out.push('');
@@ -919,6 +940,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     out.push(`    print(${JSON.stringify(`✅ Scenario '${scenarioName}' completed successfully.`)})`);
     out.push('');
     out.push('except Exception as e:');
+    out.push('    _save_failure()');
     out.push(`    print(f"❌ {_at or 'Error'}: {e}")`);
     out.push('    raise');
     out.push('');

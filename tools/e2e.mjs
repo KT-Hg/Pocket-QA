@@ -131,7 +131,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -2005,6 +2005,7 @@ async function checkFailsAtStep(ctx, run) {
     const said = String(r.stdout).trim();
     check(r.error && NAMES_STEP_3.test(said) && NAMES_LOCATOR.test(said),
       'fails-at-step: the Selenium script fails, printing step 3, its label and what it looked for', said.split('\n').pop());
+    check(existsSync(join(run.dir, 'fails_at_step_failure.png')), 'fails-at-step: the Selenium script leaves fails_at_step_failure.png', null);
   }
   if (run.pwRun) {
     // The list reporter, as on a terminal: each test.step and the failing one.
@@ -2016,6 +2017,9 @@ async function checkFailsAtStep(ctx, run) {
     // Reported under its step (test.step), not only near the step's comment in the code frame.
     check(r.error && /› Step 3: click — Sign in/.test(report) && NAMES_LOCATOR.test(report),
       'fails-at-step: the Playwright report names step 3, its label and what it looked for', report.split('\n').filter((l) => /Step 3|nope/.test(l)).slice(0, 3));
+    const results = join(run.pwRun, 'test-results');
+    const shots = existsSync(results) ? readdirSync(results, { recursive: true }).map(String).filter((f) => f.endsWith('.png')) : [];
+    check(shots.length > 0, 'fails-at-step: the Playwright test keeps a screenshot in test-results/', shots);
   }
   if (run.pytestHere) {
     const file = join(run.dir, 'test_fails_at_step.py');
@@ -2025,6 +2029,7 @@ async function checkFailsAtStep(ctx, run) {
     const report = String(r.stdout);
     check(r.error && report.split('\n').some((l) => /^E\s/.test(l) && NAMES_STEP_3.test(l) && NAMES_LOCATOR.test(l)),
       'fails-at-step: the pytest report\'s error names step 3, its label and what it looked for', report.split('\n').filter((l) => /^E\s/.test(l)).slice(0, 2));
+    check(existsSync(join(run.dir, 'test_fails_at_step_failure.png')), 'fails-at-step: the pytest test leaves test_fails_at_step_failure.png', null);
   }
 }
 
@@ -2041,8 +2046,9 @@ async function checkExportRun(ctx) {
   const pwCli = PLAYWRIGHT_DIR && join(PLAYWRIGHT_DIR, 'node_modules', '@playwright', 'test', 'cli.js');
   const pwRun = generatePlaywright && pwCli && existsSync(pwCli) ? mkdtempSync(join(PLAYWRIGHT_DIR, 'pqa-run-')) : null;
   if (pwRun) {
+    // outputDir beside the config: by default it goes beside the nearest package.json, outside pwRun.
     writeFileSync(join(pwRun, 'playwright.config.mjs'),
-      `export default { use: { channel: 'msedge', headless: ${!HEADED} }, reporter: 'line', workers: 1 };\n`);
+      `export default { use: { channel: 'msedge', headless: ${!HEADED} }, reporter: 'line', workers: 1, outputDir: './test-results' };\n`);
   } else {
     console.log('  – the Playwright runs are skipped: set PQA_PLAYWRIGHT_DIR to a folder with @playwright/test installed');
   }

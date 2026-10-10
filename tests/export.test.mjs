@@ -569,7 +569,8 @@ test('Selenium: a driver name that is not one of the four becomes Chrome, never 
   for (const driverType of ['Chrome(); import os', 'Opera', '']) {
     const { code } = generateSeleniumPy('d', steps, {}, { driverType });
     assert.match(code, /^driver = webdriver\.Chrome\(\)$/m, JSON.stringify(driverType));
-    assert.doesNotMatch(code, /import os/);
+    // The file imports os itself: what must not be there is the name's own text.
+    assert.doesNotMatch(code, /Chrome\(\); import os/);
   }
 });
 
@@ -587,7 +588,7 @@ test('Selenium as a pytest test: a fixture opens and quits the browser, the step
   // The test: named after the scenario, letters folded to ASCII; it opens the start page.
   // Its steps in a try whose error names the step that failed.
   assert.match(code, /^def test_dang_nhap_admin\(browser\):\n {4}_at = ""\n {4}try:\n {8}driver\.get\("https:\/\/shop\.test\/"\)$/m);
-  assert.match(code, /^ {4}except Exception as e:\n {8}raise Exception\(f"\{_at or 'Error'\}: \{e\}"\) from e$/m);
+  assert.match(code, /^ {4}except Exception as e:\n {8}_save_failure\(\)\n {8}raise Exception\(f"\{_at or 'Error'\}: \{e\}"\) from e$/m);
   // Variables inside the test: a step writing `seed` makes it a local of the function.
   assert.match(code, /^ {8}salute = "Hi"$/m);
   assert.match(code, /^ {8}seed = "INIT"$/m);

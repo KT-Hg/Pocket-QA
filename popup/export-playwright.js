@@ -345,8 +345,9 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
   }
 
   const out = [`// SCENARIO: ${commentText(scenarioName)}`, "import { test } from '@playwright/test';", ''];
+  // A failed test keeps a screenshot and a trace of the page (test-results/).
   out.push('// How long a step waits for its element, as set in the export.', `const TIMEOUT = ${elTimeout};`,
-    'test.use({ actionTimeout: TIMEOUT });', '');
+    "test.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });", '');
   if (body.some((l) => l.includes('await _find('))) out.push(FIND_HELPER, '');
   if (ctx.uses.has('first')) out.push(FIRST_HELPER, '');
   for (const name of ['check', 'child', 'read', 'pick']) if (ctx.uses.has(name)) out.push(PAGE_HELPERS[name], '');
