@@ -11,53 +11,20 @@ import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
 } from './export/page-js.js';
 import { locatorsOf } from '../shared/locator-order.js';
+import { JS_RESERVED, jsIdentifier, jsValue, randomFnJS } from './export/js-code.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
 ]);
 
-function makeRandomFn(type, length) {
-  // Must mirror resolveRandomVars() in bg/interpolate.js. The Variables modal offers a
-  // "datetime" type that used to fall through to the alphanumeric branch here, so
-  // an exported ${stamp} produced random junk instead of the run's timestamp.
-  if (type === 'datetime')
-    return "() => { const d = new Date(), p = n => String(n).padStart(2, '0'); "
-         + "return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '_' "
-         + "+ p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); }";
-  if (type === 'alpha')
-    return `() => Array.from({length:${length}},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join('')`;
-  if (type === 'numeric')
-    return `() => Array.from({length:${length}},()=>String(Math.floor(Math.random()*10))).join('')`;
-  return `() => Array.from({length:${length}},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join('')`;
-}
-
 // Identifiers the generated bookmarklet declares for itself, plus the JS reserved
-// words. Variable names are free-form in the Variables modal, so one called
-// `sleep` would shadow a helper and one called `class` is a SyntaxError — those
-// get a `_v` suffix instead.
+// words (js-code.js).
 const _RESERVED_JS = new Set([
   'sleep', 'getEl', '_qsel', '_first', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
-  'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete',
-  'do', 'else', 'enum', 'export', 'extends', 'false', 'finally', 'for', 'function', 'if',
-  'import', 'in', 'instanceof', 'new', 'null', 'return', 'super', 'switch', 'this', 'throw',
-  'true', 'try', 'typeof', 'var', 'void', 'while', 'with', 'let', 'static', 'yield', 'await',
-  'document', 'window', 'undefined', 'NaN', 'Infinity',
+  ...JS_RESERVED,
 ]);
 
-/**
- * Sanitize a string into a valid JS identifier.
- * Prevents code injection when variable names from user input are embedded in generated code.
- *
- * Every site that emits *or references* a variable name has to go through this.
- * The declaration used to be sanitized while valueToJS() passed `${mã đơn}`
- * through verbatim — a SyntaxError that takes the whole bookmarklet down.
- */
-function _sanitizeVarName(name) {
-  const safe = String(name == null ? 'var' : name)
-    .replace(/[^a-zA-Z0-9_$]/g, '_')
-    .replace(/^\d/, '_') || 'var';
-  return _RESERVED_JS.has(safe) ? safe + '_v' : safe;
-}
+const _sanitizeVarName = jsIdentifier(_RESERVED_JS);
 
 /**
  * The locators of the element an action acts on — of its drop target with
@@ -92,23 +59,7 @@ function locsJS(locs) {
   return js.length === 1 ? js[0] : `[${js.join(', ')}]`;
 }
 
-// Returns a JS expression string representing the value.
-// ${varName} references are intentionally left unescaped so they interpolate
-// the declared JS variables (static consts or random generators) at run time.
-function valueToJS(val) {
-  if (val == null) return "''";
-  const s = String(val);
-  if (/\$\{/.test(s)) {
-    const escaped = s
-      .replace(/\\/g, '\\\\')   // backslash first
-      .replace(/`/g, '\\`')     // backtick — ${varName} is kept to reference declared vars
-      // The reference must be sanitized exactly like the declaration: `${user-name}`
-      // otherwise reads as subtraction and `${mã đơn}` is a SyntaxError.
-      .replace(/\$\{([^}]+)\}/g, (_m, name) => '${' + _sanitizeVarName(name.trim()) + '}');
-    return '`' + escaped + '`';
-  }
-  return JSON.stringify(s);
-}
+const valueToJS = jsValue(_sanitizeVarName);
 
 /**
  * Substitute variables into a `script` action's source.
@@ -614,7 +565,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     out.push('  // --- RANDOM VARIABLE GENERATORS ---');
     for (const [k, spec] of Object.entries(randomSpecs)) {
       const safe = _sanitizeVarName(k);
-      out.push(`  const _gen_${safe} = ${makeRandomFn(spec.type, spec.length)};`);
+      out.push(`  const _gen_${safe} = ${randomFnJS(spec.type, spec.length)};`);
     }
   }
 
