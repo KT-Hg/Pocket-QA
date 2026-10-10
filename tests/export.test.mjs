@@ -925,3 +925,39 @@ test('a variable never takes a name the generated code uses for itself', async (
   assert.match(py, /send_keys\(f"\{el2_v\} \{re_v\} \{dom_var_v\} \{open_v\}"\)/);
   assert.equal(checkPython(py), null);
 });
+
+test('a step with two reasons to check it lists both', () => {
+  const { steps } = generateBookmarklet('r', [{ type: 'script', code: 'go()', frameId: 3 }], {});
+  assert.equal(steps[0].status, 'verify');
+  assert.match(steps[0].reason, /iframe/);
+  assert.match(steps[0].reason, /custom JS/);
+});
+
+test('a disabled step inside a Switch block is not counted as skipped', () => {
+  const steps = [
+    { type: 'switch', switchVar: '${who}', cases: [blk('a', 2, 3)] },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'click', selector: '#b', selectors: { css: '#b' }, disabled: true },
+  ];
+  assert.deepEqual(generateBookmarklet('b', steps, { who: 'a' }).steps.map((s) => s.n), [1, 2]);
+});
+
+test('Selenium: literal braces beside a variable stay characters in the f-string', () => {
+  const py = generateSeleniumPy('b', [{ type: 'input', selector: '#a', selectors: { css: '#a' }, value: '{"id":1} for ${host}' }], { host: 'x' }).code;
+  assert.match(py, /send_keys\(f"\{\{\\"id\\":1\}\} for \{host\}"\)/);
+  assert.equal(checkPython(py), null);
+});
+
+test('Choose item # at random never picks a <select>\'s empty option, as a run does not', async () => {
+  const { PICK_ITEM_JS } = await import('../popup/export/page-js.js');
+  const pickItem = new Function('sleep', `${PICK_ITEM_JS}\nreturn _pickItem;`)(() => Promise.resolve());
+  const el = { tagName: 'SELECT', options: [{ value: '' }, { value: 'a' }, { value: 'b' }], selectedIndex: 0, dispatchEvent() {} };
+  const random = Math.random;
+  Math.random = () => 0;
+  try {
+    await pickItem(el, 'random', '', 0);
+  } finally {
+    Math.random = random;
+  }
+  assert.equal(el.selectedIndex, 1, 'the first item with a value');
+});
