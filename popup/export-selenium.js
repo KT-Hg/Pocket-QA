@@ -134,7 +134,7 @@ function valueToPy(val) {
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
-  'InvalidSelectorException', 'StaleElementReferenceException',
+  'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64',
   'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
   'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
@@ -258,6 +258,34 @@ function _setInputHelperPy() {
   ];
 }
 
+/**
+ * The line that saves the whole page to `file` (a Python expression), as the
+ * driver can: Chrome and Edge through CDP (_save_full_page), Firefox with its own
+ * save_full_page_screenshot, Safari only the window (and the step says so).
+ * save_screenshot alone saves the window everywhere.
+ */
+function fullPagePy(file, driverType, step) {
+  if (driverType === 'Firefox') return `driver.save_full_page_screenshot(${file})`;
+  if (driverType === 'Safari') {
+    mark(step, 'verify', 'Safari saves only the visible part of the page');
+    return `driver.save_screenshot(${file})`;
+  }
+  return `_save_full_page(${file})`;
+}
+
+// The _save_full_page() runtime helper: the page at its full size, through CDP.
+function _saveFullPageHelperPy() {
+  return [
+    'def _save_full_page(path):',
+    '    """The whole page, not just the window (Chrome / Edge, through CDP)."""',
+    '    size = driver.execute_cdp_cmd("Page.getLayoutMetrics", {})["cssContentSize"]',
+    '    clip = {"x": 0, "y": 0, "width": size["width"], "height": size["height"], "scale": 1}',
+    '    shot = driver.execute_cdp_cmd("Page.captureScreenshot", {"format": "png", "captureBeyondViewport": True, "clip": clip})',
+    '    with open(path, "wb") as f:',
+    '        f.write(base64.b64decode(shot["data"]))',
+  ];
+}
+
 function _readValHelperPy() {
   return [
     '# Same reader as the extension (content.js readElementValue), run in the page.',
@@ -365,7 +393,7 @@ function _buildChildCondPy(conditions, elVar, tout, locs, stepNum) {
 
 // Generates Python lines for a single non-condition action, and marks `step`
 // (export/steps.js) when the action is not exported as is.
-function actionLines(action, step, stepDelay, elTimeout) {
+function actionLines(action, step, stepDelay, elTimeout, ctx) {
   const stepNum = step.n;
   const lbl    = action.label ? ` — ${commentText(action.label)}` : '';
   const delay  = msToSec(action.delay != null ? action.delay : stepDelay);
@@ -509,8 +537,7 @@ function actionLines(action, step, stepDelay, elTimeout) {
 
     case 'screenshot_full':
       out.push(`# Step ${stepNum}: screenshot (full page)${lbl}`);
-      out.push(`# Note: full-page screenshot requires a compatible driver (e.g. Firefox)`);
-      out.push(`driver.save_screenshot(f"screenshot_full_step${stepNum}.png")`);
+      out.push(fullPagePy(`f"screenshot_full_step${stepNum}.png"`, ctx.driverType, step));
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
 
@@ -528,6 +555,8 @@ function actionLines(action, step, stepDelay, elTimeout) {
       if (action.target === 'element' && locs[0].value) {
         out.push(`${elVar} = ${waitPy(locs, tout)}`);
         out.push(`${elVar}.screenshot(_ss_file${stepNum})`);
+      } else if (action.target === 'full') {
+        out.push(fullPagePy(`_ss_file${stepNum}`, ctx.driverType, step));
       } else {
         out.push(`driver.save_screenshot(_ss_file${stepNum})`);
       }
@@ -637,7 +666,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
       out.push('');
       i = Math.max(i + 1, bodyEnd);
     } else {
-      out.push(...actionLines(action, step, stepDelay, elTimeout));
+      out.push(...actionLines(action, step, stepDelay, elTimeout, ctx));
       out.push('');
       i++;
     }
@@ -713,12 +742,14 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   // The steps first: whether a step looks an element up by several locators (or
   // by text) decides which helpers and imports the script needs.
-  const bodyLines   = processActions(all, 0, stepDelay, elTimeout, { all, layout, warnings, steps });
+  const bodyLines   = processActions(all, 0, stepDelay, elTimeout, { all, layout, warnings, steps, driverType });
   const needsLocate = needsCondition || bodyLines.some(l => l.includes('_find(['));
+  const needsFullPage = bodyLines.some(l => l.includes('_save_full_page('));
 
   const out = [];
 
   // ── Imports ──
+  if (needsFullPage) out.push('import base64');
   out.push('import sys');
   out.push('import time');
   if (needsRandom)   { out.push('import random'); out.push('import string'); }
@@ -744,6 +775,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('');
 
   // ── Runtime helpers ──
+  if (needsFullPage) {
+    out.push(..._saveFullPageHelperPy());
+    out.push('');
+    out.push('');
+  }
   if (needsLocate) {
     out.push(..._locateHelperPy());
     out.push('');

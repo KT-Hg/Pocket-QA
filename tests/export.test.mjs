@@ -474,3 +474,33 @@ test('Selenium uploads files into a file input as playback does, and leaves a dr
   assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'skip', 'verify']);
   assert.equal(compilePy(code), null);
 });
+
+test('Selenium saves the whole page for a full-page screenshot, the way each driver can', () => {
+  const steps = [
+    { type: 'screenshot_full' },
+    { type: 'screenshot_tovar', varName: 'shot', target: 'full' },
+    { type: 'screenshot_tovar', varName: 'view', target: 'page' },
+  ];
+  // Chrome and Edge: through CDP, beyond the window.
+  for (const driverType of ['Chrome', 'Edge']) {
+    const { code, steps: status } = generateSeleniumPy('full', steps, {}, { driverType });
+    assert.match(code, /^ {4}_save_full_page\(f"screenshot_full_step1\.png"\)$/m, driverType);
+    assert.match(code, /^ {4}_save_full_page\(_ss_file2\)$/m, 'a full-page screenshot into a variable too');
+    assert.match(code, /^ {4}driver\.save_screenshot\(_ss_file3\)$/m, 'the visible part stays the visible part');
+    assert.match(code, /^import base64$/m);
+    assert.match(code, /^def _save_full_page\(path\):$/m);
+    assert.match(code, /"captureBeyondViewport": True/);
+    assert.doesNotMatch(code, /requires a compatible driver/);
+    assert.ok(status.every((s) => s.status === 'ok'));
+    assert.equal(compilePy(code), null);
+  }
+  // Firefox has its own; Safari saves the window only, and says so.
+  const ff = generateSeleniumPy('full', steps, {}, { driverType: 'Firefox' });
+  assert.match(ff.code, /^ {4}driver\.save_full_page_screenshot\(f"screenshot_full_step1\.png"\)$/m);
+  assert.doesNotMatch(ff.code, /_save_full_page|import base64/, 'no helper it does not use');
+  assert.equal(compilePy(ff.code), null);
+  const safari = generateSeleniumPy('full', steps, {}, { driverType: 'Safari' });
+  assert.match(safari.code, /^ {4}driver\.save_screenshot\(f"screenshot_full_step1\.png"\)$/m);
+  assert.deepEqual(safari.steps.map((s) => s.status), ['verify', 'verify', 'ok']);
+  assert.match(safari.steps[0].reason, /Safari/);
+});

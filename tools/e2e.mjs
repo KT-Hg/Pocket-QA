@@ -88,7 +88,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -1000,6 +1000,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   <button id="okCancel">OK Cancel</button> <button id="okBtn"><span id="okSpan">OK</span></button>
 </div>
 <input type="file" id="files" multiple style="display:none">
+<div id="tall" style="height:3000px"></div>
 <script>
   const run = new URLSearchParams(location.search).get('run');
   const clicks = [], alerts = [], marks = [];
@@ -1051,8 +1052,9 @@ function saveExportState(req, reply) {
  * Scenarios export-run plays, then runs as each export, on EXPORT_PAGE. `expect`
  * is what playback must leave (fields listed; clicks, alerts and marks in full,
  * none when left out); each export of `runners` (default both) must then leave
- * exactly what playback left. Add a case per behaviour an
- * export has to share with playback.
+ * exactly what playback left; `files` are what the Selenium run must save, by
+ * name, each with a check on the PNG's { width, height }. Add a case per
+ * behaviour an export has to share with playback.
  */
 // The folder of this harness: Upload File cases upload its own files.
 const TOOLS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -1165,6 +1167,13 @@ const EXPORT_CASES = [
       folderPath: TOOLS_DIR, fileNames: ['e2e.mjs', '${second}'] }],
     expect: { marks: ['files e2e.mjs,verify.mjs'] },
   },
+  {
+    // A full-page screenshot holds the whole page (3000px of #tall), not the window.
+    name: 'full-shot',
+    runners: ['selenium'],
+    actions: [{ type: 'screenshot_full' }],
+    files: { 'screenshot_full_step1.png': ({ height }) => height > 3000 },
+  },
 ];
 
 // The exported Selenium script, first run included (Selenium Manager may fetch a driver).
@@ -1257,14 +1266,19 @@ async function checkExportRun(ctx) {
         writeFileSync(file, generateSeleniumPy(c.name, actions, variables,
           { driverType: 'Edge', startUrl: pageUrl(`${c.name}:selenium`) }).code);
         const env = HEADED ? process.env : { ...process.env, PYTHONPATH: dir };
-        const r = await runFile('python', [file], { env, timeout: PYTHON_RUN_TIMEOUT_MS });
+        // In the temporary folder: what the script saves (screenshots) lands there.
+        const r = await runFile('python', [file], { env, cwd: dir, timeout: PYTHON_RUN_TIMEOUT_MS });
         if (r.error) fail(`${c.name}: the Selenium script failed: ${String(r.stderr || r.error.message).trim().split('\n').slice(-3).join(' | ')}`);
         await sleep(SETTLE_MS);
         states.selenium = exportStates.get(`${c.name}:selenium`)?.state;
+        for (const [name, ok] of Object.entries(c.files || {})) {
+          const size = existsSync(join(dir, name)) ? pngSize(join(dir, name)) : null;
+          check(size && ok(size), `${c.name}: the Selenium run saves ${name} as expected`, size);
+        }
       }
 
       // Fields not named in `expect` are taken as playback left them.
-      const expected = { clicks: [], alerts: [], marks: [], ...c.expect, fields: { ...states.playback?.fields, ...c.expect.fields } };
+      const expected = { clicks: [], alerts: [], marks: [], ...c.expect, fields: { ...states.playback?.fields, ...c.expect?.fields } };
       const wanted = stateDiff(states.playback, expected);
       check(states.playback && !Object.keys(wanted).length, `${c.name}: playback leaves the expected page`, wanted);
       for (const runner of ['bookmarklet', 'selenium']) {
