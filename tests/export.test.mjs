@@ -446,3 +446,11 @@ test('Selenium fills a field send_keys cannot with the in-page Input', async () 
   assert.match(code, /^ {8}el2\.send_keys\("Alice"\)$/m, 'any other field is still typed into');
   assert.equal(compilePy(code), null);
 });
+
+test('the bookmarklet lists a locator once: an id and the CSS #id are the same selector', () => {
+  const steps = [{ type: 'click', selector: '#n', selectors: { id: 'n', css: '#n', xpath: '//*[@id="n"]' } },
+    { type: 'click', selector: '#m', selectors: { id: 'm', css: '#m' } }];
+  const { code } = generateBookmarklet('dedupe', steps, {});
+  assert.ok(code.includes(`const _el1 = await getEl(["#n", ${JSON.stringify('//*[@id="n"]')}], 5000);`));
+  assert.ok(code.includes('const _el2 = await getEl("#m", 5000);'), 'one left: the short form');
+});

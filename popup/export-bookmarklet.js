@@ -85,9 +85,11 @@ function locToJS({ type, value, tag }) {
   }
 }
 
-// What getEl and _first take: the one locator as it always was, else all of them in order.
+// What getEl and _first take: the one locator as it always was, else all of them
+// in order — each once: an id and the CSS "#id" are the same selector here.
 function locsJS(locs) {
-  return locs.length === 1 ? locToJS(locs[0]) : `[${locs.map(locToJS).join(', ')}]`;
+  const js = [...new Set(locs.map(locToJS))];
+  return js.length === 1 ? js[0] : `[${js.join(', ')}]`;
 }
 
 // Returns a JS expression string representing the value.
