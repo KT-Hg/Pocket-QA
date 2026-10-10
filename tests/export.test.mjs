@@ -50,7 +50,7 @@ test('selenium: selectors with variables, Read DOM reader, block skipped, compil
   const file = join(dir, 'gen.py');
   writeFileSync(file, code);
   try {
-    execFileSync('python', ['-c', `compile(open(r"${file}", encoding="utf-8").read(), "gen.py", "exec")`], { stdio: 'pipe' });
+    execFileSync('python', ['-W', 'error::SyntaxWarning', '-c', `compile(open(r"${file}", encoding="utf-8").read(), "gen.py", "exec")`], { stdio: 'pipe' });
   } catch (e) {
     if (e.code === 'ENOENT') return; // no Python on this machine — nothing to check
     assert.fail(String(e.stderr || e));
@@ -96,7 +96,7 @@ test('Read DOM Extract: each ${name} is read out of the text, in both exports', 
   const file = join(dir, 'gen.py');
   writeFileSync(file, py.code);
   try {
-    execFileSync('python', ['-c', `compile(open(r"${file}", encoding="utf-8").read(), "gen.py", "exec")`], { stdio: 'pipe' });
+    execFileSync('python', ['-W', 'error::SyntaxWarning', '-c', `compile(open(r"${file}", encoding="utf-8").read(), "gen.py", "exec")`], { stdio: 'pipe' });
   } catch (e) {
     if (e.code === 'ENOENT') return;
     assert.fail(String(e.stderr || e));
@@ -105,13 +105,29 @@ test('Read DOM Extract: each ${name} is read out of the text, in both exports', 
   }
 });
 
+test('both exports run the same in-page Child Condition search and reader (popup/export/page-js.js)', async () => {
+  const { FIND_CHILD_JS, READ_VAL_JS } = await import('../popup/export/page-js.js');
+  const steps = [{ type: 'readdom', selector: '#p', selectors: { css: '#p' }, varName: 'v', readFrom: 'text',
+    conditions: { matchMode: 'all', textContains: '${who}', classContains: 'row' } }];
+  const py = generateSeleniumPy('one source', steps, { who: '{fallback:Carol|Bob}' }).code;
+  const js = generateBookmarklet('one source', steps, { who: '{fallback:Carol|Bob}' }).code;
+  for (const src of [FIND_CHILD_JS, READ_VAL_JS]) {
+    assert.ok(py.includes(src), 'the Selenium script runs the page-js source as is');
+    assert.ok(js.includes(src.split('\n').map((l) => `  ${l}`).join('\n').trimStart()), 'the bookmarklet declares it');
+  }
+  assert.doesNotMatch(py, /find_elements\(By\.XPATH, "\.\/\/\*"\)/, 'no Python walk of the subtree, one WebDriver call per element');
+  // The criteria go over as a dict, matchMode included; the fallback spec is resolved in the page.
+  assert.match(py, /el1 = _find_child\(el1_p, \{"matchMode": "all", "textContains": f"\{who\}", "classContains": "row"\}\)/);
+  assert.equal(compilePy(py), null);
+});
+
 /** Python's verdict on generated code: null when it compiles (or there is no Python here), else the error. */
 function compilePy(code) {
   const dir = mkdtempSync(join(tmpdir(), 'pqa-'));
   const file = join(dir, 'gen.py');
   writeFileSync(file, code);
   try {
-    execFileSync('python', ['-c', `compile(open(r"${file}", encoding="utf-8").read(), "gen.py", "exec")`], { stdio: 'pipe' });
+    execFileSync('python', ['-W', 'error::SyntaxWarning', '-c', `compile(open(r"${file}", encoding="utf-8").read(), "gen.py", "exec")`], { stdio: 'pipe' });
     return null;
   } catch (e) {
     return e.code === 'ENOENT' ? null : String(e.stderr || e);

@@ -954,7 +954,7 @@ async function checkExportSteps(ctx) {
 /**
  * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
  * every input, select, textarea and contenteditable with an id (a checkbox by
- * whether it is ticked) — plus the buttons clicked and the alerts shown is POSTed
+ * whether it is ticked) — plus the other elements with an id clicked and the alerts shown is POSTed
  * to /state on every change, so a run in a browser the harness does not drive
  * (the Selenium script's own Edge) is read the same way as one it does.
  * A new element with an id is in the state as soon as it is on the page.
@@ -967,6 +967,12 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
 <span id="code">ORD-42</span>
 <input id="echo">
 <button id="submit">Submit</button><button id="after">After</button><button id="never">Never</button>
+<div id="people">
+  <div class="row"><span id="nameAlice">Alice</span> <button id="editAlice" class="edit">Edit</button></div>
+  <div class="row"><span id="nameBob">Bob <i id="tagBob">VIP</i></span> <button id="editBob" class="edit special">Edit</button></div>
+  <span id="note" style="display:none">ref 7731</span>
+</div>
+<input id="picked">
 <script>
   const run = new URLSearchParams(location.search).get('run');
   const clicks = [], alerts = [];
@@ -978,7 +984,10 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
     body: JSON.stringify({ run, seq: ++seq, state: { fields: fields(), clicks, alerts } }) });
   // The bookmarklet reports its errors with alert(), which would block a headless page.
   window.alert = (m) => { alerts.push(String(m)); report(); };
-  document.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { clicks.push(e.target.id); report(); } }, true);
+  // Fields are in the state by value; a click on one is not counted.
+  document.addEventListener('click', (e) => {
+    if (e.target.id && !e.target.matches('input, select, textarea')) { clicks.push(e.target.id); report(); }
+  }, true);
   for (const type of ['input', 'change']) document.addEventListener(type, report, true);
   report();
 </script></body></html>`;
@@ -1022,6 +1031,22 @@ const EXPORT_CASES = [
       { type: 'click', selector: '#never', selectors: { css: '#never' } },
     ],
     expect: { fields: { name: 'Alice', color: 'g', agree: true, echo: 'Hi ORD-42' }, clicks: ['submit', 'after'], alerts: [] },
+  },
+  {
+    // Child Condition: the innermost element holding the text, ALL, a Fallback
+    // variable, and a text the page hides (playback matches textContent).
+    name: 'child-condition',
+    variables: { who: '{fallback:Carol|Bob}' },
+    actions: [
+      { type: 'click', selector: '#people', selectors: { css: '#people' }, conditions: { textContains: 'VIP' } },
+      { type: 'click', selector: '#people', selectors: { css: '#people' },
+        conditions: { matchMode: 'all', textContains: 'Edit', classContains: 'special' } },
+      { type: 'click', selector: '#people', selectors: { css: '#people' }, conditions: { textContains: '${who}' } },
+      { type: 'readdom', selector: '#people', selectors: { css: '#people' }, varName: 'ref', readFrom: 'text',
+        conditions: { textContains: 'ref' } },
+      { type: 'input', selector: '#picked', selectors: { css: '#picked' }, value: '${ref}' },
+    ],
+    expect: { fields: { picked: 'ref 7731' }, clicks: ['tagBob', 'editBob', 'nameBob'], alerts: [] },
   },
 ];
 

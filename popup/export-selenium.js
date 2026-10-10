@@ -6,6 +6,7 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
+import { FIND_CHILD_JS, READ_VAL_JS } from './export/page-js.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
@@ -223,30 +224,20 @@ function condExprPy(action, selPy) {
   }
 }
 
+/**
+ * A page-js.js function as a Python string that driver.execute_script() runs
+ * with its arguments. Raw, so the JS source's backslashes (\s, \{) reach the page
+ * as written: in a plain string they were invalid escapes — a SyntaxWarning on
+ * every run, and an error in a later Python.
+ */
+function pyPageJs(name, src) {
+  return `${name} = r"""return (${src}).apply(null, arguments)"""`.split('\n');
+}
+
 function _readValHelperPy() {
   return [
-    '# Same reader as the extension (content.js readElementValue).',
-    '_READ_VAL_JS = """',
-    'const el = arguments[0], from = arguments[1], attr = arguments[2];',
-    'const tag = String(el.tagName || \'\').toUpperCase(), fld = tag === \'INPUT\' || tag === \'TEXTAREA\';',
-    'const txt = () => (typeof el.innerText === \'string\' ? el.innerText : (el.textContent || \'\'));',
-    'const ws = (s) => String(s == null ? \'\' : s).replace(/\\s+/g, \' \').trim();',
-    'if (from === \'attr\') return el.getAttribute(attr) ?? \'\';',
-    'if (from === \'value\') {',
-    '  if (tag === \'SELECT\' && el.multiple) return Array.from(el.selectedOptions).map(o => o.value).join(\', \');',
-    '  if (fld || tag === \'SELECT\') return el.value ?? \'\';',
-    '  if (el.isContentEditable) return txt().trim();',
-    '  if (typeof el.value === \'string\' && el.value !== \'\') return el.value;',
-    '  if (typeof el.value === \'number\' && tag !== \'LI\') return String(el.value);',
-    '  return txt().trim();',
-    '}',
-    'if (from === \'visible\') {',
-    '  if (tag === \'SELECT\') return Array.from(el.selectedOptions).map(o => ws(o.text)).join(\', \');',
-    '  if (fld) return el.value ?? \'\';',
-    '  return ws(txt());',
-    '}',
-    'return (el.textContent || \'\').trim();',
-    '"""',
+    '# Same reader as the extension (content.js readElementValue), run in the page.',
+    ...pyPageJs('_READ_VAL_JS', READ_VAL_JS),
     '',
     '',
     'def _read_val(el, read_from, attr=""):',
@@ -303,85 +294,20 @@ def _pick_item(el, raw, item_sel, timeout):
 
 
 /**
- * The _find_child() runtime helper, mirroring _findChild in the JS bookmarklet
- * export and findElementByCondition in content.js.
- *
- * Each `lambda el, n=...` binds its needle as a default argument on purpose:
- * Python closures capture the variable, not the value, so a plain `lambda el: n
- * in ...` would make every check see the last needle assigned.
+ * The _find_child() runtime helper: findElementByCondition of content.js, run in
+ * the page as the bookmarklet runs it (popup/export/page-js.js). One
+ * execute_script call; the Python walk it replaces made a WebDriver call per
+ * element and check, and matched what Selenium shows (.text), not textContent:
+ * a text the page hides was never found.
  */
 function _findChildHelperPy() {
   return [
-    '_FALLBACK_RE = re.compile(r"^\\{fallback:(.+)\\}$")',
+    '# Same search as the extension (content.js findElementByCondition), run in the page.',
+    ...pyPageJs('_FIND_CHILD_JS', FIND_CHILD_JS),
     '',
     '',
-    'def _find_child(parent, cond, mode="any"):',
-    '    """First descendant of `parent` matching `cond`.',
-    '',
-    '    A field may hold a {fallback:A|B|C} spec — Fallback variables only expand',
-    '    into one at run time — and each candidate is then tried in order. An',
-    '    empty candidate is a Blank: it matches a child whose field is empty.',
-    '    """',
-    '    fb_field, fb_values = None, None',
-    `    for _f in (${CHILD_COND_KEYS.map((k) => `"${k}"`).join(', ')}):`,
-    '        _m = _FALLBACK_RE.match(str(cond.get(_f, "")))',
-    '        if _m:',
-    '            fb_field = _f',
-    '            fb_values = [v.strip() for v in _m.group(1).split("|")]',
-    '            break',
-    '',
-    '    def norm(s):',
-    '        return "" if s is None else str(s).strip().lower()',
-    '',
-    '    def is_blank(el, field):',
-    '        if field == "valueEquals":',
-    '            return (el.get_attribute("value") or "") == ""',
-    '        if field == "textContains":',
-    '            return norm(el.text) == ""',
-    '        attr = {"idContains": "id", "classContains": "class"}.get(field, "type")',
-    '        return norm(el.get_attribute(attr)) == ""',
-    '',
-    '    def try_find(c, blank_field=None):',
-    '        checks = []',
-    '        if blank_field:',
-    '            checks.append(lambda el, f=blank_field: is_blank(el, f))',
-    '        if c.get("valueEquals"):',
-    '            checks.append(lambda el, v=str(c["valueEquals"]): (el.get_attribute("value") or "") == v)',
-    '        if c.get("textContains"):',
-    '            checks.append(lambda el, n=norm(c["textContains"]): n in norm(el.text))',
-    '        if c.get("idContains"):',
-    '            checks.append(lambda el, n=norm(c["idContains"]): n in norm(el.get_attribute("id")))',
-    '        if c.get("classContains"):',
-    '            checks.append(lambda el, n=norm(c["classContains"]): n in norm(el.get_attribute("class")))',
-    '        if c.get("typeEquals") == "select":',
-    '            checks.append(lambda el: el.tag_name.lower() == "select")',
-    '        elif c.get("typeEquals"):',
-    '            checks.append(lambda el, v=str(c["typeEquals"]): (el.get_attribute("type") or "") == v)',
-    '        if not checks:',
-    '            return None',
-    '        test = all if mode == "all" else any',
-    '',
-    '        def first(root):',
-    '            for el in root.find_elements(By.XPATH, ".//*"):',
-    '                if test(fn(el) for fn in checks):',
-    '                    return el',
-    '            return None',
-    '',
-    '        # Every wrapper holds the text too: go down to the innermost match.',
-    '        hit = first(parent)',
-    '        if hit is not None and c.get("textContains"):',
-    '            inner = first(hit)',
-    '            while inner is not None:',
-    '                hit, inner = inner, first(inner)',
-    '        return hit',
-    '',
-    '    if fb_field and fb_values is not None:',
-    '        for fv in fb_values:',
-    '            el = try_find({**cond, fb_field: fv}, fb_field if fv == "" else None)',
-    '            if el is not None:',
-    '                return el',
-    '        return None',
-    '    return try_find(cond)',
+    'def _find_child(parent, cond):',
+    '    return driver.execute_script(_FIND_CHILD_JS, parent, cond)',
   ];
 }
 
@@ -393,14 +319,13 @@ function _findChildHelperPy() {
  * a `{fallback:A|B|C}` spec reaching a field through `${city}` only exists once
  * the f-string has been evaluated, so deciding at export time — as the old
  * unrolled version did — compared against the literal spec text and never matched.
- * The JS bookmarklet's _findChild has always resolved this at run time.
+ * The dict reaches the page's _findChild as an object, matchMode included.
  */
 function _buildChildCondPy(conditions, elVar, tout, selPy, stepNum) {
   const cond  = conditions;
-  const mode  = cond.matchMode || 'any';
   const lines = [];
 
-  const parts = [];
+  const parts = cond.matchMode ? [`"matchMode": ${JSON.stringify(cond.matchMode)}`] : [];
   for (const f of CHILD_COND_KEYS) {
     if (cond[f] != null && String(cond[f]) !== '') {
       parts.push(`"${f}": ${valueToPy(String(cond[f]))}`);
@@ -408,7 +333,7 @@ function _buildChildCondPy(conditions, elVar, tout, selPy, stepNum) {
   }
 
   lines.push(`${elVar}_p = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
-  lines.push(`${elVar} = _find_child(${elVar}_p, {${parts.join(', ')}}, ${JSON.stringify(mode)})`);
+  lines.push(`${elVar} = _find_child(${elVar}_p, {${parts.join(', ')}})`);
   lines.push(`if ${elVar} is None:`);
   lines.push(`    raise Exception("Child condition not matched (step ${stepNum})")`);
   return lines;
@@ -746,7 +671,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('import time');
   if (needsRandom)   { out.push('import random'); out.push('import string'); }
   else if (needsDropdownPick) out.push('import random');
-  if (needsChildCond || needsExtract || needsDropdownPick) out.push('import re');
+  if (needsExtract || needsDropdownPick) out.push('import re');
   if (needsDatetime)  out.push('from datetime import datetime');
   out.push('from selenium import webdriver');
   out.push('from selenium.webdriver.common.by import By');
