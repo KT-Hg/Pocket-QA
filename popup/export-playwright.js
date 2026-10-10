@@ -16,6 +16,7 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { locatorsOf } from '../shared/locator-order.js';
 import { cssEscape } from '../shared/css-escape.js';
+import { waitMs } from '../shared/wait-ms.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
 import { SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS } from './export/page-js.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
@@ -205,7 +206,7 @@ const STEP_LINES = {
     s.ctx.uses.add('input');
     return [`// Step ${s.n}: input${s.lbl}`, ...s.find(), `await _input(${s.el}, ${valueJS(a.value)});`];
   },
-  wait:     (a, s) => [`// Step ${s.n}: wait${s.lbl}`, `await page.waitForTimeout(${a.delay != null ? a.delay : (parseInt(a.value) || 1000)});`],
+  wait:     (a, s) => [`// Step ${s.n}: wait${s.lbl}`, `await page.waitForTimeout(${waitMs(a)});`],
   script:   (a, s) => {
     const code = String(a.code || a.value || '').trim();
     if (/\$\{[^}]+\}/.test(code)) s.ctx.uses.add('js');
@@ -250,7 +251,8 @@ function actionLines(action, step, ctx) {
     ? STEP_LINES[action.type](action, s)
     : (mark(step, 'skip', 'not an action type this version knows'), [`// Step ${n}: ${commentText(action.type)}${s.lbl} — [unsupported, skipped]`]);
   // The pause after a step, as in a run: not after a wait, nor after what is left out.
-  const delay = action.delay != null ? action.delay : ctx.stepDelay;
+  // A number, whatever an imported scenario holds: it is written into the code.
+  const delay = action.delay != null ? Number(action.delay) : ctx.stepDelay;
   if (delay > 0 && action.type !== 'wait' && step.status !== 'skip') out.push(`await page.waitForTimeout(${delay});`);
   return out;
 }

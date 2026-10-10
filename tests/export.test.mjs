@@ -830,3 +830,31 @@ test('Playwright: Child Condition, Read DOM, Choose item #, drag and Upload File
     'fill #o "Total: 42 42"',
   ], 'the extract fills its variables, and the step after uses them');
 });
+
+test('a Wait waits what playback waits, and only a number reaches the code', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const { generateTestSteps } = await import('../popup/export-steps.js');
+  const { waitMs } = await import('../shared/wait-ms.js');
+  // An imported scenario can hold anything in `delay`; each export writes it into code.
+  const evil = '0); alert(document.cookie); (0';
+  const steps = [
+    { type: 'wait', delay: evil },
+    { type: 'wait', value: '250' },
+    { type: 'wait' },
+    { type: 'wait', delay: 0, value: '700' },
+    { type: 'wait', delay: -5 },
+    { type: 'click', selector: '#a', selectors: { css: '#a' }, delay: evil },
+  ];
+  assert.deepEqual(steps.slice(0, 5).map(waitMs), [0, 250, 500, 700, 0], 'what a run waits: parseInt reads the leading 0; setTimeout waits no less than 0');
+  const bm = generateBookmarklet('w', steps, {}).code;
+  const pw = generatePlaywright('w', steps, {}, { stepDelay: 0 }).code;
+  const py = generateSeleniumPy('w', steps, {}, { stepDelay: 0 }).code;
+  for (const code of [bm, pw, py]) assert.ok(!code.includes('document.cookie'), 'the delay is never code');
+  assert.deepEqual([...bm.matchAll(/await sleep\((.*)\);/g)].map((m) => m[1]).slice(0, 5), ['0', '250', '500', '700', '0']);
+  assert.deepEqual([...pw.matchAll(/waitForTimeout\((.*)\);/g)].map((m) => m[1]), ['0', '250', '500', '700', '0']);
+  assert.deepEqual([...py.matchAll(/time\.sleep\((.*)\)/g)].map((m) => m[1]), ['0', '0.25', '0.5', '0.7', '0']);
+  const md = generateTestSteps('w', steps, {}).code;
+  assert.deepEqual([...md.matchAll(/Wait ([\d.]+) s/g)].map((m) => m[1]), ['0', '0.25', '0.5', '0.7', '0']);
+  assert.equal(checkModule(pw), null);
+  new Function(bm.replace(/^javascript:/, ''));
+});

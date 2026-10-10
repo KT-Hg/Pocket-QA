@@ -14,6 +14,7 @@ import { initExportModal } from './export-modal.js';
 import { getSwitchLayout, getConditionLayout, conditionRange, isAlwaysSwitch, caseLabel, caseRange, isBlockCase, SWITCH_SELF } from '../shared/switch-blocks.js';
 import { normalizeVarName } from '../shared/var-name.js';
 import { patternVarNames } from '../shared/text-pattern.js';
+import { waitMs } from '../shared/wait-ms.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 
 // A step's element, as a reader finds it on the page: its text, else its id, name or selector.
@@ -118,7 +119,7 @@ const DESCRIBE = {
   input:      (a, el) => [`Enter the value into ${el}`, String(a.value ?? '')],
   dropdown:   (a, el) => [a.pick ? `Choose item #${a.pick.index ?? '?'} in ${el}` : `Open the dropdown ${el}`],
   dragdrop:   (a, el) => [`Drag ${el} onto ${elementOf(a.targetSelectors, a.targetSelector)}`],
-  wait:       (a) => [`Wait ${(a.delay ?? (parseInt(a.value) || 1000)) / 1000} s`],
+  wait:       (a) => [`Wait ${waitMs(a) / 1000} s`],
   script:     (a) => {
     const first = String(a.code || a.value || '').trim().split('\n')[0];
     return ['Run the custom script', first.length > 60 ? `${first.slice(0, 60)}…` : first];

@@ -5,10 +5,13 @@
  * old actions (and "save sequence as scenario" ones) keep the duration in
  * `value`; one carrying both used to show one duration and wait another.
  *
+ * Always a whole number of ms, never below 0, since setTimeout waits no less: the
+ * exports write it into code, and an imported scenario can hold anything there.
+ *
  * Pure — no chrome.*.
  */
 
 export function waitMs(action) {
   const ms = parseInt(action.delay || action.value || 500, 10);
-  return isNaN(ms) ? 500 : ms;
+  return isNaN(ms) ? 500 : Math.max(0, ms);
 }

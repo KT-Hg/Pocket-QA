@@ -11,6 +11,7 @@ import {
 } from './export/page-js.js';
 import { locatorsOf } from '../shared/locator-order.js';
 import { cssEscape } from '../shared/css-escape.js';
+import { waitMs } from '../shared/wait-ms.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
@@ -455,7 +456,7 @@ function _buildChildCondPy(conditions, elVar, tout, locs, stepNum) {
 function actionLines(action, step, stepDelay, elTimeout, ctx) {
   const stepNum = step.n;
   const lbl    = action.label ? ` — ${commentText(action.label)}` : '';
-  const delay  = msToSec(action.delay != null ? action.delay : stepDelay);
+  const delay  = msToSec(action.delay != null ? Number(action.delay) : stepDelay);
   const tout   = msToSec(elTimeout);
   const locs   = locatorsFor(action);
   const elVar  = `el${stepNum}`;
@@ -538,7 +539,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     }
 
     case 'wait': {
-      const ms = msToSec(action.delay != null ? action.delay : (parseInt(action.value) || 1000));
+      const ms = msToSec(waitMs(action));
       out.push(`# Step ${stepNum}: wait${lbl}`);
       out.push(`time.sleep(${ms})`);
       break;

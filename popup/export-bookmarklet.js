@@ -5,6 +5,7 @@ import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { cssEscape } from '../shared/css-escape.js';
+import { waitMs } from '../shared/wait-ms.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
 import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
@@ -134,7 +135,8 @@ function condHeader(action, stepNum, step, ctx) {
 function actionLines(action, step, stepDelay, elTimeout, ctx) {
   const stepNum = step.n;
   const lbl = action.label ? ` — ${commentText(action.label)}` : '';
-  const delay = action.delay != null ? action.delay : stepDelay;
+  // A number, whatever an imported scenario holds: it is written into the code.
+  const delay = action.delay != null ? Number(action.delay) : stepDelay;
   const sel = locsJS(locatorsFor(action));
   const v = `_el${stepNum}`;
 
@@ -237,9 +239,8 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     }
 
     case 'wait': {
-      const ms = action.delay != null ? action.delay : (parseInt(action.value) || 1000);
       out.push(`// Step ${stepNum}: wait${lbl}`);
-      out.push(`await sleep(${ms});`);
+      out.push(`await sleep(${waitMs(action)});`);
       break;
     }
 
