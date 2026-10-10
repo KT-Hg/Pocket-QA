@@ -893,3 +893,26 @@ test('Choose item # at random never picks a <select>\'s empty option, as a run d
   }
   assert.equal(el.selectedIndex, 1, 'the first item with a value');
 });
+
+test('the export modal\'s Actions tab: a badge for every action type the exports know, and what each step does', async () => {
+  const { ACT_TYPE_INFO, actionDesc } = await import('../popup/export-modal.js');
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const { readFileSync } = await import('node:fs');
+  // Every name the exporters switch on, and the keys of Playwright's table: action
+  // types among them, and locator or condition types the generators turn down.
+  const src = ['export-bookmarklet', 'export-selenium', 'export-playwright']
+    .map((f) => readFileSync(new URL(`../popup/${f}.js`, import.meta.url), 'utf8')).join('\n');
+  const names = new Set(['condition', ...[...src.matchAll(/case '(\w+)':|^ {2}(\w+): /gm)].map((m) => m[1] || m[2])]);
+  const unknown = 'not an action type this version knows';
+  const known = [...names].filter((type) => [generateBookmarklet, generateSeleniumPy, generatePlaywright].some((gen) => {
+    const [step] = gen('t', [{ type, selector: '#a', selectors: { css: '#a' } }], {}).steps;
+    return step && step.reason !== unknown;
+  }));
+  assert.ok(known.includes('uploadFile') && known.includes('click') && !known.includes('xpath'), known.join());
+  assert.deepEqual(known.filter((type) => !ACT_TYPE_INFO[type]), [], 'types the exports know with no badge in the Actions tab');
+
+  assert.equal(actionDesc({ type: 'screenshot_full' }), 'full page');
+  assert.equal(actionDesc({ type: 'screenshot' }), 'viewport');
+  assert.equal(actionDesc({ type: 'condition', conditionType: 'elementExists', selectors: { css: '.welcome' } }), 'elementExists · .welcome');
+  assert.equal(actionDesc({ type: 'condition', conditionType: 'urlContains', expectedValue: '/home' }), 'urlContains · /home');
+});

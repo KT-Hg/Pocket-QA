@@ -66,7 +66,9 @@
  *                 is saved under that name, letters kept, and the file holds the code
  *   export-steps  the bookmarklet's export modal shows an Upload File step as skipped
  *                 in the Actions tab, the counts and the warning bar (it showed
- *                 "✓ OK"); Selenium's, which exports it, as "✓ OK"
+ *                 "✓ OK"); Selenium's, which exports it, as "✓ OK". On EXPORT_SAMPLE
+ *                 the header counts all 11 steps and the 2 skipped, and the rows name
+ *                 a full-page screenshot, Upload File, a Condition's element, a label
  *   export-regenerate  Reload scenario in either export modal shows a step added to
  *                 the scenario since it opened, and lists and declares only the
  *                 variables the scenario uses
@@ -947,11 +949,42 @@ async function checkExportFileName(ctx) {
   }
 }
 
+/**
+ * The 11 steps the export modal is checked with (tasks/plan-6): named steps, a
+ * Condition, a script, a full-page screenshot and an upload the bookmarklet
+ * leaves out.
+ */
+const EXPORT_SAMPLE = [
+  { type: 'navigate', url: 'https://shop.test/login' },
+  { type: 'input', selector: '#user', selectors: { css: '#user' }, value: 'alice', label: 'Username' },
+  { type: 'input', selector: '#pass', selectors: { css: '#pass' }, value: 'secret' },
+  { type: 'click', selector: '#login', selectors: { css: '#login' }, label: 'Sign in' },
+  { type: 'condition', conditionType: 'elementExists', selector: '.welcome', selectors: { css: '.welcome' } },
+  { type: 'click', selector: '.welcome', selectors: { css: '.welcome' } },
+  { type: 'script', code: 'console.log(1)' },
+  { type: 'readdom', selector: '#total', selectors: { css: '#total' }, varName: 'total' },
+  { type: 'screenshot_full' },
+  { type: 'uploadFile', selector: '#upload', selectors: { css: '#upload' }, folderPath: 'C:\\in', fileNames: ['a.txt'] },
+  { type: 'click', selector: '#logout', selectors: { css: '#logout' } },
+];
+
+/** In `popup`, pick scenario `id` in the Export Code card and open `button`'s export. */
+async function openExport(popup, id, button) {
+  await popup.evaluate(`(() => {
+    const s = document.getElementById('exportCodeSelect');
+    s.value = ${JSON.stringify(id)};
+    s.dispatchEvent(new Event('change'));
+    document.getElementById(${JSON.stringify(button)}).click();
+  })()`);
+  await sleep(POPUP_SETTLE_MS);
+}
+
 async function checkExportSteps(ctx) {
   const id = await makeScenario(ctx, 'e2e export steps', [
     { type: 'click', selector: '#bg1', selectors: { css: '#bg1' } },
     { type: 'uploadFile', selector: '#upload', selectors: { css: '#upload' }, folderPath: 'C:\\in', fileNames: ['a.txt'] },
   ]);
+  const sample = await makeScenario(ctx, 'e2e export sample', EXPORT_SAMPLE);
   const popup = await openPopup(ctx);
   try {
     await popup.evaluate(`(() => {
@@ -974,6 +1007,23 @@ async function checkExportSteps(ctx) {
       check(said, `${button}: the Actions tab, the counts and the warning bar say whether Upload File is exported`, tab);
       await popup.evaluate(`document.getElementById('exportClose').click()`);
     }
+
+    // What each row and the header say about the sample.
+    await openExport(popup, sample, 'exportBookmarklet');
+    const shown = await popup.evaluate(`({
+      sub: document.getElementById('exportSub').textContent,
+      rows: [...document.querySelectorAll('#exportActList .export-bm-action-row')].map((r) => ({
+        type: r.querySelector('.export-bm-action-type').textContent.trim(),
+        label: r.querySelector('.export-bm-action-label')?.textContent || '',
+        desc: r.querySelector('.export-bm-action-desc').textContent.trim() })),
+    })`);
+    const row = (n) => shown.rows[n - 1] || {};
+    check(shown.sub === 'e2e_export_sample_bookmarklet.js · 11 steps · 2 skipped',
+      'the header counts every step and the skipped ones, as the Actions tab lists them', shown.sub);
+    check(row(9).desc === 'full page' && row(10).type === '📎 upload' && row(5).desc === 'elementExists · .welcome',
+      'a full-page screenshot says so, Upload File has its badge, a Condition names its element', [row(5), row(9), row(10)]);
+    check(row(4).label === 'Sign in' && row(4).desc === 'Sign in #login' && row(3).label === '',
+      'a named step reads by its name, its selector after it', [row(3), row(4)]);
   } finally {
     await popup.close();
   }

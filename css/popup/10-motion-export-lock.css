@@ -1021,6 +1021,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
 .abt-condition  { background: rgba(234,179,8,.12);   color: #854d0e; }
 .abt-dragdrop   { background: rgba(249,115,22,.12);  color: #c2410c; }
 .abt-readdom    { background: rgba(34,197,94,.12);   color: #15803d; }
+.abt-upload     { background: rgba(236,72,153,.12);  color: #be185d; }
 
 [data-theme="dark"] .abt-nav        { color: #60a5fa; }
 [data-theme="dark"] .abt-click      { color: #a5b4fc; }
@@ -1031,6 +1032,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
 [data-theme="dark"] .abt-condition  { color: #fcd34d; }
 [data-theme="dark"] .abt-dragdrop   { color: #fb923c; }
 [data-theme="dark"] .abt-readdom    { color: #4ade80; }
+[data-theme="dark"] .abt-upload     { color: #f472b6; }
 
 /* Action description */
 .export-bm-action-desc {
@@ -1042,6 +1044,17 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+/* A step's name, in the UI font; what it acts on after it, dimmed. */
+.export-bm-action-label {
+  font-size: 11px;
+  font-weight: 600;
+}
+.export-bm-action-desc:has(.export-bm-action-label) { font-family: inherit; }
+.export-bm-action-sel {
+  font-family: monospace;
+  color: var(--muted);
 }
 
 /* Action status badge */

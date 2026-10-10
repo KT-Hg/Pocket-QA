@@ -175,9 +175,10 @@ function switchTab(tab) {
 function render(result) {
   const filename = fileName();
 
-  // Header
+  // Header: every step the export looked at, as many as the Actions tab lists.
+  const skipped = result.steps.filter((s) => s.status === 'skip').length;
   byId('Title').textContent = `${run.cfg.title} — ${run.scenarioName}`;
-  byId('Sub').textContent = `${filename} · ${result.stats.supported} steps`;
+  byId('Sub').textContent = `${filename} · ${result.steps.length} steps${skipped ? ` · ${skipped} skipped` : ''}`;
   byId('CodeLabel').textContent = filename;
 
   // Code preview
@@ -207,7 +208,7 @@ function render(result) {
   const actStats = renderActionsTab(PREFIX, run.actions, result.steps);
 
   // Stats pills
-  const { supported, skipped } = result.stats;
+  const { supported } = result.stats;
   byId('StatSteps').textContent = `${supported} steps`;
   byId('StatVars').textContent  = `${vars.length} variables`;
 
@@ -425,7 +426,8 @@ function renderVariables(noVarsEl, listEl, vars) {
 // ACTIONS REVIEW TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ACT_TYPE_INFO = {
+// The type badge of each action type the exports know (tests/export.test.mjs checks none is missing).
+export const ACT_TYPE_INFO = {
   navigate:           { icon: '🌐', label: 'navigate',   cls: 'nav' },
   click:              { icon: '👆', label: 'click',      cls: 'click' },
   input:              { icon: '⌨',  label: 'input',      cls: 'input' },
@@ -441,9 +443,11 @@ const ACT_TYPE_INFO = {
   screenshot_tovar:   { icon: '📷', label: 'scr-var',    cls: 'screenshot' },
   readdom:            { icon: '📖', label: 'readdom',    cls: 'readdom' },
   switch:             { icon: '🔄', label: 'switch',     cls: 'wait' },
+  uploadFile:         { icon: '📎', label: 'upload',     cls: 'upload' },
 };
 
-function actionDesc(a) {
+/** What a row of the Actions tab says an action does, after its label if it has one. */
+export function actionDesc(a) {
   const sel = (a.selectors?.css
     || (a.selectors?.id ? '#' + a.selectors.id : '')
     || a.selector
@@ -452,15 +456,19 @@ function actionDesc(a) {
     case 'navigate':  return (a.value || a.url || '').slice(0, 50);
     case 'wait':      return `${a.delay ?? a.value ?? 1000} ms`;
     case 'script':    return 'custom JS code';
-    case 'condition': return a.conditionType || 'condition';
+    case 'condition': {
+      // A URL check has no element: what it compares the URL with instead.
+      const what = String(a.conditionType || '').startsWith('url') ? String(a.expectedValue ?? '').slice(0, 40) : sel;
+      return [a.conditionType || 'condition', what].filter(Boolean).join(' · ');
+    }
     case 'switch':    return isAlwaysSwitch(a)
       ? `always → ${a.cases[0].scenarioName || a.cases[0].scenarioId}`.slice(0, 40)
       : `→ ${(a.scenario || a.value || '')}`.slice(0, 40);
     case 'readdom':   return a.pattern
       ? `${sel} → ${String(a.pattern).trim()}`
       : `${sel} → \${${normalizeVarName(a.varName) || 'var'}}`;
-    case 'screenshot':
-    case 'screenshot_full':    return 'viewport';
+    case 'screenshot':         return 'viewport';
+    case 'screenshot_full':    return 'full page';
     case 'screenshot_element': return sel || 'element';
     case 'dropdown':           return a.pick ? `${sel} → item #${a.pick.index ?? '?'}` : sel;
     case 'screenshot_tovar':   return `→ \${${normalizeVarName(a.varName) || 'screenshot'}}`;
@@ -492,10 +500,15 @@ function renderActionsTab(prefix, actions, steps) {
     // and the class name are escaped at the interpolation site below.
     const info = ACT_TYPE_INFO[a.type] || { icon: '●', label: String(a.type ?? 'unknown'), cls: 'wait' };
     const view = STEP_STATUS_VIEW[s.status];
+    // A step named in the scenario reads by its name; what it acts on follows, dimmed.
+    const desc = escHtml(actionDesc(a));
+    const label = a.label ? String(a.label).trim() : '';
     html += `<div class="export-bm-action-row ${view.rowCls}">
       <span class="export-bm-action-step">${s.n}</span>
       <span class="export-bm-action-type abt-${escHtml(info.cls)}">${info.icon} ${escHtml(info.label)}</span>
-      <span class="export-bm-action-desc">${escHtml(actionDesc(a))}</span>
+      <span class="export-bm-action-desc">${label
+        ? `<span class="export-bm-action-label">${escHtml(label)}</span> <span class="export-bm-action-sel">${desc}</span>`
+        : desc}</span>
       <span class="export-bm-action-status ast-${view.cls}" title="${escHtml(s.reason)}">${view.label}</span>
     </div>`;
   }
