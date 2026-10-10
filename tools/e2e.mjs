@@ -1978,6 +1978,24 @@ const EXPORT_CASES = [
     ],
     expect: { clicks: ['after'], marks: ['frame go Zoe'] },
   },
+  // A Switch block on a variable: the case whose value it has runs its action, then the step
+  // after the block — the default case when no case has the value.
+  ...[['switch-block', 'user', 'c2'], ['switch-default', 'guest', 'c3']].map(([name, role, clicked]) => ({
+    name,
+    variables: { role },
+    actions: [
+      { type: 'switch', switchVar: 'role', cases: [
+        { value: 'admin', scenarioId: '__self__', startAt: 2, endAt: 2 },
+        { value: 'user', scenarioId: '__self__', startAt: 3, endAt: 3 },
+        { value: '__default__', scenarioId: '__self__', startAt: 4, endAt: 4 },
+      ] },
+      { type: 'click', selector: '#c1', selectors: { css: '#c1' } },
+      { type: 'click', selector: '#c2', selectors: { css: '#c2' } },
+      { type: 'click', selector: '#c3', selectors: { css: '#c3' } },
+      { type: 'click', selector: '#after', selectors: { css: '#after' } },
+    ],
+    expect: { clicks: [clicked, 'after'] },
+  })),
   {
     // A one-line Script that ends in a quote: the Selenium literal closed early on it.
     name: 'script-quote',

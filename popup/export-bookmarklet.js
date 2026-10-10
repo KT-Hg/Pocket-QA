@@ -1,7 +1,7 @@
 import { commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName } from '../shared/var-name.js';
+import { normalizeVarName, normalizeVarRef } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
@@ -302,6 +302,23 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
   return out;
 }
 
+/**
+ * A Switch block as if / else if / else on its variable's value now: the first
+ * case whose value it is, else the default case (none: nothing runs), as a run picks.
+ */
+function switchLinesJS(action, step, branches) {
+  const value = valueToJS(normalizeVarRef(action.switchVar));
+  const out = [`// Step ${step.n}: switch on ${commentText(normalizeVarRef(action.switchVar))}${action.label ? ` — ${commentText(action.label)}` : ''}`];
+  const cases = branches.filter((b) => !b.isDefault);
+  const fallback = branches.find((b) => b.isDefault);
+  cases.forEach((b, k) => out.push(`${k ? '} else if' : 'if'} (${value} === ${JSON.stringify(String(b.value ?? ''))}) {`, ...indentLines(b.body, '  ')));
+  if (fallback) out.push(cases.length ? '} else {' : 'if (true) {', ...indentLines(fallback.body, '  '));
+  if (cases.length || fallback) out.push('}');
+  const delay = Number(action.delay) || 0;
+  if (delay > 0) out.push(`await sleep(${delay});`);
+  return out;
+}
+
 // The steps, walked as playback walks them (export/walk.js).
 function stepLines(stepDelay, elTimeout, ctx) {
   return walkActions(ctx, {
@@ -310,6 +327,7 @@ function stepLines(stepDelay, elTimeout, ctx) {
     conditionBody: (lines) => [...indentLines(lines, '  '), '}'],
     // A bookmarklet cannot choose a case.
     skippedBlock: (start, end) => [`// Step ${start + 1}: [SKIPPED] switch block — steps ${start + 2}–${end + 1} not exported (requires Chrome Extension API)`],
+    switchLines: switchLinesJS,
     // The step running now, which an error names.
     at: (title) => `_at = ${JSON.stringify(title)};`,
   });

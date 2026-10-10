@@ -218,7 +218,8 @@ The file name keeps letters of any language (`đăng_nhập_selenium.py`).
 | Screenshot (visible / full page / element / → variable) | — | ✓ (Safari: visible part only ⚠) | ✓ |
 | Upload File to an `<input type="file">` | — (no access to local files) | ✓ `send_keys` | ✓ `setInputFiles` |
 | Upload File to a drop zone | — | ✓ hidden bridge input, then a drop | ✓ hidden bridge input, then a drop |
-| Switch | — | — | — |
+| Switch block on a variable (its cases ranges of this scenario) | ✓ `if / else if` | ✓ `if / elif` | ✓ `if / else if` |
+| Switch to another scenario, to action #N, Always | — | — | — |
 
 What the three formats share:
 

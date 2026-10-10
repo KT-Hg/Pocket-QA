@@ -6,7 +6,9 @@
  * enabled action. Each export gives only its own lines.
  */
 
-import { blockEnd, conditionSkip, conditionSkipTarget, hasBlock } from '../../shared/switch-blocks.js';
+import {
+  blockEnd, caseRange, conditionSkip, conditionSkipTarget, hasBlock, isBlockCase, validateSwitch,
+} from '../../shared/switch-blocks.js';
 import { locatorsOf } from '../../shared/locator-order.js';
 import { writtenVarNames } from '../../shared/var-name.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../../shared/var-spec.js';
@@ -96,6 +98,9 @@ export function locatorsFor(action, target = false) {
  *   conditionHead(action, step) → the lines that open a Condition's block
  *   conditionBody(lines)        → its body's lines, indented, and what closes it
  *   skippedBlock(start, end)    → the lines left for a Switch block (0-based, inclusive)
+ *   switchLines(action, step, branches) → optional: the lines of a Switch block written
+ *                                 as branches (switchAsBranches): branches are
+ *                                 [{ value, isDefault, body }] in the cases' order
  *   at(title)                   → optional: the line that records which step runs
  *                                 ("Step 3: click — Sign in"), for the error to name it
  * Each step's lines are followed by an empty one. ctx: { all, layout, steps, warnings, frames }
@@ -118,12 +123,57 @@ function withAt(gen, step, lines) {
   return [lines[0], gen.at(title), ...lines.slice(1)];
 }
 
+/**
+ * Whether the Switch at `i` can be written as branches on its variable's value:
+ * a block whose every case is a range of this scenario (or emptied), resuming
+ * right after it (no "Continue at" of its own), that validateSwitch finds no error
+ * in — what playback then does is only "run the matching case's actions". A case
+ * that jumps or plays another scenario needs the extension.
+ */
+export function switchAsBranches(all, i, layout) {
+  const a = all[i];
+  return hasBlock(a) && !a.disabled && a.cases.every(isBlockCase)
+    && (a.continueAt == null || String(a.continueAt).trim() === '')
+    && validateSwitch(all, i, layout).errors.length === 0;
+}
+
+/**
+ * The Switch at `i` as gen.switchLines' branches: each case's range walked as its
+ * own body (in the order of the ranges, so the step records keep the scenario's
+ * order); an action of the block in no case never runs (a skipped record).
+ */
+function switchBranches(ctx, gen, i, step) {
+  const action = ctx.all[i];
+  const end = blockEnd(ctx.all, i);
+  const first = ctx.steps.length;
+  const bodies = new Map();
+  const ranged = action.cases.map((c, k) => ({ k, range: caseRange(c) })).filter((x) => x.range)
+    .sort((p, q) => p.range.start - q.range.start);
+  for (const { k, range } of ranged) bodies.set(k, walk(ctx, gen, range.start, range.end + 1));
+  for (let j = i + 1; j <= end; j++) {
+    if (ctx.all[j].disabled || ranged.some(({ range }) => j >= range.start && j <= range.end)) continue;
+    ctx.steps.push({ n: j + 1, type: ctx.all[j].type, status: 'skip', reason: `in the Switch block at step ${i + 1}, in none of its cases: it never runs` });
+  }
+  ctx.steps.splice(first, Infinity, ...ctx.steps.slice(first).sort((p, q) => p.n - q.n));
+  const branches = action.cases.map((c, k) => ({ value: c.value, isDefault: c.value === '__default__', body: bodies.get(k) || [] }));
+  return withAt(gen, step, gen.switchLines(action, step, branches));
+}
+
 function walk(ctx, gen, from, to) {
   const out = [];
   let i = from;
   while (i < to) {
     const action = ctx.all[i];
-    // A Switch block only ever runs one of its cases; emitting it would run every case in a row.
+    // A Switch block runs the case its variable picks: branches on the value where the
+    // export can write them (switchAsBranches), else left out whole — emitted as it
+    // is, it would run every case in a row.
+    if (hasBlock(action) && gen.switchLines && switchAsBranches(ctx.all, i, ctx.layout)) {
+      const step = newStep(action, i + 1, ctx.frames);
+      ctx.steps.push(step);
+      out.push(...switchBranches(ctx, gen, i, step), '');
+      i = blockEnd(ctx.all, i) + 1;
+      continue;
+    }
     if (hasBlock(action)) {
       const end = blockEnd(ctx.all, i);
       out.push(...gen.skippedBlock(i, end), '');

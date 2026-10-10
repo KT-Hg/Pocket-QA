@@ -1,7 +1,7 @@
 import { commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
+import { normalizeVarName, normalizeVarRef, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark } from './export/steps.js';
@@ -899,6 +899,23 @@ function conditionHeadPy(action, step, ctx) {
   return out;
 }
 
+/**
+ * A Switch block as if / elif / else on its variable's value now: the first case
+ * whose value it is, else the default case (none: nothing runs), as a run picks.
+ */
+function switchLinesPy(action, step, branches) {
+  const value = valueToPy(normalizeVarRef(action.switchVar));
+  const out = [`# Step ${step.n}: switch on ${commentText(normalizeVarRef(action.switchVar))}${action.label ? ` — ${commentText(action.label)}` : ''}`];
+  const cases = branches.filter((b) => !b.isDefault);
+  const fallback = branches.find((b) => b.isDefault);
+  const body = (lines) => (lines.every((l) => l === '') ? ['    pass'] : lines.map((l) => (l === '' ? '' : `    ${l}`)));
+  cases.forEach((b, k) => out.push(`${k ? 'elif' : 'if'} ${value} == ${JSON.stringify(String(b.value ?? ''))}:`, ...body(b.body)));
+  if (fallback) out.push(cases.length ? 'else:' : 'if True:', ...body(fallback.body));
+  const delay = msToSec(Number(action.delay) || 0);
+  if (delay > 0) out.push(`time.sleep(${delay})`);
+  return out;
+}
+
 // The steps, walked as playback walks them (export/walk.js).
 function stepLines(stepDelay, elTimeout, ctx) {
   return walkActions(ctx, {
@@ -908,6 +925,7 @@ function stepLines(stepDelay, elTimeout, ctx) {
     conditionBody: (lines) => (lines.every((l) => l === '') ? ['    pass'] : lines.map((l) => (l === '' ? '' : `    ${l}`))),
     // The script cannot pick a case.
     skippedBlock: (start, end) => [`# Step ${start + 1}: switch block [SKIPPED] — steps ${start + 2}–${end + 1} not exported (requires extension scenario routing)`],
+    switchLines: switchLinesPy,
     // The step running now, which an error names.
     at: (title) => `_at = ${JSON.stringify(title)}`,
   });

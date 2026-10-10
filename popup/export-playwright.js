@@ -11,7 +11,7 @@
 import { commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
+import { normalizeVarName, normalizeVarRef, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
@@ -358,10 +358,30 @@ function asTestStep(lines, step) {
     ...lines.slice(1).map((l) => (l === '' ? '' : `  ${l}`)), '});'];
 }
 
+/**
+ * A Switch block as if / else if / else on its variable's value now: the first
+ * case whose value it is, else the default case (none: nothing runs), as a run
+ * picks. The steps of the case are test.steps of their own.
+ */
+function switchLinesPW(action, step, branches) {
+  const value = valueJS(normalizeVarRef(action.switchVar));
+  const out = [`// Step ${step.n}: switch on ${commentText(normalizeVarRef(action.switchVar))}${action.label ? ` — ${commentText(action.label)}` : ''}`];
+  const indent = (lines) => lines.map((l) => (l === '' ? '' : `  ${l}`));
+  const cases = branches.filter((b) => !b.isDefault);
+  const fallback = branches.find((b) => b.isDefault);
+  cases.forEach((b, k) => out.push(`${k ? '} else if' : 'if'} (${value} === ${JSON.stringify(String(b.value ?? ''))}) {`, ...indent(b.body)));
+  if (fallback) out.push(cases.length ? '} else {' : 'if (true) {', ...indent(fallback.body));
+  if (cases.length || fallback) out.push('}');
+  const delay = Number(action.delay) || 0;
+  if (delay > 0) out.push(`await page.waitForTimeout(${delay});`);
+  return out;
+}
+
 const stepLines = (ctx) => walkActions(ctx, {
   step: (action, step) => asTestStep(actionLines(action, step, ctx), step),
   conditionHead: (action, step) => conditionHeader(action, step, ctx),
   conditionBody: (lines) => [...lines.map((l) => (l === '' ? '' : `  ${l}`)), '}'],
+  switchLines: switchLinesPW,
   // The spec cannot pick a case.
   skippedBlock: (start, end) => [`// Step ${start + 1}: switch block [SKIPPED] — steps ${start + 2}–${end + 1} not exported (requires extension scenario routing)`],
 });

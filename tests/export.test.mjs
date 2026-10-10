@@ -15,7 +15,8 @@ const actions = [
   { type: 'readdom', selector: '#row-${id} .name', selectors: { css: '#row-${id} .name' }, varName: '${who}', readFrom: 'visible' },
   { type: 'readdom', selector: '#list', selectors: { css: '#list' }, varName: 'city', readFrom: 'attr', attrName: 'data-${attr}',
     conditions: { matchMode: 'any', textContains: 'Hanoi' } },
-  { type: 'switch', switchVar: '${who}', cases: [blk('a', 5, 5), blk('b', 6, 6)] },
+  // A "Continue at" of its own: a block the exports leave out (their branches resume right after it).
+  { type: 'switch', switchVar: '${who}', cases: [blk('a', 5, 5), blk('b', 6, 6)], continueAt: 7 },
   { type: 'click', selector: '#case-a', selectors: { css: '#case-a' } },
   { type: 'click', selector: '#case-b', selectors: { css: '#case-b' } },
   { type: 'input', selector: '#out', selectors: { css: '#out' }, value: '${who} ${city}' },
@@ -1124,4 +1125,44 @@ test('a step recorded in a frame: Selenium and Playwright look for its element i
   assert.equal(checkModule(pw.code), null);
   // No step in a frame: none of it.
   assert.doesNotMatch(generateSeleniumPy('top', [steps[1]], {}).code, /frames|_locate_in_frames/);
+});
+
+test('a Switch block of ranges written as branches on its variable, as a run picks the case', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const self = (value, startAt, endAt) => ({ value, scenarioId: '__self__', startAt, endAt });
+  const steps = [
+    { type: 'switch', switchVar: 'role', cases: [self('admin', 2, 2), self('user', 3, 4), { value: 'none', scenarioId: '__self__', empty: true },
+      self('__default__', 6, 6)] },
+    { type: 'click', selector: '#admin', selectors: { css: '#admin' } },
+    { type: 'click', selector: '#user', selectors: { css: '#user' } },
+    { type: 'click', selector: '#user2', selectors: { css: '#user2' }, disabled: true },
+    { type: 'click', selector: '#orphan', selectors: { css: '#orphan' } },
+    { type: 'click', selector: '#other', selectors: { css: '#other' } },
+    { type: 'click', selector: '#after', selectors: { css: '#after' } },
+  ];
+  const vars = { role: 'user' };
+  const py = generateSeleniumPy('sw', steps, vars);
+  assert.match(py.code, /^ {4}if f"\{role\}" == "admin":\n {8}# Step 2: click$/m);
+  assert.match(py.code, /^ {4}elif f"\{role\}" == "user":\n {8}# Step 3: click$/m);
+  assert.match(py.code, /^ {4}elif f"\{role\}" == "none":\n {8}pass\n {4}else:\n {8}# Step 6: click$/m);
+  assert.doesNotMatch(py.code, /#orphan/, 'in no case: never runs');
+  // Each step in order: the Switch and its cases' steps OK, the action in no case skipped.
+  assert.deepEqual(statusOf(py.steps), { 1: 'ok', 2: 'ok', 3: 'ok', 5: 'skip', 6: 'ok', 7: 'ok' });
+  assert.match(py.steps.find((s) => s.n === 5).reason, /in none of its cases/);
+  assert.ok(!py.warnings.some((w) => /Switch block/.test(w)));
+  assert.equal(compilePy(py.code), null);
+
+  const js = generateBookmarklet('sw', steps, vars).code;
+  assert.match(js, /if \(role === "admin"\) \{|if \(`\$\{role\}` === "admin"\) \{/);
+  assert.match(js, /\} else \{\n {6}\/\/ Step 6: click/);
+  new Function(js.replace(/^javascript:/, ''));
+  const pw = generatePlaywright('sw', steps, vars, { stepDelay: 0 });
+  assert.equal(checkModule(pw.code), null);
+  // On the fake page: only the user case's step, then the step after the block.
+  const calls = await runSpec(pw.code);
+  assert.deepEqual(calls.filter((c) => c.startsWith('click')), ['click #user', 'click #after']);
+
+  // A case that plays another scenario, or jumps: the block is left out as before.
+  const jump = [{ ...steps[0], cases: [...steps[0].cases, { value: 'x', scenarioId: 'other-id' }] }, ...steps.slice(1)];
+  assert.match(generateSeleniumPy('sw', jump, vars).code, /switch block \[SKIPPED\]/);
 });

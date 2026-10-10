@@ -63,8 +63,10 @@ xuất đánh dấu ⚠ Verify hoặc — Skip cho từng bước liên quan, k�
   frame trên cùng với các bước đi qua CDP (xem mục trên).
 - **Upload File:** bookmarklet không đọc được tệp trên máy nên bỏ qua mọi Upload File, vào `<input type="file">` cũng như
   vào drop zone. Selenium và Playwright làm được cả hai (drop zone qua một input ẩn làm cầu nối, như phát lại).
-- **Switch** bị bỏ qua ở cả ba bản xuất code, Switch có khối bị bỏ qua cùng cả khối: chọn case và nhảy sang scenario
-  khác là việc của extension.
+- **Switch:** Switch có khối theo biến, mọi case là một dải action của chính scenario (hoặc rỗng), không có "Continue
+  at" riêng và không lỗi, được xuất thành `if / elif / else` trên giá trị biến lúc chạy. Các Switch khác — case nhảy
+  sang scenario khác, nhảy tới action #N, "Always", có "Continue at" — vẫn bị bỏ qua (cùng cả khối nếu có khối): việc
+  đó cần extension.
 - **Bookmarklet và Navigate:** Navigate đầu tiên cần bấm 2 lần (mở trang rồi dừng, bấm lại khi trang đã tải). Nếu
   trang đích chuyển hướng sang địa chỉ khác (ví dụ về trang đăng nhập), lần bấm sau vẫn không thấy mình ở đích nên lại
   mở trang và dừng, không bao giờ chạy tiếp. Navigate ở giữa scenario tải lại trang, các bước sau nó không chạy.
