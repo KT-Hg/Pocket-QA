@@ -129,14 +129,15 @@ function valueToPy(val) {
   return JSON.stringify(s);
 }
 
-// Names the generated script binds for itself, plus the Python keywords. A
+// Names the generated script binds for itself or calls, plus the Python keywords. A
 // variable called `driver` or `class` would otherwise overwrite the WebDriver or
-// fail to parse, so those get a `_v` suffix.
+// fail to parse, `re` or `open` hide what a helper calls, so those get a `_v` suffix.
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
-  'pytest', 'browser',
+  'pytest', 'browser', 'dom_var',
+  're', 'sys', 'open', 'str', 'int', 'len', 'range', 'hasattr', 'Exception',
   'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
   'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
@@ -151,7 +152,8 @@ function safeVarName(name) {
     .replace(/^\$\{|\}$/g, '')
     .replace(/[^a-zA-Z0-9_]/g, '_')
     .replace(/^\d/, '_') || 'var';
-  return _RESERVED_PY.has(safe) ? safe + '_v' : safe;
+  // The steps' own values (el3, el3_t, _ss_file3) too: step 3 wrote its element over a variable el3.
+  return _RESERVED_PY.has(safe) || /^(el|_ss_file)\d+(_|$)/.test(safe) ? safe + '_v' : safe;
 }
 
 // True when a `script` action's source references a variable, which decides

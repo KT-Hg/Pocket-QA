@@ -6,31 +6,39 @@
 
 import { CHILD_COND_KEYS } from '../../shared/child-cond.js';
 
-/** Words no variable may be named in JavaScript, and globals an export relies on. */
+/**
+ * Words no variable may be named in JavaScript, and the globals the generated code
+ * calls by name: a variable `location` hid the page's own from the bookmarklet's
+ * first Navigate, `alert` its error report.
+ */
 export const JS_RESERVED = [
   'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete',
   'do', 'else', 'enum', 'export', 'extends', 'false', 'finally', 'for', 'function', 'if',
   'import', 'in', 'instanceof', 'new', 'null', 'return', 'super', 'switch', 'this', 'throw',
   'true', 'try', 'typeof', 'var', 'void', 'while', 'with', 'let', 'static', 'yield', 'await',
   'document', 'window', 'undefined', 'NaN', 'Infinity',
+  'location', 'alert', 'console', 'setTimeout', 'getComputedStyle', 'Promise', 'MutationObserver',
+  'XPathResult', 'NodeFilter', 'Event', 'MouseEvent', 'DragEvent', 'DataTransfer', 'URL',
+  'JSON', 'Math', 'Date', 'Error', 'RegExp', 'Array', 'String', 'Number', 'Object',
 ];
 
 /**
  * (name) → a JS identifier for a variable name. Variable names are free-form in
  * the Variables modal: other characters become _, a leading digit too, and a name
  * in `reserved` (JS_RESERVED and what the export declares itself — `sleep` would
- * shadow a helper, `class` is a SyntaxError) gets a `_v` suffix.
+ * shadow a helper, `class` is a SyntaxError) or matching `own` (the names the
+ * export gives its steps' elements, el2 and the like) gets a `_v` suffix.
  *
  * Every site that emits *or references* a variable name has to go through it.
  * The declaration used to be sanitized while valueToJS() passed `${mã đơn}`
  * through verbatim — a SyntaxError that takes the whole script down.
  */
-export function jsIdentifier(reserved) {
+export function jsIdentifier(reserved, own = null) {
   return (name) => {
     const safe = String(name == null ? 'var' : name)
       .replace(/[^a-zA-Z0-9_$]/g, '_')
       .replace(/^\d/, '_') || 'var';
-    return reserved.has(safe) ? safe + '_v' : safe;
+    return reserved.has(safe) || own?.test(safe) ? safe + '_v' : safe;
   };
 }
 

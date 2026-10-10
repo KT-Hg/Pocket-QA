@@ -895,3 +895,33 @@ test('a ${ that names no variable stays text in the JS exports, as in a run', as
   new Function(generateBookmarklet('d', steps, { who: 'Bob' }).code.replace(/^javascript:/, ''));
   assert.equal(checkModule(generatePlaywright('d', steps, { who: 'Bob' }).code), null);
 });
+
+test('a variable never takes a name the generated code uses for itself', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const el = { selector: '#a', selectors: { css: '#a' } };
+  const read = { type: 'readdom', ...el, readFrom: 'text' };
+
+  // Bookmarklet: `location` would hide the page's own for the first Navigate's check.
+  const bmVars = { location: 'Hanoi', alert: 'a', domVar: 'd', _el2: 'e' };
+  const bm = generateBookmarklet('n', [{ type: 'navigate', url: 'https://a.test/' },
+    { type: 'input', ...el, value: '${location} ${alert} ${domVar} ${_el2}' }, read], bmVars).code;
+  assert.match(bm, /const location_v = "Hanoi";/);
+  assert.match(bm, /_setInput\(_el2, `\$\{location_v\} \$\{alert_v\} \$\{domVar_v\} \$\{_el2_v\}`\);/);
+  assert.match(bm, /_at1\(location\.href\)/, 'the page\'s own location');
+  new Function(bm.replace(/^javascript:/, ''));
+
+  // Playwright: the steps' elements share the test function with the variables.
+  const pw = generatePlaywright('n', [{ type: 'click', ...el }, { type: 'input', ...el, value: '${el2} ${el2_t}' }, read],
+    { el2: 'x', el2_t: 'y' }, { stepDelay: 0 }).code;
+  assert.equal(checkModule(pw), null);
+  const calls = await runSpec(pw);
+  assert.ok(calls.includes('fill #a "x y"'), calls.join('\n'));
+
+  // Selenium: step 2's element was written over the variable el2; `re` hid the module.
+  const py = generateSeleniumPy('n', [{ type: 'click', ...el }, { type: 'input', ...el, value: '${el2} ${re} ${dom_var} ${open}' },
+    { ...read, pattern: 'Total: ${amount}' }, read], { el2: 'x', re: 'r', dom_var: 'd', open: 'o' }).code;
+  assert.match(py, /^el2_v = "x"$/m);
+  assert.match(py, /^re_v = "r"$/m);
+  assert.match(py, /send_keys\(f"\{el2_v\} \{re_v\} \{dom_var_v\} \{open_v\}"\)/);
+  assert.equal(checkPython(py), null);
+});

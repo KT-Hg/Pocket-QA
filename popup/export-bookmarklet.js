@@ -22,10 +22,12 @@ const SKIPPED_TYPES = new Set([
 // words (js-code.js).
 const _RESERVED_JS = new Set([
   'sleep', 'getEl', '_qsel', '_first', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
+  'domVar',
   ...JS_RESERVED,
 ]);
 
-const _sanitizeVarName = jsIdentifier(_RESERVED_JS);
+// The names of the steps' own values (_el3, _el3_t, _nav1, _at1) and of the Random generators.
+const _sanitizeVarName = jsIdentifier(_RESERVED_JS, /^_(el|nav|at)\d+(_|$)|^_gen_/);
 
 /**
  * The locators of the element an action acts on — of its drop target with

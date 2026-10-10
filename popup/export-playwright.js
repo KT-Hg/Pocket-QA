@@ -24,7 +24,8 @@ import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './
 // What the generated spec declares for itself, beside the JS reserved words.
 const RESERVED = new Set(['test', 'page', 'TIMEOUT', '_find', '_first', '_input', '_setInput', '_js', '_SCRIPT_INPUT_TYPES',
   '_checkCond', '_findChild', '_readVal', '_pick', ...JS_RESERVED]);
-const ident = jsIdentifier(RESERVED);
+// The steps' elements (el3, el3_t) share the test function with the variables.
+const ident = jsIdentifier(RESERVED, /^el\d+(_|$)/);
 const valueJS = jsValue(ident);
 
 // The locators of an action's element (of its drop target with `target`), in playback's order.
@@ -164,7 +165,7 @@ function readdomLines(a, s) {
   const out = [`// Step ${s.n}: readdom → ${targets.map((t) => `"${t}"`).join(', ') || 'nothing kept'}${s.lbl}`, ...s.find()];
   if (!slots.length) {
     // With no variable the value is read and dropped, as a run reads and drops it.
-    out.push(vn ? `${ident(vn)} = ${read};` : `const ${s.el}_v = ${read};`);
+    out.push(vn ? `${ident(vn)} = ${read};` : `${read};`);
     return out;
   }
   out.push(`const ${s.el}_t = ${read};`);

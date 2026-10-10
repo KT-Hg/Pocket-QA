@@ -1478,6 +1478,19 @@ const EXPORT_CASES = [
     ],
     expect: { fields: { name: 'price ${', echo: 'tick ` Bob ${}' } },
   },
+  {
+    // Variables named as what the code uses itself: `location` hid the page's from the
+    // bookmarklet's first Navigate, `el2` was step 2's element (Playwright: declared twice).
+    name: 'own-names',
+    pageVar: 'page',
+    bookmarkletClicks: 2,
+    variables: { location: 'Hanoi', el2: 'x' },
+    actions: [
+      { type: 'navigate', url: '${page}' },
+      { type: 'input', selector: '#name', selectors: { css: '#name' }, value: '${location} ${el2}' },
+    ],
+    expect: { fields: { name: 'Hanoi x' } },
+  },
 ];
 
 // A folder with @playwright/test installed (npm install @playwright/test): the Playwright
