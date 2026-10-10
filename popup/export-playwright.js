@@ -415,5 +415,6 @@ export function initExportPlaywright() {
     generate: generatePlaywright,
     copyText: (code) => code,
     file: (code) => ({ text: code, type: 'text/javascript' }),
+    startUrl: { field: 'exportPwStartUrl', button: 'exportPwGetUrl', badge: 'exportPwUrlFromTab' },
   });
 }

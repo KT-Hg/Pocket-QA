@@ -1727,11 +1727,12 @@
         <div data-format="pw" hidden>
           <div class="export-bm-setting-row export-bm-setting-row-stack">
             <div class="export-bm-setting-label">
-              Starting URL
+              Starting URL <span class="export-bm-url-from-tab" id="exportPwUrlFromTab" style="display:none;">📍 Current tab</span>
               <small>Opened first, unless the scenario starts with a Navigate</small>
             </div>
             <div class="export-bm-url-field">
               <input type="url" id="exportPwStartUrl" class="export-bm-setting-input" placeholder="https://…" />
+              <button id="exportPwGetUrl" class="export-bm-icon-btn" title="Get URL from current tab" style="font-size:11px;">🔄</button>
             </div>
           </div>
           <div class="export-bm-setting-row">

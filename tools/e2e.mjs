@@ -1140,6 +1140,27 @@ async function checkExportStartUrl(ctx) {
     check(shown.field === 'https://shop.test/start' && shown.code.includes('driver.get(_url("https://shop.test/start"))') && !shown.code.includes('your-url-here'),
       'Selenium: the start URL taken from the tab is in the code the modal first shows',
       { field: shown.field, get: shown.code.split('\n').filter((l) => l.includes('driver.get')) });
+
+    // Playwright the same way, the badge saying where it came from; 🔄 takes the tab's URL again.
+    await popup.evaluate(`document.getElementById('exportClose').click(); document.getElementById('exportPlaywright').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const pw = () => popup.evaluate(`({
+      field: document.getElementById('exportPwStartUrl').value,
+      badge: document.getElementById('exportPwUrlFromTab').style.display !== 'none',
+      code: document.querySelector('#exportCode code').textContent,
+    })`);
+    const first = await pw();
+    check(first.field === 'https://shop.test/start' && first.badge && first.code.includes('await page.goto(_url("https://shop.test/start"));'),
+      'Playwright: the start URL is taken from the tab too, and the badge says so', { field: first.field, badge: first.badge });
+    await popup.evaluate(`(() => {
+      const query = chrome.tabs.query;
+      chrome.tabs.query = (q, cb) => (q?.active ? setTimeout(() => cb([{ url: 'https://shop.test/other' }]), 50) : query(q, cb));
+      document.getElementById('exportPwGetUrl').click();
+    })()`);
+    await sleep(SETTLE_MS);
+    const again = await pw();
+    check(again.field === 'https://shop.test/other' && again.code.includes('await page.goto(_url("https://shop.test/other"));'),
+      'Playwright: 🔄 takes the tab\'s URL again, and the code follows', { field: again.field });
   } finally {
     await popup.close();
   }
