@@ -941,7 +941,6 @@ export function initExportSelenium() {
     fileSuffix: '_selenium.py',
     readOptions: _getOpts,
     generate: generateSeleniumPy,
-    regenerateFromStorage: false,
     copyText: (code) => code,
     file: (code) => ({ text: code, type: 'text/x-python' }),
     beforeOpen: _autoFillStartUrl,

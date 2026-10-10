@@ -723,7 +723,6 @@ export function initExportBookmarklet() {
       elTimeout: parseInt(document.getElementById('exportBmElTimeout')?.value)  || 5000,
     }),
     generate: generateBookmarklet,
-    regenerateFromStorage: true,
     copyText: toBookmarkletUrl,
     // .js file: pretty-printed, without javascript: prefix
     file: (code) => ({ text: _toJsFile(code), type: 'application/javascript' }),

@@ -67,6 +67,9 @@
  *   export-steps  the bookmarklet's export modal shows an Upload File step as skipped
  *                 in the Actions tab, the counts and the warning bar (it showed
  *                 "✓ OK"); Selenium's, which exports it, as "✓ OK"
+ *   export-regenerate  Regenerate in either export modal shows a step added to the
+ *                 scenario since it opened, and lists and declares only the
+ *                 variables the scenario uses
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, headless Edge),
  *                 leaves the export page the same way. No python or selenium: the
@@ -954,6 +957,42 @@ async function checkExportSteps(ctx) {
   }
 }
 
+async function checkExportRegenerate(ctx) {
+  await ctx.send({ type: 'SAVE_VARIABLES', variables: { used: 'u', unused: 'x' } });
+  const id = await makeScenario(ctx, 'e2e export regenerate', [
+    { type: 'input', selector: '#out', selectors: { css: '#out' }, value: '${used}' },
+  ]);
+  const popup = await openPopup(ctx);
+  try {
+    await popup.evaluate(`(() => {
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+    })()`);
+    let added = 0;
+    for (const [button, prefix] of [['exportSelenium', 'exportSelenium'], ['exportBookmarklet', 'exportBm']]) {
+      await popup.evaluate(`document.getElementById(${JSON.stringify(button)}).click()`);
+      await sleep(POPUP_SETTLE_MS);
+      // The scenario changes while the modal is open; Regenerate has to show it.
+      const marker = `regen${++added}`;
+      await ctx.send({ type: 'ADD_MANUAL_ACTION', scenarioId: id,
+        action: { type: 'click', selector: `#${marker}`, selectors: { css: `#${marker}` } } });
+      await popup.evaluate(`document.getElementById('${prefix}Regenerate').click()`);
+      await sleep(POPUP_SETTLE_MS);
+      const shown = await popup.evaluate(`({
+        vars: [...document.querySelectorAll('#${prefix}VarList .export-bm-var-name')].map((el) => el.textContent),
+        code: document.querySelector('#${prefix}Code code').textContent,
+      })`);
+      check(JSON.stringify(shown.vars) === '["${used}"]' && shown.code.includes(`#${marker}`) && !/\bunused\b/.test(shown.code),
+        `${button}: Regenerate reads the scenario again and keeps to the variables it uses`,
+        { vars: shown.vars, hasNewStep: shown.code.includes(`#${marker}`), declaresUnused: /\bunused\b/.test(shown.code) });
+      await popup.evaluate(`document.getElementById('${prefix}Close').click()`);
+    }
+  } finally {
+    await popup.close();
+  }
+}
+
 /**
  * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
  * every input, select, textarea and contenteditable with an id (a checkbox by
@@ -1424,6 +1463,7 @@ const CHECKS = [
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],
   ['export-steps', 'The export modal tells which steps were skipped', checkExportSteps],
+  ['export-regenerate', 'Regenerate in the export modals', checkExportRegenerate],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],

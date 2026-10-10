@@ -36,8 +36,6 @@ const COPIED_LABEL_MS = 1500;
  * @param {string}   cfg.fileSuffix   - after the scenario's safe name, e.g. '_selenium.py'
  * @param {Function} cfg.readOptions  - () → the generator's options, read from the Settings tab
  * @param {Function} cfg.generate     - (scenarioName, actions, variables, options) → { code, stats, steps, warnings }
- * @param {boolean}  cfg.regenerateFromStorage - Regenerate reads the scenario and all
- *                                      variables again (else it reuses what was opened)
  * @param {Function} cfg.copyText     - (code) → what Copy puts on the clipboard
  * @param {Function} cfg.file         - (code) → { text, type } that Download saves
  * @param {Function} [cfg.beforeOpen] - run first each time the modal opens
@@ -137,7 +135,13 @@ export function initExportModal(cfg) {
     run.releaseFocus = trapFocus(modal);
   };
 
-  const onTrigger = () => {
+  /**
+   * Read the scenario chosen in the card and the variables it uses into `run`,
+   * then call `done`. Opening the modal and Regenerate both come through here:
+   * Regenerate of the Python export reused what was read on opening (a step
+   * added since never showed), the JS one passed every variable there is.
+   */
+  const load = (done) => {
     const sel = document.getElementById('exportCodeSelect');
     const scenarioId = sel?.value;
     if (!scenarioId) { showToast('Please select a scenario first', 'error'); return; }
@@ -153,10 +157,12 @@ export function initExportModal(cfg) {
         run.variables = Object.fromEntries(
           Object.entries(allVariables).filter(([k]) => usedNames.has(k))
         );
-        open(run.scenarioName, run.actions, run.variables);
+        done();
       });
     });
   };
+
+  const onTrigger = () => load(() => open(run.scenarioName, run.actions, run.variables));
 
   const copy = async () => {
     if (!run.code) return;
@@ -182,32 +188,13 @@ export function initExportModal(cfg) {
     downloadBlob(new Blob([text], { type }), `${exportFileBase(run.scenarioName)}${cfg.fileSuffix}`);
   };
 
-  const showRegenerated = (result, variables) => {
+  const regenerate = () => load(() => {
+    const result = cfg.generate(run.scenarioName, run.actions, run.variables, cfg.readOptions());
     run.code = result.code;
-    render(run.scenarioName, result, variables);
+    render(run.scenarioName, result, run.variables);
     switchTab('preview');
     showToast('Code regenerated');
-  };
-
-  const regenerate = () => {
-    if (!cfg.regenerateFromStorage) {
-      showRegenerated(cfg.generate(run.scenarioName, run.actions, run.variables, cfg.readOptions()), run.variables);
-      return;
-    }
-    const sel        = document.getElementById('exportCodeSelect');
-    const scenarioId = sel?.value;
-    if (!scenarioId) return;
-
-    const options = cfg.readOptions();
-    chrome.runtime.sendMessage({ type: 'GET_SCENARIOS' }, res => {
-      const scenario = (res?.scenarios || {})[scenarioId];
-      run.actions    = scenario?.actions || [];
-      chrome.runtime.sendMessage({ type: 'GET_VARIABLES' }, varRes => {
-        const variables = varRes?.variables || {};
-        showRegenerated(cfg.generate(run.scenarioName, run.actions, variables, options), variables);
-      });
-    });
-  };
+  });
 
   const triggerBtn = document.getElementById(cfg.triggerId);
   if (!triggerBtn) return;
