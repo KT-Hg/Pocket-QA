@@ -261,8 +261,9 @@
 }
 .export-bm-tab-panel[hidden] { display: none; }
 
-/* The Code tab: its toolbar, then the code in all the room left; the code scrolls. */
-#exportTabPreview {
+/* The Code tab: its toolbar, then the code in all the room left; the code scrolls.
+   :not([hidden]): an id outranks the [hidden] rule above. */
+#exportTabPreview:not([hidden]) {
   display: flex;
   flex-direction: column;
   overflow: hidden;

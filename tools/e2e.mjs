@@ -1314,11 +1314,15 @@ async function checkExportLayout(ctx) {
     const code = await boxOf(tall, '#exportCode');
     check(code.height >= 400, 'at 480 × 600, Selenium with nothing to warn about: the code is at least 400 px tall', code);
     const copy = [];
+    const shown = [];
     for (const tab of ['variables', 'actions', 'settings', 'preview']) {
       await showExportTab(tall, tab);
       copy.push(await boxOf(tall, '#exportCopy'));
+      shown.push(await tall.evaluate(`[...document.querySelectorAll('#exportModal .export-bm-tab-panel')]
+        .filter((p) => getComputedStyle(p).display !== 'none').map((p) => p.id).join()`));
     }
     check(copy.every((c) => c.top === copy[0].top && c.left === copy[0].left), 'Copy stays where it is through the four tabs', copy);
+    check(shown.join(' ') === 'exportTabVariables exportTabActions exportTabSettings exportTabPreview', 'each tab shows its panel alone', shown);
   } finally {
     await tall.close();
   }
