@@ -58,6 +58,99 @@ export const FIND_CHILD_JS = String.raw`(parent, cond) => {
   return _tryFind(cond);
 }`;
 
+// Each action function starts as playback's PLAY_ACTION does for every element
+// action: scroll the element to the middle of the view, then focus it.
+
+/**
+ * (el) → a Click as playback makes it: mousedown and mouseup at its middle, then
+ * click(). Widgets (jQuery UI, custom menus) act on mousedown; click() alone
+ * never fires it.
+ */
+export const CLICK_JS = String.raw`(el) => {
+  el.scrollIntoView({ behavior: 'auto', block: 'center' });
+  el.focus();
+  const r = el.getBoundingClientRect();
+  const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };
+  el.dispatchEvent(new MouseEvent('mousedown', opts));
+  el.dispatchEvent(new MouseEvent('mouseup', opts));
+  el.click();
+}`;
+
+/** (el) → a Hover as playback makes it: mouseover, mouseenter, mousemove at its middle. */
+export const HOVER_JS = String.raw`(el) => {
+  el.scrollIntoView({ behavior: 'auto', block: 'center' });
+  el.focus();
+  const r = el.getBoundingClientRect();
+  const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+  el.dispatchEvent(new MouseEvent('mouseover', opts));
+  el.dispatchEvent(new MouseEvent('mouseenter', { ...opts, bubbles: false }));
+  el.dispatchEvent(new MouseEvent('mousemove', opts));
+}`;
+
+/**
+ * (el, value) → an Input as playback makes it. A contenteditable gets the text
+ * through execCommand, which rich-text editors observe. A <select> gets the
+ * option with that value, else with that text; with neither it throws and keeps
+ * its choice (setting .value to a missing option emptied it, and passed). Any
+ * other field gets the value through its native setter, which React and Vue
+ * track, then input, change and blur.
+ */
+export const SET_INPUT_JS = String.raw`(el, value) => {
+  el.scrollIntoView({ behavior: 'auto', block: 'center' });
+  el.focus();
+  const v = value ?? '';
+  if (el.isContentEditable) {
+    document.execCommand('selectAll', false, null);
+    document.execCommand('insertText', false, v);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return;
+  }
+  if (el.tagName === 'SELECT') {
+    const want = String(v);
+    const options = Array.from(el.options);
+    const option = options.find(o => o.value === want) || options.find(o => o.text === want);
+    if (!option) throw new Error('The dropdown has no option "' + want + '"');
+    el.value = option.value;
+    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+    el.dispatchEvent(new Event('blur', { bubbles: true }));
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    return;
+  }
+  let setter = null;
+  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {
+    const d = Object.getOwnPropertyDescriptor(p, 'value');
+    if (d?.set) { setter = d.set; break; }
+  }
+  if (setter) setter.call(el, v); else el.value = v;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  el.dispatchEvent(new Event('blur', { bubbles: true }));
+}`;
+
+/**
+ * (src, dst) → a Drag & drop as playback makes it: mousedown, then the HTML5
+ * drag events sharing one DataTransfer (dragstart, dragenter, dragover, drop,
+ * dragend), then mouseup. Mouse events alone move nothing on an HTML5 list.
+ */
+export const DRAG_DROP_JS = String.raw`(src, dst) => {
+  src.scrollIntoView({ behavior: 'auto', block: 'center' });
+  src.focus();
+  const s = src.getBoundingClientRect(), d = dst.getBoundingClientRect();
+  const sx = s.left + s.width / 2, sy = s.top + s.height / 2, dx = d.left + d.width / 2, dy = d.top + d.height / 2;
+  const dt = new DataTransfer();
+  const fireM = (el, t, x, y, extra = {}) => el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, clientX: x, clientY: y, ...extra }));
+  const fireD = (el, t, x, y) => el.dispatchEvent(new DragEvent(t, { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+  fireM(src, 'mousedown', sx, sy, { button: 0 });
+  fireD(src, 'dragstart', sx, sy);
+  fireD(dst, 'dragenter', dx, dy);
+  fireD(dst, 'dragover', dx, dy);
+  fireD(dst, 'drop', dx, dy);
+  fireD(src, 'dragend', dx, dy);
+  fireM(src, 'mouseup', dx, dy);
+}`;
+
 /** The Condition types CHECK_COND_JS answers; an export stops on any other. */
 export const CONDITION_TYPES = new Set([
   'elementExists', 'elementNotExists', 'elementVisible', 'elementHidden', 'textContains', 'textEquals',

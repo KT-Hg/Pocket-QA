@@ -954,7 +954,8 @@ async function checkExportSteps(ctx) {
 /**
  * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
  * every input, select, textarea and contenteditable with an id (a checkbox by
- * whether it is ticked) — plus the other elements with an id clicked and the alerts shown is POSTed
+ * whether it is ticked) — plus the other elements with an id clicked, the alerts
+ * shown and the marks its widgets set (events a page may wait for) is POSTed
  * to /state on every change, so a run in a browser the harness does not drive
  * (the Selenium script's own Edge) is read the same way as one it does.
  * A new element with an id is in the state as soon as it is on the page.
@@ -982,15 +983,23 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   <button id="c1">c1</button><button id="c2">c2</button><button id="c3">c3</button>
   <button id="c4">c4</button><button id="c5">c5</button><button id="c6">c6</button>
 </div>
+<div id="acts">
+  <div id="mdBtn">press</div>
+  <div id="hoverMenu">menu</div>
+  <div id="rich" contenteditable="true" style="min-height:20px;border:1px solid"></div>
+  <input id="blurField">
+  <div id="dragSrc" draggable="true">drag</div><div id="dropZone" style="min-height:30px">drop here</div>
+  <button id="done">done</button>
+</div>
 <script>
   const run = new URLSearchParams(location.search).get('run');
-  const clicks = [], alerts = [];
+  const clicks = [], alerts = [], marks = [];
   let seq = 0;
   const fields = () => Object.fromEntries([...document.querySelectorAll('input[id], select[id], textarea[id], [contenteditable][id]')]
     .map((el) => [el.id, el.type === 'checkbox' ? el.checked : (el.isContentEditable ? el.textContent : el.value)]));
   // seq: two posts in flight may arrive in either order; the harness keeps the latest.
   const report = () => fetch('/state', { method: 'POST', keepalive: true,
-    body: JSON.stringify({ run, seq: ++seq, state: { fields: fields(), clicks, alerts } }) });
+    body: JSON.stringify({ run, seq: ++seq, state: { fields: fields(), clicks, alerts, marks } }) });
   // The bookmarklet reports its errors with alert(), which would block a headless page.
   window.alert = (m) => { alerts.push(String(m)); report(); };
   // Fields are in the state by value; a click on one is not counted.
@@ -998,6 +1007,16 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
     if (e.target.id && !e.target.matches('input, select, textarea')) { clicks.push(e.target.id); report(); }
   }, true);
   for (const type of ['input', 'change']) document.addEventListener(type, report, true);
+  // A widget waiting for an event playback fires; sorted, as a real browser may fire them in another order.
+  const mark = (m) => { if (!marks.includes(m)) { marks.push(m); marks.sort(); report(); } };
+  const on = (id, type) => document.getElementById(id).addEventListener(type, () => mark(id + ' ' + type));
+  on('mdBtn', 'mousedown');
+  on('hoverMenu', 'mousemove');
+  on('blurField', 'blur');
+  on('color', 'click');
+  const zone = document.getElementById('dropZone');
+  zone.addEventListener('dragover', (e) => e.preventDefault());
+  zone.addEventListener('drop', (e) => { e.preventDefault(); mark('dropZone drop'); });
   report();
 </script></body></html>`;
 
@@ -1019,8 +1038,9 @@ function saveExportState(req, reply) {
 
 /**
  * Scenarios export-run plays, then runs as each export, on EXPORT_PAGE. `expect`
- * is what playback must leave (fields listed, clicks and alerts in full); each
- * export must then leave exactly what playback left. Add a case per behaviour an
+ * is what playback must leave (fields listed; clicks, alerts and marks in full,
+ * none when left out); each export of `runners` (default both) must then leave
+ * exactly what playback left. Add a case per behaviour an
  * export has to share with playback.
  */
 const EXPORT_CASES = [
@@ -1039,7 +1059,7 @@ const EXPORT_CASES = [
       { type: 'condition', conditionType: 'elementExists', selector: '#nope', selectors: { css: '#nope' }, skipCount: 1 },
       { type: 'click', selector: '#never', selectors: { css: '#never' } },
     ],
-    expect: { fields: { name: 'Alice', color: 'g', agree: true, echo: 'Hi ORD-42' }, clicks: ['submit', 'after'], alerts: [] },
+    expect: { fields: { name: 'Alice', color: 'g', agree: true, echo: 'Hi ORD-42' }, clicks: ['submit', 'after'], marks: ['color click'] },
   },
   {
     // Child Condition: the innermost element holding the text, ALL, a Fallback
@@ -1073,7 +1093,31 @@ const EXPORT_CASES = [
       { type: 'condition', conditionType, selector: sel, selectors: { css: sel }, expectedValue, skipCount: 1 },
       { type: 'click', selector: guarded, selectors: { css: guarded } },
     ]),
-    expect: { clicks: ['c1', 'c2', 'c3', 'c4', 'c5'], alerts: [] },
+    expect: { clicks: ['c1', 'c2', 'c3', 'c4', 'c5'] },
+  },
+  {
+    // Events a page may wait for, fired as playback fires them: mousedown before a
+    // click, mousemove on a hover, text into a contenteditable, blur after an Input.
+    name: 'actions',
+    actions: [
+      { type: 'click', selector: '#mdBtn', selectors: { css: '#mdBtn' } },
+      { type: 'hover', selector: '#hoverMenu', selectors: { css: '#hoverMenu' } },
+      { type: 'input', selector: '#rich', selectors: { css: '#rich' }, value: 'Hello' },
+      { type: 'input', selector: '#blurField', selectors: { css: '#blurField' }, value: 'x' },
+      // In the Selenium run, the real click that blurs the field.
+      { type: 'click', selector: '#done', selectors: { css: '#done' } },
+    ],
+    expect: { fields: { rich: 'Hello', blurField: 'x' }, clicks: ['mdBtn', 'done'],
+      marks: ['blurField blur', 'hoverMenu mousemove', 'mdBtn mousedown'] },
+  },
+  {
+    // HTML5 drag and drop: dragstart … drop with one DataTransfer, as playback fires them.
+    name: 'drag',
+    // ActionChains drag_and_drop fires no HTML5 drag events in Chromium.
+    runners: ['bookmarklet'],
+    actions: [{ type: 'dragdrop', selector: '#dragSrc', selectors: { css: '#dragSrc' },
+      targetSelector: '#dropZone', targetSelectors: { css: '#dropZone' } }],
+    expect: { marks: ['dropZone drop'] },
   },
 ];
 
@@ -1118,7 +1162,7 @@ function stateDiff(a, b) {
   for (const k of new Set([...Object.keys(a?.fields || {}), ...Object.keys(b?.fields || {})])) {
     if (a?.fields?.[k] !== b?.fields?.[k]) out[k] = [a?.fields?.[k], b?.fields?.[k]];
   }
-  for (const k of ['clicks', 'alerts']) {
+  for (const k of ['clicks', 'alerts', 'marks']) {
     if (JSON.stringify(a?.[k]) !== JSON.stringify(b?.[k])) out[k] = [a?.[k], b?.[k]];
   }
   return out;
@@ -1144,6 +1188,7 @@ async function checkExportRun(ctx) {
       const variables = Object.fromEntries(Object.entries((await ctx.send({ type: 'GET_VARIABLES' })).variables || {})
         .filter(([k]) => used.has(k)));
       const states = {};
+      const runners = c.runners || ['bookmarklet', 'selenium'];
 
       await ctx.web.goto(pageUrl(`${c.name}:playback`));
       await sleep(PAGE_SETTLE_MS);
@@ -1151,15 +1196,17 @@ async function checkExportRun(ctx) {
       if (played.timedOut) fail(`${c.name}: playback did not finish`);
       states.playback = exportStates.get(`${c.name}:playback`)?.state;
 
-      await ctx.web.goto(pageUrl(`${c.name}:bookmarklet`));
-      const url = toBookmarkletUrl(generateBookmarklet(c.name, actions, variables).code);
-      // What a click on the bookmark runs: the URL, percent-decoded.
-      await ctx.web.evaluate(decodeURIComponent(url.slice('javascript:'.length)), BOOKMARKLET_RUN_TIMEOUT_MS)
-        .catch((e) => fail(`${c.name}: the bookmarklet threw: ${e.message}`));
-      await sleep(SETTLE_MS);
-      states.bookmarklet = exportStates.get(`${c.name}:bookmarklet`)?.state;
+      if (runners.includes('bookmarklet')) {
+        await ctx.web.goto(pageUrl(`${c.name}:bookmarklet`));
+        const url = toBookmarkletUrl(generateBookmarklet(c.name, actions, variables).code);
+        // What a click on the bookmark runs: the URL, percent-decoded.
+        await ctx.web.evaluate(decodeURIComponent(url.slice('javascript:'.length)), BOOKMARKLET_RUN_TIMEOUT_MS)
+          .catch((e) => fail(`${c.name}: the bookmarklet threw: ${e.message}`));
+        await sleep(SETTLE_MS);
+        states.bookmarklet = exportStates.get(`${c.name}:bookmarklet`)?.state;
+      }
 
-      if (!noPython) {
+      if (!noPython && runners.includes('selenium')) {
         const file = join(dir, `${c.name}.py`);
         writeFileSync(file, generateSeleniumPy(c.name, actions, variables,
           { driverType: 'Edge', startUrl: pageUrl(`${c.name}:selenium`) }).code);
@@ -1171,7 +1218,7 @@ async function checkExportRun(ctx) {
       }
 
       // Fields not named in `expect` are taken as playback left them.
-      const expected = { ...c.expect, fields: { ...states.playback?.fields, ...c.expect.fields } };
+      const expected = { clicks: [], alerts: [], marks: [], ...c.expect, fields: { ...states.playback?.fields, ...c.expect.fields } };
       const wanted = stateDiff(states.playback, expected);
       check(states.playback && !Object.keys(wanted).length, `${c.name}: playback leaves the expected page`, wanted);
       for (const runner of ['bookmarklet', 'selenium']) {

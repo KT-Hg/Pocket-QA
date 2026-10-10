@@ -342,3 +342,45 @@ test('a Switch block is one skipped step per action in it', () => {
   // The same in the bookmarklet, but for its step 1, a Navigate, which reloads the page there.
   assert.deepEqual(statusOf(generateBookmarklet('demo', actions, vars).steps), { ...statusOf(steps), 1: 'verify' });
 });
+
+test('the in-page Input chooses a <select> option as playback does, and fails on one it does not have', async () => {
+  const { SET_INPUT_JS } = await import('../popup/export/page-js.js');
+  globalThis.MouseEvent ??= class extends Event {};
+  const setInput = new Function(`return (${SET_INPUT_JS})`)();
+  const select = (value) => {
+    const fired = [];
+    return {
+      tagName: 'SELECT', isContentEditable: false, value, fired,
+      options: [{ value: 'r', text: 'Red' }, { value: 'g', text: 'Green' }],
+      scrollIntoView() {}, focus() { fired.push('focus'); },
+      dispatchEvent(e) { fired.push(e.type); },
+    };
+  };
+  const el = select('r');
+  setInput(el, 'Green'); // by its text, as playback falls back to
+  assert.equal(el.value, 'g');
+  assert.deepEqual(el.fired, ['focus', 'input', 'change', 'blur', 'click']);
+  const kept = select('r');
+  assert.throws(() => setInput(kept, 'Blue'), /The dropdown has no option "Blue"/);
+  assert.equal(kept.value, 'r', 'the choice is left alone');
+});
+
+test('the bookmarklet clicks, hovers, types and drags with the in-page helpers', async () => {
+  const { CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS } = await import('../popup/export/page-js.js');
+  const steps = [
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'hover', selector: '#m', selectors: { css: '#m' } },
+    { type: 'input', selector: '#n', selectors: { css: '#n' }, value: 'x' },
+    { type: 'dragdrop', selector: '#s', selectors: { css: '#s' }, targetSelector: '#t', targetSelectors: { css: '#t' } },
+    { type: 'click', selector: '#p', selectors: { css: '#p' }, conditions: { textContains: 'Bob' } },
+  ];
+  const { code } = generateBookmarklet('acts', steps, {});
+  for (const line of ['_click(_el1);', '_hover(_el2);', '_setInput(_el3, "x");', '_dragDrop(_el4_s, _el4_t);', '_click(_el5);']) {
+    assert.ok(code.includes(`    ${line}\n`), line);
+  }
+  for (const src of [CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS]) {
+    assert.ok(code.includes(src.split('\n').map((l) => `  ${l}`).join('\n').trimStart()), 'declared from page-js');
+  }
+  assert.doesNotMatch(code, /^\s+_el\d+\.click\(\);$|const setInput/m, 'no click or Input of its own');
+  new Function(code.replace(/^javascript:/, ''));
+});

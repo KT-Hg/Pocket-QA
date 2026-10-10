@@ -7,7 +7,9 @@ import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
-import { FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES } from './export/page-js.js';
+import {
+  CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES,
+} from './export/page-js.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -33,7 +35,7 @@ function makeRandomFn(type, length) {
 // `sleep` would shadow a helper and one called `class` is a SyntaxError — those
 // get a `_v` suffix instead.
 const _RESERVED_JS = new Set([
-  'sleep', 'getEl', 'setInput', '_qsel', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
+  'sleep', 'getEl', '_qsel', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
   'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete',
   'do', 'else', 'enum', 'export', 'extends', 'false', 'finally', 'for', 'function', 'if',
   'import', 'in', 'instanceof', 'new', 'null', 'return', 'super', 'switch', 'this', 'throw',
@@ -269,7 +271,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       } else {
         out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       }
-      out.push(`${v}.click();`);
+      out.push(`_click(${v});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
 
@@ -282,7 +284,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       } else {
         out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       }
-      out.push(`setInput(${v}, ${valueToJS(action.value)});`);
+      out.push(`_setInput(${v}, ${valueToJS(action.value)});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
 
@@ -295,8 +297,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       } else {
         out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       }
-      out.push(`${v}.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));`);
-      out.push(`${v}.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));`);
+      out.push(`_hover(${v});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
 
@@ -320,11 +321,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       out.push(`// Step ${stepNum}: dragdrop${lbl}`);
       out.push(`const ${v}_s = await getEl(${valueToJS(sel)}, ${elTimeout});`);
       out.push(`const ${v}_t = await getEl(${valueToJS(tgt)}, ${elTimeout});`);
-      out.push(`const _sr${stepNum} = ${v}_s.getBoundingClientRect(), _tr${stepNum} = ${v}_t.getBoundingClientRect();`);
-      out.push(`${v}_s.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, clientX:_sr${stepNum}.x+_sr${stepNum}.width/2, clientY:_sr${stepNum}.y+_sr${stepNum}.height/2 }));`);
-      out.push(`await sleep(50);`);
-      out.push(`${v}_t.dispatchEvent(new MouseEvent('mousemove', { bubbles:true, clientX:_tr${stepNum}.x+_tr${stepNum}.width/2, clientY:_tr${stepNum}.y+_tr${stepNum}.height/2 }));`);
-      out.push(`${v}_s.dispatchEvent(new MouseEvent('mouseup',   { bubbles:true, clientX:_tr${stepNum}.x+_tr${stepNum}.width/2, clientY:_tr${stepNum}.y+_tr${stepNum}.height/2 }));`);
+      out.push(`_dragDrop(${v}_s, ${v}_t);`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
     }
@@ -555,19 +552,17 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('    setTimeout(() => { obs.disconnect(); rej(new Error(`Timeout: ${sel}`)); }, timeout);');
   out.push('  });');
   out.push('');
-  out.push('  const setInput = (el, value) => {');
-  out.push('    el.focus();');
-  out.push('    let nv = null, p = Object.getPrototypeOf(el);');
-  out.push('    while (p && p !== Object.prototype) {');
-  out.push("      const d = Object.getOwnPropertyDescriptor(p, 'value');");
-  out.push('      if (d?.set) { nv = d.set; break; }');
-  out.push('      p = Object.getPrototypeOf(p);');
-  out.push('    }');
-  out.push('    if (nv) nv.call(el, value); else el.value = value;');
-  out.push("    el.dispatchEvent(new Event('input', { bubbles: true }));");
-  out.push("    el.dispatchEvent(new Event('change', { bubbles: true }));");
-  out.push('  };');
-  out.push('');
+  // The action helpers playback's own events come from (page-js.js), each only when a step uses it.
+  for (const [name, src, used] of [
+    ['_click', CLICK_JS, (a) => a.type === 'click'],
+    ['_hover', HOVER_JS, (a) => a.type === 'hover'],
+    ['_setInput', SET_INPUT_JS, (a) => a.type === 'input'],
+    ['_dragDrop', DRAG_DROP_JS, (a) => a.type === 'dragdrop'],
+  ]) {
+    if (!enabled.some(used)) continue;
+    out.push(...declarePageJs(name, src));
+    out.push('');
+  }
   out.push(...declarePageJs('_findChild', FIND_CHILD_JS));
   if (enabled.some(a => a.type === 'condition')) {
     out.push('');
