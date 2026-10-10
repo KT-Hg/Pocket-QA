@@ -1,0 +1,2789 @@
+{
+ "TEST 01 — Click & Input (Screen 1) | none": {
+  "code": "# TEST 01 — Click & Input (Screen 1)\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 1 | showScreen(1, document.querySelectorAll('nav button')[0]) |  |\n| 2 | Wait for screen transition |  |  |\n| 3 | Fill: Full name | John Doe |  |\n| 4 | Fill: Email | john@example.com |  |\n| 5 | Fill: Password | Passw0rd! |  |\n| 6 | Fill: Phone | +1 555 123 4567 |  |\n| 7 | Fill: Message textarea | Hello from automation! |  |\n| 8 | Select: Country → Vietnam | vn |  |\n| 9 | Select: Priority → High | high |  |\n| 10 | Check: Accept terms |  |  |\n| 11 | Check: Remember me |  |  |\n| 12 | Radio: Select Viewer role |  |  |\n| 13 | Click: Load Sample |  |  |\n| 14 | Wait after load |  |  |\n| 15 | Click: Submit Form |  |  |\n| 16 | Wait for form status |  |  |\n| 17 | Click: Reset |  |  |",
+  "stats": {
+   "total": 17,
+   "supported": 17,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 01 — Click & Input (Screen 1) | strings": {
+  "code": "# TEST 01 — Click & Input (Screen 1)\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 1 | showScreen(1, document.querySelectorAll('nav button')[0]) |  |\n| 2 | Wait for screen transition |  |  |\n| 3 | Fill: Full name | John Doe |  |\n| 4 | Fill: Email | john@example.com |  |\n| 5 | Fill: Password | Passw0rd! |  |\n| 6 | Fill: Phone | +1 555 123 4567 |  |\n| 7 | Fill: Message textarea | Hello from automation! |  |\n| 8 | Select: Country → Vietnam | vn |  |\n| 9 | Select: Priority → High | high |  |\n| 10 | Check: Accept terms |  |  |\n| 11 | Check: Remember me |  |  |\n| 12 | Radio: Select Viewer role |  |  |\n| 13 | Click: Load Sample |  |  |\n| 14 | Wait after load |  |  |\n| 15 | Click: Submit Form |  |  |\n| 16 | Wait for form status |  |  |\n| 17 | Click: Reset |  |  |",
+  "stats": {
+   "total": 17,
+   "supported": 17,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 02 — Hover (Screen 1) | none": {
+  "code": "# TEST 02 — Hover (Screen 1)\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 1 | showScreen(1, document.querySelectorAll('nav button')[0]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Hover: Box A |  |  |\n| 4 | Wait 0.6 s |  |  |\n| 5 | Hover: Box B |  |  |\n| 6 | Wait 0.6 s |  |  |\n| 7 | Hover: Box C |  |  |\n| 8 | Wait 0.6 s |  |  |",
+  "stats": {
+   "total": 8,
+   "supported": 8,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 02 — Hover (Screen 1) | strings": {
+  "code": "# TEST 02 — Hover (Screen 1)\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 1 | showScreen(1, document.querySelectorAll('nav button')[0]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Hover: Box A |  |  |\n| 4 | Wait 0.6 s |  |  |\n| 5 | Hover: Box B |  |  |\n| 6 | Wait 0.6 s |  |  |\n| 7 | Hover: Box C |  |  |\n| 8 | Wait 0.6 s |  |  |",
+  "stats": {
+   "total": 8,
+   "supported": 8,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 03 — Run JS & Read DOM (Screen 2) | none": {
+  "code": "# TEST 03 — Run JS & Read DOM (Screen 2)\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 2 | showScreen(2, document.querySelectorAll('nav button')[1]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Click: Increment counter |  |  |\n| 4 | Click: Increment counter |  |  |\n| 5 | Click: Increment counter (total = 3) |  |  |\n| 6 | Read DOM: counter → ${counterValue} |  |  |\n| 7 | Run JS: write to output panel | document.getElementById('jsOutput').textContent = 'Counter r… |  |\n| 8 | Read DOM: price → ${price} |  |  |\n| 9 | Read DOM: stock → ${stock} |  |  |\n| 10 | Read DOM: rating → ${rating} |  |  |\n| 11 | Run JS: display read values | document.getElementById('jsOutput').textContent += '\\nPrice:… |  |\n| 12 | Click: Decrement |  |  |\n| 13 | Click: Reset counter |  |  |",
+  "stats": {
+   "total": 13,
+   "supported": 13,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 03 — Run JS & Read DOM (Screen 2) | strings": {
+  "code": "# TEST 03 — Run JS & Read DOM (Screen 2)\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 2 | showScreen(2, document.querySelectorAll('nav button')[1]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Click: Increment counter |  |  |\n| 4 | Click: Increment counter |  |  |\n| 5 | Click: Increment counter (total = 3) |  |  |\n| 6 | Read DOM: counter → ${counterValue} |  |  |\n| 7 | Run JS: write to output panel | document.getElementById('jsOutput').textContent = 'Counter r… |  |\n| 8 | Read DOM: price → ${price} |  |  |\n| 9 | Read DOM: stock → ${stock} |  |  |\n| 10 | Read DOM: rating → ${rating} |  |  |\n| 11 | Run JS: display read values | document.getElementById('jsOutput').textContent += '\\nPrice:… |  |\n| 12 | Click: Decrement |  |  |\n| 13 | Click: Reset counter |  |  |",
+  "stats": {
+   "total": 13,
+   "supported": 13,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 04 — Condition (if) (Screen 2) | none": {
+  "code": "# TEST 04 — Condition (if) (Screen 2)\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 2 | showScreen(2, document.querySelectorAll('nav button')[1]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Click: Hide element |  |  |\n| 4 | Wait 0.3 s |  |  |\n| 5 | IF elementHidden #conditionEl → skip 2 (increment + wait) |  | `#conditionEl` is hidden or not on the page — if not, skip steps 6–7 |\n| 6 | ↳ [SKIPPED] Increment — should be skipped |  |  |\n| 7 | ↳ [SKIPPED] Wait — should be skipped |  |  |\n| 8 | Click: Show element |  |  |\n| 9 | Wait 0.3 s |  |  |\n| 10 | IF elementVisible #conditionEl → skip 1 (hide action) |  | `#conditionEl` is visible — if not, skip step 11 |\n| 11 | ↳ [SKIPPED] Hide — should be skipped because element IS visible |  |  |\n| 12 | IF #condText contains 'Condition target' → skip 1 |  | The text of `#condText` contains \"Condition target\" — if not, skip step 13 |\n| 13 | ↳ [SKIPPED] Increment — skipped because text matched |  |  |\n| 14 | IF URL contains 'test-page' → skip 1 |  | The page address contains \"test-page\" — if not, skip step 15 |\n| 15 | ↳ [SKIPPED] Increment — skipped because URL matched |  |  |",
+  "stats": {
+   "total": 15,
+   "supported": 15,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 04 — Condition (if) (Screen 2) | strings": {
+  "code": "# TEST 04 — Condition (if) (Screen 2)\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 2 | showScreen(2, document.querySelectorAll('nav button')[1]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Click: Hide element |  |  |\n| 4 | Wait 0.3 s |  |  |\n| 5 | IF elementHidden #conditionEl → skip 2 (increment + wait) |  | `#conditionEl` is hidden or not on the page — if not, skip steps 6–7 |\n| 6 | ↳ [SKIPPED] Increment — should be skipped |  |  |\n| 7 | ↳ [SKIPPED] Wait — should be skipped |  |  |\n| 8 | Click: Show element |  |  |\n| 9 | Wait 0.3 s |  |  |\n| 10 | IF elementVisible #conditionEl → skip 1 (hide action) |  | `#conditionEl` is visible — if not, skip step 11 |\n| 11 | ↳ [SKIPPED] Hide — should be skipped because element IS visible |  |  |\n| 12 | IF #condText contains 'Condition target' → skip 1 |  | The text of `#condText` contains \"Condition target\" — if not, skip step 13 |\n| 13 | ↳ [SKIPPED] Increment — skipped because text matched |  |  |\n| 14 | IF URL contains 'test-page' → skip 1 |  | The page address contains \"test-page\" — if not, skip step 15 |\n| 15 | ↳ [SKIPPED] Increment — skipped because URL matched |  |  |",
+  "stats": {
+   "total": 15,
+   "supported": 15,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 05 — Drag & Drop (Screen 2) | none": {
+  "code": "# TEST 05 — Drag & Drop (Screen 2)\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 2 | showScreen(2, document.querySelectorAll('nav button')[1]) |  |\n| 2 | Wait 0.4 s |  |  |\n| 3 | Drag: Item Alpha → onto Item Gamma |  |  |\n| 4 | Wait 0.5 s |  |  |\n| 5 | Drag: Item Delta → onto Item Beta |  |  |",
+  "stats": {
+   "total": 5,
+   "supported": 5,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "dragdrop",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "dragdrop",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 05 — Drag & Drop (Screen 2) | strings": {
+  "code": "# TEST 05 — Drag & Drop (Screen 2)\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 2 | showScreen(2, document.querySelectorAll('nav button')[1]) |  |\n| 2 | Wait 0.4 s |  |  |\n| 3 | Drag: Item Alpha → onto Item Gamma |  |  |\n| 4 | Wait 0.5 s |  |  |\n| 5 | Drag: Item Delta → onto Item Beta |  |  |",
+  "stats": {
+   "total": 5,
+   "supported": 5,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "dragdrop",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "dragdrop",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 06 — Loading State Condition (Screen 2) | none": {
+  "code": "# TEST 06 — Loading State Condition (Screen 2)\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 2 | showScreen(2, document.querySelectorAll('nav button')[1]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Click: Reset loading state |  |  |\n| 4 | Wait 0.3 s |  |  |\n| 5 | Click: Simulate Load (1.5s) |  |  |\n| 6 | IF spinner visible → skip 1 (wait for it to disappear) |  | `#loadingSpinner` is visible — if not, skip step 7 |\n| 7 | ↳ [SKIPPED] Short wait — skipped because spinner is showing |  |  |\n| 9 | ↳ Wait 2s for load to complete |  |  |\n| 10 | Read DOM: loaded result → ${loadedResult} |  |  |\n| 11 | Assert: #loadedContent is visible (skip 0 = no-op assert) |  | `#loadedContent` is visible |",
+  "stats": {
+   "total": 10,
+   "supported": 10,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 06 — Loading State Condition (Screen 2) | strings": {
+  "code": "# TEST 06 — Loading State Condition (Screen 2)\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 2 | showScreen(2, document.querySelectorAll('nav button')[1]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Click: Reset loading state |  |  |\n| 4 | Wait 0.3 s |  |  |\n| 5 | Click: Simulate Load (1.5s) |  |  |\n| 6 | IF spinner visible → skip 1 (wait for it to disappear) |  | `#loadingSpinner` is visible — if not, skip step 7 |\n| 7 | ↳ [SKIPPED] Short wait — skipped because spinner is showing |  |  |\n| 9 | ↳ Wait 2s for load to complete |  |  |\n| 10 | Read DOM: loaded result → ${loadedResult} |  |  |\n| 11 | Assert: #loadedContent is visible (skip 0 = no-op assert) |  | `#loadedContent` is visible |",
+  "stats": {
+   "total": 10,
+   "supported": 10,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 07 — Screenshots (Screen 3) | none": {
+  "code": "# TEST 07 — Screenshots (Screen 3)\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 3 | showScreen(3, document.querySelectorAll('nav button')[2]) |  |\n| 2 | Wait 0.5 s |  |  |\n| 3 | Screenshot: Visible viewport |  |  |\n| 4 | Wait 0.8 s |  |  |\n| 5 | Screenshot: Full page |  |  |\n| 6 | Wait 1 s |  |  |\n| 7 | Screenshot Element: #card-red |  |  |\n| 8 | Wait 0.5 s |  |  |\n| 9 | Screenshot Element: #card-green |  |  |\n| 10 | Wait 0.5 s |  |  |\n| 11 | Screenshot Element: #card-blue |  |  |\n| 12 | Wait 0.5 s |  |  |\n| 13 | Screenshot Element: #card-gold |  |  |",
+  "stats": {
+   "total": 13,
+   "supported": 13,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 07 — Screenshots (Screen 3) | strings": {
+  "code": "# TEST 07 — Screenshots (Screen 3)\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 3 | showScreen(3, document.querySelectorAll('nav button')[2]) |  |\n| 2 | Wait 0.5 s |  |  |\n| 3 | Screenshot: Visible viewport |  |  |\n| 4 | Wait 0.8 s |  |  |\n| 5 | Screenshot: Full page |  |  |\n| 6 | Wait 1 s |  |  |\n| 7 | Screenshot Element: #card-red |  |  |\n| 8 | Wait 0.5 s |  |  |\n| 9 | Screenshot Element: #card-green |  |  |\n| 10 | Wait 0.5 s |  |  |\n| 11 | Screenshot Element: #card-blue |  |  |\n| 12 | Wait 0.5 s |  |  |\n| 13 | Screenshot Element: #card-gold |  |  |",
+  "stats": {
+   "total": 13,
+   "supported": 13,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 08 — CSV Variable Form Fill (dùng với test-data.csv) | none": {
+  "code": "# TEST 08 — CSV Variable Form Fill (dùng với test-data.csv)\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 1 | showScreen(1, document.querySelectorAll('nav button')[0]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Fill: name → ${name} | ${name} |  |\n| 4 | Fill: email → ${email} | ${email} |  |\n| 5 | Select: country → ${country} | ${country} |  |\n| 6 | Fill: message → ${message} | ${message} |  |\n| 7 | Click: Submit |  |  |\n| 8 | Wait 0.4 s |  |  |\n| 9 | Go to Screen 3 + inject vars into display | showScreen(3, document.querySelectorAll('nav button')[2]); d… |  |\n| 10 | Wait 0.4 s |  |  |\n| 11 | Screenshot Element → ${screenshot} |  |  |\n| 12 | Read DOM: form status → ${formResult} |  |  |",
+  "stats": {
+   "total": 12,
+   "supported": 12,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "TEST 08 — CSV Variable Form Fill (dùng với test-data.csv) | strings": {
+  "code": "# TEST 08 — CSV Variable Form Fill (dùng với test-data.csv)\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Go to Screen 1 | showScreen(1, document.querySelectorAll('nav button')[0]) |  |\n| 2 | Wait 0.3 s |  |  |\n| 3 | Fill: name → ${name} | ${name} |  |\n| 4 | Fill: email → ${email} | ${email} |  |\n| 5 | Select: country → ${country} | ${country} |  |\n| 6 | Fill: message → ${message} | ${message} |  |\n| 7 | Click: Submit |  |  |\n| 8 | Wait 0.4 s |  |  |\n| 9 | Go to Screen 3 + inject vars into display | showScreen(3, document.querySelectorAll('nav button')[2]); d… |  |\n| 10 | Wait 0.4 s |  |  |\n| 11 | Screenshot Element → ${screenshot} |  |  |\n| 12 | Read DOM: form status → ${formResult} |  |  |",
+  "stats": {
+   "total": 12,
+   "supported": 12,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Every action type | none": {
+  "code": "# Every action type\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Open login |  |  |\n| 2 | Settle |  |  |\n| 3 | Start |  |  |\n| 4 | User | ${user} |  |\n| 5 | Enter the value into `#pass` | p@ss \"quoted\" \\ back`tick` |  |\n| 6 | Point at `#menu` |  |  |\n| 7 | Open the dropdown `#country` |  |  |\n| 8 | Drag `#card-1` onto `#lane-2` |  |  |\n| 9 | Inline script | const n = '${user}'; |  |\n| 10 | Read the visible text of `#greeting` into `${greeting}` |  |  |\n| 11 | Read the text of `#order` into `${order}` and take `${orderId}`, `${customer}` from it |  | The text matches `Order #${orderId} for ${customer}` |\n| 12 | Read the \"data-${attr}\" attribute of `#link` into `${href}` |  |  |\n| 13 | Visible |  |  |\n| 14 | Take a screenshot of the whole page |  |  |\n| 15 | Take a screenshot of `#chart` |  |  |\n| 16 | Take a screenshot of the visible page into `${shot}` |  |  |\n| 17 | Upload a.png, ${fileName} into `#file` | C:\\data |  |\n| 18 | Click the element in `#row` whose text contains \"${tên}\" or class contains \"{fallback:a\\|b}\" |  |  |",
+  "stats": {
+   "total": 18,
+   "supported": 18,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "navigate",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "dropdown",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "dragdrop",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 18,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Every action type | strings": {
+  "code": "# Every action type\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Open login |  |  |\n| 2 | Settle |  |  |\n| 3 | Start |  |  |\n| 4 | User | ${user} |  |\n| 5 | Enter the value into `#pass` | p@ss \"quoted\" \\ back`tick` |  |\n| 6 | Point at `#menu` |  |  |\n| 7 | Open the dropdown `#country` |  |  |\n| 8 | Drag `#card-1` onto `#lane-2` |  |  |\n| 9 | Inline script | const n = '${user}'; |  |\n| 10 | Read the visible text of `#greeting` into `${greeting}` |  |  |\n| 11 | Read the text of `#order` into `${order}` and take `${orderId}`, `${customer}` from it |  | The text matches `Order #${orderId} for ${customer}` |\n| 12 | Read the \"data-${attr}\" attribute of `#link` into `${href}` |  |  |\n| 13 | Visible |  |  |\n| 14 | Take a screenshot of the whole page |  |  |\n| 15 | Take a screenshot of `#chart` |  |  |\n| 16 | Take a screenshot of the visible page into `${shot}` |  |  |\n| 17 | Upload a.png, ${fileName} into `#file` | C:\\data |  |\n| 18 | Click the element in `#row` whose text contains \"${tên}\" or class contains \"{fallback:a\\|b}\" |  |  |",
+  "stats": {
+   "total": 18,
+   "supported": 18,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "navigate",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "dropdown",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "dragdrop",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 18,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Every action type | configs": {
+  "code": "# Every action type\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | bob |\n| `${token}` | Random: 12 letters and digits |\n| `${pin}` | Random: 4 digits |\n| `${stamp}` | The date and time of the run |\n| `${word}` | Random: 5 letters |\n| `${role}` | One of: admin, user, (blank) |\n| `${lang}` | The first that matches: vi, en |\n| `${tên}` | Đức \"the\" \\ `bold` |\n| `${empty}` |  |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Open login |  |  |\n| 2 | Settle |  |  |\n| 3 | Start |  |  |\n| 4 | User | ${user} |  |\n| 5 | Enter the value into `#pass` | p@ss \"quoted\" \\ back`tick` |  |\n| 6 | Point at `#menu` |  |  |\n| 7 | Open the dropdown `#country` |  |  |\n| 8 | Drag `#card-1` onto `#lane-2` |  |  |\n| 9 | Inline script | const n = '${user}'; |  |\n| 10 | Read the visible text of `#greeting` into `${greeting}` |  |  |\n| 11 | Read the text of `#order` into `${order}` and take `${orderId}`, `${customer}` from it |  | The text matches `Order #${orderId} for ${customer}` |\n| 12 | Read the \"data-${attr}\" attribute of `#link` into `${href}` |  |  |\n| 13 | Visible |  |  |\n| 14 | Take a screenshot of the whole page |  |  |\n| 15 | Take a screenshot of `#chart` |  |  |\n| 16 | Take a screenshot of the visible page into `${shot}` |  |  |\n| 17 | Upload a.png, ${fileName} into `#file` | C:\\data |  |\n| 18 | Click the element in `#row` whose text contains \"${tên}\" or class contains \"{fallback:a\\|b}\" |  |  |",
+  "stats": {
+   "total": 18,
+   "supported": 18,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "navigate",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "dropdown",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "dragdrop",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 18,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Every action type | legacy": {
+  "code": "# Every action type\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${token}` | Random: 8 letters |\n| `${role}` | One of: admin, user, (blank) |\n| `${lang}` | The first that matches: vi, en |\n| `${n}` |  |\n| `${z}` |  |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Open login |  |  |\n| 2 | Settle |  |  |\n| 3 | Start |  |  |\n| 4 | User | ${user} |  |\n| 5 | Enter the value into `#pass` | p@ss \"quoted\" \\ back`tick` |  |\n| 6 | Point at `#menu` |  |  |\n| 7 | Open the dropdown `#country` |  |  |\n| 8 | Drag `#card-1` onto `#lane-2` |  |  |\n| 9 | Inline script | const n = '${user}'; |  |\n| 10 | Read the visible text of `#greeting` into `${greeting}` |  |  |\n| 11 | Read the text of `#order` into `${order}` and take `${orderId}`, `${customer}` from it |  | The text matches `Order #${orderId} for ${customer}` |\n| 12 | Read the \"data-${attr}\" attribute of `#link` into `${href}` |  |  |\n| 13 | Visible |  |  |\n| 14 | Take a screenshot of the whole page |  |  |\n| 15 | Take a screenshot of `#chart` |  |  |\n| 16 | Take a screenshot of the visible page into `${shot}` |  |  |\n| 17 | Upload a.png, ${fileName} into `#file` | C:\\data |  |\n| 18 | Click the element in `#row` whose text contains \"${tên}\" or class contains \"{fallback:a\\|b}\" |  |  |",
+  "stats": {
+   "total": 18,
+   "supported": 18,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "navigate",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "dropdown",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "dragdrop",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 18,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Conditions | none": {
+  "code": "# Conditions\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Banner shown |  | `#banner` is on the page — if not, skip steps 2–3 |\n| 2 | ↳ Click `#close-banner` |  |  |\n| 3 | ↳ Wait 0.1 s |  |  |\n| 4 | Check: the text of `#status` contains \"${expected}\" |  | The text of `#status` contains \"${expected}\" — if not, skip step 5 |\n| 5 | ↳ Enter the value into `#note` | ok |  |\n| 6 | Check: the page address contains \"/done\" |  | The page address contains \"/done\" — if not, skip step 7 |\n| 7 | ↳ Check: the value of `#qty` is \"3\" |  | The value of `#qty` is \"3\" — if not, skip step 8 |\n| 8 | ↳ Click `#nested` |  |  |\n| 9 | Check: the \"data-x\" attribute of `#x` is \"1\" |  | The \"data-x\" attribute of `#x` is \"1\" |\n| 10 | Check: unknownKind (`#y`) |  | UnknownKind (`#y`) — if not, skip step 11 |\n| 11 | ↳ Click `#after` |  |  |\n| 12 | Check: `#z` is hidden or not on the page |  | `#z` is hidden or not on the page — if not, skip step 13 |\n| 13 | ↳ Click `#z1` |  |  |\n| 14 | Check: the value of `#legacy` contains \"v\" |  | The value of `#legacy` contains \"v\" — if not, skip steps 15–16 |\n| 15 | ↳ Click `#l1` |  |  |\n| 16 | ↳ Click `#l2` |  |  |\n| 17 | Upload  into `#up` | /tmp |  |",
+  "stats": {
+   "total": 17,
+   "supported": 17,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Conditions | strings": {
+  "code": "# Conditions\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Banner shown |  | `#banner` is on the page — if not, skip steps 2–3 |\n| 2 | ↳ Click `#close-banner` |  |  |\n| 3 | ↳ Wait 0.1 s |  |  |\n| 4 | Check: the text of `#status` contains \"${expected}\" |  | The text of `#status` contains \"${expected}\" — if not, skip step 5 |\n| 5 | ↳ Enter the value into `#note` | ok |  |\n| 6 | Check: the page address contains \"/done\" |  | The page address contains \"/done\" — if not, skip step 7 |\n| 7 | ↳ Check: the value of `#qty` is \"3\" |  | The value of `#qty` is \"3\" — if not, skip step 8 |\n| 8 | ↳ Click `#nested` |  |  |\n| 9 | Check: the \"data-x\" attribute of `#x` is \"1\" |  | The \"data-x\" attribute of `#x` is \"1\" |\n| 10 | Check: unknownKind (`#y`) |  | UnknownKind (`#y`) — if not, skip step 11 |\n| 11 | ↳ Click `#after` |  |  |\n| 12 | Check: `#z` is hidden or not on the page |  | `#z` is hidden or not on the page — if not, skip step 13 |\n| 13 | ↳ Click `#z1` |  |  |\n| 14 | Check: the value of `#legacy` contains \"v\" |  | The value of `#legacy` contains \"v\" — if not, skip steps 15–16 |\n| 15 | ↳ Click `#l1` |  |  |\n| 16 | ↳ Click `#l2` |  |  |\n| 17 | Upload  into `#up` | /tmp |  |",
+  "stats": {
+   "total": 17,
+   "supported": 17,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Conditions | configs": {
+  "code": "# Conditions\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | bob |\n| `${token}` | Random: 12 letters and digits |\n| `${pin}` | Random: 4 digits |\n| `${stamp}` | The date and time of the run |\n| `${word}` | Random: 5 letters |\n| `${role}` | One of: admin, user, (blank) |\n| `${lang}` | The first that matches: vi, en |\n| `${tên}` | Đức \"the\" \\ `bold` |\n| `${empty}` |  |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Banner shown |  | `#banner` is on the page — if not, skip steps 2–3 |\n| 2 | ↳ Click `#close-banner` |  |  |\n| 3 | ↳ Wait 0.1 s |  |  |\n| 4 | Check: the text of `#status` contains \"${expected}\" |  | The text of `#status` contains \"${expected}\" — if not, skip step 5 |\n| 5 | ↳ Enter the value into `#note` | ok |  |\n| 6 | Check: the page address contains \"/done\" |  | The page address contains \"/done\" — if not, skip step 7 |\n| 7 | ↳ Check: the value of `#qty` is \"3\" |  | The value of `#qty` is \"3\" — if not, skip step 8 |\n| 8 | ↳ Click `#nested` |  |  |\n| 9 | Check: the \"data-x\" attribute of `#x` is \"1\" |  | The \"data-x\" attribute of `#x` is \"1\" |\n| 10 | Check: unknownKind (`#y`) |  | UnknownKind (`#y`) — if not, skip step 11 |\n| 11 | ↳ Click `#after` |  |  |\n| 12 | Check: `#z` is hidden or not on the page |  | `#z` is hidden or not on the page — if not, skip step 13 |\n| 13 | ↳ Click `#z1` |  |  |\n| 14 | Check: the value of `#legacy` contains \"v\" |  | The value of `#legacy` contains \"v\" — if not, skip steps 15–16 |\n| 15 | ↳ Click `#l1` |  |  |\n| 16 | ↳ Click `#l2` |  |  |\n| 17 | Upload  into `#up` | /tmp |  |",
+  "stats": {
+   "total": 17,
+   "supported": 17,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Conditions | legacy": {
+  "code": "# Conditions\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${token}` | Random: 8 letters |\n| `${role}` | One of: admin, user, (blank) |\n| `${lang}` | The first that matches: vi, en |\n| `${n}` |  |\n| `${z}` |  |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Banner shown |  | `#banner` is on the page — if not, skip steps 2–3 |\n| 2 | ↳ Click `#close-banner` |  |  |\n| 3 | ↳ Wait 0.1 s |  |  |\n| 4 | Check: the text of `#status` contains \"${expected}\" |  | The text of `#status` contains \"${expected}\" — if not, skip step 5 |\n| 5 | ↳ Enter the value into `#note` | ok |  |\n| 6 | Check: the page address contains \"/done\" |  | The page address contains \"/done\" — if not, skip step 7 |\n| 7 | ↳ Check: the value of `#qty` is \"3\" |  | The value of `#qty` is \"3\" — if not, skip step 8 |\n| 8 | ↳ Click `#nested` |  |  |\n| 9 | Check: the \"data-x\" attribute of `#x` is \"1\" |  | The \"data-x\" attribute of `#x` is \"1\" |\n| 10 | Check: unknownKind (`#y`) |  | UnknownKind (`#y`) — if not, skip step 11 |\n| 11 | ↳ Click `#after` |  |  |\n| 12 | Check: `#z` is hidden or not on the page |  | `#z` is hidden or not on the page — if not, skip step 13 |\n| 13 | ↳ Click `#z1` |  |  |\n| 14 | Check: the value of `#legacy` contains \"v\" |  | The value of `#legacy` contains \"v\" — if not, skip steps 15–16 |\n| 15 | ↳ Click `#l1` |  |  |\n| 16 | ↳ Click `#l2` |  |  |\n| 17 | Upload  into `#up` | /tmp |  |",
+  "stats": {
+   "total": 17,
+   "supported": 17,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Switch blocks | none": {
+  "code": "# Switch blocks\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | By role |  |  |\n| 1.1.1 | ↳ Click `#admin-1` |  |  |\n| 1.1.2 | ↳ Click `#admin-2` |  |  |\n| 1.2.1 | ↳ Depending on `lang`, play its case: \"vi\" → step 1.2.1.1.1; \"en\" → step 1.2.1.2.1; anything else → nothing |  |  |\n| 1.2.1.1.1 |  ↳ Enter the value into `#vi` | Xin chào |  |\n| 1.2.1.2.1 |  ↳ Enter the value into `#en` | Hello |  |\n| 2 | Check: `#tail` is visible |  | `#tail` is visible — if not, skip step 3 |\n| 3 | ↳ Click `#tail` |  |  |\n| 4 | Depending on `${jump}`, go to: \"a\" → go on from step 5; anything else → nothing |  |  |\n| 5 | Wait 0.05 s |  |  |\n| 6 | Depending on `${broken}`, play its case: \"x\" → step 4; anything else → nothing |  |  |\n| 7 | Click `#end` |  |  |",
+  "stats": {
+   "total": 12,
+   "supported": 12,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Switch blocks | strings": {
+  "code": "# Switch blocks\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | By role |  |  |\n| 1.1.1 | ↳ Click `#admin-1` |  |  |\n| 1.1.2 | ↳ Click `#admin-2` |  |  |\n| 1.2.1 | ↳ Depending on `lang`, play its case: \"vi\" → step 1.2.1.1.1; \"en\" → step 1.2.1.2.1; anything else → nothing |  |  |\n| 1.2.1.1.1 |  ↳ Enter the value into `#vi` | Xin chào |  |\n| 1.2.1.2.1 |  ↳ Enter the value into `#en` | Hello |  |\n| 2 | Check: `#tail` is visible |  | `#tail` is visible — if not, skip step 3 |\n| 3 | ↳ Click `#tail` |  |  |\n| 4 | Depending on `${jump}`, go to: \"a\" → go on from step 5; anything else → nothing |  |  |\n| 5 | Wait 0.05 s |  |  |\n| 6 | Depending on `${broken}`, play its case: \"x\" → step 4; anything else → nothing |  |  |\n| 7 | Click `#end` |  |  |",
+  "stats": {
+   "total": 12,
+   "supported": 12,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Switch blocks | configs": {
+  "code": "# Switch blocks\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | bob |\n| `${token}` | Random: 12 letters and digits |\n| `${pin}` | Random: 4 digits |\n| `${stamp}` | The date and time of the run |\n| `${word}` | Random: 5 letters |\n| `${role}` | One of: admin, user, (blank) |\n| `${lang}` | The first that matches: vi, en |\n| `${tên}` | Đức \"the\" \\ `bold` |\n| `${empty}` |  |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | By role |  |  |\n| 1.1.1 | ↳ Click `#admin-1` |  |  |\n| 1.1.2 | ↳ Click `#admin-2` |  |  |\n| 1.2.1 | ↳ Depending on `lang`, play its case: \"vi\" → step 1.2.1.1.1; \"en\" → step 1.2.1.2.1; anything else → nothing |  |  |\n| 1.2.1.1.1 |  ↳ Enter the value into `#vi` | Xin chào |  |\n| 1.2.1.2.1 |  ↳ Enter the value into `#en` | Hello |  |\n| 2 | Check: `#tail` is visible |  | `#tail` is visible — if not, skip step 3 |\n| 3 | ↳ Click `#tail` |  |  |\n| 4 | Depending on `${jump}`, go to: \"a\" → go on from step 5; anything else → nothing |  |  |\n| 5 | Wait 0.05 s |  |  |\n| 6 | Depending on `${broken}`, play its case: \"x\" → step 4; anything else → nothing |  |  |\n| 7 | Click `#end` |  |  |",
+  "stats": {
+   "total": 12,
+   "supported": 12,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Switch blocks | legacy": {
+  "code": "# Switch blocks\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${token}` | Random: 8 letters |\n| `${role}` | One of: admin, user, (blank) |\n| `${lang}` | The first that matches: vi, en |\n| `${n}` |  |\n| `${z}` |  |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | By role |  |  |\n| 1.1.1 | ↳ Click `#admin-1` |  |  |\n| 1.1.2 | ↳ Click `#admin-2` |  |  |\n| 1.2.1 | ↳ Depending on `lang`, play its case: \"vi\" → step 1.2.1.1.1; \"en\" → step 1.2.1.2.1; anything else → nothing |  |  |\n| 1.2.1.1.1 |  ↳ Enter the value into `#vi` | Xin chào |  |\n| 1.2.1.2.1 |  ↳ Enter the value into `#en` | Hello |  |\n| 2 | Check: `#tail` is visible |  | `#tail` is visible — if not, skip step 3 |\n| 3 | ↳ Click `#tail` |  |  |\n| 4 | Depending on `${jump}`, go to: \"a\" → go on from step 5; anything else → nothing |  |  |\n| 5 | Wait 0.05 s |  |  |\n| 6 | Depending on `${broken}`, play its case: \"x\" → step 4; anything else → nothing |  |  |\n| 7 | Click `#end` |  |  |",
+  "stats": {
+   "total": 12,
+   "supported": 12,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "switch",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Tên có dấu & \"quotes\" | none": {
+  "code": "# Tên có dấu & \"quotes\"\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Enter the value into `#ten` | ${tên} — ${họ_tên} |  |\n| 2 | Run the custom script | document.title = \"${tên}\"; |  |\n| 3 | Read the text of `#ma` into `${mã}` and take `${a}`, `${b}` from it |  | The text matches `${a} - ${b}` |",
+  "stats": {
+   "total": 3,
+   "supported": 3,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Tên có dấu & \"quotes\" | strings": {
+  "code": "# Tên có dấu & \"quotes\"\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | alice |\n| `${page}` | /home |\n| `${tên}` | Đức |\n| `${họ_tên}` | Nguyễn Văn A |\n| `${expected}` | Ready |\n| `${role}` | admin |\n| `${lang}` | vi |\n| `${attr}` | href |\n| `${fileName}` | x.png |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Enter the value into `#ten` | ${tên} — ${họ_tên} |  |\n| 2 | Run the custom script | document.title = \"${tên}\"; |  |\n| 3 | Read the text of `#ma` into `${mã}` and take `${a}`, `${b}` from it |  | The text matches `${a} - ${b}` |",
+  "stats": {
+   "total": 3,
+   "supported": 3,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Tên có dấu & \"quotes\" | configs": {
+  "code": "# Tên có dấu & \"quotes\"\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${user}` | bob |\n| `${token}` | Random: 12 letters and digits |\n| `${pin}` | Random: 4 digits |\n| `${stamp}` | The date and time of the run |\n| `${word}` | Random: 5 letters |\n| `${role}` | One of: admin, user, (blank) |\n| `${lang}` | The first that matches: vi, en |\n| `${tên}` | Đức \"the\" \\ `bold` |\n| `${empty}` |  |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Enter the value into `#ten` | ${tên} — ${họ_tên} |  |\n| 2 | Run the custom script | document.title = \"${tên}\"; |  |\n| 3 | Read the text of `#ma` into `${mã}` and take `${a}`, `${b}` from it |  | The text matches `${a} - ${b}` |",
+  "stats": {
+   "total": 3,
+   "supported": 3,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Tên có dấu & \"quotes\" | legacy": {
+  "code": "# Tên có dấu & \"quotes\"\n\n## Test data\n\n| Variable | Value |\n|---|---|\n| `${token}` | Random: 8 letters |\n| `${role}` | One of: admin, user, (blank) |\n| `${lang}` | The first that matches: vi, en |\n| `${n}` |  |\n| `${z}` |  |\n\n## Steps\n\n| # | Action | Data | Expected result |\n|---|---|---|---|\n| 1 | Enter the value into `#ten` | ${tên} — ${họ_tên} |  |\n| 2 | Run the custom script | document.title = \"${tên}\"; |  |\n| 3 | Read the text of `#ma` into `${mã}` and take `${a}`, `${b}` from it |  | The text matches `${a} - ${b}` |",
+  "stats": {
+   "total": 3,
+   "supported": 3,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ },
+ "Every action type | csv": {
+  "code": "\"Step\",\"Action\",\"Data\",\"Expected\"\n\"1\",\"Open login\",\"\",\"\"\n\"2\",\"Settle\",\"\",\"\"\n\"3\",\"Start\",\"\",\"\"\n\"4\",\"User\",\"${user}\",\"\"\n\"5\",\"Enter the value into `#pass`\",\"p@ss \"\"quoted\"\" \\ back`tick`\",\"\"\n\"6\",\"Point at `#menu`\",\"\",\"\"\n\"7\",\"Open the dropdown `#country`\",\"\",\"\"\n\"8\",\"Drag `#card-1` onto `#lane-2`\",\"\",\"\"\n\"9\",\"Inline script\",\"const n = '${user}';\",\"\"\n\"10\",\"Read the visible text of `#greeting` into `${greeting}`\",\"\",\"\"\n\"11\",\"Read the text of `#order` into `${order}` and take `${orderId}`, `${customer}` from it\",\"\",\"The text matches `Order #${orderId} for ${customer}`\"\n\"12\",\"Read the \"\"data-${attr}\"\" attribute of `#link` into `${href}`\",\"\",\"\"\n\"13\",\"Visible\",\"\",\"\"\n\"14\",\"Take a screenshot of the whole page\",\"\",\"\"\n\"15\",\"Take a screenshot of `#chart`\",\"\",\"\"\n\"16\",\"Take a screenshot of the visible page into `${shot}`\",\"\",\"\"\n\"17\",\"Upload a.png, ${fileName} into `#file`\",\"C:\\data\",\"\"\n\"18\",\"Click the element in `#row` whose text contains \"\"${tên}\"\" or class contains \"\"{fallback:a|b}\"\"\",\"\",\"\"",
+  "stats": {
+   "total": 18,
+   "supported": 18,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "navigate",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "wait",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "input",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "hover",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "dropdown",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 8,
+    "type": "dragdrop",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 9,
+    "type": "script",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 12,
+    "type": "readdom",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 13,
+    "type": "screenshot",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 14,
+    "type": "screenshot_full",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 15,
+    "type": "screenshot_element",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 16,
+    "type": "screenshot_tovar",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 17,
+    "type": "uploadFile",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 18,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": []
+ }
+}
