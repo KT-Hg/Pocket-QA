@@ -105,7 +105,7 @@ function valueToPy(val) {
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS',
-  'Select', 'ActionChains', 'NoSuchElementException', 'webdriver', 'e', 'print',
+  'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
   'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
   'in', 'is', 'lambda', 'None', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return',
@@ -677,7 +677,6 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('from selenium.webdriver.support.ui import WebDriverWait, Select');
   out.push('from selenium.webdriver.support import expected_conditions as EC');
   if (needsActionChains) out.push('from selenium.webdriver.common.action_chains import ActionChains');
-  if (needsCondition)    out.push('from selenium.common.exceptions import NoSuchElementException');
   out.push('');
   out.push('');
 
