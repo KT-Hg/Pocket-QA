@@ -1053,20 +1053,20 @@ function _syncHeadless() {
   document.getElementById('exportSeleniumHeadlessRow').title = safari ? 'Safari has no headless mode' : '';
 }
 
-// Auto-fill Starting URL from current tab (if input is still empty)
-function _autoFillStartUrl() {
+// Auto-fill Starting URL from current tab (if input is still empty), then `done`.
+function _autoFillStartUrl(done) {
   const urlInput = document.getElementById('exportSeleniumStartUrl');
-  if (urlInput && !urlInput.value.trim()) {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      const url = tabs?.[0]?.url || '';
-      if (url && !url.startsWith('chrome://') && !url.startsWith('chrome-extension://')) {
-        urlInput.value = url;
-        urlInput.dispatchEvent(new Event('input'));
-        const badge = document.getElementById('exportSeleniumUrlFromTab');
-        if (badge) badge.style.display = '';
-      }
-    });
-  }
+  if (!urlInput || urlInput.value.trim()) { done(); return; }
+  chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+    const url = tabs?.[0]?.url || '';
+    if (url && !url.startsWith('chrome://') && !url.startsWith('chrome-extension://')) {
+      urlInput.value = url;
+      urlInput.dispatchEvent(new Event('input'));
+      const badge = document.getElementById('exportSeleniumUrlFromTab');
+      if (badge) badge.style.display = '';
+    }
+    done();
+  });
 }
 
 function _fillCurrentUrl() {

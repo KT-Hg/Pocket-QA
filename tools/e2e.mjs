@@ -74,6 +74,8 @@
  *                 and turns off (disabled) with Safari
  *   export-output  the Selenium modal's Output pytest gives a test_….py file with a
  *                 test function
+ *   export-start-url  the Selenium start URL filled from the active tab is in the code
+ *                 the modal first shows, not the TODO placeholder
  *   export-settings  each format's Settings come back in a new popup, apart from the
  *                 other format's; stored values an input cannot take leave defaults
  *   export-testcase  Test steps opens as Markdown; CSV gives the same steps, quoted,
@@ -1042,6 +1044,33 @@ async function checkExportHeadless(ctx) {
   }
 }
 
+async function checkExportStartUrl(ctx) {
+  const id = await makeScenario(ctx, 'e2e export start url', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  const popup = await openPopup(ctx);
+  try {
+    // The popup here is a tab of its own, so the active tab is the page under test as it
+    // is over a real popup, and it answers a moment later, as chrome.tabs.query does.
+    await popup.evaluate(`(() => {
+      const query = chrome.tabs.query.bind(chrome.tabs);
+      chrome.tabs.query = (q, cb) => (q?.active ? setTimeout(() => cb([{ url: 'https://shop.test/start' }]), 50) : query(q, cb));
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+      document.getElementById('exportSelenium').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    const shown = await popup.evaluate(`({
+      field: document.getElementById('exportSeleniumStartUrl').value,
+      code: document.querySelector('#exportCode code').textContent,
+    })`);
+    check(shown.field === 'https://shop.test/start' && shown.code.includes('driver.get("https://shop.test/start")') && !shown.code.includes('your-url-here'),
+      'Selenium: the start URL taken from the tab is in the code the modal first shows',
+      { field: shown.field, get: shown.code.split('\n').filter((l) => l.includes('driver.get')) });
+  } finally {
+    await popup.close();
+  }
+}
+
 async function checkExportOutput(ctx) {
   const id = await makeScenario(ctx, 'Đăng nhập pytest', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
   const popup = await openPopup(ctx);
@@ -1778,6 +1807,7 @@ const CHECKS = [
   ['export-steps', 'The export modal tells which steps were skipped', checkExportSteps],
   ['export-regenerate', 'Regenerate in the export modals', checkExportRegenerate],
   ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],
+  ['export-start-url', 'The Selenium start URL taken from the tab', checkExportStartUrl],
   ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
   ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
   ['export-testcase', 'The Test steps export: Markdown and CSV', checkExportTestcase],

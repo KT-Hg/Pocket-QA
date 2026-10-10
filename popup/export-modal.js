@@ -51,7 +51,8 @@ let modalWired = false;
  * @param {Function} cfg.file          - (code, options) → { text, type } that Download saves
  * @param {string[]} [cfg.remember]    - ids of its Settings inputs kept between popups, in the
  *                                       order they are put back
- * @param {Function} [cfg.beforeOpen]  - run first each time the modal opens for it
+ * @param {Function} [cfg.beforeOpen]  - (done) → run first each time the modal opens for it; the
+ *                                       code is generated and shown once it calls `done`
  * @param {Function} [cfg.wire]        - wires its own extra controls
  */
 export function initExportModal(cfg) {
@@ -226,15 +227,19 @@ function render(result) {
 function open() {
   const modal = byId('Modal');
   if (!modal) return;
-  run.cfg.beforeOpen?.();
-  const result = generate();
-  run.code = result.code;
-  render(result);
-  modal.classList.add('show');
-  modal.setAttribute('aria-hidden', 'false');
-  lockScroll();
-  switchTab('preview');
-  run.releaseFocus = trapFocus(modal);
+  const show = () => {
+    const result = generate();
+    run.code = result.code;
+    render(result);
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    lockScroll();
+    switchTab('preview');
+    run.releaseFocus = trapFocus(modal);
+  };
+  // beforeOpen may fill a setting from the browser first (the Selenium start URL from
+  // the tab): generated at once, the code read the field before the URL had come.
+  if (run.cfg.beforeOpen) run.cfg.beforeOpen(show); else show();
 }
 
 /**
