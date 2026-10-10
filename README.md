@@ -223,7 +223,7 @@ What the three formats share:
 
 ### ⚡ JS Bookmarklet
 
-- Nothing to install. **Copy** gives a single-line bookmark URL — the code as written, with `%`, tabs and line breaks percent-encoded, so a script without semicolons or with `//` comments still runs; **⬇ .js** saves it pretty-printed without the `javascript:` prefix.
+- Nothing to install. **Copy** gives a single-line bookmark URL — the code as written, with `%`, tabs and line breaks percent-encoded, so a script without semicolons or with `//` comments still runs; **⬇ Download** saves `<name>_bookmarklet.js`, pretty-printed without the `javascript:` prefix.
 - **A scenario that starts with a Navigate takes two clicks.** Clicked on another page, the bookmarklet opens the target and stops; clicked again once it has loaded, it sees it is already there (whatever the `#fragment` or trailing slash) and plays the rest. A Navigate later in the scenario reloads the page, which ends the bookmarklet.
 - Settings: delay between steps (300 ms), element timeout (5 000 ms).
 
