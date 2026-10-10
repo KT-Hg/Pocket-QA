@@ -148,15 +148,16 @@ const hostile = [
 
 test('a name, label or type cannot end its comment or string, in either export', () => {
   const py = generateSeleniumPy(HOSTILE_NAME, hostile, {});
+  // A comment, the closing print, or the one string that names the step running.
   for (const line of py.code.split('\n').filter((l) => l.includes('INJECTED'))) {
-    assert.match(line.trim(), /^#|^print\("✅/, line);
+    assert.match(line.trim(), /^#|^print\("✅|^_at = "(?:[^"\\]|\\.)*"$/, line);
   }
   assert.ok(py.warnings.some((w) => /type "isChecked/.test(w)), 'an unknown condition type is a warning');
   assert.equal(compilePy(py.code), null);
 
   const js = generateBookmarklet(HOSTILE_NAME, hostile, {});
   for (const line of js.code.split(/\r\n|[\n\r\u2028\u2029]/).filter((l) => l.includes('INJECTED'))) {
-    assert.match(line.trim(), /^\/\//, line);
+    assert.match(line.trim(), /^\/\/|^_at = "(?:[^"\\]|\\.)*";$/, line);
   }
   assert.ok(js.warnings.some((w) => /type "isChecked/.test(w)), 'an unknown condition type is a warning');
   new Function(js.code.replace(/^javascript:/, ''));
@@ -295,8 +296,9 @@ test('both exports try every locator in the order playback does, the chosen type
 test('a step with one locator keeps the short form', () => {
   const steps = [{ type: 'click', selector: '#n', selectors: { css: '#n' } }, { type: 'input', selectors: { id: 'q' }, value: 'x' }];
   const py = generateSeleniumPy('short', steps, {}).code;
-  assert.match(py, /el1 = WebDriverWait\(driver, 10\)\.until\(EC\.element_to_be_clickable\(\(By\.CSS_SELECTOR, "#n"\)\)\)/);
-  assert.match(py, /el2 = WebDriverWait\(driver, 10\)\.until\(EC\.presence_of_element_located\(\(By\.ID, "q"\)\)\)/);
+  // With what it looked for as the message: WebDriverWait's own is empty.
+  assert.match(py, /el1 = WebDriverWait\(driver, 10\)\.until\(EC\.element_to_be_clickable\(\(By\.CSS_SELECTOR, "#n"\)\), "no element found by css selector: #n"\)/);
+  assert.match(py, /el2 = WebDriverWait\(driver, 10\)\.until\(EC\.presence_of_element_located\(\(By\.ID, "q"\)\), "no element found by id: q"\)/);
   assert.doesNotMatch(py, /def _find|def _locate/, 'no helper it does not use');
   const js = generateBookmarklet('short', steps, {}).code;
   assert.ok(js.includes('const _el1 = await getEl("#n", 5000);') && js.includes('const _el2 = await getEl("#q", 5000);'));
@@ -467,7 +469,7 @@ test('Selenium uploads files into a file input as playback does, and leaves a dr
   // The folder loses its trailing separators and keeps its own kind; ${var} names are f-strings.
   assert.ok(code.includes('    el1.send_keys("\\n".join(["C:\\\\in\\\\a.txt", f"C:\\\\in\\\\{name}"]))\n'), 'several files, one per line');
   assert.ok(code.includes('    el2.send_keys("/home/me/in/old.txt")\n'), 'an older action with one fileName');
-  assert.match(code, /^ {4}el1 = WebDriverWait\(driver, 10\)\.until\(EC\.presence_of_element_located\(\(By\.CSS_SELECTOR, "#f"\)\)\)$/m,
+  assert.match(code, /^ {4}el1 = WebDriverWait\(driver, 10\)\.until\(EC\.presence_of_element_located\(\(By\.CSS_SELECTOR, "#f"\)\), "no element found by css selector: #f"\)$/m,
     'present is enough: pages hide their file inputs');
   assert.match(code, /^ {4}# Step 3: upload to a drop zone — \[SKIPPED\] needs the extension$/m);
   assert.match(code, /^ {4}raise Exception\("Upload File \(step 4\): missing folder or file name\(s\)"\)$/m);
@@ -583,12 +585,14 @@ test('Selenium as a pytest test: a fixture opens and quits the browser, the step
   assert.ok(code.includes('\ndriver = None\n\n\n@pytest.fixture\ndef browser():\n'), 'a fixture named browser');
   assert.ok(code.includes('    global driver\n    driver = webdriver.Chrome()\n    yield driver\n    driver.quit()\n'));
   // The test: named after the scenario, letters folded to ASCII; it opens the start page.
-  assert.match(code, /^def test_dang_nhap_admin\(browser\):\n {4}driver\.get\("https:\/\/shop\.test\/"\)$/m);
+  // Its steps in a try whose error names the step that failed.
+  assert.match(code, /^def test_dang_nhap_admin\(browser\):\n {4}_at = ""\n {4}try:\n {8}driver\.get\("https:\/\/shop\.test\/"\)$/m);
+  assert.match(code, /^ {4}except Exception as e:\n {8}raise Exception\(f"\{_at or 'Error'\}: \{e\}"\) from e$/m);
   // Variables inside the test: a step writing `seed` makes it a local of the function.
-  assert.match(code, /^ {4}salute = "Hi"$/m);
-  assert.match(code, /^ {4}seed = "INIT"$/m);
-  assert.match(code, /^ {4}seed = _read_val\(el1, "text", ""\)$/m);
-  // pytest reports the failure; the script's own prints and try / except are gone.
+  assert.match(code, /^ {8}salute = "Hi"$/m);
+  assert.match(code, /^ {8}seed = "INIT"$/m);
+  assert.match(code, /^ {8}seed = _read_val\(el1, "text", ""\)$/m);
+  // pytest reports the failure; the script's own prints and module-level try / except are gone.
   assert.doesNotMatch(code, /print\(|^try:|^except|reconfigure|^import sys$/m);
   assert.equal(compilePy(code), null);
 
@@ -964,4 +968,23 @@ test('bookmarklet: _findChild is declared only for a step with a Child Condition
   const code = generateBookmarklet('b', [{ ...click, conditions: { textContains: 'x' } }], {}).code;
   assert.match(code, /const _findChild = /);
   new Function(code.replace(/^javascript:/, ''));
+});
+
+test('an error names the step that failed: one line per step that runs records it', () => {
+  const steps = [
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'condition', conditionType: 'elementExists', selector: '#b', selectors: { css: '#b' }, skipCount: 1 },
+    { type: 'click', selector: '#c', selectors: { css: '#c' }, label: 'Sign in' },
+    { type: 'screenshot' },
+  ];
+  const ats = (code) => code.split('\n').filter((l) => /^\s*_at = "Step \d+: /.test(l)).map((l) => l.trim());
+  // The bookmarklet skips the screenshot: no line for it.
+  assert.deepEqual(ats(generateBookmarklet('e', steps, {}).code),
+    ['_at = "Step 1: click";', '_at = "Step 2: condition — elementExists";', '_at = "Step 3: click — Sign in";']);
+  const py = generateSeleniumPy('e', steps, {}).code;
+  assert.deepEqual(ats(py),
+    ['_at = "Step 1: click"', '_at = "Step 2: condition — elementExists"', '_at = "Step 3: click — Sign in"', '_at = "Step 4: screenshot (visible)"']);
+  assert.match(py, /^ {4}print\(f"❌ \{_at or 'Error'\}: \{e\}"\)$/m);
+  assert.match(generateBookmarklet('e', steps, {}).code, /alert\('Error' \+ \(_at \? ' at ' \+ _at : ''\) \+ ': ' \+ err\.message\);/);
+  assert.equal(compilePy(py), null);
 });

@@ -16,19 +16,33 @@ function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
 }
 
+// A locator's By and its value as Selenium looks it up: [By…, what By names it, value].
+function locParts({ type, value }) {
+  switch (type) {
+    case 'id':        return ['By.ID', 'id', value];
+    case 'name':      return ['By.NAME', 'name', value];
+    case 'xpath':
+    case 'fullXpath': return ['By.XPATH', 'xpath', value];
+    case 'testId':    return ['By.CSS_SELECTOR', 'css selector', `[data-testid="${cssEscape(value)}"]`];
+    case 'dataId':    return ['By.CSS_SELECTOR', 'css selector', `[data-id="${cssEscape(value)}"]`];
+    default:          return ['By.CSS_SELECTOR', 'css selector', value];
+  }
+}
+
 // One locator as Python: a (By…, value) pair, or ("text", value[, tag]) for
 // _locate's Text search. Values may hold ${var}, so they go through valueToPy().
-function locToPy({ type, value, tag }) {
-  switch (type) {
-    case 'id':        return `(By.ID, ${valueToPy(value)})`;
-    case 'name':      return `(By.NAME, ${valueToPy(value)})`;
-    case 'xpath':
-    case 'fullXpath': return `(By.XPATH, ${valueToPy(value)})`;
-    case 'testId':    return `(By.CSS_SELECTOR, ${valueToPy(`[data-testid="${cssEscape(value)}"]`)})`;
-    case 'dataId':    return `(By.CSS_SELECTOR, ${valueToPy(`[data-id="${cssEscape(value)}"]`)})`;
-    case 'text':      return `("text", ${valueToPy(value)}${tag ? `, ${JSON.stringify(tag)}` : ''})`;
-    default:          return `(By.CSS_SELECTOR, ${valueToPy(value)})`;
-  }
+function locToPy(loc) {
+  if (loc.type === 'text') return `("text", ${valueToPy(loc.value)}${loc.tag ? `, ${JSON.stringify(loc.tag)}` : ''})`;
+  const [by, , value] = locParts(loc);
+  return `(${by}, ${valueToPy(value)})`;
+}
+
+// The message of a wait for one locator that finds nothing: what it looked for (WebDriverWait's is empty).
+function notFoundPy(loc) {
+  const [, how, value] = locParts(loc);
+  const text = `no element found by ${how}: `;
+  const expr = valueToPy(value);
+  return expr.startsWith('"') ? JSON.stringify(text + JSON.parse(expr)) : `${JSON.stringify(text)} + ${expr}`;
 }
 
 const locsPy = (locs) => `[${locs.map(locToPy).join(', ')}]`;
@@ -39,7 +53,7 @@ const locsPy = (locs) => `[${locs.map(locToPy).join(', ')}]`;
  */
 function waitPy(locs, tout, clickable = false) {
   if (locs.length === 1 && locs[0].type !== 'text') {
-    return `WebDriverWait(driver, ${tout}).until(EC.${clickable ? 'element_to_be_clickable' : 'presence_of_element_located'}(${locToPy(locs[0])}))`;
+    return `WebDriverWait(driver, ${tout}).until(EC.${clickable ? 'element_to_be_clickable' : 'presence_of_element_located'}(${locToPy(locs[0])}), ${notFoundPy(locs[0])})`;
   }
   return `_find(${locsPy(locs)}, ${tout}${clickable ? ', clickable=True' : ''})`;
 }
@@ -122,7 +136,7 @@ const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
-  'pytest', 'browser', 'dom_var',
+  'pytest', 'browser', 'dom_var', '_at',
   're', 'sys', 'open', 'str', 'int', 'len', 'range', 'hasattr', 'Exception',
   'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
@@ -276,6 +290,14 @@ function driverPy(driverType, headless, warnings) {
  * be there as well, not at module level.
  */
 function pytestLines(driverLines, testName, body) {
+  // A failed step's error names it (_at), in the report as in the script's output.
+  const steps = [
+    '_at = ""',
+    'try:',
+    ...body.map((l) => (l === '' ? '' : `    ${l}`)),
+    'except Exception as e:',
+    '    raise Exception(f"{_at or \'Error\'}: {e}") from e',
+  ];
   return [
     'driver = None',
     '',
@@ -290,7 +312,7 @@ function pytestLines(driverLines, testName, body) {
     '',
     '',
     `def ${testName}(browser):`,
-    ...body.map((l) => (l === '' ? '' : `    ${l}`)),
+    ...steps.map((l) => (l === '' ? '' : `    ${l}`)),
   ];
 }
 
@@ -681,6 +703,8 @@ function stepLines(stepDelay, elTimeout, ctx) {
     conditionBody: (lines) => (lines.every((l) => l === '') ? ['    pass'] : lines.map((l) => (l === '' ? '' : `    ${l}`))),
     // The script cannot pick a case.
     skippedBlock: (start, end) => [`# Step ${start + 1}: switch block [SKIPPED] — steps ${start + 2}–${end + 1} not exported (requires extension scenario routing)`],
+    // The step running now, which an error names.
+    at: (title) => `_at = ${JSON.stringify(title)}`,
   });
 }
 
@@ -884,6 +908,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
     // ── Main flow ──
     out.push('# --- MAIN FLOW ---');
+    out.push('_at = ""');
     out.push('try:');
     out.push('');
 
@@ -894,7 +919,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     out.push(`    print(${JSON.stringify(`✅ Scenario '${scenarioName}' completed successfully.`)})`);
     out.push('');
     out.push('except Exception as e:');
-    out.push('    print(f"❌ Error: {e}")');
+    out.push(`    print(f"❌ {_at or 'Error'}: {e}")`);
     out.push('    raise');
     out.push('');
     out.push('finally:');

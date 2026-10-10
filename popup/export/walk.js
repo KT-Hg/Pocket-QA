@@ -83,10 +83,25 @@ export function locatorsFor(action, target = false) {
  *   conditionHead(action, step) → the lines that open a Condition's block
  *   conditionBody(lines)        → its body's lines, indented, and what closes it
  *   skippedBlock(start, end)    → the lines left for a Switch block (0-based, inclusive)
+ *   at(title)                   → optional: the line that records which step runs
+ *                                 ("Step 3: click — Sign in"), for the error to name it
  * Each step's lines are followed by an empty one. ctx: { all, layout, steps, warnings }.
  */
 export function walkActions(ctx, gen) {
   return walk(ctx, gen, 0, ctx.all.length);
+}
+
+// The comment that opens a step's lines: "// Step 3: click — Sign in", "# Step 3: …".
+const STEP_COMMENT = /^(?:\/\/|#) (Step \d+: .*)$/;
+
+/**
+ * `lines` with gen.at's line after the step's opening comment — for a step whose
+ * code runs: a skipped one has none.
+ */
+function withAt(gen, step, lines) {
+  const title = STEP_COMMENT.exec(lines[0] ?? '')?.[1];
+  if (!gen.at || !title || step.status === 'skip') return lines;
+  return [lines[0], gen.at(title), ...lines.slice(1)];
 }
 
 function walk(ctx, gen, from, to) {
@@ -110,14 +125,14 @@ function walk(ctx, gen, from, to) {
     const step = newStep(action, i + 1);
     ctx.steps.push(step);
     if (action.type !== 'condition') {
-      out.push(...gen.step(action, step), '');
+      out.push(...withAt(gen, step, gen.step(action, step)), '');
       i++;
       continue;
     }
     // The same span playback skips (0 actions for an emptied Condition): a Switch
     // and its block count as one action, and it ends where the enclosing body ends.
     const bodyEnd = conditionSkipTarget(ctx.all, i, conditionSkip(action), ctx.layout);
-    out.push(...gen.conditionHead(action, step));
+    out.push(...withAt(gen, step, gen.conditionHead(action, step)));
     out.push(...gen.conditionBody(walk(ctx, gen, i + 1, Math.min(bodyEnd, to))), '');
     i = Math.max(i + 1, bodyEnd);
   }

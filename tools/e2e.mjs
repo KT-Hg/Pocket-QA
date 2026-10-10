@@ -110,7 +110,9 @@
  *                 names it; every case runs as the exported Playwright .spec.js too
  *                 (PQA_PLAYWRIGHT_DIR: a folder with @playwright/test).
  *                 No python, selenium, pytest or Playwright: those runs are skipped,
- *                 not failed
+ *                 not failed. fails-at-step: a scenario whose step 3 finds nothing,
+ *                 run by each export, has its error name the step, its label and the
+ *                 locator
  *   record-untrusted  a click and an input event the page's own script dispatches
  *                 are not recorded; a real click is
  *   record-checkbox  ticking a checkbox records the click only, not an Input of its
@@ -122,7 +124,8 @@
  *   record-restart  a recording whose worker stopped before the first action (it
  *                 sleeps after 30 s with nothing to do) still records that action
  *
- * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed]
+ * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed] [--cases <a,b>]
+ *        --cases runs only those cases of export-run (and its fails-at-step check when named).
  *        --ext runs another checkout (an older commit, to see a check fail there).
  * Exit:  0 OK, 1 a check failed, 2 no browser found.
  */
@@ -140,6 +143,7 @@ const argValue = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] :
 const EXT = resolve(argValue('--ext') || resolve(dirname(fileURLToPath(import.meta.url)), '..'));
 const ONLY = argValue('--only');
 const HEADED = args.includes('--headed');
+const CASES = argValue('--cases')?.split(',') || null;
 
 // A run is waited for this long, then stopped.
 const PLAY_TIMEOUT_MS = 30_000;
@@ -1924,9 +1928,9 @@ async function hasPytest() {
   return !(await runFile('python', ['-m', 'pytest', '--version'])).error;
 }
 
-/** Run a pytest file from `dir`, no cache written. */
+/** Run a pytest file from `dir`, no cache written; its report in UTF-8 (a pipe here is cp1252). */
 const runPytest = (file, dir) => runFile('python', ['-m', 'pytest', '-q', '-p', 'no:cacheprovider', file],
-  { cwd: dir, timeout: PYTHON_RUN_TIMEOUT_MS });
+  { cwd: dir, timeout: PYTHON_RUN_TIMEOUT_MS, env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
 
 /** Why the Selenium run cannot happen on this machine, or null when it can. */
 async function pythonMissing() {
@@ -1966,6 +1970,53 @@ function stateDiff(a, b) {
   return out;
 }
 
+// A scenario whose step 3, "Sign in", finds nothing: what each export says when it fails.
+const FAILING_STEPS = [
+  { type: 'input', selector: '#name', selectors: { css: '#name' }, value: 'Alice' },
+  { type: 'click', selector: '#submit', selectors: { css: '#submit' } },
+  { type: 'click', selector: '#nope', selectors: { css: '#nope' }, label: 'Sign in' },
+  { type: 'click', selector: '#after', selectors: { css: '#after' } },
+];
+// What a failure report has to say: the step, its label, and what was looked for.
+const NAMES_STEP_3 = /Step 3: click — Sign in/;
+const NAMES_LOCATOR = /#nope/;
+
+/** Each export of FAILING_STEPS, run: its error names step 3 and its label, and what it looked for. */
+async function checkFailsAtStep(ctx, run) {
+  const opts = { elTimeout: 1000, stepDelay: 0 };
+  const page = (runner) => run.pageUrl(`fails-at-step:${runner}`);
+
+  // A tab of its own: the error the bookmarklet logs is meant, not one of the test page's.
+  const tab = await ctx.browser.openPage(page('bookmarklet'));
+  await sleep(PAGE_SETTLE_MS);
+  const url = run.toBookmarkletUrl(run.generateBookmarklet('fails at step', FAILING_STEPS, {}, opts).code);
+  await tab.evaluate(decodeURIComponent(url.slice('javascript:'.length)), BOOKMARKLET_RUN_TIMEOUT_MS).catch(() => {});
+  await sleep(SETTLE_MS);
+  await tab.close();
+  const alerts = exportStates.get('fails-at-step:bookmarklet')?.state?.alerts || [];
+  check(alerts.length === 1 && NAMES_STEP_3.test(alerts[0]) && NAMES_LOCATOR.test(alerts[0]),
+    'fails-at-step: the bookmarklet\'s alert names step 3, its label and what it looked for', alerts);
+
+  if (!run.noPython) {
+    const file = join(run.dir, 'fails_at_step.py');
+    writeFileSync(file, run.generateSeleniumPy('fails at step', FAILING_STEPS, {},
+      { ...opts, driverType: 'Edge', startUrl: page('selenium'), headless: !HEADED }).code);
+    const r = await runFile('python', [file], { cwd: run.dir, timeout: PYTHON_RUN_TIMEOUT_MS });
+    const said = String(r.stdout).trim();
+    check(r.error && NAMES_STEP_3.test(said) && NAMES_LOCATOR.test(said),
+      'fails-at-step: the Selenium script fails, printing step 3, its label and what it looked for', said.split('\n').pop());
+  }
+  if (run.pytestHere) {
+    const file = join(run.dir, 'test_fails_at_step.py');
+    writeFileSync(file, run.generateSeleniumPy('fails at step', FAILING_STEPS, {},
+      { ...opts, driverType: 'Edge', startUrl: page('pytest'), headless: !HEADED, output: 'pytest' }).code);
+    const r = await runPytest(file, run.dir);
+    const report = String(r.stdout);
+    check(r.error && report.split('\n').some((l) => /^E\s/.test(l) && NAMES_STEP_3.test(l) && NAMES_LOCATOR.test(l)),
+      'fails-at-step: the pytest report\'s error names step 3, its label and what it looked for', report.split('\n').filter((l) => /^E\s/.test(l)).slice(0, 2));
+  }
+}
+
 async function checkExportRun(ctx) {
   const extModule = (p) => pathToFileURL(join(EXT, p)).href;
   const { generateBookmarklet, toBookmarkletUrl } = await import(extModule('popup/export-bookmarklet.js'));
@@ -1989,7 +2040,7 @@ async function checkExportRun(ctx) {
   let headlessChecked = false;
   const pageUrl = (key) => `${ctx.base}/export?run=${encodeURIComponent(key)}`;
   try {
-    for (const c of EXPORT_CASES) {
+    for (const c of EXPORT_CASES.filter((x) => !CASES || CASES.includes(x.name))) {
       // The URL of each run's own page, in the variable named by `pageVar`.
       const pageVars = (runner) => (c.pageVar ? { [c.pageVar]: pageUrl(`${c.name}:${runner}`) } : {});
       const startUrl = (runner) => pageUrl(`${c.name}:${c.pageVar ? 'start' : runner}`);
@@ -2072,7 +2123,8 @@ async function checkExportRun(ctx) {
           `${c.name}: the ${runner} export leaves the page as playback does`, states[runner] ? diff : 'no state posted');
       }
     }
-    if (pytestHere) {
+    if (!CASES || CASES.includes('fails-at-step')) await checkFailsAtStep(ctx, { dir, pageUrl, noPython, pytestHere, pwRun, pwCli, generateBookmarklet, toBookmarkletUrl, generateSeleniumPy, generatePlaywright });
+    if (pytestHere && !CASES) {
       const file = join(dir, 'test_failing_step.py');
       writeFileSync(file, generateSeleniumPy('failing step', [
         { type: 'click', selector: '#submit', selectors: { css: '#submit' } },

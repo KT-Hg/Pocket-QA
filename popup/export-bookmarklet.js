@@ -21,7 +21,7 @@ const SKIPPED_TYPES = new Set([
 // words (js-code.js).
 const _RESERVED_JS = new Set([
   'sleep', 'getEl', '_qsel', '_first', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
-  'domVar',
+  'domVar', '_at',
   ...JS_RESERVED,
 ]);
 
@@ -305,6 +305,8 @@ function stepLines(stepDelay, elTimeout, ctx) {
     conditionBody: (lines) => [...indentLines(lines, '  '), '}'],
     // A bookmarklet cannot choose a case.
     skippedBlock: (start, end) => [`// Step ${start + 1}: [SKIPPED] switch block — steps ${start + 2}–${end + 1} not exported (requires Chrome Extension API)`],
+    // The step running now, which an error names.
+    at: (title) => `_at = ${JSON.stringify(title)};`,
   });
 }
 
@@ -374,7 +376,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('    });');
   out.push('    obs.observe(document.body, { childList: true, subtree: true });');
   // Single-quoted, so the generator leaves `${...}` for the bookmarklet's own template literal.
-  out.push('    setTimeout(() => { obs.disconnect(); rej(new Error(`Timeout: ${JSON.stringify(sels)}`)); }, timeout);');
+  out.push('    setTimeout(() => { obs.disconnect(); rej(new Error(`No element found by ${JSON.stringify(sels)}`)); }, timeout);');
   out.push('  });');
   if (bodyLines.some(l => l.includes('{ text: '))) {
     out.push('');
@@ -464,6 +466,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
 
   blank();
   out.push('  // --- MAIN FLOW ---');
+  out.push("  let _at = '';");
   out.push('  try {');
   out.push('');
 
@@ -474,8 +477,8 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push("    console.log('✅ Bookmarklet completed successfully.');");
   out.push('');
   out.push('  } catch (err) {');
-  out.push("    console.error('❌ Bookmarklet error:', err);");
-  out.push("    alert('Error: ' + err.message);");
+  out.push("    console.error('❌ Bookmarklet error' + (_at ? ' at ' + _at : '') + ':', err);");
+  out.push("    alert('Error' + (_at ? ' at ' + _at : '') + ': ' + err.message);");
   out.push('  }');
   out.push('');
   out.push('})();');
