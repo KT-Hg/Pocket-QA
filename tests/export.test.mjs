@@ -1022,11 +1022,12 @@ test('the export code colours: strings, comments and keywords, each where it is'
     [['kw:if', 'str:/["\']/', 'kw:return']]);
 });
 
-test('the three exports warn alike about the variables: one identifier for two names, a name that is not one, a Fallback', async () => {
+test('the exports warn alike about the variables: one identifier for two names, a name that is not one, a Fallback', async () => {
   const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const { generateRobot } = await import('../popup/export-robot.js');
   const steps = [{ type: 'input', selector: '#a', selectors: { css: '#a' }, value: '${a-b} ${a_b} ${city}' }];
   const vars = { 'a-b': '1', a_b: '2', city: '{fallback:Hanoi|Hue}' };
-  for (const [gen, lang] of [[generateBookmarklet, 'JS'], [generateSeleniumPy, 'Python'], [generatePlaywright, 'JS']]) {
+  for (const [gen, lang] of [[generateBookmarklet, 'JS'], [generateSeleniumPy, 'Python'], [generatePlaywright, 'JS'], [generateRobot, 'Robot']]) {
     const { warnings } = gen('v', steps, vars);
     assert.ok(warnings.includes(`"a-b" and "a_b" both become the ${lang} identifier \`a_b\` — rename one`), `${gen.name}: ${warnings}`);
     assert.ok(warnings.includes(`"a-b" is not a valid ${lang} identifier — exported as \`a_b\``), `${gen.name}: ${warnings}`);
