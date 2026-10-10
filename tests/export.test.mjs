@@ -368,7 +368,7 @@ const statusOf = (steps) => Object.fromEntries(steps.map((s) => [s.n, s.status])
 
 test('each export says, step by step, what it exported, skipped or wants checked', () => {
   const py = generateSeleniumPy('kinds', stepKinds, {});
-  assert.deepEqual(statusOf(py.steps), { 1: 'ok', 3: 'ok', 4: 'skip', 5: 'skip', 6: 'verify', 7: 'verify', 8: 'ok' });
+  assert.deepEqual(statusOf(py.steps), { 1: 'ok', 3: 'ok', 4: 'ok', 5: 'skip', 6: 'verify', 7: 'verify', 8: 'ok' });
   const js = generateBookmarklet('kinds', stepKinds, {});
   assert.deepEqual(statusOf(js.steps), { 1: 'verify', 3: 'ok', 4: 'skip', 5: 'skip', 6: 'verify', 7: 'verify', 8: 'skip' });
   for (const { steps } of [py, js]) {
@@ -376,8 +376,8 @@ test('each export says, step by step, what it exported, skipped or wants checked
     assert.ok(steps.filter((s) => s.status !== 'ok').every((s) => s.reason), 'a step not exported as is says why');
     assert.match(steps.find((s) => s.n === 7).reason, /iframe/);
   }
-  // Upload File and an unknown type are skipped by the code, so they count as skipped.
-  assert.deepEqual([py.stats.supported, py.stats.skipped], [5, 2]);
+  // What the code leaves out counts as skipped: an unknown type in both, Upload File in the bookmarklet.
+  assert.deepEqual([py.stats.supported, py.stats.skipped], [6, 1]);
   assert.deepEqual([js.stats.supported, js.stats.skipped], [4, 3]);
 });
 
@@ -453,4 +453,24 @@ test('the bookmarklet lists a locator once: an id and the CSS #id are the same s
   const { code } = generateBookmarklet('dedupe', steps, {});
   assert.ok(code.includes(`const _el1 = await getEl(["#n", ${JSON.stringify('//*[@id="n"]')}], 5000);`));
   assert.ok(code.includes('const _el2 = await getEl("#m", 5000);'), 'one left: the short form');
+});
+
+test('Selenium uploads files into a file input as playback does, and leaves a drop zone out', () => {
+  const up = (extra) => ({ type: 'uploadFile', selector: '#f', selectors: { css: '#f' }, ...extra });
+  const steps = [
+    up({ folderPath: 'C:\\in\\', fileNames: ['a.txt', '${name}'] }),
+    up({ folderPath: '/home/me/in', fileName: 'old.txt' }),
+    up({ folderPath: 'C:\\in', fileNames: ['a.txt'], uploadMode: 'dropzone' }),
+    up({ folderPath: '', fileNames: ['a.txt'] }),
+  ];
+  const { code, steps: status } = generateSeleniumPy('upload', steps, { name: 'b.txt' });
+  // The folder loses its trailing separators and keeps its own kind; ${var} names are f-strings.
+  assert.ok(code.includes('    el1.send_keys("\\n".join(["C:\\\\in\\\\a.txt", f"C:\\\\in\\\\{name}"]))\n'), 'several files, one per line');
+  assert.ok(code.includes('    el2.send_keys("/home/me/in/old.txt")\n'), 'an older action with one fileName');
+  assert.match(code, /^ {4}el1 = WebDriverWait\(driver, 10\)\.until\(EC\.presence_of_element_located\(\(By\.CSS_SELECTOR, "#f"\)\)\)$/m,
+    'present is enough: pages hide their file inputs');
+  assert.match(code, /^ {4}# Step 3: upload to a drop zone — \[SKIPPED\] needs the extension$/m);
+  assert.match(code, /^ {4}raise Exception\("Upload File \(step 4\): missing folder or file name\(s\)"\)$/m);
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'skip', 'verify']);
+  assert.equal(compilePy(code), null);
 });

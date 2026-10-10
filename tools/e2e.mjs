@@ -64,8 +64,9 @@
  *                 failure prompt and leaves the choice alone; one it has is chosen
  *   export-file-name  a Selenium script exported from a scenario named in Vietnamese
  *                 is saved under that name, letters kept, and the file holds the code
- *   export-steps  in both export modals, an Upload File step shows as skipped in the
- *                 Actions tab, the counts and the warning bar (it showed "✓ OK")
+ *   export-steps  the bookmarklet's export modal shows an Upload File step as skipped
+ *                 in the Actions tab, the counts and the warning bar (it showed
+ *                 "✓ OK"); Selenium's, which exports it, as "✓ OK"
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, headless Edge),
  *                 leaves the export page the same way. No python or selenium: the
@@ -933,7 +934,7 @@ async function checkExportSteps(ctx) {
       s.value = ${JSON.stringify(id)};
       s.dispatchEvent(new Event('change'));
     })()`);
-    for (const [button, prefix] of [['exportSelenium', 'exportSelenium'], ['exportBookmarklet', 'exportBm']]) {
+    for (const [button, prefix, skipped] of [['exportSelenium', 'exportSelenium', false], ['exportBookmarklet', 'exportBm', true]]) {
       await popup.evaluate(`document.getElementById(${JSON.stringify(button)}).click()`);
       await sleep(POPUP_SETTLE_MS);
       const tab = await popup.evaluate(`({
@@ -942,8 +943,10 @@ async function checkExportSteps(ctx) {
           : document.getElementById('${prefix}StatSkipped').textContent,
         warning: document.getElementById('${prefix}SkipMsg').textContent,
       })`);
-      check(JSON.stringify(tab.rows) === '["✓ OK","— Skip"]' && tab.skipped === '1 skipped' && /Upload File|local files/.test(tab.warning),
-        `${button}: the Actions tab, the counts and the warning bar say Upload File is skipped`, tab);
+      const said = skipped
+        ? JSON.stringify(tab.rows) === '["✓ OK","— Skip"]' && tab.skipped === '1 skipped' && /local files/.test(tab.warning)
+        : JSON.stringify(tab.rows) === '["✓ OK","✓ OK"]' && tab.skipped === null && tab.warning === '';
+      check(said, `${button}: the Actions tab, the counts and the warning bar say whether Upload File is exported`, tab);
       await popup.evaluate(`document.getElementById('${prefix}Close').click()`);
     }
   } finally {
@@ -996,6 +999,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   <button id="okA">okA</button><button id="okB">okB</button>
   <button id="okCancel">OK Cancel</button> <button id="okBtn"><span id="okSpan">OK</span></button>
 </div>
+<input type="file" id="files" multiple style="display:none">
 <script>
   const run = new URLSearchParams(location.search).get('run');
   const clicks = [], alerts = [], marks = [];
@@ -1022,6 +1026,8 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   const zone = document.getElementById('dropZone');
   zone.addEventListener('dragover', (e) => e.preventDefault());
   zone.addEventListener('drop', (e) => { e.preventDefault(); mark('dropZone drop'); });
+  const files = document.getElementById('files');
+  files.addEventListener('change', () => mark('files ' + [...files.files].map((f) => f.name).join(',')));
   report();
 </script></body></html>`;
 
@@ -1048,6 +1054,9 @@ function saveExportState(req, reply) {
  * exactly what playback left. Add a case per behaviour an
  * export has to share with playback.
  */
+// The folder of this harness: Upload File cases upload its own files.
+const TOOLS_DIR = dirname(fileURLToPath(import.meta.url));
+
 const EXPORT_CASES = [
   {
     name: 'form',
@@ -1145,6 +1154,16 @@ const EXPORT_CASES = [
       { type: 'click', selectors: { text: 'OK' }, selectorType: 'text' },
     ],
     expect: { clicks: ['okA', 'okB', 'okSpan'] },
+  },
+  {
+    // Upload File into a file input the page hides, a ${var} file name included.
+    // Two of the harness's own files; a bookmarklet cannot read files.
+    name: 'upload',
+    runners: ['selenium'],
+    variables: { second: 'verify.mjs' },
+    actions: [{ type: 'uploadFile', selector: '#files', selectors: { css: '#files' }, uploadMode: 'input',
+      folderPath: TOOLS_DIR, fileNames: ['e2e.mjs', '${second}'] }],
+    expect: { marks: ['files e2e.mjs,verify.mjs'] },
   },
 ];
 

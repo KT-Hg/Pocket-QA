@@ -541,10 +541,33 @@ function actionLines(action, step, stepDelay, elTimeout) {
       mark(step, 'skip', 'a Switch needs the extension to choose what plays');
       break;
 
-    case 'uploadFile':
-      out.push(`# Step ${stepNum}: uploadFile${lbl} — [unsupported, skipped]`);
-      mark(step, 'skip', 'Upload File is not exported to Selenium');
+    case 'uploadFile': {
+      // The paths playback hands the file input (bg/playback/steps/upload.js): the
+      // folder without its trailing separators, joined to each name with the
+      // folder's own kind of separator. An older action holds one fileName.
+      const folder = String(action.folderPath || '').replace(/[/\\]+$/, '');
+      let names = [];
+      if (Array.isArray(action.fileNames) && action.fileNames.length) names = action.fileNames;
+      else if (action.fileName) names = [action.fileName];
+      if (action.uploadMode === 'dropzone') {
+        out.push(`# Step ${stepNum}: upload to a drop zone${lbl} — [SKIPPED] needs the extension`);
+        mark(step, 'skip', 'an upload to a drop zone needs the extension');
+        break;
+      }
+      out.push(`# Step ${stepNum}: upload file${names.length > 1 ? 's' : ''}${lbl}`);
+      if (!folder || !names.length) {
+        out.push(`raise Exception("Upload File (step ${stepNum}): missing folder or file name(s)")`);
+        mark(step, 'verify', 'no folder or file name — the exported code stops there, as a run does');
+        break;
+      }
+      const sep   = folder.includes('\\') ? '\\' : '/';
+      const paths = names.map((n) => valueToPy(`${folder}${sep}${n}`));
+      // Present is enough: pages hide their file inputs, and send_keys still fills one.
+      out.push(`${elVar} = ${waitPy(locs, tout)}`);
+      out.push(`${elVar}.send_keys(${paths.length === 1 ? paths[0] : `"\\n".join([${paths.join(', ')}])`})`);
+      if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
+    }
 
     default:
       out.push(`# Step ${stepNum}: ${commentText(action.type)}${lbl} — [unsupported, skipped]`);
