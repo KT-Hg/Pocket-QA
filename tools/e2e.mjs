@@ -2189,7 +2189,7 @@ const CHECKS = [
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],
   ['export-steps', 'The export modal tells which steps were skipped', checkExportSteps],
-  ['export-regenerate', 'Regenerate in the export modals', checkExportRegenerate],
+  ['export-regenerate', 'Reload scenario in the export modals', checkExportRegenerate],
   ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],
   ['export-start-url', 'The Selenium start URL taken from the tab', checkExportStartUrl],
   ['export-url-field', 'The Starting URL field of the export Settings', checkExportUrlField],
