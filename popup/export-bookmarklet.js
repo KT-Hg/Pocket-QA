@@ -7,6 +7,7 @@ import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
+import { FIND_CHILD_JS, READ_VAL_JS } from './export/page-js.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -188,6 +189,11 @@ const PICK_ITEM_HELPER_JS = String.raw`
       return;
     }
   };`.split('\n').slice(1);
+
+/** A page-js.js function, declared in the bookmarklet at the indent of its body. */
+function declarePageJs(name, src) {
+  return `const ${name} = ${src};`.split('\n').map((l) => `  ${l}`);
+}
 
 /** One line for a step comment: the item number as written, whitespace folded. */
 function _pickLabel(action) {
@@ -573,71 +579,10 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push("    el.dispatchEvent(new Event('change', { bubbles: true }));");
   out.push('  };');
   out.push('');
-  // _findChild supports {fallback:A|B|C} in condition fields — tries each value
-  // in order and returns the first matching child element. An empty segment is
-  // a Blank: it matches a child whose field is empty (see content.js).
-  out.push('  const _findChild = (parent, cond) => {');
-  out.push("    const _fbRe = /^\\{fallback:(.+)\\}$/;");
-  out.push(`    const _fbField = ${JSON.stringify(CHILD_COND_KEYS).replace(/"/g, "'")}.find(f => cond[f] != null && _fbRe.test(String(cond[f])));`);
-  out.push("    const _fbVals  = _fbField ? String(cond[_fbField]).match(_fbRe)[1].split('|').map(s=>s.trim()) : null;");
-  out.push("    const _tryFind = (c, blankField) => {");
-  out.push("      const mode = c.matchMode || 'any';");
-  out.push("      const norm = s => (s == null ? '' : String(s).trim().toLowerCase());");
-  out.push('      const checks = [];');
-  out.push("      if (c.valueEquals   != null && c.valueEquals   !== '') checks.push(el => el.value !== undefined && String(el.value) === String(c.valueEquals));");
-  out.push("      if (c.textContains  != null && c.textContains  !== '') { const n = norm(c.textContains);  checks.push(el => norm(el.textContent).includes(n)); }");
-  out.push("      if (c.idContains    != null && c.idContains    !== '') { const n = norm(c.idContains);    checks.push(el => norm(el.id).includes(n)); }");
-  out.push("      if (c.classContains != null && c.classContains !== '') { const n = norm(c.classContains); checks.push(el => norm(el.className).includes(n)); }");
-  // "select" is any <select> (its type is select-one / select-multiple), as in content.js.
-  out.push("      if (c.typeEquals    != null && c.typeEquals    !== '') checks.push(el => (c.typeEquals === 'select' ? el.tagName === 'SELECT' : el.type === c.typeEquals));");
-  out.push("      if (blankField) checks.push(el => {");
-  out.push("        if (blankField === 'valueEquals')   return el.value !== undefined && String(el.value) === '';");
-  out.push("        if (blankField === 'textContains')  return norm(el.textContent) === '';");
-  out.push("        if (blankField === 'idContains')    return !el.id;");
-  out.push("        if (blankField === 'classContains') return norm(el.getAttribute('class')) === '';");
-  out.push("        return !el.getAttribute('type');");
-  out.push("      });");
-  out.push("      if (!checks.length) return null;");
-  out.push("      const test = mode === 'all' ? el => checks.every(fn => fn(el)) : el => checks.some(fn => fn(el));");
-  out.push('      const first = (root) => {');
-  out.push('        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);');
-  out.push('        for (let node = walker.nextNode(); node; node = walker.nextNode()) { if (test(node)) return node; }');
-  out.push('        return null;');
-  out.push('      };');
-  // Every wrapper's textContent holds the text too: like content.js, go down to
-  // the innermost element that still matches instead of stopping at the first.
-  out.push('      let hit = first(parent);');
-  out.push("      if (hit && c.textContains != null && c.textContains !== '') { for (let inner = first(hit); inner; inner = first(hit)) hit = inner; }");
-  out.push('      return hit;');
-  out.push('    };');
-  out.push("    if (_fbField && _fbVals) {");
-  out.push("      for (const _fv of _fbVals) { const el = _tryFind({...cond, [_fbField]: _fv}, _fv === '' ? _fbField : null); if (el) return el; }");
-  out.push("      return null;");
-  out.push("    }");
-  out.push('    return _tryFind(cond);');
-  out.push('  };');
+  out.push(...declarePageJs('_findChild', FIND_CHILD_JS));
   if (enabled.some(a => a.type === 'readdom')) {
     out.push('');
-  out.push('  const _readVal = (el, from, attr) => {');
-  out.push('    const tag = String(el.tagName || \'\').toUpperCase(), fld = tag === \'INPUT\' || tag === \'TEXTAREA\';');
-  out.push('    const txt = () => (typeof el.innerText === \'string\' ? el.innerText : (el.textContent || \'\'));');
-  out.push('    const ws = (s) => String(s == null ? \'\' : s).replace(/\\s+/g, \' \').trim();');
-  out.push('    if (from === \'attr\') return el.getAttribute(attr) ?? \'\';');
-  out.push('    if (from === \'value\') {');
-  out.push('      if (tag === \'SELECT\' && el.multiple) return Array.from(el.selectedOptions).map(o => o.value).join(\', \');');
-  out.push('      if (fld || tag === \'SELECT\') return el.value ?? \'\';');
-  out.push('      if (el.isContentEditable) return txt().trim();');
-  out.push('      if (typeof el.value === \'string\' && el.value !== \'\') return el.value;');
-  out.push('      if (typeof el.value === \'number\' && tag !== \'LI\') return String(el.value);');
-  out.push('      return txt().trim();');
-  out.push('    }');
-  out.push('    if (from === \'visible\') {');
-  out.push('      if (tag === \'SELECT\') return Array.from(el.selectedOptions).map(o => ws(o.text)).join(\', \');');
-  out.push('      if (fld) return el.value ?? \'\';');
-  out.push('      return ws(txt());');
-  out.push('    }');
-  out.push('    return (el.textContent || \'\').trim();');
-  out.push('  };');
+    out.push(...declarePageJs('_readVal', READ_VAL_JS));
   }
 
   if (enabled.some(a => a.type === 'dropdown' && a.pick)) {
