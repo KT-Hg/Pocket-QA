@@ -9,7 +9,7 @@ import { mark } from './export/steps.js';
 import { exportVariables, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
-  PICK_ITEM_JS,
+  PICK_ITEM_JS, QUERY_DEEP_JS,
 } from './export/page-js.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
 
@@ -20,10 +20,13 @@ const SKIPPED_TYPES = new Set([
 // Identifiers the generated bookmarklet declares for itself, plus the JS reserved
 // words (js-code.js).
 const _RESERVED_JS = new Set([
-  'sleep', 'getEl', '_qsel', '_first', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
-  'domVar', '_at',
+  'sleep', 'getEl', '_qsel', '_deep', '_first', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
+  'domVar', '_at', 'setInterval', 'clearInterval', 'clearTimeout',
   ...JS_RESERVED,
 ]);
+
+// How often getEl looks again while it waits: DEEP_SCAN_INTERVAL_MS of content.js.
+const SHADOW_POLL_MS = 250;
 
 // The names of the steps' own values (_el3, _el3_t, _nav1, _at1) and of the Random generators.
 const _sanitizeVarName = jsIdentifier(_RESERVED_JS, /^_(el|nav|at)\d+(_|$)|^_gen_/);
@@ -354,11 +357,14 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('');
   // A locator is a CSS or XPath string, or { text, tag } for the Text search; a
   // step may give several, tried in order as playback tries them, and one the
-  // page cannot parse is passed over as playback passes it over.
+  // page cannot parse is passed over as playback passes it over. A CSS one that
+  // finds nothing in the page looks inside open shadow roots, as playback does.
   out.push("  const _qsel = sel => (typeof sel === 'object' ? _findText(sel.text, sel.tag || '')");
   out.push("    : (sel.startsWith('/') || sel.startsWith('('))");
   out.push('      ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue');
-  out.push('      : document.querySelector(sel));');
+  out.push('      : document.querySelector(sel) || _deep(sel));');
+  out.push('');
+  out.push(...declarePageJs('_deep', QUERY_DEEP_JS));
   out.push('');
   out.push('  const _first = sels => {');
   out.push('    for (const sel of [].concat(sels)) {');
@@ -370,13 +376,14 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push(`  const getEl = (sels, timeout = ${elTimeout}) => new Promise((res, rej) => {`);
   out.push('    const el = _first(sels);');
   out.push('    if (el) return res(el);');
-  out.push('    const obs = new MutationObserver(() => {');
-  out.push('      const found = _first(sels);');
-  out.push('      if (found) { obs.disconnect(); res(found); }');
-  out.push('    });');
+  out.push('    const look = () => { const found = _first(sels); if (found) { stop(); res(found); } };');
+  out.push('    const obs = new MutationObserver(look);');
+  // As playback looks again (findElementWithFallback): what changes inside a shadow root reaches no observer of the page.
+  out.push(`    const poll = setInterval(look, ${SHADOW_POLL_MS});`);
+  out.push('    const stop = () => { obs.disconnect(); clearInterval(poll); clearTimeout(timer); };');
   out.push('    obs.observe(document.body, { childList: true, subtree: true });');
   // Single-quoted, so the generator leaves `${...}` for the bookmarklet's own template literal.
-  out.push('    setTimeout(() => { obs.disconnect(); rej(new Error(`No element found by ${JSON.stringify(sels)}`)); }, timeout);');
+  out.push('    const timer = setTimeout(() => { stop(); rej(new Error(`No element found by ${JSON.stringify(sels)}`)); }, timeout);');
   out.push('  });');
   if (bodyLines.some(l => l.includes('{ text: '))) {
     out.push('');

@@ -1703,6 +1703,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
 <div id="pickBox">Choose…</div>
 <ul id="pickMenu" style="display:none"><li>One</li><li>Two</li><li>Three</li></ul>
 <select id="pickSel"><option value="">-</option><option value="a">A</option><option value="b">B</option></select>
+<shadow-box id="sbox"></shadow-box>
 <div id="tall" style="height:3000px"></div>
 <script>
   const run = new URLSearchParams(location.search).get('run');
@@ -1738,6 +1739,22 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   }));
   const files = document.getElementById('files');
   files.addEventListener('change', () => mark('files ' + [...files.files].map((f) => f.name).join(',')));
+  // A web component: a button in its open shadow root, and one added there a moment later.
+  customElements.define('shadow-box', class extends HTMLElement {
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: 'open' });
+      const button = (id) => {
+        const b = document.createElement('button');
+        b.id = id;
+        b.textContent = id;
+        b.addEventListener('click', () => mark('shadow ' + id));
+        root.append(b);
+      };
+      button('inShadow');
+      setTimeout(() => button('lateShadow'), 700);
+    }
+  });
   report();
 </script></body></html>`;
 
@@ -1908,6 +1925,17 @@ const EXPORT_CASES = [
       { type: 'click', selector: '#submit', selectors: { css: '#submit' } },
     ],
     expect: { clicks: ['submit'] },
+  },
+  {
+    // Buttons inside a web component's open shadow root, one added there mid-wait: playback
+    // finds them by CSS through the shadow root; so must every export.
+    name: 'shadow',
+    actions: [
+      { type: 'click', selector: '#inShadow', selectors: { css: '#inShadow' } },
+      { type: 'click', selector: '#lateShadow', selectors: { css: '#lateShadow' } },
+    ],
+    // A click inside the shadow root reaches the document as one on its host.
+    expect: { clicks: ['sbox', 'sbox'], marks: ['shadow inShadow', 'shadow lateShadow'] },
   },
   {
     // A one-line Script that ends in a quote: the Selenium literal closed early on it.

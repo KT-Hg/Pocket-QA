@@ -246,6 +246,7 @@ function getAllSelectors(el) {
    Web components (LitElement, Stencil, etc.) render into shadow roots that are
    opaque to document.querySelector.  This recursive walk traverses open shadow
    roots so CSS selectors can resolve across component boundaries.
+   popup/export/page-js.js (QUERY_DEEP_JS) makes the same walk for the code exports.
 ───────────────────────────────────────────────────────────────────────────── */
 
 function querySelectorDeep(selector, root = document) {

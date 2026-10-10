@@ -7,7 +7,7 @@ import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark } from './export/steps.js';
 import { exportVariables, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
-  FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS,
+  FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
 } from './export/page-js.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
@@ -48,11 +48,12 @@ function notFoundPy(loc) {
 const locsPy = (locs) => `[${locs.map(locToPy).join(', ')}]`;
 
 /**
- * The expression that waits for an element: WebDriverWait on its one By locator,
- * as the export always wrote it, else _find over all its locators in order.
+ * The expression that waits for an element: WebDriverWait on its one By locator
+ * (an id, a name, an XPath), else _find over all its locators in order — a CSS
+ * one too, which _find also looks for inside shadow roots.
  */
 function waitPy(locs, tout, clickable = false) {
-  if (locs.length === 1 && locs[0].type !== 'text') {
+  if (locs.length === 1 && locs[0].type !== 'text' && locParts(locs[0])[0] !== 'By.CSS_SELECTOR') {
     return `WebDriverWait(driver, ${tout}).until(EC.${clickable ? 'element_to_be_clickable' : 'presence_of_element_located'}(${locToPy(locs[0])}), ${notFoundPy(locs[0])})`;
   }
   return `_find(${locsPy(locs)}, ${tout}${clickable ? ', clickable=True' : ''})`;
@@ -66,8 +67,10 @@ function waitPy(locs, tout, clickable = false) {
 function _locateHelperPy() {
   return [
     '# How the extension finds an element (content.js _locators): each locator in turn',
-    '# until one finds it; ("text", t[, tag]) is its Text search, run in the page.',
+    '# until one finds it; ("text", t[, tag]) is its Text search, run in the page. A CSS',
+    '# selector the page has no match for is looked for inside open shadow roots too.',
     ...pyPageJs('_FIND_TEXT_JS', FIND_TEXT_JS),
+    ...pyPageJs('_QUERY_DEEP_JS', QUERY_DEEP_JS),
     '',
     '',
     'def _locate(locators):',
@@ -78,6 +81,8 @@ function _locateHelperPy() {
     '            else:',
     '                found = driver.find_elements(how, what)',
     '                el = found[0] if found else None',
+    '                if el is None and how == By.CSS_SELECTOR:',
+    '                    el = driver.execute_script(_QUERY_DEEP_JS, what)',
     '        except InvalidSelectorException:',
     '            continue',
     '        if el is not None:',
@@ -134,7 +139,7 @@ function valueToPy(val) {
 // fail to parse, `re` or `open` hide what a helper calls, so those get a `_v` suffix.
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
-  '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
+  '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS', '_QUERY_DEEP_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
   'pytest', 'browser', 'dom_var', '_at', 'os', '_save_failure', '_var', '_url', '_first_origin', '_start_browser',
   'urlsplit', 'urlunsplit', '_row', '_rows', '_column',

@@ -59,6 +59,27 @@ export const FIND_CHILD_JS = String.raw`(parent, cond) => {
 }`;
 
 /**
+ * (selector) → the first element a CSS selector finds in the page or in an open
+ * shadow root inside it (a web component's), or null — querySelectorDeep in
+ * content.js, the walk playback makes with an action's CSS selector when the page
+ * itself has no match. A selector the page cannot parse finds nothing.
+ */
+export const QUERY_DEEP_JS = String.raw`(selector) => {
+  const deep = (root) => {
+    const el = root.querySelector(selector);
+    if (el) return el;
+    for (const host of root.querySelectorAll('*')) {
+      if (host.shadowRoot) {
+        const found = deep(host.shadowRoot);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  try { return deep(document); } catch (e) { return null; }
+}`;
+
+/**
  * (text, tag) → the element a Text locator finds; the text strategy of _locators
  * and _innermostWithText in content.js. With `tag` (picked on the page): the
  * first such element whose trimmed text is `text`. Without (typed in the form):

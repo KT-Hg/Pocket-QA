@@ -5,8 +5,9 @@
  * A copy of _locators in content.js (a classic script, which cannot import it):
  * fullXpath first (absolute position, most precise for a recorded action), then
  * id, xpath, css, testId, dataId, name, text; the type chosen in the form
- * (action.selectorType) before all of them. content.js also pierces shadow roots
- * with the css selector, which the exports do not.
+ * (action.selectorType) before all of them. A CSS selector that finds nothing in
+ * the page is also looked for inside open shadow roots, by content.js and by the
+ * exports alike (popup/export/page-js.js QUERY_DEEP_JS).
  */
 
 const ORDER = ['fullXpath', 'id', 'xpath', 'css', 'testId', 'dataId', 'name', 'text'];

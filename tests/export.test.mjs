@@ -296,10 +296,12 @@ test('both exports try every locator in the order playback does, the chosen type
 test('a step with one locator keeps the short form', () => {
   const steps = [{ type: 'click', selector: '#n', selectors: { css: '#n' } }, { type: 'input', selectors: { id: 'q' }, value: 'x' }];
   const py = generateSeleniumPy('short', steps, {}).code;
-  // With what it looked for as the message: WebDriverWait's own is empty.
-  assert.match(py, /el1 = WebDriverWait\(driver, 10\)\.until\(EC\.element_to_be_clickable\(\(By\.CSS_SELECTOR, "#n"\)\), "no element found by css selector: #n"\)/);
+  // A CSS selector goes through _find, which looks inside shadow roots too, as playback does.
+  assert.match(py, /el1 = _find\(\[\(By\.CSS_SELECTOR, "#n"\)\], 10, clickable=True\)/);
+  // An id keeps the short form, with what it looked for as the message: WebDriverWait's own is empty.
   assert.match(py, /el2 = WebDriverWait\(driver, 10\)\.until\(EC\.presence_of_element_located\(\(By\.ID, "q"\)\), "no element found by id: q"\)/);
-  assert.doesNotMatch(py, /def _find|def _locate/, 'no helper it does not use');
+  const idOnly = generateSeleniumPy('short', [steps[1]], {}).code;
+  assert.doesNotMatch(idOnly, /def _find|def _locate/, 'no helper it does not use');
   const js = generateBookmarklet('short', steps, {}).code;
   assert.ok(js.includes('const _el1 = await getEl("#n", 5000);') && js.includes('const _el2 = await getEl("#q", 5000);'));
   assert.doesNotMatch(js, /const _findText/);
@@ -469,7 +471,7 @@ test('Selenium uploads files into a file input as playback does, and leaves a dr
   // The folder loses its trailing separators and keeps its own kind; ${var} names are f-strings.
   assert.ok(code.includes('    el1.send_keys("\\n".join(["C:\\\\in\\\\a.txt", f"C:\\\\in\\\\{name}"]))\n'), 'several files, one per line');
   assert.ok(code.includes('    el2.send_keys("/home/me/in/old.txt")\n'), 'an older action with one fileName');
-  assert.match(code, /^ {4}el1 = WebDriverWait\(driver, 10\)\.until\(EC\.presence_of_element_located\(\(By\.CSS_SELECTOR, "#f"\)\), "no element found by css selector: #f"\)$/m,
+  assert.match(code, /^ {4}el1 = _find\(\[\(By\.CSS_SELECTOR, "#f"\)\], 10\)$/m,
     'present is enough: pages hide their file inputs');
   assert.match(code, /^ {4}# Step 3: upload to a drop zone — \[SKIPPED\] needs the extension$/m);
   assert.match(code, /^ {4}raise Exception\("Upload File \(step 4\): missing folder or file name\(s\)"\)$/m);
