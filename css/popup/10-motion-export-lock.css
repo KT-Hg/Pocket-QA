@@ -424,6 +424,10 @@
 }
 
 .export-bm-setting-select {
+  /* As wide as its options, not the base rule's 100%: it does not shrink, so
+     100% ran past the modal's edge and squeezed the label beside it. */
+  width: auto;
+  margin: 0;
   padding: 5px 8px;
   border-radius: 7px;
   border: 1.5px solid var(--border);
