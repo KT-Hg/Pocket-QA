@@ -1,13 +1,12 @@
-import { getUsedVarNames, commentText } from './utils.js';
+import { commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
+import { normalizeVarName } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
-import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { locatorsFor, walkActions } from './export/walk.js';
+import { exportVariables, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
   PICK_ITEM_JS,
@@ -325,48 +324,11 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   const { stepDelay = 300, elTimeout = 5000 } = opts;
 
   const warnings = new Set();
-  const staticVars = {}, randomSpecs = {}, pickSpecs = {}, writtenVars = new Set();
-
-  for (const [k, v] of Object.entries(variables || {})) {
-    const str  = activeValue(v);
-    const spec = parseRandomSpec(str);
-    const pick = parsePickSpec(str);
-    if (spec)      randomSpecs[k] = spec;
-    else if (pick) pickSpecs[k]   = pick;
-    else           staticVars[k]  = str;
-  }
-
   const enabled = (actions || []).filter(a => !a.disabled);
-
-  // Names a step assigns to. screenshot_tovar belongs here even though the step
-  // itself is skipped: without a declaration a later `${shot}` is a ReferenceError
-  // that takes down the whole run.
-  for (const a of enabled) {
-    for (const vn of writtenVarNames(a)) writtenVars.add(_sanitizeVarName(vn));
-  }
-
-  // Two different variable names can sanitize to the same identifier
-  // (`mã đơn` and `m-a-b-n` both become `m____n`), which silently drops one.
-  const _byIdent = new Map();
-  for (const k of [...Object.keys(staticVars), ...Object.keys(randomSpecs), ...Object.keys(pickSpecs)]) {
-    const ident = _sanitizeVarName(k);
-    if (_byIdent.has(ident) && _byIdent.get(ident) !== k) {
-      warnings.add(`"${_byIdent.get(ident)}" and "${k}" both become the JS identifier \`${ident}\` — rename one`);
-    } else {
-      _byIdent.set(ident, k);
-    }
-    if (ident !== k) {
-      warnings.add(`"${k}" is not a valid JS identifier — exported as \`${ident}\``);
-    }
-  }
-
-  // Fallback variables only mean something inside a Child Condition; anywhere
-  // else the literal spec is what lands in the page, exactly as in playback.
-  for (const [k, v] of Object.entries(staticVars)) {
-    if (/^\{fallback:.+\}$/.test(v)) {
-      warnings.add(`"${k}" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else`);
-    }
-  }
+  // writtenVars: the names a step assigns to. screenshot_tovar's too, though the
+  // step itself is skipped: without a declaration a later `${shot}` is a
+  // ReferenceError that takes down the whole run.
+  const { staticVars, randomSpecs, pickSpecs, written: writtenVars } = exportVariables(variables, enabled, _sanitizeVarName, 'JS', warnings);
 
   const all    = actions || [];
   const layout = getSwitchLayout(all);
@@ -514,20 +476,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('');
   out.push('})();');
 
-  // A `${name}` with nothing behind it is a ReferenceError at run time, and the
-  // generated code gives no clue where it came from — flag it while the scenario
-  // is still on screen.
-  const knownNames = new Set([
-    ...Object.keys(staticVars), ...Object.keys(randomSpecs), ...Object.keys(pickSpecs),
-  ]);
-  for (const a of enabled) {
-    for (const vn of writtenVarNames(a)) knownNames.add(vn);
-  }
-  for (const name of getUsedVarNames(enabled)) {
-    if (!knownNames.has(name)) {
-      warnings.add(`\${${name}} is used by a step but not defined in the Variables tab`);
-    }
-  }
+  warnUndefinedVars(enabled, variables, warnings);
 
   const skipped = steps.filter((s) => s.status === 'skip').length;
   return {

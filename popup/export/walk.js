@@ -8,7 +8,61 @@
 
 import { blockEnd, conditionSkip, conditionSkipTarget, hasBlock } from '../../shared/switch-blocks.js';
 import { locatorsOf } from '../../shared/locator-order.js';
+import { writtenVarNames } from '../../shared/var-name.js';
+import { activeValue, parseRandomSpec, parsePickSpec } from '../../shared/var-spec.js';
+import { getUsedVarNames } from '../utils.js';
 import { blockSteps, newStep } from './steps.js';
+
+/**
+ * A scenario's variables as an export declares them, and what to warn about,
+ * the same for every export:
+ *   staticVars, randomSpecs, pickSpecs — by name, by what the Variables tab holds
+ *   written — the identifiers (`ident`) the steps assign to
+ * Into `warnings`: two names that become one `lang` identifier (one would be lost),
+ * a name that is not one, and a Fallback variable, which only a Child Condition
+ * resolves — anywhere else its literal spec is what reaches the page, as in a run.
+ */
+export function exportVariables(variables, enabled, ident, lang, warnings) {
+  const staticVars = {}, randomSpecs = {}, pickSpecs = {};
+  for (const [k, v] of Object.entries(variables || {})) {
+    const str = activeValue(v);
+    const spec = parseRandomSpec(str);
+    const pick = parsePickSpec(str);
+    if (spec) randomSpecs[k] = spec;
+    else if (pick) pickSpecs[k] = pick;
+    else staticVars[k] = str;
+  }
+  const written = new Set(enabled.flatMap((a) => writtenVarNames(a)).map(ident));
+
+  const byIdent = new Map();
+  for (const k of [...Object.keys(staticVars), ...Object.keys(randomSpecs), ...Object.keys(pickSpecs)]) {
+    const id = ident(k);
+    if (byIdent.has(id) && byIdent.get(id) !== k) {
+      warnings.add(`"${byIdent.get(id)}" and "${k}" both become the ${lang} identifier \`${id}\` — rename one`);
+    } else {
+      byIdent.set(id, k);
+    }
+    if (id !== k) warnings.add(`"${k}" is not a valid ${lang} identifier — exported as \`${id}\``);
+  }
+  for (const [k, v] of Object.entries(staticVars)) {
+    if (/^\{fallback:.+\}$/.test(v)) {
+      warnings.add(`"${k}" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else`);
+    }
+  }
+  return { staticVars, randomSpecs, pickSpecs, written };
+}
+
+/**
+ * Into `warnings`: each `${name}` a step uses that neither the Variables tab
+ * (`variables`) nor a step defines — the exported code fails on it when the step
+ * runs, with no clue where it came from.
+ */
+export function warnUndefinedVars(enabled, variables, warnings) {
+  const known = new Set([...Object.keys(variables || {}), ...enabled.flatMap((a) => writtenVarNames(a))]);
+  for (const name of getUsedVarNames(enabled)) {
+    if (!known.has(name)) warnings.add(`\${${name}} is used by a step but not defined in the Variables tab`);
+  }
+}
 
 /**
  * The locators of the element an action acts on — of its drop target with

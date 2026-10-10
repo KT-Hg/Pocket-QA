@@ -8,16 +8,15 @@
  * in-page code (popup/export/page-js.js) where Playwright's call would differ.
  */
 
-import { getUsedVarNames, commentText } from './utils.js';
+import { commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
+import { normalizeVarName } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
-import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { locatorsFor, walkActions } from './export/walk.js';
+import { exportVariables, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
 import { SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS } from './export/page-js.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
 
@@ -282,8 +281,9 @@ const stepLines = (ctx) => walkActions(ctx, {
   skippedBlock: (start, end) => [`// Step ${start + 1}: switch block [SKIPPED] — steps ${start + 2}–${end + 1} not exported (requires extension scenario routing)`],
 });
 
-// The scenario's variables, declared at the top of the test: `let` for the ones a step writes.
-function variableLines(variables, written) {
+// The scenario's variables (exportVariables), declared at the top of the test, in the
+// Variables tab's order: `let` for the ones a step writes.
+function variableLines(variables, { staticVars, randomSpecs, pickSpecs, written }) {
   const out = [];
   const declared = new Set();
   const declare = (safe, expr) => {
@@ -291,13 +291,12 @@ function variableLines(variables, written) {
     declared.add(safe);
     out.push(`${written.has(safe) ? 'let' : 'const'} ${safe} = ${expr};`);
   };
-  for (const [k, v] of Object.entries(variables || {})) {
-    const str = activeValue(v);
-    const random = parseRandomSpec(str);
-    const pick = parsePickSpec(str);
+  for (const k of Object.keys(variables || {})) {
+    const random = randomSpecs[k];
+    const pick = pickSpecs[k];
     if (random) declare(ident(k), `(${randomFnJS(random.type, random.length)})()`);
     else if (pick) declare(ident(k), `${JSON.stringify(pick)}[Math.floor(Math.random() * ${pick.length})]`);
-    else declare(ident(k), JSON.stringify(str));
+    else declare(ident(k), JSON.stringify(staticVars[k]));
   }
   for (const k of written) declare(k, "''");
   return out.length ? ['// --- VARIABLES ---', ...out, ''] : [];
@@ -318,9 +317,9 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
   const enabled = all.filter((a) => a && !a.disabled);
   const warnings = new Set();
   const steps = [];
+  const vars = exportVariables(variables, enabled, ident, 'JS', warnings);
   const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set() };
   const body = stepLines(ctx);
-  const written = new Set(enabled.flatMap((a) => writtenVarNames(a)).map(ident));
 
   // The start page, unless the scenario opens one first (waits aside).
   const first = enabled.find((a) => a.type !== 'wait');
@@ -342,14 +341,10 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
   out.push(`test(${JSON.stringify(String(scenarioName))}, async ({ page }) => {`,
     '  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.',
     '  test.setTimeout(0);');
-  for (const line of [...variableLines(variables, written), ...start, ...body]) out.push(line === '' ? '' : `  ${line}`);
+  for (const line of [...variableLines(variables, vars), ...start, ...body]) out.push(line === '' ? '' : `  ${line}`);
   out.push('});');
 
-  // A ${name} with nothing behind it is a ReferenceError when the step runs.
-  const known = new Set([...Object.keys(variables || {}), ...enabled.flatMap((a) => writtenVarNames(a))]);
-  for (const name of getUsedVarNames(enabled)) {
-    if (!known.has(name)) warnings.add(`\${${name}} is used by a step but not defined in the Variables tab`);
-  }
+  warnUndefinedVars(enabled, variables, warnings);
   const skipped = steps.filter((s) => s.status === 'skip').length;
   return {
     code: out.join('\n'),

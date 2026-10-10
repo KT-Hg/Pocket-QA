@@ -1,12 +1,11 @@
 import { showToast, getUsedVarNames, commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
+import { normalizeVarName } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
-import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark } from './export/steps.js';
-import { locatorsFor, walkActions } from './export/walk.js';
+import { exportVariables, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS,
 } from './export/page-js.js';
@@ -708,39 +707,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const driverType = DRIVER_TYPES.has(opts.driverType) ? opts.driverType : 'Chrome';
 
   const warnings = new Set();
-  const staticVars = {}, randomSpecs = {}, pickSpecs = {}, writtenVars = new Set();
-  for (const [k, v] of Object.entries(variables || {})) {
-    const str  = activeValue(v);
-    const spec = parseRandomSpec(str);
-    const pick = parsePickSpec(str);
-    if (spec)      randomSpecs[k] = spec;
-    else if (pick) pickSpecs[k]   = pick;
-    else           staticVars[k]  = str;
-  }
-
   const enabled = (actions || []).filter(a => !a.disabled);
-
-  // Names a step assigns to. screenshot_tovar belongs here too: it writes inside
-  // the flow, so a run where its branch never executes leaves a later reference
-  // with nothing bound (NameError).
-  for (const a of enabled) {
-    for (const vn of writtenVarNames(a)) writtenVars.add(safeVarName(vn));
-  }
-
-  // Two different names can sanitize to the same Python identifier, which
-  // silently drops one of them.
-  const _byIdent = new Map();
-  for (const k of [...Object.keys(staticVars), ...Object.keys(randomSpecs), ...Object.keys(pickSpecs)]) {
-    const ident = safeVarName(k);
-    if (_byIdent.has(ident) && _byIdent.get(ident) !== k) {
-      warnings.add(`"${_byIdent.get(ident)}" and "${k}" both become the Python identifier \`${ident}\` — rename one`);
-    } else {
-      _byIdent.set(ident, k);
-    }
-    if (ident !== k) {
-      warnings.add(`"${k}" is not a valid Python identifier — exported as \`${ident}\``);
-    }
-  }
+  // writtenVars: the names a step assigns to. screenshot_tovar's too: it writes
+  // inside the flow, so a run where its branch never executes leaves a later
+  // reference with nothing bound (NameError).
+  const { staticVars, randomSpecs, pickSpecs, written: writtenVars } = exportVariables(variables, enabled, safeVarName, 'Python', warnings);
 
   const all    = actions || [];
   const layout = getSwitchLayout(all);
@@ -930,20 +901,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     out.push('    driver.quit()');
   }
 
-  // A `${name}` with nothing behind it becomes a NameError the moment the step
-  // runs, and the generated file gives no clue where it came from — flag it while
-  // the scenario is still on screen.
-  const knownNames = new Set([
-    ...Object.keys(staticVars), ...Object.keys(randomSpecs), ...Object.keys(pickSpecs),
-  ]);
-  for (const a of enabled) {
-    for (const vn of writtenVarNames(a)) knownNames.add(vn);
-  }
-  for (const name of getUsedVarNames(enabled)) {
-    if (!knownNames.has(name)) {
-      warnings.add(`\${${name}} is used by a step but not defined in the Variables tab`);
-    }
-  }
+  warnUndefinedVars(enabled, variables, warnings);
 
   const skipped = steps.filter((s) => s.status === 'skip').length;
   return {
