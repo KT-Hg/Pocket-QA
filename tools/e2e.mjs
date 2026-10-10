@@ -85,6 +85,8 @@
  *   export-live-settings  the Selenium code follows each Settings change with no button
  *                 pressed — Copy right after takes the new code; typing is followed
  *                 once it pauses; opening with remembered Settings generates it once
+ *   export-layout  in a 480 × 600 popup the export code gets at least 400 px and Copy
+ *                 does not move between tabs; at 480 × 500 nothing is cut off
  *   export-formats  the Export Code card offers the bookmarklet, Selenium and Playwright,
  *                 each opening its own export with a "⬇ Download" button; the last
  *                 button keeps the others' size, in the middle of its row
@@ -329,9 +331,9 @@ async function checkCapture(ctx) {
   check(ctx.browser.downloads().length - before === 2, 'two PNG files saved', ctx.browser.downloads());
 }
 
-/** The popup as if opened on the activated test page. */
-async function openPopup(ctx) {
-  const popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...POPUP_VIEWPORT });
+/** The popup as if opened on the activated test page; `size`: { width, height } other than POPUP_VIEWPORT. */
+async function openPopup(ctx, size = POPUP_VIEWPORT) {
+  const popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...size });
   await popup.evaluate(`chrome.storage.local.set({ activatedTabs: [${ctx.webTabId}] })`);
   await popup.reload();
   await sleep(POPUP_SETTLE_MS);
@@ -997,8 +999,7 @@ async function checkExportSteps(ctx) {
       await sleep(POPUP_SETTLE_MS);
       const tab = await popup.evaluate(`({
         rows: [...document.querySelectorAll('#exportActList .export-bm-action-status')].map((el) => el.textContent.trim()),
-        skipped: document.getElementById('exportStatSkippedPill').style.display === 'none' ? null
-          : document.getElementById('exportStatSkipped').textContent,
+        skipped: document.getElementById('exportSub').textContent.match(/\\d+ skipped/)?.[0] || null,
         warning: document.getElementById('exportSkipMsg').textContent,
       })`);
       const said = skipped
@@ -1292,6 +1293,51 @@ async function checkExportLiveSettings(ctx) {
   } finally {
     await popup.close();
     await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
+  }
+}
+
+// An element's box in `page`, rounded.
+const boxOf = (page, selector) => page.evaluate(`(() => {
+  const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+  return { top: Math.round(r.top), left: Math.round(r.left), height: Math.round(r.height), bottom: Math.round(r.bottom) };
+})()`);
+
+const showExportTab = (page, tab) => page.evaluate(`document.querySelector('#exportModal .export-bm-tab[data-tab="${tab}"]').click()`);
+
+async function checkExportLayout(ctx) {
+  const plain = await makeScenario(ctx, 'e2e export layout', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  const sample = await makeScenario(ctx, 'e2e export layout sample', EXPORT_SAMPLE);
+  // A real popup is at most 600 px tall.
+  const tall = await openPopup(ctx, { width: 480, height: 600 });
+  try {
+    await openExport(tall, plain, 'exportSelenium');
+    const code = await boxOf(tall, '#exportCode');
+    check(code.height >= 400, 'at 480 × 600, Selenium with nothing to warn about: the code is at least 400 px tall', code);
+    const copy = [];
+    for (const tab of ['variables', 'actions', 'settings', 'preview']) {
+      await showExportTab(tall, tab);
+      copy.push(await boxOf(tall, '#exportCopy'));
+    }
+    check(copy.every((c) => c.top === copy[0].top && c.left === copy[0].left), 'Copy stays where it is through the four tabs', copy);
+  } finally {
+    await tall.close();
+  }
+  const short = await openPopup(ctx, { width: 480, height: 500 });
+  try {
+    await openExport(short, sample, 'exportSelenium');
+    const code = await boxOf(short, '#exportCode');
+    await showExportTab(short, 'settings');
+    const fit = await short.evaluate(`(() => {
+      const panel = document.getElementById('exportTabSettings');
+      panel.scrollTop = panel.scrollHeight;
+      const last = document.getElementById('exportReload').getBoundingClientRect();
+      return { footer: Math.round(document.querySelector('.export-bm-footer').getBoundingClientRect().bottom), view: innerHeight,
+        last: Math.round(last.bottom), panel: Math.round(panel.getBoundingClientRect().bottom) };
+    })()`);
+    check(code.height >= 150 && fit.footer <= fit.view && fit.last <= fit.panel,
+      'at 480 × 500 the code, the footer and, scrolled, the last of the Settings all show', { code: code.height, ...fit });
+  } finally {
+    await short.close();
   }
 }
 
@@ -1937,6 +1983,7 @@ const CHECKS = [
   ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
   ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
   ['export-live-settings', 'The export code follows its Settings', checkExportLiveSettings],
+  ['export-layout', 'The export modal\'s size in a 600 and a 500 px popup', checkExportLayout],
   ['export-formats', 'The formats the Export Code card offers', checkExportFormats],
   ['export-playwright', 'The Playwright Test export in the popup', checkExportPlaywright],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],

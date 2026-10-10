@@ -18,7 +18,7 @@
   z-index: 9999;
   align-items: flex-start;
   justify-content: center;
-  padding: 16px 10px;
+  padding: 8px 10px;
 }
 
 .export-bm-modal.show {
@@ -29,7 +29,9 @@
   background: var(--card);
   border-radius: 12px;
   width: 100%;
-  max-height: calc(100vh - 32px);
+  /* The popup's full height, whatever the tab: the tabs share what the header and
+     footer leave, so Copy and Download stay where they are. */
+  height: calc(100vh - 16px);
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
@@ -62,7 +64,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 8px 14px;
 }
 
 .export-bm-lang-badge {
@@ -178,7 +180,7 @@
 .export-bm-tabs {
   display: flex;
   gap: 4px;
-  padding: 8px 14px;
+  padding: 6px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--secondary-bg);
@@ -257,6 +259,14 @@
   overflow-y: auto;
   min-height: 0;
 }
+.export-bm-tab-panel[hidden] { display: none; }
+
+/* The Code tab: its toolbar, then the code in all the room left; the code scrolls. */
+#exportTabPreview {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
 /* ── Code toolbar ── */
 .export-bm-code-toolbar {
@@ -312,8 +322,8 @@
   overflow-x: auto;
   color: var(--code-text);
   background: var(--code-bg);
-  min-height: 180px;
-  max-height: 300px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -513,42 +523,6 @@ label.export-bm-setting-row:has(input:disabled) .hl-toggle-slider { cursor: not-
   background: color-mix(in srgb, var(--primary) 8%, transparent) !important;
   transform: none !important;
 }
-
-/* ── Stats pills row ── */
-.export-bm-stats-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-top: 1px solid var(--border);
-  background: var(--secondary-bg);
-  flex-shrink: 0;
-  flex-wrap: wrap;
-}
-
-.export-bm-stat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.export-bm-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.dot-blue   { background: #3b82f6; }
-.dot-green  { background: #22c55e; }
-.dot-orange { background: #f59e0b; }
 
 /* ── Footer ── */
 .export-bm-footer {
@@ -920,9 +894,6 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   background: color-mix(in srgb, var(--warning) 15%, transparent);
   color: var(--warning-text);
 }
-
-/* ── Stats dot — red ── */
-.dot-red { background: #ef4444; }
 
 /* ───────────────────────────────────────────────
    ACTIONS REVIEW TAB

@@ -205,27 +205,7 @@ function render(result) {
   renderVariables(byId('NoVars'), byId('VarList'), vars);
 
   // Actions review tab
-  const actStats = renderActionsTab(PREFIX, run.actions, result.steps);
-
-  // Stats pills
-  const { supported } = result.stats;
-  byId('StatSteps').textContent = `${supported} steps`;
-  byId('StatVars').textContent  = `${vars.length} variables`;
-
-  const warnPill    = byId('StatWarnPill');
-  const skippedPill = byId('StatSkippedPill');
-  if (actStats.warnCount > 0) {
-    byId('StatWarn').textContent = `${actStats.warnCount} verify`;
-    warnPill.style.display = '';
-  } else {
-    warnPill.style.display = 'none';
-  }
-  if (skipped > 0) {
-    byId('StatSkipped').textContent = `${skipped} skipped`;
-    skippedPill.style.display = '';
-  } else {
-    skippedPill.style.display = 'none';
-  }
+  renderActionsTab(PREFIX, run.actions, result.steps);
 }
 
 function open() {
@@ -331,7 +311,6 @@ function wireModal() {
   const modal = byId('Modal');
   if (!modal) return false;
   byId('Close')?.addEventListener('click', close);
-  byId('Cancel')?.addEventListener('click', close);
   byId('Copy')?.addEventListener('click', copy);
   byId('Download')?.addEventListener('click', download);
   byId('Reload')?.addEventListener('click', reload);
@@ -491,7 +470,7 @@ const STEP_STATUS_VIEW = {
 function renderActionsTab(prefix, actions, steps) {
   const listEl    = document.getElementById(`${prefix}ActList`);
   const summaryEl = document.getElementById(`${prefix}ActSummary`);
-  if (!listEl || !summaryEl) return { okCount: 0, warnCount: 0, skipCount: 0 };
+  if (!listEl || !summaryEl) return;
 
   let html = '';
   for (const s of steps) {
@@ -529,6 +508,4 @@ function renderActionsTab(prefix, actions, steps) {
     badge.textContent = warnTotal > 0 ? `${warnTotal} ⚠` : String(steps.length);
     badge.className   = 'export-bm-tab-count' + (warnTotal > 0 ? ' warn' : '');
   }
-
-  return { okCount, warnCount, skipCount };
 }
