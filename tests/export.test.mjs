@@ -384,3 +384,18 @@ test('the bookmarklet clicks, hovers, types and drags with the in-page helpers',
   assert.doesNotMatch(code, /^\s+_el\d+\.click\(\);$|const setInput/m, 'no click or Input of its own');
   new Function(code.replace(/^javascript:/, ''));
 });
+
+test('Selenium fills a field send_keys cannot with the in-page Input', async () => {
+  const { SET_INPUT_JS } = await import('../popup/export/page-js.js');
+  const steps = [
+    { type: 'input', selector: '#when', selectors: { css: '#when' }, value: '2026-10-10' },
+    { type: 'input', selector: '#name', selectors: { css: '#name' }, value: 'Alice' },
+  ];
+  const { code } = generateSeleniumPy('fields', steps, {});
+  // A date's typed format follows the browser's locale; a color or a range takes no typing.
+  assert.match(code, /^_SCRIPT_INPUT_TYPES = \("date", "time", "datetime-local", "month", "week", "color", "range"\)$/m);
+  assert.match(code, /^ {4}elif el1\.get_attribute\("type"\) in _SCRIPT_INPUT_TYPES:\n {8}driver\.execute_script\(_SET_INPUT_JS, el1, "2026-10-10"\)\n {4}else:\n {8}el1\.clear\(\)$/m);
+  assert.ok(code.includes(SET_INPUT_JS), 'run from page-js as is');
+  assert.match(code, /^ {8}el2\.send_keys\("Alice"\)$/m, 'any other field is still typed into');
+  assert.equal(compilePy(code), null);
+});

@@ -990,6 +990,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   <input id="blurField">
   <div id="dragSrc" draggable="true">drag</div><div id="dropZone" style="min-height:30px">drop here</div>
   <button id="done">done</button>
+  <input type="date" id="when"><input type="time" id="at"><input type="color" id="shade">
 </div>
 <script>
   const run = new URLSearchParams(location.search).get('run');
@@ -1113,11 +1114,20 @@ const EXPORT_CASES = [
   {
     // HTML5 drag and drop: dragstart … drop with one DataTransfer, as playback fires them.
     name: 'drag',
-    // ActionChains drag_and_drop fires no HTML5 drag events in Chromium.
-    runners: ['bookmarklet'],
     actions: [{ type: 'dragdrop', selector: '#dragSrc', selectors: { css: '#dragSrc' },
       targetSelector: '#dropZone', targetSelectors: { css: '#dropZone' } }],
     expect: { marks: ['dropZone drop'] },
+  },
+  {
+    // Fields send_keys cannot fill the same way everywhere: a date or time is typed
+    // in the browser locale's format, a color takes no typing.
+    name: 'typed-fields',
+    actions: [
+      { type: 'input', selector: '#when', selectors: { css: '#when' }, value: '2026-10-10' },
+      { type: 'input', selector: '#at', selectors: { css: '#at' }, value: '13:45' },
+      { type: 'input', selector: '#shade', selectors: { css: '#shade' }, value: '#336699' },
+    ],
+    expect: { fields: { when: '2026-10-10', at: '13:45', shade: '#336699' } },
   },
 ];
 

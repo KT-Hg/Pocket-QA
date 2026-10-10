@@ -6,7 +6,7 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
-import { FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES } from './export/page-js.js';
+import { FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS } from './export/page-js.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
@@ -104,6 +104,7 @@ function valueToPy(val) {
 // fail to parse, so those get a `_v` suffix.
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
+  '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS',
   'Select', 'ActionChains', 'NoSuchElementException', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
   'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
@@ -211,6 +212,20 @@ function _checkCondHelperPy() {
  */
 function pyPageJs(name, src) {
   return `${name} = r"""return (${src}).apply(null, arguments)"""`.split('\n');
+}
+
+/**
+ * What an Input step needs besides send_keys: the field types it fills through
+ * playback's own Input (SET_INPUT_JS) instead. A date's typed format follows the
+ * browser's locale — "2026-10-10" became year 61010 in Edge — and a color or a
+ * range takes no typing at all.
+ */
+function _setInputHelperPy() {
+  return [
+    '# Fields typing cannot fill the same way everywhere: set as the extension sets them.',
+    '_SCRIPT_INPUT_TYPES = ("date", "time", "datetime-local", "month", "week", "color", "range")',
+    ...pyPageJs('_SET_INPUT_JS', SET_INPUT_JS),
+  ];
 }
 
 function _readValHelperPy() {
@@ -355,6 +370,8 @@ function actionLines(action, step, stepDelay, elTimeout) {
       out.push(`        Select(${elVar}).select_by_value(${val})`);
       out.push(`    except Exception:`);
       out.push(`        Select(${elVar}).select_by_visible_text(${val})`);
+      out.push(`elif ${elVar}.get_attribute("type") in _SCRIPT_INPUT_TYPES:`);
+      out.push(`    driver.execute_script(_SET_INPUT_JS, ${elVar}, ${val})`);
       out.push(`else:`);
       out.push(`    ${elVar}.clear()`);
       out.push(`    ${elVar}.send_keys(${val})`);
@@ -686,6 +703,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
   if (needsJsEscape) {
     out.push(..._jsEscapeHelperPy());
+    out.push('');
+    out.push('');
+  }
+  if (enabled.some(a => a.type === 'input')) {
+    out.push(..._setInputHelperPy());
     out.push('');
     out.push('');
   }
