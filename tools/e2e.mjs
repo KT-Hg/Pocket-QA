@@ -64,6 +64,10 @@
  *                 failure prompt and leaves the choice alone; one it has is chosen
  *   export-file-name  a Selenium script exported from a scenario named in Vietnamese
  *                 is saved under that name, letters kept, and the file holds the code
+ *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
+ *                 and run as the exported Selenium script (python, headless Edge),
+ *                 leaves the export page the same way. No python or selenium: the
+ *                 Selenium run is skipped, not failed
  *   record-untrusted  a click and an input event the page's own script dispatches
  *                 are not recorded; a real click is
  *   record-checkbox  ticking a checkbox records the click only, not an Input of its
@@ -80,11 +84,12 @@
  * Exit:  0 OK, 1 a check failed, 2 no browser found.
  */
 
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { asActiveTab, launchWithExtension, sleep } from './lib/cdp-browser.mjs';
 
 const args = process.argv.slice(2);
@@ -221,9 +226,10 @@ async function play(ctx, scenarioId, { away = null } = {}) {
   // A run stuck on a failure prompt would block the next check.
   if (running) await ctx.send({ type: 'STOP_PLAYBACK' });
   await sleep(SETTLE_MS);
-  return ctx.web.evaluate(`({ log: window.__log, dd: document.getElementById('dd').textContent,
-    sel: document.getElementById('sel').value, out: document.getElementById('out').value,
-    big: document.getElementById('big').value, timedOut: ${running} })`);
+  // `?.`: export-run plays on the export page, which has none of these.
+  return ctx.web.evaluate(`({ log: window.__log, dd: document.getElementById('dd')?.textContent,
+    sel: document.getElementById('sel')?.value, out: document.getElementById('out')?.value,
+    big: document.getElementById('big')?.value, timedOut: ${running} })`);
 }
 
 const reloadTestPage = async (ctx) => { await ctx.web.reload(); await sleep(PAGE_SETTLE_MS); };
@@ -913,6 +919,192 @@ async function checkExportFileName(ctx) {
   }
 }
 
+/**
+ * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
+ * every input, select, textarea and contenteditable with an id (a checkbox by
+ * whether it is ticked) — plus the buttons clicked and the alerts shown is POSTed
+ * to /state on every change, so a run in a browser the harness does not drive
+ * (the Selenium script's own Edge) is read the same way as one it does.
+ * A new element with an id is in the state as soon as it is on the page.
+ */
+const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>export</title></head>
+<body>
+<input id="name">
+<select id="color"><option value="">-</option><option value="r">Red</option><option value="g">Green</option></select>
+<label><input type="checkbox" id="agree"> Agree</label>
+<span id="code">ORD-42</span>
+<input id="echo">
+<button id="submit">Submit</button><button id="after">After</button><button id="never">Never</button>
+<script>
+  const run = new URLSearchParams(location.search).get('run');
+  const clicks = [], alerts = [];
+  let seq = 0;
+  const fields = () => Object.fromEntries([...document.querySelectorAll('input[id], select[id], textarea[id], [contenteditable][id]')]
+    .map((el) => [el.id, el.type === 'checkbox' ? el.checked : (el.isContentEditable ? el.textContent : el.value)]));
+  // seq: two posts in flight may arrive in either order; the harness keeps the latest.
+  const report = () => fetch('/state', { method: 'POST', keepalive: true,
+    body: JSON.stringify({ run, seq: ++seq, state: { fields: fields(), clicks, alerts } }) });
+  // The bookmarklet reports its errors with alert(), which would block a headless page.
+  window.alert = (m) => { alerts.push(String(m)); report(); };
+  document.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { clicks.push(e.target.id); report(); } }, true);
+  for (const type of ['input', 'change']) document.addEventListener(type, report, true);
+  report();
+</script></body></html>`;
+
+/** The latest state each run of EXPORT_PAGE posted, by its ?run= key. */
+const exportStates = new Map();
+
+function saveExportState(req, reply) {
+  let body = '';
+  req.on('data', (chunk) => { body += chunk; });
+  req.on('end', () => {
+    try {
+      const { run, seq, state } = JSON.parse(body);
+      if (!(exportStates.get(run)?.seq > seq)) exportStates.set(run, { seq, state });
+    } catch { /* not a state post: nothing to keep */ }
+    reply.statusCode = 204;
+    reply.end();
+  });
+}
+
+/**
+ * Scenarios export-run plays, then runs as each export, on EXPORT_PAGE. `expect`
+ * is what playback must leave (fields listed, clicks and alerts in full); each
+ * export must then leave exactly what playback left. Add a case per behaviour an
+ * export has to share with playback.
+ */
+const EXPORT_CASES = [
+  {
+    name: 'form',
+    variables: { salute: 'Hi' },
+    actions: [
+      { type: 'input', selector: '#name', selectors: { css: '#name' }, value: 'Alice' },
+      { type: 'input', selector: '#color', selectors: { css: '#color' }, value: 'g' },
+      { type: 'click', selector: '#agree', selectors: { css: '#agree' } },
+      { type: 'readdom', selector: '#code', selectors: { css: '#code' }, varName: 'code', readFrom: 'text' },
+      { type: 'input', selector: '#echo', selectors: { css: '#echo' }, value: '${salute} ${code}' },
+      { type: 'click', selector: '#submit', selectors: { css: '#submit' } },
+      { type: 'condition', conditionType: 'elementExists', selector: '#submit', selectors: { css: '#submit' }, skipCount: 1 },
+      { type: 'click', selector: '#after', selectors: { css: '#after' } },
+      { type: 'condition', conditionType: 'elementExists', selector: '#nope', selectors: { css: '#nope' }, skipCount: 1 },
+      { type: 'click', selector: '#never', selectors: { css: '#never' } },
+    ],
+    expect: { fields: { name: 'Alice', color: 'g', agree: true, echo: 'Hi ORD-42' }, clicks: ['submit', 'after'], alerts: [] },
+  },
+];
+
+// The exported Selenium script, first run included (Selenium Manager may fetch a driver).
+const PYTHON_RUN_TIMEOUT_MS = 180_000;
+// The bookmarklet runs in the page; its own step delays and waits add up.
+const BOOKMARKLET_RUN_TIMEOUT_MS = 60_000;
+
+/**
+ * Put on PYTHONPATH for the Selenium run: makes webdriver.Edge headless, so the
+ * exported script runs exactly as a user gets it and still opens no window.
+ */
+const HEADLESS_EDGE_SHIM = `import selenium.webdriver as _w
+
+_Edge = _w.Edge
+
+
+def _headless_edge(*args, **kwargs):
+    options = kwargs.get("options") or _w.EdgeOptions()
+    options.add_argument("--headless=new")
+    kwargs["options"] = options
+    return _Edge(*args, **kwargs)
+
+
+_w.Edge = _headless_edge
+`;
+
+const runFile = (file, args, opts) => new Promise((res) => {
+  execFile(file, args, { windowsHide: true, ...opts }, (error, stdout, stderr) => res({ error, stdout, stderr }));
+});
+
+/** Why the Selenium run cannot happen on this machine, or null when it can. */
+async function pythonMissing() {
+  const { error, stderr } = await runFile('python', ['-c', 'import selenium']);
+  if (!error) return null;
+  return error.code === 'ENOENT' ? 'no python on PATH' : `no selenium for python (${String(stderr).trim().split('\n').pop()})`;
+}
+
+/** The fields whose values differ between two page states, as { field: [a, b] }. */
+function stateDiff(a, b) {
+  const out = {};
+  for (const k of new Set([...Object.keys(a?.fields || {}), ...Object.keys(b?.fields || {})])) {
+    if (a?.fields?.[k] !== b?.fields?.[k]) out[k] = [a?.fields?.[k], b?.fields?.[k]];
+  }
+  for (const k of ['clicks', 'alerts']) {
+    if (JSON.stringify(a?.[k]) !== JSON.stringify(b?.[k])) out[k] = [a?.[k], b?.[k]];
+  }
+  return out;
+}
+
+async function checkExportRun(ctx) {
+  const extModule = (p) => pathToFileURL(join(EXT, p)).href;
+  const { generateBookmarklet, toBookmarkletUrl } = await import(extModule('popup/export-bookmarklet.js'));
+  const { generateSeleniumPy } = await import(extModule('popup/export-selenium.js'));
+  const { getUsedVarNames } = await import(extModule('popup/utils.js'));
+  const noPython = await pythonMissing();
+  if (noPython) console.log(`  – the Selenium runs are skipped: ${noPython}`);
+  const dir = mkdtempSync(join(tmpdir(), 'pqa-export-'));
+  writeFileSync(join(dir, 'sitecustomize.py'), HEADLESS_EDGE_SHIM);
+  const pageUrl = (key) => `${ctx.base}/export?run=${encodeURIComponent(key)}`;
+  try {
+    for (const c of EXPORT_CASES) {
+      await ctx.send({ type: 'SAVE_VARIABLES', variables: c.variables || {} });
+      const id = await makeScenario(ctx, `e2e export ${c.name}`, c.actions);
+      // The exports get what the modal hands them: the stored actions, and the variables they use.
+      const actions = (await ctx.send({ type: 'GET_SCENARIOS' })).scenarios[id].actions;
+      const used = getUsedVarNames(actions);
+      const variables = Object.fromEntries(Object.entries((await ctx.send({ type: 'GET_VARIABLES' })).variables || {})
+        .filter(([k]) => used.has(k)));
+      const states = {};
+
+      await ctx.web.goto(pageUrl(`${c.name}:playback`));
+      await sleep(PAGE_SETTLE_MS);
+      const played = await play(ctx, id);
+      if (played.timedOut) fail(`${c.name}: playback did not finish`);
+      states.playback = exportStates.get(`${c.name}:playback`)?.state;
+
+      await ctx.web.goto(pageUrl(`${c.name}:bookmarklet`));
+      const url = toBookmarkletUrl(generateBookmarklet(c.name, actions, variables).code);
+      // What a click on the bookmark runs: the URL, percent-decoded.
+      await ctx.web.evaluate(decodeURIComponent(url.slice('javascript:'.length)), BOOKMARKLET_RUN_TIMEOUT_MS)
+        .catch((e) => fail(`${c.name}: the bookmarklet threw: ${e.message}`));
+      await sleep(SETTLE_MS);
+      states.bookmarklet = exportStates.get(`${c.name}:bookmarklet`)?.state;
+
+      if (!noPython) {
+        const file = join(dir, `${c.name}.py`);
+        writeFileSync(file, generateSeleniumPy(c.name, actions, variables,
+          { driverType: 'Edge', startUrl: pageUrl(`${c.name}:selenium`) }).code);
+        const env = HEADED ? process.env : { ...process.env, PYTHONPATH: dir };
+        const r = await runFile('python', [file], { env, timeout: PYTHON_RUN_TIMEOUT_MS });
+        if (r.error) fail(`${c.name}: the Selenium script failed: ${String(r.stderr || r.error.message).trim().split('\n').slice(-3).join(' | ')}`);
+        await sleep(SETTLE_MS);
+        states.selenium = exportStates.get(`${c.name}:selenium`)?.state;
+      }
+
+      // Fields not named in `expect` are taken as playback left them.
+      const expected = { ...c.expect, fields: { ...states.playback?.fields, ...c.expect.fields } };
+      const wanted = stateDiff(states.playback, expected);
+      check(states.playback && !Object.keys(wanted).length, `${c.name}: playback leaves the expected page`, wanted);
+      for (const runner of ['bookmarklet', 'selenium']) {
+        if (!(runner in states)) continue;
+        const diff = stateDiff(states.playback, states[runner]);
+        check(states[runner] && !Object.keys(diff).length,
+          `${c.name}: the ${runner} export leaves the page as playback does`, states[runner] ? diff : 'no state posted');
+      }
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    // The checks after this one reload the test page.
+    await ctx.web.goto(`${ctx.base}/page`);
+    await sleep(PAGE_SETTLE_MS);
+  }
+}
+
 async function checkRecordUntrusted(ctx) {
   await reloadTestPage(ctx);
   const { actions } = await record(ctx, 'e2e record untrusted', async () => {
@@ -1008,6 +1200,7 @@ const CHECKS = [
   ['typed-text', 'A Text selector typed in the form', checkTypedText],
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],
+  ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],
   ['record-input-order', 'Typing, then a click at once', checkRecordInputOrder],
@@ -1022,8 +1215,9 @@ async function main() {
   }
   const server = await new Promise((res) => {
     const s = createServer((req, reply) => {
+      if (req.method === 'POST' && req.url === '/state') { saveExportState(req, reply); return; }
       reply.setHeader('content-type', 'text/html; charset=utf-8');
-      reply.end(TEST_PAGE);
+      reply.end(req.url.startsWith('/export') ? EXPORT_PAGE : TEST_PAGE);
     });
     s.listen(0, '127.0.0.1', () => res(s));
   });
