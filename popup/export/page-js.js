@@ -58,6 +58,29 @@ export const FIND_CHILD_JS = String.raw`(parent, cond) => {
   return _tryFind(cond);
 }`;
 
+/**
+ * (text, tag) → the element a Text locator finds; the text strategy of _locators
+ * and _innermostWithText in content.js. With `tag` (picked on the page): the
+ * first such element whose trimmed text is `text`. Without (typed in the form):
+ * the first element whose text, trimmed, is exactly `text`, then the deepest one
+ * inside it that still is — the <span> in <button><span>OK</span></button>, and
+ * never "OK Cancel".
+ */
+export const FIND_TEXT_JS = String.raw`(text, tag) => {
+  if (tag) return Array.from(document.querySelectorAll(tag)).find(el => el.textContent.trim() === text) || null;
+  const want = String(text).trim();
+  const holds = (el) => el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE' && el.textContent.trim() === want;
+  const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (el) => (el.textContent.includes(want) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+  });
+  let hit = null;
+  for (let el = walker.nextNode(); el; el = walker.nextNode()) {
+    if (hit && !hit.contains(el)) break;
+    if (holds(el)) hit = el;
+  }
+  return hit;
+}`;
+
 // Each action function starts as playback's PLAY_ACTION does for every element
 // action: scroll the element to the middle of the view, then focus it.
 

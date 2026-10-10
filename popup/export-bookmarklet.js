@@ -8,8 +8,9 @@ import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
 import {
-  CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES,
+  CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
 } from './export/page-js.js';
+import { locatorsOf } from '../shared/locator-order.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -35,7 +36,7 @@ function makeRandomFn(type, length) {
 // `sleep` would shadow a helper and one called `class` is a SyntaxError — those
 // get a `_v` suffix instead.
 const _RESERVED_JS = new Set([
-  'sleep', 'getEl', '_qsel', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
+  'sleep', 'getEl', '_qsel', '_first', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
   'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete',
   'do', 'else', 'enum', 'export', 'extends', 'false', 'finally', 'for', 'function', 'if',
   'import', 'in', 'instanceof', 'new', 'null', 'return', 'super', 'switch', 'this', 'throw',
@@ -58,40 +59,35 @@ function _sanitizeVarName(name) {
   return _RESERVED_JS.has(safe) ? safe + '_v' : safe;
 }
 
-// An XPath string literal. XPath 1.0 has no escapes, so a text holding both
-// kinds of quote is put together with concat().
-function _xpathLiteral(s) {
-  if (!s.includes("'")) return `'${s}'`;
-  if (!s.includes('"')) return `"${s}"`;
-  return `concat(${s.split("'").map((p) => `'${p}'`).join(`, "'", `)})`;
+/**
+ * The locators of the element an action acts on — of its drop target with
+ * `target` — in the order playback tries them (shared/locator-order.js), the
+ * selector type chosen in the form first. Never empty: an action without any
+ * keeps the empty selector it always exported.
+ */
+function locatorsFor(action, target = false) {
+  const locs = target
+    ? locatorsOf(action.targetSelectors, action.targetSelector, action.targetSelectorType)
+    : locatorsOf(action.selectors, action.selector, action.selectorType);
+  return locs.length ? locs : [{ type: 'css', value: '' }];
 }
 
-/**
- * The locator of `sels` named by `type` (the selector type chosen in the form)
- * as a selector _qsel takes — CSS, or XPath when it starts with / or ( — or ''
- * when there is none. Playback tries the chosen type first (content.js).
- */
-function _chosenSel(sels, type) {
-  const v = sels?.[type];
-  if (!type || typeof v !== 'string' || !v) return '';
+// One locator as _qsel takes it: a CSS or XPath string (XPath when it starts with
+// / or (), or { text, tag } for the Text search.
+function locToJS({ type, value, tag }) {
   switch (type) {
-    case 'css': case 'xpath': case 'fullXpath': return v;
-    case 'id':   return '#' + cssEscape(v);
-    case 'name': return `[name="${cssEscape(v)}"]`;
-    case 'text': return `//*[contains(text(), ${_xpathLiteral(v)})]`;
-    default:     return '';
+    case 'id':     return valueToJS('#' + cssEscape(value));
+    case 'name':   return valueToJS(`[name="${cssEscape(value)}"]`);
+    case 'testId': return valueToJS(`[data-testid="${cssEscape(value)}"]`);
+    case 'dataId': return valueToJS(`[data-id="${cssEscape(value)}"]`);
+    case 'text':   return `{ text: ${valueToJS(value)}${tag ? `, tag: ${JSON.stringify(tag)}` : ''} }`;
+    default:       return valueToJS(value); // css, xpath, fullXpath
   }
 }
 
-function getBestSel(action) {
-  const s = action.selectors || {};
-  return _chosenSel(s, action.selectorType)
-    || s.css
-    || action.selector
-    || (s.id ? '#' + s.id : '')
-    || s.xpath
-    || s.fullXpath
-    || '';
+// What getEl and _first take: the one locator as it always was, else all of them in order.
+function locsJS(locs) {
+  return locs.length === 1 ? locToJS(locs[0]) : `[${locs.map(locToJS).join(', ')}]`;
 }
 
 // Returns a JS expression string representing the value.
@@ -240,7 +236,7 @@ function condHeader(action, stepNum, step, ctx) {
     ctx.warnings.add(`Condition step ${stepNum}: type "${type}" is unknown — the exported code stops there, as a run does`);
     return [head, `throw new Error(${JSON.stringify(`Condition step ${stepNum}: unknown condition type, named in the comment above`)});`, 'if (true) {'];
   }
-  const el = type.startsWith('url') ? 'null' : `_qsel(${valueToJS(getBestSel(action))})`;
+  const el = type.startsWith('url') ? 'null' : `_first(${locsJS(locatorsFor(action))})`;
   return [head, `if (_checkCond(${JSON.stringify(type)}, ${el}, ${valueToJS(action.expectedValue)})) {`];
 }
 
@@ -250,7 +246,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
   const stepNum = step.n;
   const lbl = action.label ? ` — ${commentText(action.label)}` : '';
   const delay = action.delay != null ? action.delay : stepDelay;
-  const sel = getBestSel(action);
+  const sel = locsJS(locatorsFor(action));
   const v = `_el${stepNum}`;
 
   if (SKIPPED_TYPES.has(action.type)) {
@@ -265,11 +261,11 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'click':
       out.push(`// Step ${stepNum}: click${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
         out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
       }
       out.push(`_click(${v});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
@@ -278,11 +274,11 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'input':
       out.push(`// Step ${stepNum}: input${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
         out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
       }
       out.push(`_setInput(${v}, ${valueToJS(action.value)});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
@@ -291,11 +287,11 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'hover':
       out.push(`// Step ${stepNum}: hover${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
         out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
       }
       out.push(`_hover(${v});`);
       if (delay > 0) out.push(`await sleep(${delay});`);
@@ -304,23 +300,22 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
     case 'dropdown':
       if (action.pick) {
         out.push(`// Step ${stepNum}: dropdown → item #${_pickLabel(action)}${lbl}`);
-        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
         out.push(`await _pickItem(${v}, ${valueToJS(action.pick.index)}, ${valueToJS(action.pick.itemSelector || '')}, ${elTimeout});`);
         if (delay > 0) out.push(`await sleep(${delay});`);
         break;
       }
       out.push(`// Step ${stepNum}: open dropdown (freeze)${lbl}`);
-      out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+      out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
       out.push(`${v}.click();`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
 
     case 'dragdrop': {
-      const tgt = _chosenSel(action.targetSelectors, action.targetSelectorType)
-        || action.targetSelectors?.css || action.targetSelector || '';
+      const tgt = locsJS(locatorsFor(action, true));
       out.push(`// Step ${stepNum}: dragdrop${lbl}`);
-      out.push(`const ${v}_s = await getEl(${valueToJS(sel)}, ${elTimeout});`);
-      out.push(`const ${v}_t = await getEl(${valueToJS(tgt)}, ${elTimeout});`);
+      out.push(`const ${v}_s = await getEl(${sel}, ${elTimeout});`);
+      out.push(`const ${v}_t = await getEl(${tgt}, ${elTimeout});`);
       out.push(`_dragDrop(${v}_s, ${v}_t);`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
@@ -377,11 +372,11 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       const targets = [varName, ...slots.map(_sanitizeVarName)].filter(Boolean);
       out.push(`// Step ${stepNum}: readdom → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
-        out.push(`const ${v}_p = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v}_p = await getEl(${sel}, ${elTimeout});`);
         out.push(`const ${v} = _findChild(${v}_p, ${_conditionsToJS(action.conditions)});`);
         out.push(`if (!${v}) throw new Error('Child condition not matched (step ${stepNum})');`);
       } else {
-        out.push(`const ${v} = await getEl(${valueToJS(sel)}, ${elTimeout});`);
+        out.push(`const ${v} = await getEl(${sel}, ${elTimeout});`);
       }
       // _readVal mirrors what the extension reads for each "Read from" choice.
       const readExpr = `_readVal(${v}, ${JSON.stringify(action.readFrom || 'text')}, ${valueToJS(action.attrName || '')})`;
@@ -523,6 +518,8 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   const layout = getSwitchLayout(all);
   const steps  = [];
   const ctx = { staticVars, warnings, all, layout, steps };
+  // The steps first: the helpers declared below depend on what they use.
+  const bodyLines = processActions(all, 0, stepDelay, elTimeout, ctx);
 
   const out = [];
 
@@ -534,23 +531,36 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('  // --- HELPER FUNCTIONS ---');
   out.push('  const sleep = ms => new Promise(r => setTimeout(r, ms));');
   out.push('');
-  out.push('  const _qsel = sel => (sel.startsWith(\'/\') || sel.startsWith(\'(\'))');
-  out.push('    ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue');
-  out.push('    : document.querySelector(sel);');
+  // A locator is a CSS or XPath string, or { text, tag } for the Text search; a
+  // step may give several, tried in order as playback tries them, and one the
+  // page cannot parse is passed over as playback passes it over.
+  out.push("  const _qsel = sel => (typeof sel === 'object' ? _findText(sel.text, sel.tag || '')");
+  out.push("    : (sel.startsWith('/') || sel.startsWith('('))");
+  out.push('      ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue');
+  out.push('      : document.querySelector(sel));');
   out.push('');
-  out.push(`  const getEl = (sel, timeout = ${elTimeout}) => new Promise((res, rej) => {`);
-  out.push('    const el = _qsel(sel);');
+  out.push('  const _first = sels => {');
+  out.push('    for (const sel of [].concat(sels)) {');
+  out.push('      try { const el = _qsel(sel); if (el) return el; } catch (e) { /* a selector this page cannot parse */ }');
+  out.push('    }');
+  out.push('    return null;');
+  out.push('  };');
+  out.push('');
+  out.push(`  const getEl = (sels, timeout = ${elTimeout}) => new Promise((res, rej) => {`);
+  out.push('    const el = _first(sels);');
   out.push('    if (el) return res(el);');
   out.push('    const obs = new MutationObserver(() => {');
-  out.push('      const found = _qsel(sel);');
+  out.push('      const found = _first(sels);');
   out.push('      if (found) { obs.disconnect(); res(found); }');
   out.push('    });');
   out.push('    obs.observe(document.body, { childList: true, subtree: true });');
-  // This string is single-quoted so `${sel}` is NOT template-interpolated by our
-  // generator — it is emitted verbatim. In the generated bookmarklet, `sel` will be
-  // a real JS variable, and the backtick template literal will work correctly at run time.
-  out.push('    setTimeout(() => { obs.disconnect(); rej(new Error(`Timeout: ${sel}`)); }, timeout);');
+  // Single-quoted, so the generator leaves `${...}` for the bookmarklet's own template literal.
+  out.push('    setTimeout(() => { obs.disconnect(); rej(new Error(`Timeout: ${JSON.stringify(sels)}`)); }, timeout);');
   out.push('  });');
+  if (bodyLines.some(l => l.includes('{ text: '))) {
+    out.push('');
+    out.push(...declarePageJs('_findText', FIND_TEXT_JS));
+  }
   out.push('');
   // The action helpers playback's own events come from (page-js.js), each only when a step uses it.
   for (const [name, src, used] of [
@@ -634,7 +644,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('  try {');
   out.push('');
 
-  for (const line of processActions(actions || [], 0, stepDelay, elTimeout, ctx)) {
+  for (const line of bodyLines) {
     out.push(line === '' ? '' : '    ' + line);
   }
 

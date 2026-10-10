@@ -6,64 +6,93 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
-import { FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS } from './export/page-js.js';
+import {
+  FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS,
+} from './export/page-js.js';
+import { locatorsOf } from '../shared/locator-order.js';
+import { cssEscape } from '../shared/css-escape.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
 }
 
-// Picks the best available selector and returns { type, value }.
-// The type chosen in the form comes first, as playback tries it first
-// (content.js); otherwise ID, the most stable, before generic CSS.
-function getBestSelInfo(action) {
-  const s = action.selectors || {};
-  const chosen = action.selectorType;
-  if (chosen && typeof s[chosen] === 'string' && s[chosen]) return { type: chosen, value: s[chosen] };
-  if (s.id)        return { type: 'id',        value: s.id };
-  if (s.name)      return { type: 'name',      value: s.name };
-  if (s.css)       return { type: 'css',       value: s.css };
-  if (s.text)      return { type: 'text',      value: s.text };
-  if (s.xpath)     return { type: 'xpath',     value: s.xpath };
-  if (s.fullXpath) return { type: 'fullXpath', value: s.fullXpath };
-  return { type: action.selectorType || 'css', value: action.selector || '' };
+/**
+ * The locators of the element an action acts on — of its drop target with
+ * `target` — in the order playback tries them (shared/locator-order.js), the
+ * selector type chosen in the form first. Never empty: an action without any
+ * keeps the empty CSS selector it always exported.
+ */
+function locatorsFor(action, target = false) {
+  const locs = target
+    ? locatorsOf(action.targetSelectors, action.targetSelector, action.targetSelectorType)
+    : locatorsOf(action.selectors, action.selector, action.selectorType);
+  return locs.length ? locs : [{ type: 'css', value: '' }];
 }
 
-function getBestTargetSelInfo(action) {
-  const s = action.targetSelectors || {};
-  const chosen = action.targetSelectorType;
-  if (chosen && typeof s[chosen] === 'string' && s[chosen]) return { type: chosen, value: s[chosen] };
-  if (s.css)       return { type: 'css',   value: s.css };
-  if (s.xpath)     return { type: 'xpath', value: s.xpath };
-  if (s.id)        return { type: 'id',    value: s.id };
-  if (s.name)      return { type: 'name',  value: s.name };
-  return { type: action.targetSelectorType || 'css', value: action.targetSelector || '' };
-}
-
-// Returns a Python (By.*, "selector") tuple string. Selectors can hold
-// ${var} references, so they go through valueToPy() like any other value.
-function selToPy(selInfo) {
-  const { type, value } = selInfo;
+// One locator as Python: a (By…, value) pair, or ("text", value[, tag]) for
+// _locate's Text search. Values may hold ${var}, so they go through valueToPy().
+function locToPy({ type, value, tag }) {
   switch (type) {
-    case 'css':
-      return `By.CSS_SELECTOR, ${valueToPy(value)}`;
-    case 'id':
-      return `By.ID, ${valueToPy(value)}`;
-    case 'name':
-      return `By.NAME, ${valueToPy(value)}`;
+    case 'id':        return `(By.ID, ${valueToPy(value)})`;
+    case 'name':      return `(By.NAME, ${valueToPy(value)})`;
     case 'xpath':
-    case 'fullXpath':
-      return `By.XPATH, ${valueToPy(value)}`;
-    case 'text': {
-      // Build XPath using single-quotes when safe, else use concat()
-      if (!value.includes("'")) {
-        return `By.XPATH, ${valueToPy(`//*[contains(text(), '${value}')]`)}`;
-      }
-      const parts = value.split("'").map(p => `'${p}'`).join(", \"'\", ");
-      return `By.XPATH, ${valueToPy(`//*[contains(text(), concat(${parts}))]`)}`;
-    }
-    default:
-      return `By.CSS_SELECTOR, ${valueToPy(value)}`;
+    case 'fullXpath': return `(By.XPATH, ${valueToPy(value)})`;
+    case 'testId':    return `(By.CSS_SELECTOR, ${valueToPy(`[data-testid="${cssEscape(value)}"]`)})`;
+    case 'dataId':    return `(By.CSS_SELECTOR, ${valueToPy(`[data-id="${cssEscape(value)}"]`)})`;
+    case 'text':      return `("text", ${valueToPy(value)}${tag ? `, ${JSON.stringify(tag)}` : ''})`;
+    default:          return `(By.CSS_SELECTOR, ${valueToPy(value)})`;
   }
+}
+
+const locsPy = (locs) => `[${locs.map(locToPy).join(', ')}]`;
+
+/**
+ * The expression that waits for an element: WebDriverWait on its one By locator,
+ * as the export always wrote it, else _find over all its locators in order.
+ */
+function waitPy(locs, tout, clickable = false) {
+  if (locs.length === 1 && locs[0].type !== 'text') {
+    return `WebDriverWait(driver, ${tout}).until(EC.${clickable ? 'element_to_be_clickable' : 'presence_of_element_located'}(${locToPy(locs[0])}))`;
+  }
+  return `_find(${locsPy(locs)}, ${tout}${clickable ? ', clickable=True' : ''})`;
+}
+
+/**
+ * The _locate() / _find() runtime helpers: findElementWithFallback of content.js,
+ * each locator in turn until one finds the element, a selector the browser
+ * cannot parse passed over as playback passes it over.
+ */
+function _locateHelperPy() {
+  return [
+    '# How the extension finds an element (content.js _locators): each locator in turn',
+    '# until one finds it; ("text", t[, tag]) is its Text search, run in the page.',
+    ...pyPageJs('_FIND_TEXT_JS', FIND_TEXT_JS),
+    '',
+    '',
+    'def _locate(locators):',
+    '    for how, what, *tag in locators:',
+    '        try:',
+    '            if how == "text":',
+    '                el = driver.execute_script(_FIND_TEXT_JS, what, tag[0] if tag else "")',
+    '            else:',
+    '                found = driver.find_elements(how, what)',
+    '                el = found[0] if found else None',
+    '        except InvalidSelectorException:',
+    '            continue',
+    '        if el is not None:',
+    '            return el',
+    '    return None',
+    '',
+    '',
+    'def _find(locators, timeout, clickable=False):',
+    '    def ready(_):',
+    '        el = _locate(locators)',
+    '        if el is None or (clickable and not (el.is_displayed() and el.is_enabled())):',
+    '            return False',
+    '        return el',
+    '    wait = WebDriverWait(driver, timeout, ignored_exceptions=(StaleElementReferenceException,))',
+    '    return wait.until(ready, f"no element found by {locators}")',
+  ];
 }
 
 // Converts a value that may contain ${varName} to a Python string/f-string.
@@ -104,7 +133,8 @@ function valueToPy(val) {
 // fail to parse, so those get a `_v` suffix.
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
-  '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS',
+  '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS',
+  'InvalidSelectorException', 'StaleElementReferenceException',
   'Select', 'ActionChains', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
   'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
@@ -184,10 +214,10 @@ function _jsEscapeHelperPy() {
  * playback reads textContent, and compared textEquals untrimmed. null for a
  * type this version does not know.
  */
-function condExprPy(action, selPy) {
+function condExprPy(action, locs) {
   const type = action.conditionType;
   if (!CONDITION_TYPES.has(type)) return null;
-  const locator = type.startsWith('url') ? 'None' : `(${selPy})`;
+  const locator = type.startsWith('url') ? 'None' : locsPy(locs);
   return `_check_cond(${JSON.stringify(type)}, ${locator}, ${valueToPy(action.expectedValue)})`;
 }
 
@@ -198,9 +228,9 @@ function _checkCondHelperPy() {
     ...pyPageJs('_CHECK_COND_JS', CHECK_COND_JS),
     '',
     '',
-    'def _check_cond(cond_type, locator, expected):',
-    '    found = driver.find_elements(*locator) if locator else []',
-    '    return driver.execute_script(_CHECK_COND_JS, cond_type, found[0] if found else None, expected)',
+    'def _check_cond(cond_type, locators, expected):',
+    '    el = _locate(locators) if locators else None',
+    '    return driver.execute_script(_CHECK_COND_JS, cond_type, el, expected)',
   ];
 }
 
@@ -315,7 +345,7 @@ function _findChildHelperPy() {
  * unrolled version did — compared against the literal spec text and never matched.
  * The dict reaches the page's _findChild as an object, matchMode included.
  */
-function _buildChildCondPy(conditions, elVar, tout, selPy, stepNum) {
+function _buildChildCondPy(conditions, elVar, tout, locs, stepNum) {
   const cond  = conditions;
   const lines = [];
 
@@ -326,7 +356,7 @@ function _buildChildCondPy(conditions, elVar, tout, selPy, stepNum) {
     }
   }
 
-  lines.push(`${elVar}_p = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
+  lines.push(`${elVar}_p = ${waitPy(locs, tout)}`);
   lines.push(`${elVar} = _find_child(${elVar}_p, {${parts.join(', ')}})`);
   lines.push(`if ${elVar} is None:`);
   lines.push(`    raise Exception("Child condition not matched (step ${stepNum})")`);
@@ -340,8 +370,7 @@ function actionLines(action, step, stepDelay, elTimeout) {
   const lbl    = action.label ? ` — ${commentText(action.label)}` : '';
   const delay  = msToSec(action.delay != null ? action.delay : stepDelay);
   const tout   = msToSec(elTimeout);
-  const sel    = getBestSelInfo(action);
-  const selPy  = selToPy(sel);
+  const locs   = locatorsFor(action);
   const elVar  = `el${stepNum}`;
   const out    = [];
 
@@ -349,9 +378,9 @@ function actionLines(action, step, stepDelay, elTimeout) {
     case 'click':
       out.push(`# Step ${stepNum}: click${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, selPy, stepNum));
+        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum));
       } else {
-        out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.element_to_be_clickable((${selPy})))`);
+        out.push(`${elVar} = ${waitPy(locs, tout, true)}`);
       }
       out.push(`${elVar}.click()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
@@ -361,9 +390,9 @@ function actionLines(action, step, stepDelay, elTimeout) {
       const val = valueToPy(action.value);
       out.push(`# Step ${stepNum}: input${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, selPy, stepNum));
+        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum));
       } else {
-        out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
+        out.push(`${elVar} = ${waitPy(locs, tout)}`);
       }
       out.push(`if ${elVar}.tag_name == 'select':`);
       out.push(`    try:`);
@@ -382,9 +411,9 @@ function actionLines(action, step, stepDelay, elTimeout) {
     case 'hover':
       out.push(`# Step ${stepNum}: hover${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, selPy, stepNum));
+        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum));
       } else {
-        out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
+        out.push(`${elVar} = ${waitPy(locs, tout)}`);
       }
       out.push(`ActionChains(driver).move_to_element(${elVar}).perform()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
@@ -393,23 +422,21 @@ function actionLines(action, step, stepDelay, elTimeout) {
     case 'dropdown':
       if (action.pick) {
         out.push(`# Step ${stepNum}: dropdown → item #${String(action.pick.index ?? '?').replace(/\s+/g, ' ')}${lbl}`);
-        out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.element_to_be_clickable((${selPy})))`);
+        out.push(`${elVar} = ${waitPy(locs, tout, true)}`);
         out.push(`_pick_item(${elVar}, ${valueToPy(action.pick.index)}, ${valueToPy(action.pick.itemSelector || '')}, ${tout})`);
         if (delay > 0) out.push(`time.sleep(${delay})`);
         break;
       }
       out.push(`# Step ${stepNum}: open dropdown (freeze)${lbl}`);
-      out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.element_to_be_clickable((${selPy})))`);
+      out.push(`${elVar} = ${waitPy(locs, tout, true)}`);
       out.push(`${elVar}.click()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
 
     case 'dragdrop': {
-      const tgt   = getBestTargetSelInfo(action);
-      const tgtPy = selToPy(tgt);
       out.push(`# Step ${stepNum}: drag & drop${lbl}`);
-      out.push(`${elVar}_src = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
-      out.push(`${elVar}_tgt = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${tgtPy})))`);
+      out.push(`${elVar}_src = ${waitPy(locs, tout)}`);
+      out.push(`${elVar}_tgt = ${waitPy(locatorsFor(action, true), tout)}`);
       out.push(`ActionChains(driver).drag_and_drop(${elVar}_src, ${elVar}_tgt).perform()`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -451,9 +478,9 @@ function actionLines(action, step, stepDelay, elTimeout) {
       const targets = [varName, ...slots.map(safeVarName)].filter(Boolean);
       out.push(`# Step ${stepNum}: read DOM → ${targets.map(t => `"${t}"`).join(', ')}${lbl}`);
       if (action.conditions) {
-        out.push(..._buildChildCondPy(action.conditions, elVar, tout, selPy, stepNum));
+        out.push(..._buildChildCondPy(action.conditions, elVar, tout, locs, stepNum));
       } else {
-        out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
+        out.push(`${elVar} = ${waitPy(locs, tout)}`);
       }
       // _read_val runs the extension's own reader in the page, so "Text content"
       // (textContent) and "Visible text" (innerText) match playback exactly.
@@ -489,7 +516,7 @@ function actionLines(action, step, stepDelay, elTimeout) {
 
     case 'screenshot_element':
       out.push(`# Step ${stepNum}: screenshot element${lbl}`);
-      out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
+      out.push(`${elVar} = ${waitPy(locs, tout)}`);
       out.push(`${elVar}.screenshot(f"screenshot_element_step${stepNum}.png")`);
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -498,8 +525,8 @@ function actionLines(action, step, stepDelay, elTimeout) {
       const varName = safeVarName(action.varName || 'screenshot');
       out.push(`# Step ${stepNum}: screenshot → variable "${varName}"${lbl}`);
       out.push(`_ss_file${stepNum} = f"screenshot_${varName}_step${stepNum}.png"`);
-      if (action.target === 'element' && sel.value) {
-        out.push(`${elVar} = WebDriverWait(driver, ${tout}).until(EC.presence_of_element_located((${selPy})))`);
+      if (action.target === 'element' && locs[0].value) {
+        out.push(`${elVar} = ${waitPy(locs, tout)}`);
         out.push(`${elVar}.screenshot(_ss_file${stepNum})`);
       } else {
         out.push(`driver.save_screenshot(_ss_file${stepNum})`);
@@ -561,11 +588,9 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
     if (action.type === 'condition') {
       const skipCount = conditionSkip(action); // 0 for an emptied Condition: empty body
       const lbl  = action.label ? ` — ${commentText(action.label)}` : '';
-      const sel  = getBestSelInfo(action);
-      const selPy = selToPy(sel);
 
       out.push(`# Step ${stepNum}: condition — ${commentText(action.conditionType)}${lbl}`);
-      const condPy = condExprPy(action, selPy);
+      const condPy = condExprPy(action, locatorsFor(action));
       if (condPy === null) {
         // As a run does: it stops there. The name stays in the comment above, never
         // in code; the block is kept for a check put in by hand.
@@ -663,6 +688,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const needsJsEscape     = enabled.some(a => a.type === 'script' && scriptUsesVars(a));
   const needsDropdownPick = enabled.some(a => a.type === 'dropdown' && a.pick);
 
+  // The steps first: whether a step looks an element up by several locators (or
+  // by text) decides which helpers and imports the script needs.
+  const bodyLines   = processActions(all, 0, stepDelay, elTimeout, { all, layout, warnings, steps });
+  const needsLocate = needsCondition || bodyLines.some(l => l.includes('_find(['));
+
   const out = [];
 
   // ── Imports ──
@@ -677,6 +707,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('from selenium.webdriver.support.ui import WebDriverWait, Select');
   out.push('from selenium.webdriver.support import expected_conditions as EC');
   if (needsActionChains) out.push('from selenium.webdriver.common.action_chains import ActionChains');
+  if (needsLocate)       out.push('from selenium.common.exceptions import InvalidSelectorException, StaleElementReferenceException');
   out.push('');
   out.push('');
 
@@ -690,6 +721,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('');
 
   // ── Runtime helpers ──
+  if (needsLocate) {
+    out.push(..._locateHelperPy());
+    out.push('');
+    out.push('');
+  }
   if (needsCondition) {
     out.push(..._checkCondHelperPy());
     out.push('');
@@ -795,7 +831,6 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('try:');
   out.push('');
 
-  const bodyLines = processActions(all, 0, stepDelay, elTimeout, { all, layout, warnings, steps });
   for (const line of bodyLines) {
     out.push(line === '' ? '' : '    ' + line);
   }

@@ -66,7 +66,7 @@ test('exports without blocks are unchanged in shape', () => {
     { type: 'click', selector: '#b', selectors: { css: '#b' } },
   ];
   const { code } = generateBookmarklet('plain', plain, {});
-  assert.match(code, /if \(_checkCond\("elementExists", _qsel\("#x"\), ''\)\) \{\n\s+\/\/ Step 2: click/);
+  assert.match(code, /if \(_checkCond\("elementExists", _first\("#x"\), ''\)\) \{\n\s+\/\/ Step 2: click/);
   assert.match(code, /\}\n\n\s+\/\/ Step 3: click/);
 });
 
@@ -219,14 +219,14 @@ test('both exports check a Condition with the in-page check, and stop on an unkn
     { type: 'click', selector: '#d', selectors: { css: '#d' } },
   ];
   const py = generateSeleniumPy('conds', steps, { n: '5' });
-  assert.match(py.code, /^ {4}if _check_cond\("hasAttribute", \(By\.CSS_SELECTOR, "#t"\), f"data-id=\{n\}"\):$/m);
+  assert.match(py.code, /^ {4}if _check_cond\("hasAttribute", \[\(By\.CSS_SELECTOR, "#t"\)\], f"data-id=\{n\}"\):$/m);
   assert.match(py.code, /^ {4}if _check_cond\("urlContains", None, "cart"\):$/m);
   // It stops there; the block after it is kept for a check put in by hand.
   assert.match(py.code, /^ {4}raise Exception\("Condition step 5: unknown condition type, named in the comment above"\)\n {4}if True:\n {8}# Step 6: click$/m);
   assert.equal(compilePy(py.code), null);
 
   const js = generateBookmarklet('conds', steps, { n: '5' });
-  assert.match(js.code, /^ {4}if \(_checkCond\("hasAttribute", _qsel\("#t"\), `data-id=\$\{n\}`\)\) \{$/m);
+  assert.match(js.code, /^ {4}if \(_checkCond\("hasAttribute", _first\("#t"\), `data-id=\$\{n\}`\)\) \{$/m);
   assert.match(js.code, /^ {4}if \(_checkCond\("urlContains", null, "cart"\)\) \{$/m);
   assert.match(js.code, /^ {4}throw new Error\("Condition step 5: unknown condition type, named in the comment above"\);\n {4}if \(true\) \{\n {6}\/\/ Step 6: click$/m);
   new Function(js.code.replace(/^javascript:/, ''));
@@ -256,28 +256,75 @@ test('the copied bookmark URL is the code as written, and it runs', async () => 
   assert.ok(runs.includes('John  Smith\\t100%41'), 'values keep their spacing and percent signs');
 });
 
-test('both exports try the selector type chosen in the form first, as playback does', () => {
+test('both exports try every locator in the order playback does, the chosen type first', () => {
   const sels = { id: 'go', css: '#go-css', xpath: '//button[@id="go"]', name: 'q', text: 'it\'s "ok"' };
   const click = (selectorType) => ({ type: 'click', selector: '#go-css', selectors: sels, ...(selectorType ? { selectorType } : {}) });
   const steps = [
     click('css'), click('xpath'), click('name'), click('text'), click(null),
     { type: 'dragdrop', selector: '#go-css', selectors: sels, selectorType: 'css',
       targetSelector: '#t', targetSelectors: { css: '#t', xpath: '//div[@id="t"]' }, targetSelectorType: 'xpath' },
+    { type: 'click', selectors: { text: 'OK', textTag: 'button' } },
   ];
-  const textXPath = `//*[contains(text(), concat('it', "'", 's "ok"'))]`;
+  const orders = [
+    ['css', 'id', 'xpath', 'name', 'text'], ['xpath', 'id', 'css', 'name', 'text'], ['name', 'id', 'xpath', 'css', 'text'],
+    ['text', 'id', 'xpath', 'css', 'name'], ['id', 'xpath', 'css', 'name', 'text'], ['css', 'id', 'xpath', 'name', 'text'],
+  ];
 
+  const PY = { css: '(By.CSS_SELECTOR, "#go-css")', id: '(By.ID, "go")', xpath: '(By.XPATH, "//button[@id=\\"go\\"]")',
+    name: '(By.NAME, "q")', text: `("text", ${JSON.stringify(sels.text)})` };
   const py = generateSeleniumPy('choice', steps, {}).code;
-  for (const [by, sel] of [['CSS_SELECTOR', '#go-css'], ['XPATH', '//button[@id="go"]'], ['NAME', 'q'],
-    ['XPATH', textXPath], ['ID', 'go'], ['XPATH', '//div[@id="t"]']]) {
-    assert.ok(py.includes(`By.${by}, ${JSON.stringify(sel)}`), `${by} ${sel}`);
-  }
+  orders.slice(0, 5).forEach((order, i) => {
+    assert.ok(py.includes(`el${i + 1} = _find([${order.map((t) => PY[t]).join(', ')}], 10, clickable=True)`), order.join());
+  });
+  assert.ok(py.includes(`el6_src = _find([${orders[5].map((t) => PY[t]).join(', ')}], 10)`));
+  assert.ok(py.includes('el6_tgt = _find([(By.XPATH, "//div[@id=\\"t\\"]"), (By.CSS_SELECTOR, "#t")], 10)'));
+  assert.ok(py.includes('el7 = _find([("text", "OK", "button")], 10, clickable=True)'), 'a Text locator alone still goes through _find');
   assert.equal(compilePy(py), null);
 
+  const JS = { css: '"#go-css"', id: '"#go"', xpath: JSON.stringify(sels.xpath), name: JSON.stringify('[name="q"]'),
+    text: `{ text: ${JSON.stringify(sels.text)} }` };
   const js = generateBookmarklet('choice', steps, {}).code;
-  for (const sel of ['#go-css', '//button[@id="go"]', '[name="q"]', textXPath, '//div[@id="t"]']) {
-    assert.ok(js.includes(`getEl(${JSON.stringify(sel)}`), sel);
-  }
+  orders.slice(0, 5).forEach((order, i) => {
+    assert.ok(js.includes(`const _el${i + 1} = await getEl([${order.map((t) => JS[t]).join(', ')}], 5000);`), order.join());
+  });
+  assert.ok(js.includes(`const _el6_t = await getEl([${JSON.stringify('//div[@id="t"]')}, "#t"], 5000);`));
+  assert.ok(js.includes('const _el7 = await getEl({ text: "OK", tag: "button" }, 5000);'));
   new Function(js.replace(/^javascript:/, ''));
+});
+
+test('a step with one locator keeps the short form', () => {
+  const steps = [{ type: 'click', selector: '#n', selectors: { css: '#n' } }, { type: 'input', selectors: { id: 'q' }, value: 'x' }];
+  const py = generateSeleniumPy('short', steps, {}).code;
+  assert.match(py, /el1 = WebDriverWait\(driver, 10\)\.until\(EC\.element_to_be_clickable\(\(By\.CSS_SELECTOR, "#n"\)\)\)/);
+  assert.match(py, /el2 = WebDriverWait\(driver, 10\)\.until\(EC\.presence_of_element_located\(\(By\.ID, "q"\)\)\)/);
+  assert.doesNotMatch(py, /def _find|def _locate/, 'no helper it does not use');
+  const js = generateBookmarklet('short', steps, {}).code;
+  assert.ok(js.includes('const _el1 = await getEl("#n", 5000);') && js.includes('const _el2 = await getEl("#q", 5000);'));
+  assert.doesNotMatch(js, /const _findText/);
+});
+
+test('the in-page Text search finds what playback finds: the innermost exact text, or by tag', async () => {
+  const { FIND_TEXT_JS } = await import('../popup/export/page-js.js');
+  const el = (tagName, text, kids = []) => ({ tagName, textContent: text, kids, contains(o) { return o === this || kids.some((k) => k.contains(o)); } });
+  const span = el('SPAN', 'OK'), button = el('BUTTON', 'OK', [span]), other = el('BUTTON', 'OK Cancel'), body = el('BODY', 'OK Cancel OK', [other, button]);
+  const order = [other, button, span];
+  globalThis.document = {
+    body, querySelectorAll: (t) => order.filter((e) => e.tagName === t.toUpperCase()),
+    createTreeWalker: (root, _what, filter) => {
+      const nodes = order.filter((n) => filter.acceptNode(n) === 1);
+      return { nextNode: () => nodes.shift() ?? null };
+    },
+  };
+  globalThis.NodeFilter = { SHOW_ELEMENT: 1, FILTER_ACCEPT: 1, FILTER_REJECT: 2 };
+  try {
+    const find = new Function(`return (${FIND_TEXT_JS})`)();
+    assert.equal(find(' OK ', ''), span, 'exact once trimmed, innermost; "OK Cancel" is not it');
+    assert.equal(find('OK', 'button'), button, 'a picked element is looked up by its tag');
+    assert.equal(find('Nope', ''), null);
+  } finally {
+    delete globalThis.document;
+    delete globalThis.NodeFilter;
+  }
 });
 
 test('Random: the length is capped at 512 in both exports and the preview, as a run caps it', async () => {

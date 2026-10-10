@@ -992,6 +992,10 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   <button id="done">done</button>
   <input type="date" id="when"><input type="time" id="at"><input type="color" id="shade">
 </div>
+<div id="locs">
+  <button id="okA">okA</button><button id="okB">okB</button>
+  <button id="okCancel">OK Cancel</button> <button id="okBtn"><span id="okSpan">OK</span></button>
+</div>
 <script>
   const run = new URLSearchParams(location.search).get('run');
   const clicks = [], alerts = [], marks = [];
@@ -1128,6 +1132,19 @@ const EXPORT_CASES = [
       { type: 'input', selector: '#shade', selectors: { css: '#shade' }, value: '#336699' },
     ],
     expect: { fields: { when: '2026-10-10', at: '13:45', shade: '#336699' } },
+  },
+  {
+    // Every locator tried in playback's order until one finds the element; a Text
+    // locator matches the exact text, innermost.
+    name: 'locators',
+    actions: [
+      // The CSS is stale; the id, which playback tries before it, is not.
+      { type: 'click', selector: '#broken1', selectors: { css: '#broken1', id: 'okA' } },
+      // The id is stale; the XPath, tried next, is not.
+      { type: 'click', selector: '#broken2', selectors: { id: 'broken2', xpath: '//button[@id="okB"]' } },
+      { type: 'click', selectors: { text: 'OK' }, selectorType: 'text' },
+    ],
+    expect: { clicks: ['okA', 'okB', 'okSpan'] },
   },
 ];
 

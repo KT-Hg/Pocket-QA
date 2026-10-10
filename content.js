@@ -288,6 +288,7 @@ function nextFrame(cb) {
  * user chose in the form (action.selectorType), is tried first; the rest keep
  * that order. Each is { type, fn }: fn returns the element or null, or throws on
  * a selector it cannot parse. `deep` is the shadow-DOM walk.
+ * shared/locator-order.js keeps a copy of this order for the code exports.
  */
 function _locators(selectors, prefer = null, deep = querySelectorDeep) {
   if (typeof selectors === 'string') selectors = { css: selectors };
