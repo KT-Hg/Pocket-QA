@@ -15,6 +15,7 @@ const FILES = {
   exportBookmarklet: 'export-bookmarklet.json',
   exportSelenium: 'export-selenium.json',
   exportSteps: 'export-steps.json',
+  exportPlaywright: 'export-playwright.json',
 };
 
 // Indented down to `depth`, one line per value below it: small files whose diff

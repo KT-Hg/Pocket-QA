@@ -78,12 +78,15 @@
  *                 other format's; stored values an input cannot take leave defaults
  *   export-testcase  Test steps opens as Markdown; CSV gives the same steps, quoted,
  *                 saved as .csv with a BOM
+ *   export-playwright  Playwright Test opens a <name>.spec.js holding one test
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, Edge exported
  *                 headless — with a window under --headed),
  *                 leaves the export page the same way; the form case runs as the
  *                 exported pytest test too, and a pytest test with a failing step
- *                 names it. No python, selenium or pytest: those runs are skipped,
+ *                 names it; the cases the Playwright export covers run as the exported
+ *                 .spec.js too (PQA_PLAYWRIGHT_DIR: a folder with @playwright/test).
+ *                 No python, selenium, pytest or Playwright: those runs are skipped,
  *                 not failed
  *   record-untrusted  a click and an input event the page's own script dispatches
  *                 are not recorded; a real click is
@@ -1179,6 +1182,30 @@ async function checkExportTestcase(ctx) {
   }
 }
 
+async function checkExportPlaywright(ctx) {
+  const id = await makeScenario(ctx, 'Đăng nhập pw', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  const popup = await openPopup(ctx);
+  try {
+    await popup.evaluate(`(() => {
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+      document.getElementById('exportPlaywright').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    const shown = await popup.evaluate(`({
+      label: document.getElementById('exportCodeLabel').textContent,
+      download: document.getElementById('exportDownload').textContent,
+      code: document.querySelector('#exportCode code').textContent,
+    })`);
+    check(shown.label === 'đăng_nhập_pw.spec.js' && shown.download === '⬇ .spec.js'
+      && /^import \{ test \} from '@playwright\/test';$/m.test(shown.code) && shown.code.includes('test("Đăng nhập pw", async ({ page }) => {'),
+      'Playwright Test opens a .spec.js with one test', { label: shown.label, download: shown.download });
+  } finally {
+    await popup.close();
+  }
+}
+
 /**
  * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
  * every input, select, textarea and contenteditable with an id (a checkbox by
@@ -1345,6 +1372,7 @@ const EXPORT_CASES = [
     // Events a page may wait for, fired as playback fires them: mousedown before a
     // click, mousemove on a hover, text into a contenteditable, blur after an Input.
     name: 'actions',
+    runners: ['bookmarklet', 'selenium', 'playwright'],
     actions: [
       { type: 'click', selector: '#mdBtn', selectors: { css: '#mdBtn' } },
       { type: 'hover', selector: '#hoverMenu', selectors: { css: '#hoverMenu' } },
@@ -1367,6 +1395,7 @@ const EXPORT_CASES = [
     // Fields send_keys cannot fill the same way everywhere: a date or time is typed
     // in the browser locale's format, a color takes no typing.
     name: 'typed-fields',
+    runners: ['bookmarklet', 'selenium', 'playwright'],
     actions: [
       { type: 'input', selector: '#when', selectors: { css: '#when' }, value: '2026-10-10' },
       { type: 'input', selector: '#at', selectors: { css: '#at' }, value: '13:45' },
@@ -1378,6 +1407,7 @@ const EXPORT_CASES = [
     // Every locator tried in playback's order until one finds the element; a Text
     // locator matches the exact text, innermost.
     name: 'locators',
+    runners: ['bookmarklet', 'selenium', 'playwright'],
     actions: [
       // The CSS is stale; the id, which playback tries before it, is not.
       { type: 'click', selector: '#broken1', selectors: { css: '#broken1', id: 'okA' } },
@@ -1408,6 +1438,7 @@ const EXPORT_CASES = [
     // A Navigate first. The bookmarklet, clicked on another page, opens the page
     // and stops; clicked again there, it plays the rest.
     name: 'navigate-first',
+    runners: ['bookmarklet', 'selenium', 'playwright'],
     pageVar: 'page',
     bookmarkletClicks: 2,
     actions: [
@@ -1417,6 +1448,10 @@ const EXPORT_CASES = [
     expect: { clicks: ['submit'] },
   },
 ];
+
+// A folder with @playwright/test installed (npm install @playwright/test): the Playwright
+// runs use it, with the installed Edge. Unset, they are skipped, not failed.
+const PLAYWRIGHT_DIR = process.env.PQA_PLAYWRIGHT_DIR || '';
 
 // The exported Selenium script, first run included (Selenium Manager may fetch a driver).
 const PYTHON_RUN_TIMEOUT_MS = 180_000;
@@ -1474,6 +1509,16 @@ async function checkExportRun(ctx) {
   const noPython = await pythonMissing();
   if (noPython) console.log(`  – the Selenium runs are skipped: ${noPython}`);
   const pytestHere = !noPython && await hasPytest();
+  // An export a version does not have (an older checkout under --ext) is not run.
+  const { generatePlaywright } = await import(extModule('popup/export-playwright.js')).catch(() => ({}));
+  const pwCli = PLAYWRIGHT_DIR && join(PLAYWRIGHT_DIR, 'node_modules', '@playwright', 'test', 'cli.js');
+  const pwRun = generatePlaywright && pwCli && existsSync(pwCli) ? mkdtempSync(join(PLAYWRIGHT_DIR, 'pqa-run-')) : null;
+  if (pwRun) {
+    writeFileSync(join(pwRun, 'playwright.config.mjs'),
+      `export default { use: { channel: 'msedge', headless: ${!HEADED} }, reporter: 'line', workers: 1 };\n`);
+  } else {
+    console.log('  – the Playwright runs are skipped: set PQA_PLAYWRIGHT_DIR to a folder with @playwright/test installed');
+  }
   if (!noPython && !pytestHere) console.log('  – the pytest runs are skipped: no pytest for python');
   const dir = mkdtempSync(join(tmpdir(), 'pqa-export-'));
   let headlessChecked = false;
@@ -1531,6 +1576,18 @@ async function checkExportRun(ctx) {
         }
       }
 
+      if (pwRun && runners.includes('playwright')) {
+        const spec = `${c.name.replace(/\W/g, '_')}.spec.js`;
+        writeFileSync(join(pwRun, spec), generatePlaywright(c.name, actions, { ...variables, ...pageVars('playwright') },
+          { startUrl: startUrl('playwright') }).code);
+        // The file by its name: Playwright reads the argument as a pattern, and a Windows path's \ escapes.
+        const r = await runFile(process.execPath, [pwCli, 'test', spec, '--config', 'playwright.config.mjs'],
+          { cwd: pwRun, timeout: PYTHON_RUN_TIMEOUT_MS });
+        if (r.error) fail(`${c.name}: the Playwright test failed: ${String(r.stdout).trim().split('\n').slice(-4).join(' | ')}`);
+        await sleep(SETTLE_MS);
+        states.playwright = exportStates.get(`${c.name}:playwright`)?.state;
+      }
+
       if (pytestHere && runners.includes('pytest')) {
         const file = join(dir, `test_${c.name.replace(/\W/g, '_')}.py`);
         writeFileSync(file, generateSeleniumPy(c.name, actions, { ...variables, ...pageVars('pytest') },
@@ -1545,7 +1602,7 @@ async function checkExportRun(ctx) {
       const expected = { clicks: [], alerts: [], marks: [], ...c.expect, fields: { ...states.playback?.fields, ...c.expect?.fields } };
       const wanted = stateDiff(states.playback, expected);
       check(states.playback && !Object.keys(wanted).length, `${c.name}: playback leaves the expected page`, wanted);
-      for (const runner of ['bookmarklet', 'selenium', 'pytest']) {
+      for (const runner of ['bookmarklet', 'selenium', 'pytest', 'playwright']) {
         if (!(runner in states)) continue;
         const diff = stateDiff(states.playback, states[runner]);
         check(states[runner] && !Object.keys(diff).length,
@@ -1566,6 +1623,7 @@ async function checkExportRun(ctx) {
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
+    if (pwRun) rmSync(pwRun, { recursive: true, force: true });
     // The checks after this one reload the test page.
     await ctx.web.goto(`${ctx.base}/page`);
     await sleep(PAGE_SETTLE_MS);
@@ -1673,6 +1731,7 @@ const CHECKS = [
   ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
   ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
   ['export-testcase', 'The Test steps export: Markdown and CSV', checkExportTestcase],
+  ['export-playwright', 'The Playwright Test export in the popup', checkExportPlaywright],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],

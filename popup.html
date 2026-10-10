@@ -790,6 +790,13 @@
             <span class="export-code-desc">Markdown / CSV test case</span>
           </div>
         </button>
+        <button id="exportPlaywright" class="export-code-btn export-code-pw" title="Export as a Playwright test">
+          <span class="export-code-icon">🎭</span>
+          <div class="export-code-info">
+            <span class="export-code-name">Playwright Test</span>
+            <span class="export-code-desc">.spec.js for npx playwright test</span>
+          </div>
+        </button>
       </div>
     </div>
 
@@ -1727,6 +1734,31 @@
               <small>Max wait time for elements</small>
             </div>
             <input type="number" id="exportSeleniumElTimeout" class="export-bm-setting-input" value="10000" min="500" max="60000" />
+            <span class="export-bm-setting-unit">ms</span>
+          </div>
+        </div>
+        <div data-format="pw" hidden>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Starting URL
+              <small>Opened first, unless the scenario starts with a Navigate</small>
+            </div>
+            <input type="url" id="exportPwStartUrl" class="export-bm-setting-input" placeholder="https://…" style="width:130px;" />
+          </div>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Delay between steps
+              <small>Time to wait after each action</small>
+            </div>
+            <input type="number" id="exportPwStepDelay" class="export-bm-setting-input" value="300" min="0" max="10000" />
+            <span class="export-bm-setting-unit">ms</span>
+          </div>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Element timeout
+              <small>Max wait time for elements</small>
+            </div>
+            <input type="number" id="exportPwElTimeout" class="export-bm-setting-input" value="10000" min="500" max="60000" />
             <span class="export-bm-setting-unit">ms</span>
           </div>
         </div>

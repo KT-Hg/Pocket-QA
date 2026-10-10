@@ -13,6 +13,7 @@ const FILES = {
   exportBookmarklet: 'export-bookmarklet.json',
   exportSelenium: 'export-selenium.json',
   exportSteps: 'export-steps.json',
+  exportPlaywright: 'export-playwright.json',
 };
 
 const actual = await computeGolden();

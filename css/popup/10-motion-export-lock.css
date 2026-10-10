@@ -58,6 +58,10 @@
   background: linear-gradient(90deg, #10b981, #0ea5e9 50%, #10b981);
 }
 
+.export-bm-accent-pw {
+  background: linear-gradient(90deg, #2ead33, #e2574c 50%, #2ead33);
+}
+
 .export-bm-header-inner {
   display: flex;
   align-items: center;
@@ -112,6 +116,18 @@
   background: rgba(16, 185, 129, 0.1);
   color: #34d399;
   border-color: rgba(16, 185, 129, 0.3);
+}
+
+.export-bm-lang-badge-pw {
+  background: rgba(226, 87, 76, 0.1);
+  color: #9f1d14;
+  border: 1.5px solid rgba(226, 87, 76, 0.3);
+}
+
+[data-theme="dark"] .export-bm-lang-badge-pw {
+  background: rgba(226, 87, 76, 0.1);
+  color: #f8a39b;
+  border-color: rgba(226, 87, 76, 0.3);
 }
 
 .export-bm-header-text {
@@ -844,7 +860,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   line-height: 1.2;
 }
 
-/* JS = amber, PY = blue, Test steps = green: the tinted role, in the format's colour. The tokens
+/* JS = amber, PY = blue, Test steps = green, Playwright = red: the tinted role, in the format's colour. The tokens
    already carry both themes, so there is no dark-mode copy of these. */
 .export-code-js {
   border-color: color-mix(in srgb, var(--warning) 40%, transparent);
@@ -874,6 +890,16 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
 .export-code-steps:hover {
   background: color-mix(in srgb, var(--success) 14%, transparent) !important;
   border-color: var(--success);
+}
+
+.export-code-pw {
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--danger-dark) !important;
+}
+.export-code-pw:hover {
+  background: color-mix(in srgb, var(--danger) 14%, transparent) !important;
+  border-color: var(--danger);
 }
 
 /* === Export modal — top accent strip & lang chip === */

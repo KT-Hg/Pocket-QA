@@ -119,10 +119,11 @@ async function _compute() {
   const { generateBookmarklet } = await import('../../popup/export-bookmarklet.js');
   const { generateSeleniumPy } = await import('../../popup/export-selenium.js');
   const { generateTestSteps } = await import('../../popup/export-steps.js');
+  const { generatePlaywright } = await import('../../popup/export-playwright.js');
 
   const all = scenarios();
   const allActions = all.flatMap((s) => s.actions);
-  const out = { pure: {}, switchBlocks: {}, exportBookmarklet: {}, exportSelenium: {}, exportSteps: {} };
+  const out = { pure: {}, switchBlocks: {}, exportBookmarklet: {}, exportSelenium: {}, exportSteps: {}, exportPlaywright: {} };
   const P = out.pure;
 
   // ── var-name ──────────────────────────────────────────────────────────────
@@ -315,6 +316,7 @@ async function _compute() {
       out.exportBookmarklet[key] = run(() => generateBookmarklet(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
       out.exportSelenium[key] = run(() => generateSeleniumPy(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
       out.exportSteps[key] = run(() => generateTestSteps(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
+      out.exportPlaywright[key] = run(() => generatePlaywright(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
     }
   });
   const syn = SYNTHETIC_SCENARIOS[0];

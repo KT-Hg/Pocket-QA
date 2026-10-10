@@ -667,3 +667,111 @@ test('Test steps: a step under a disabled Condition is not indented, as it alway
   assert.match(code, /^\| 2 \| Click `#a` \|/m);
   assert.doesNotMatch(code, /^\| 1 \|/m, 'the disabled Condition itself is not written');
 });
+
+/** Node's verdict on a generated spec, as an ES module: null when it parses, else the error. */
+function checkModule(code) {
+  const dir = mkdtempSync(join(tmpdir(), 'pqa-'));
+  const file = join(dir, 'gen.spec.mjs');
+  writeFileSync(file, code);
+  try {
+    execFileSync(process.execPath, ['--check', file], { stdio: 'pipe' });
+    return null;
+  } catch (e) {
+    return String(e.stderr || e);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Run a generated spec against a fake Playwright: `test` keeps the test function,
+ * `page` records every call. Returns the calls, as "method arg…" strings.
+ */
+async function runSpec(code, { kind = 'text' } = {}) {
+  const calls = [];
+  const fmt = (v) => (typeof v === 'function' ? 'fn' : JSON.stringify(v));
+  const locator = (sel) => {
+    const el = {
+      first: () => el,
+      count: async () => 1,
+      click: async () => calls.push(`click ${sel}`),
+      hover: async () => calls.push(`hover ${sel}`),
+      fill: async (v) => calls.push(`fill ${sel} ${fmt(v)}`),
+      screenshot: async (o) => calls.push(`shot ${sel} ${fmt(o)}`),
+      // _input asks the field's kind first; the rest is a page function on the element.
+      evaluate: async (fn, arg) => {
+        if (arg === undefined) return kind;
+        calls.push(`evaluate ${sel} ${fmt(arg)}`);
+        return undefined;
+      },
+    };
+    return el;
+  };
+  const page = {
+    locator,
+    goto: async (u) => calls.push(`goto ${u}`),
+    waitForTimeout: async (ms) => calls.push(`wait ${ms}`),
+    evaluate: async (src) => calls.push(`script ${fmt(src)}`),
+    screenshot: async (o) => calls.push(`shot page ${fmt(o)}`),
+  };
+  let body = null;
+  const test = Object.assign((name, fn) => { body = fn; }, { use() {}, setTimeout() {} });
+  const js = code.replace(/^import \{ test \} from '@playwright\/test';$/m, '');
+  new Function('test', js)(test);
+  await body({ page });
+  return calls;
+}
+
+test('Playwright: a spec npx playwright test runs, each step through the page', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const steps = [
+    { type: 'navigate', url: 'https://shop.test/' },
+    { type: 'input', selector: '#user', selectors: { css: '#user', id: 'user' }, value: '${user}' },
+    { type: 'click', selector: '#go', selectors: { id: 'go', css: '#go-css', xpath: '//button[@id="go"]' } },
+    { type: 'click', selectors: { text: 'OK' }, selectorType: 'text' },
+    { type: 'hover', selectors: { text: 'Menu', textTag: 'li' } },
+    { type: 'wait', delay: 250 },
+    { type: 'script', code: 'console.log("${user}")' },
+    { type: 'screenshot_full' },
+    { type: 'screenshot_tovar', varName: 'shot', target: 'element', selector: '#card', selectors: { css: '#card' } },
+  ];
+  const { code, steps: status } = generatePlaywright('Log in', steps, { user: 'bob' }, { stepDelay: 0, elTimeout: 4000 });
+  assert.match(code, /^import \{ test \} from '@playwright\/test';$/m);
+  assert.match(code, /^const TIMEOUT = 4000;$/m);
+  assert.match(code, /^test\("Log in", async \(\{ page \}\) => \{$/m);
+  assert.equal(checkModule(code), null);
+  // The locators in playback's order, through _find when there are several; one stays a plain locator.
+  assert.match(code, /const el2 = page\.locator\("#user"\)\.first\(\);/);
+  assert.match(code, /const el3 = await _find\(page, \["#go", "xpath=\/\/button\[@id=\\"go\\"\]", "#go-css"\]\);/);
+  assert.match(code, /const el4 = page\.locator\("text=\\"OK\\""\)\.first\(\);/);
+  assert.match(code, /const el5 = page\.locator\("li:text-is\(\\"Menu\\"\)"\)\.first\(\);/);
+  assert.deepEqual(await runSpec(code), [
+    'goto https://shop.test/',
+    'fill #user "bob"',
+    'click #go',
+    'click text="OK"',
+    'hover li:text-is("Menu")',
+    'wait 250',
+    'script "console.log(\\"bob\\")"',
+    'shot page {"path":"screenshot_full_step8.png","fullPage":true}',
+    'shot #card {"path":"screenshot_shot_step9.png"}',
+  ]);
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'verify', 'ok', 'ok'], 'a script, as in the other exports, is to check');
+  // A date (or color, range, <select>) goes through the extension's own setter, as playback sets it.
+  const date = generatePlaywright('d', [{ type: 'input', selector: '#d', selectors: { css: '#d' }, value: '2026-10-10' }], {}, { stepDelay: 0 }).code;
+  assert.deepEqual(await runSpec(date, { kind: 'date' }), ['goto https://your-url-here.com', 'evaluate #d "2026-10-10"']);
+});
+
+test('Playwright: what it does not export yet is said, and left out', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const steps = [
+    { type: 'condition', conditionType: 'elementExists', selector: '#x', selectors: { css: '#x' }, skipCount: 1 },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'readdom', selector: '#t', selectors: { css: '#t' }, varName: 'v' },
+    { type: 'click', selector: '#b', selectors: { css: '#b' } },
+  ];
+  const { code, steps: status } = generatePlaywright('later', steps, {}, {});
+  assert.deepEqual(status.map((s) => s.status), ['skip', 'skip', 'skip', 'ok']);
+  assert.doesNotMatch(code, /#a/, 'a step under a Condition not exported does not run unguarded');
+  assert.equal(checkModule(code), null);
+});
