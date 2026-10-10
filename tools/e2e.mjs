@@ -98,6 +98,9 @@
  *   export-card   the Export Code card's format buttons are off until a scenario is
  *                 chosen; its list has the scenarios in no folder first, then a
  *                 group per folder; it opens on the scenario Manage Scenarios has
+ *   export-tabs-keyboard  the export modal opened with the mouse puts focus on its
+ *                 Code tab with no ring; ← → Home End open and focus the tabs; each
+ *                 tab and panel name each other, the open tab alone in the Tab order
  *   export-playwright  Playwright Test opens a <name>.spec.js holding one test
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, Edge exported
@@ -1489,6 +1492,61 @@ async function checkExportFormats(ctx) {
   }
 }
 
+async function checkExportTabsKeyboard(ctx) {
+  const id = await makeScenario(ctx, 'e2e export tabs', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  const popup = await openPopup(ctx);
+  try {
+    // Opened with a real mouse click, as in the popup.
+    const at = await popup.evaluate(`(() => {
+      document.querySelector('.tab-btn[data-tab="tabData"]').click();
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+      const b = document.getElementById('exportSelenium');
+      b.scrollIntoView({ block: 'center' });
+      const r = b.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    })()`);
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await popup.send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+    }
+    await sleep(POPUP_SETTLE_MS);
+    const focused = () => popup.evaluate(`(() => {
+      const el = document.activeElement;
+      return { tab: el.dataset.tab || el.id, ring: el.matches(':focus-visible'),
+        open: document.querySelector('#exportModal .export-bm-tab[aria-selected="true"]').dataset.tab,
+        shown: [...document.querySelectorAll('#exportModal [role="tabpanel"]')].filter((p) => !p.hidden).map((p) => p.id).join() };
+    })()`);
+    const opened = await focused();
+    check(opened.tab === 'preview' && !opened.ring, 'opened with the mouse: focus on the Code tab, with no ring', opened);
+
+    await pressKey(popup, 'ArrowRight', 'ArrowRight', 39);
+    await pressKey(popup, 'ArrowRight', 'ArrowRight', 39);
+    const right = await focused();
+    check(right.tab === 'actions' && right.open === 'actions' && right.shown === 'exportTabActions' && right.ring,
+      '→ twice from Code: the Actions tab opens and has the (keyboard) focus', right);
+    await pressKey(popup, 'End', 'End', 35);
+    const end = await focused();
+    await pressKey(popup, 'ArrowRight', 'ArrowRight', 39);
+    const round = await focused();
+    await pressKey(popup, 'ArrowLeft', 'ArrowLeft', 37);
+    const left = await focused();
+    await pressKey(popup, 'Home', 'Home', 36);
+    const home = await focused();
+    check(end.open === 'settings' && round.open === 'preview' && left.open === 'settings' && home.open === 'preview',
+      'End, → past the last, ← past the first and Home reach the tab they should', [end.open, round.open, left.open, home.open]);
+
+    const aria = await popup.evaluate(`[...document.querySelectorAll('#exportModal [role="tab"]')].map((t) => {
+      const panel = document.getElementById(t.getAttribute('aria-controls'));
+      return { tab: t.dataset.tab, tabindex: t.tabIndex, panel: panel?.getAttribute('role') === 'tabpanel' && panel.getAttribute('aria-labelledby') === t.id };
+    })`);
+    check(aria.every((t) => t.panel) && aria.map((t) => t.tabindex).join() === '0,-1,-1,-1',
+      'each tab names its panel and the panel its tab; the open tab alone is in the Tab order', aria);
+  } finally {
+    await popup.close();
+  }
+}
+
 async function checkExportCard(ctx) {
   const click = [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }];
   const { id: folderId } = await ctx.send({ type: 'CREATE_FOLDER', name: 'e2e card folder' });
@@ -2142,6 +2200,7 @@ const CHECKS = [
   ['export-jump', 'From a row of the Actions tab to its code', checkExportJump],
   ['export-formats', 'The formats the Export Code card offers', checkExportFormats],
   ['export-card', 'The Export Code card: its buttons and its list', checkExportCard],
+  ['export-tabs-keyboard', 'The export modal\'s tabs by keyboard', checkExportTabsKeyboard],
   ['export-playwright', 'The Playwright Test export in the popup', checkExportPlaywright],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],

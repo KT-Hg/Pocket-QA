@@ -181,11 +181,13 @@ function close() {
   unlockScroll();
 }
 
+// The open tab alone takes Tab focus (roving tabindex); the arrow keys reach the others.
 function switchTab(tab) {
   byId('Modal').querySelectorAll('.export-bm-tab').forEach(btn => {
     const active = btn.dataset.tab === tab;
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-selected', String(active));
+    btn.tabIndex = active ? 0 : -1;
   });
   byId('TabPreview').hidden   = tab !== 'preview';
   byId('TabVariables').hidden = tab !== 'variables';
@@ -240,6 +242,8 @@ function open() {
     lockScroll();
     switchTab('preview');
     run.releaseFocus = trapFocus(modal);
+    // Focus on the open tab, not on ✕: Enter there would close what was just opened.
+    modal.querySelector('.export-bm-tab.active')?.focus();
   };
   // beforeOpen may fill a setting from the browser first (the Selenium start URL from
   // the tab): generated at once, the code read the field before the URL had come.
@@ -411,8 +415,19 @@ function wireModal() {
     sel.addRange(range);
   });
 
-  modal.querySelectorAll('.export-bm-tab').forEach(btn => {
+  const tabs = [...modal.querySelectorAll('.export-bm-tab')];
+  tabs.forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+  // ← → (round), Home, End: the tab there opens and takes the focus.
+  modal.querySelector('[role="tablist"]')?.addEventListener('keydown', (e) => {
+    const at = tabs.indexOf(document.activeElement);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (at < 0 || to === undefined) return;
+    e.preventDefault();
+    const tab = tabs[(to + tabs.length) % tabs.length];
+    switchTab(tab.dataset.tab);
+    tab.focus();
   });
 
   modal.addEventListener('click', e => { if (e.target === modal) close(); });

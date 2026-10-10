@@ -1608,15 +1608,16 @@
         </div>
       </div>
 
-      <div class="export-bm-tabs" role="tablist">
-        <button class="export-bm-tab active" data-tab="preview" role="tab" aria-selected="true">Code</button>
-        <button class="export-bm-tab" data-tab="variables" role="tab" aria-selected="false">Variables <span class="export-bm-tab-count" id="exportVarCount">0</span></button>
-        <button class="export-bm-tab" data-tab="actions" role="tab" aria-selected="false">Actions <span class="export-bm-tab-count" id="exportActCount">0</span></button>
-        <button class="export-bm-tab" data-tab="settings" role="tab" aria-selected="false">Settings</button>
+      <!-- The open tab alone is in the Tab order; ← → Home End move between them. -->
+      <div class="export-bm-tabs" role="tablist" aria-label="Export">
+        <button class="export-bm-tab active" data-tab="preview" role="tab" id="exportTabBtnPreview" aria-controls="exportTabPreview" aria-selected="true">Code</button>
+        <button class="export-bm-tab" data-tab="variables" role="tab" id="exportTabBtnVariables" aria-controls="exportTabVariables" aria-selected="false" tabindex="-1">Variables <span class="export-bm-tab-count" id="exportVarCount">0</span></button>
+        <button class="export-bm-tab" data-tab="actions" role="tab" id="exportTabBtnActions" aria-controls="exportTabActions" aria-selected="false" tabindex="-1">Actions <span class="export-bm-tab-count" id="exportActCount">0</span></button>
+        <button class="export-bm-tab" data-tab="settings" role="tab" id="exportTabBtnSettings" aria-controls="exportTabSettings" aria-selected="false" tabindex="-1">Settings</button>
       </div>
 
       <!-- Tab: Preview Code -->
-      <div id="exportTabPreview" class="export-bm-tab-panel">
+      <div id="exportTabPreview" class="export-bm-tab-panel" role="tabpanel" aria-labelledby="exportTabBtnPreview">
         <!-- One line counting what the Actions tab lists; a click opens it. -->
         <button id="exportWarning" class="export-bm-warning" hidden>
           <span class="export-bm-warning-icon" aria-hidden="true">⚠</span>
@@ -1634,20 +1635,20 @@
       </div>
 
       <!-- Tab: Variables -->
-      <div id="exportTabVariables" class="export-bm-tab-panel" hidden>
+      <div id="exportTabVariables" class="export-bm-tab-panel" role="tabpanel" aria-labelledby="exportTabBtnVariables" tabindex="0" hidden>
         <div id="exportNoVars" class="export-bm-no-vars">No variables defined</div>
         <div id="exportVarList"></div>
       </div>
 
       <!-- Tab: Actions Review -->
-      <div id="exportTabActions" class="export-bm-tab-panel" hidden>
+      <div id="exportTabActions" class="export-bm-tab-panel" role="tabpanel" aria-labelledby="exportTabBtnActions" hidden>
         <!-- What is not exported as is: by status, one line per reason; then notes. -->
         <div class="export-bm-act-summary" id="exportActSummary"></div>
         <div id="exportActList"></div>
       </div>
 
       <!-- Tab: Settings: one block per format, the open one shown -->
-      <div id="exportTabSettings" class="export-bm-tab-panel" hidden>
+      <div id="exportTabSettings" class="export-bm-tab-panel" role="tabpanel" aria-labelledby="exportTabBtnSettings" hidden>
         <div data-format="js" hidden>
           <div class="export-bm-setting-row">
             <div class="export-bm-setting-label">
