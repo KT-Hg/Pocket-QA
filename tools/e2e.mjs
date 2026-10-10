@@ -1137,7 +1137,7 @@ async function checkExportStartUrl(ctx) {
       field: document.getElementById('exportSeleniumStartUrl').value,
       code: document.querySelector('#exportCode code').textContent,
     })`);
-    check(shown.field === 'https://shop.test/start' && shown.code.includes('driver.get("https://shop.test/start")') && !shown.code.includes('your-url-here'),
+    check(shown.field === 'https://shop.test/start' && shown.code.includes('driver.get(_url("https://shop.test/start"))') && !shown.code.includes('your-url-here'),
       'Selenium: the start URL taken from the tab is in the code the modal first shows',
       { field: shown.field, get: shown.code.split('\n').filter((l) => l.includes('driver.get')) });
   } finally {
