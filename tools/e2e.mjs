@@ -1272,7 +1272,7 @@ async function checkExportSettings(ctx) {
   const py = await withModal('exportSelenium', async (p) => ({ ...await read(p, PY),
     code: await p.evaluate(`document.querySelector('#exportCode code').textContent`) }));
   check(py.exportSeleniumElTimeout === '4321' && py.exportSeleniumDriver === 'Firefox' && py.exportSeleniumHeadless === true
-    && py.exportSeleniumOutput === 'pytest' && /os\.environ\.get\("PQA_BROWSER", "Firefox"\)/.test(py.code) && /WebDriverWait\(driver, 4\.321\)/.test(py.code),
+    && py.exportSeleniumOutput === 'pytest' && /os\.environ\.get\("PQA_BROWSER", "Firefox"\)/.test(py.code) && /_find\(\[.*\], 4\.321, clickable=True\)/.test(py.code),
     'the Selenium Settings come back in a new popup, and the code is made with them', { ...py, code: undefined });
   const js = await withModal('exportBookmarklet', (p) => read(p, ['exportBmElTimeout', 'exportBmStepDelay']));
   check(js.exportBmElTimeout === '2222' && js.exportBmStepDelay === '300', 'the JS Settings come back, untouched by the Selenium ones', js);
