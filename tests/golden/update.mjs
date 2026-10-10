@@ -14,7 +14,6 @@ const FILES = {
   switchBlocks: 'switch-blocks.json',
   exportBookmarklet: 'export-bookmarklet.json',
   exportSelenium: 'export-selenium.json',
-  exportSteps: 'export-steps.json',
   exportPlaywright: 'export-playwright.json',
 };
 

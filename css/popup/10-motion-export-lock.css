@@ -54,10 +54,6 @@
   background: linear-gradient(90deg, #3b82f6, #8b5cf6 50%, #3b82f6);
 }
 
-.export-bm-accent-steps {
-  background: linear-gradient(90deg, #10b981, #0ea5e9 50%, #10b981);
-}
-
 .export-bm-accent-pw {
   background: linear-gradient(90deg, #2ead33, #e2574c 50%, #2ead33);
 }
@@ -104,18 +100,6 @@
   background: rgba(59, 130, 246, 0.1);
   color: #60a5fa;
   border-color: rgba(59, 130, 246, 0.3);
-}
-
-.export-bm-lang-badge-steps {
-  background: rgba(16, 185, 129, 0.1);
-  color: #065f46;
-  border: 1.5px solid rgba(16, 185, 129, 0.3);
-}
-
-[data-theme="dark"] .export-bm-lang-badge-steps {
-  background: rgba(16, 185, 129, 0.1);
-  color: #34d399;
-  border-color: rgba(16, 185, 129, 0.3);
 }
 
 .export-bm-lang-badge-pw {
@@ -805,6 +789,13 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   gap: 8px;
 }
 
+/* An odd last button, alone on its row, keeps a column's width (half the 8px gap off) and sits in the middle. */
+.export-code-grid > .export-code-btn:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: calc(50% - 4px);
+}
+
 .export-code-btn {
   display: flex;
   flex-direction: column;
@@ -860,7 +851,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   line-height: 1.2;
 }
 
-/* JS = amber, PY = blue, Test steps = green, Playwright = red: the tinted role, in the format's colour. The tokens
+/* JS = amber, PY = blue, Playwright = red: the tinted role, in the format's colour. The tokens
    already carry both themes, so there is no dark-mode copy of these. */
 .export-code-js {
   border-color: color-mix(in srgb, var(--warning) 40%, transparent);
@@ -880,16 +871,6 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
 .export-code-py:hover {
   background: color-mix(in srgb, var(--primary) 14%, transparent) !important;
   border-color: var(--primary);
-}
-
-.export-code-steps {
-  border-color: color-mix(in srgb, var(--success) 40%, transparent);
-  background: color-mix(in srgb, var(--success) 8%, transparent);
-  color: var(--success-dark) !important;
-}
-.export-code-steps:hover {
-  background: color-mix(in srgb, var(--success) 14%, transparent) !important;
-  border-color: var(--success);
 }
 
 .export-code-pw {

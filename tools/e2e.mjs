@@ -78,8 +78,9 @@
  *                 the modal first shows, not the TODO placeholder
  *   export-settings  each format's Settings come back in a new popup, apart from the
  *                 other format's; stored values an input cannot take leave defaults
- *   export-testcase  Test steps opens as Markdown; CSV gives the same steps, quoted,
- *                 saved as .csv with a BOM
+ *   export-formats  the Export Code card offers the bookmarklet, Selenium and Playwright,
+ *                 each opening its own export; the last button keeps the others' size,
+ *                 in the middle of its row
  *   export-playwright  Playwright Test opens a <name>.spec.js holding one test
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, Edge exported
@@ -1158,56 +1159,41 @@ async function checkExportSettings(ctx) {
   await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
 }
 
-async function checkExportTestcase(ctx) {
-  await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
-  const id = await makeScenario(ctx, 'Đăng nhập steps', [
-    { type: 'navigate', url: 'https://shop.test/' },
-    { type: 'click', selector: '#go', selectors: { css: '#go', text: 'Go, "now"' } },
-  ]);
+async function checkExportFormats(ctx) {
+  const id = await makeScenario(ctx, 'e2e export formats', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
   const popup = await openPopup(ctx);
   try {
-    // The file Download saves: its name and its first bytes (a BOM is EF BB BF).
-    await popup.evaluate(`(() => {
-      window.__dl = [];
-      HTMLAnchorElement.prototype.click = function () {
-        const entry = { name: this.download };
-        window.__dl.push(entry);
-        setTimeout(() => fetch(this.href).then((r) => r.arrayBuffer()).then((b) => { entry.head = [...new Uint8Array(b).slice(0, 3)]; }), 50);
-      };
-      const s = document.getElementById('exportCodeSelect');
-      s.value = ${JSON.stringify(id)};
-      s.dispatchEvent(new Event('change'));
-      document.getElementById('exportSteps').click();
-    })()`);
-    await sleep(POPUP_SETTLE_MS);
-    const shown = () => popup.evaluate(`({
-      title: document.getElementById('exportTitle').textContent,
-      label: document.getElementById('exportCodeLabel').textContent,
-      download: document.getElementById('exportDownload').textContent,
-      code: document.querySelector('#exportCode code').textContent,
-    })`);
-    const md = await shown();
-    check(md.label === 'đăng_nhập_steps_steps.md' && md.download === '⬇ .md' && md.code.startsWith('# Đăng nhập steps')
-      && md.code.includes('| 2 | Click "Go, "now"" |  |  |'), 'Test steps opens as Markdown, a step a line', { ...md, code: md.code.split('\n').slice(0, 9) });
-    await popup.evaluate(`(() => {
-      const f = document.getElementById('exportStepsFormat');
-      f.value = 'csv';
-      f.dispatchEvent(new Event('change'));
-      document.getElementById('exportRegenerate').click();
-    })()`);
-    await sleep(POPUP_SETTLE_MS);
-    const csv = await shown();
-    await popup.evaluate(`document.getElementById('exportDownload').click()`);
+    await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabData"]').click()`);
     await sleep(SETTLE_MS);
-    const dl = await popup.evaluate('window.__dl[0] || null');
-    check(csv.label === 'đăng_nhập_steps_steps.csv' && csv.download === '⬇ .csv'
-      // Every cell quoted, its quotes doubled.
-      && csv.code.split('\n')[2] === ['2', 'Click "Go, "now""', '', ''].map((c) => `"${c.replace(/"/g, '""')}"`).join(',')
-      && dl?.name === 'đăng_nhập_steps_steps.csv' && JSON.stringify(dl.head) === '[239,187,191]',
-      'CSV: the same steps, quoted, saved with a BOM for spreadsheets', { label: csv.label, line: csv.code.split('\n')[2], dl });
+    const buttons = await popup.evaluate(`[...document.querySelectorAll('.export-code-grid > button')].map((b) => b.id)`);
+    // Each one opens the modal as its own format.
+    const badges = [];
+    for (const button of buttons) {
+      await popup.evaluate(`(() => {
+        const s = document.getElementById('exportCodeSelect');
+        s.value = ${JSON.stringify(id)};
+        s.dispatchEvent(new Event('change'));
+        document.getElementById(${JSON.stringify(button)}).click();
+      })()`);
+      await sleep(POPUP_SETTLE_MS);
+      badges.push(await popup.evaluate(`document.getElementById('exportModal').classList.contains('show')
+        ? document.getElementById('exportBadge').textContent : 'not open'`));
+      await popup.evaluate(`document.getElementById('exportClose').click()`);
+      await sleep(SETTLE_MS);
+    }
+    check(buttons.join() === 'exportBookmarklet,exportSelenium,exportPlaywright' && badges.join() === 'JS,PY,PW',
+      'The Export Code card offers the bookmarklet, Selenium and Playwright, each opening its own export', { buttons, badges });
+    // The last button, alone on its row, keeps the others' size and sits in the middle.
+    const box = await popup.evaluate(`(() => {
+      const r = (el) => el.getBoundingClientRect();
+      const grid = r(document.querySelector('.export-code-grid'));
+      const [first, , last] = [...document.querySelectorAll('.export-code-grid > button')].map(r);
+      return { width: [first?.width, last?.width], offCentre: last ? last.left + last.width / 2 - (grid.left + grid.width / 2) : null };
+    })()`);
+    check(Math.abs(box.width[0] - box.width[1]) <= 1 && Math.abs(box.offCentre) <= 1,
+      'the Playwright button is as wide as the others, in the middle of its row', box);
   } finally {
     await popup.close();
-    await ctx.ext.evaluate(`chrome.storage.local.remove('exportCodeSettings')`);
   }
 }
 
@@ -1810,7 +1796,7 @@ const CHECKS = [
   ['export-start-url', 'The Selenium start URL taken from the tab', checkExportStartUrl],
   ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
   ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
-  ['export-testcase', 'The Test steps export: Markdown and CSV', checkExportTestcase],
+  ['export-formats', 'The formats the Export Code card offers', checkExportFormats],
   ['export-playwright', 'The Playwright Test export in the popup', checkExportPlaywright],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
