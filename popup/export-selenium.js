@@ -1,4 +1,4 @@
-import { showToast, getUsedVarNames, commentText } from './utils.js';
+import { showToast, commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarName } from '../shared/var-name.js';
