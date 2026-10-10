@@ -64,6 +64,8 @@
  *                 failure prompt and leaves the choice alone; one it has is chosen
  *   export-file-name  a Selenium script exported from a scenario named in Vietnamese
  *                 is saved under that name, letters kept, and the file holds the code
+ *   export-steps  in both export modals, an Upload File step shows as skipped in the
+ *                 Actions tab, the counts and the warning bar (it showed "✓ OK")
  *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
  *                 and run as the exported Selenium script (python, headless Edge),
  *                 leaves the export page the same way. No python or selenium: the
@@ -919,6 +921,36 @@ async function checkExportFileName(ctx) {
   }
 }
 
+async function checkExportSteps(ctx) {
+  const id = await makeScenario(ctx, 'e2e export steps', [
+    { type: 'click', selector: '#bg1', selectors: { css: '#bg1' } },
+    { type: 'uploadFile', selector: '#upload', selectors: { css: '#upload' }, folderPath: 'C:\\in', fileNames: ['a.txt'] },
+  ]);
+  const popup = await openPopup(ctx);
+  try {
+    await popup.evaluate(`(() => {
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+    })()`);
+    for (const [button, prefix] of [['exportSelenium', 'exportSelenium'], ['exportBookmarklet', 'exportBm']]) {
+      await popup.evaluate(`document.getElementById(${JSON.stringify(button)}).click()`);
+      await sleep(POPUP_SETTLE_MS);
+      const tab = await popup.evaluate(`({
+        rows: [...document.querySelectorAll('#${prefix}ActList .export-bm-action-status')].map((el) => el.textContent.trim()),
+        skipped: document.getElementById('${prefix}StatSkippedPill').style.display === 'none' ? null
+          : document.getElementById('${prefix}StatSkipped').textContent,
+        warning: document.getElementById('${prefix}SkipMsg').textContent,
+      })`);
+      check(JSON.stringify(tab.rows) === '["✓ OK","— Skip"]' && tab.skipped === '1 skipped' && /Upload File|local files/.test(tab.warning),
+        `${button}: the Actions tab, the counts and the warning bar say Upload File is skipped`, tab);
+      await popup.evaluate(`document.getElementById('${prefix}Close').click()`);
+    }
+  } finally {
+    await popup.close();
+  }
+}
+
 /**
  * The page export-run plays on, at /export?run=<key>. Whatever its form holds —
  * every input, select, textarea and contenteditable with an id (a checkbox by
@@ -1200,6 +1232,7 @@ const CHECKS = [
   ['typed-text', 'A Text selector typed in the form', checkTypedText],
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],
+  ['export-steps', 'The export modal tells which steps were skipped', checkExportSteps],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
   ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],

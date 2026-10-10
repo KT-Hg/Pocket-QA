@@ -5,6 +5,7 @@ import { normalizeVarName, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
+import { mark, newStep, blockSteps } from './export/steps.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
@@ -413,8 +414,10 @@ function _buildChildCondPy(conditions, elVar, tout, selPy, stepNum) {
   return lines;
 }
 
-// Generates Python lines for a single non-condition action
-function actionLines(action, stepNum, stepDelay, elTimeout) {
+// Generates Python lines for a single non-condition action, and marks `step`
+// (export/steps.js) when the action is not exported as is.
+function actionLines(action, step, stepDelay, elTimeout) {
+  const stepNum = step.n;
   const lbl    = action.label ? ` — ${commentText(action.label)}` : '';
   const delay  = msToSec(action.delay != null ? action.delay : stepDelay);
   const tout   = msToSec(elTimeout);
@@ -510,6 +513,7 @@ function actionLines(action, stepNum, stepDelay, elTimeout) {
       const code = (action.code || action.value || '').trim();
       out.push(`# Step ${stepNum}: execute script${lbl}`);
       out.push(`# ⚠ Original JS — verify logic works via execute_script()`);
+      mark(step, 'verify', 'custom JS run through driver.execute_script() — check it');
       out.push(..._scriptToPy(code));
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -586,10 +590,17 @@ function actionLines(action, stepNum, stepDelay, elTimeout) {
 
     case 'switch':
       out.push(`# Step ${stepNum}: switch [SKIPPED] — requires extension scenario routing`);
+      mark(step, 'skip', 'a Switch needs the extension to choose what plays');
+      break;
+
+    case 'uploadFile':
+      out.push(`# Step ${stepNum}: uploadFile${lbl} — [unsupported, skipped]`);
+      mark(step, 'skip', 'Upload File is not exported to Selenium');
       break;
 
     default:
       out.push(`# Step ${stepNum}: ${commentText(action.type)}${lbl} — [unsupported, skipped]`);
+      mark(step, 'skip', 'not an action type this version knows');
   }
 
   return out;
@@ -612,6 +623,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
       out.push(`# Step ${abs + 1}: switch block [SKIPPED] — steps ${abs + 2}–${end + 1} not exported (requires extension scenario routing)`);
       out.push('');
       ctx.warnings?.add(`Switch block at step ${abs + 1} skipped together with its ${end - abs} action(s)`);
+      ctx.steps?.push(...blockSteps(ctx.all, abs, end));
       i = end - baseIdx + 1;
       continue;
     }
@@ -622,6 +634,8 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
     }
 
     const stepNum = baseIdx + i + 1;
+    const step    = newStep(action, stepNum);
+    ctx.steps?.push(step);
 
     if (action.type === 'condition') {
       const skipCount = conditionSkip(action); // 0 for an emptied Condition: empty body
@@ -633,6 +647,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
       const condPy = condExprPy(action, selPy);
       if (condPy === null) {
         ctx.warnings?.add(`Condition step ${stepNum}: type "${action.conditionType}" is unknown — exported as always true`);
+        mark(step, 'verify', 'unknown condition type — exported as always true');
       }
       out.push(`if ${condPy ?? 'True'}:`);
 
@@ -650,7 +665,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
       out.push('');
       i = Math.max(i + 1, bodyEnd);
     } else {
-      out.push(...actionLines(action, stepNum, stepDelay, elTimeout));
+      out.push(...actionLines(action, step, stepDelay, elTimeout));
       out.push('');
       i++;
     }
@@ -670,7 +685,8 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
  * @param {number}   opts.elTimeout    - `WebDriverWait` timeout in ms (default 10000).
  * @param {string}   opts.driverType   - Selenium driver class name, e.g. "Chrome" (default).
  * @param {string}   opts.startUrl     - Initial `driver.get()` URL when first action is not navigate.
- * @returns {{ code: string, stats: { total, supported, skipped, hasScript, hasScreenshot } }}
+ * @returns {{ code: string, stats: { total, supported, skipped }, steps: object[], warnings: string[] }}
+ *   steps: what became of each enabled action (popup/export/steps.js).
  */
 export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) {
   const { stepDelay = 500, elTimeout = 10000, driverType = 'Chrome', startUrl = '' } = opts;
@@ -712,15 +728,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   const all    = actions || [];
   const layout = getSwitchLayout(all);
-  // A Switch block is skipped with everything in it (see processActions).
-  let skipped = 0, supported = 0, hasScript = false, hasScreenshot = false;
-  all.forEach((a, j) => {
-    if (!a || a.disabled) return;
-    if (a.type === 'switch' || layout[j]?.chain?.length) skipped++;
-    else supported++;
-    if (a.type === 'script') hasScript = true;
-    if (['screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar'].includes(a.type)) hasScreenshot = true;
-  });
+  const steps  = [];
 
   const needsRandom       = Object.keys(randomSpecs).length > 0 || Object.keys(pickSpecs).length > 0;
   const needsDatetime     = Object.values(randomSpecs).some(s => s.type === 'datetime');
@@ -854,7 +862,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('try:');
   out.push('');
 
-  const bodyLines = processActions(all, 0, stepDelay, elTimeout, { all, layout, warnings });
+  const bodyLines = processActions(all, 0, stepDelay, elTimeout, { all, layout, warnings, steps });
   for (const line of bodyLines) {
     out.push(line === '' ? '' : '    ' + line);
   }
@@ -883,9 +891,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     }
   }
 
+  const skipped = steps.filter((s) => s.status === 'skip').length;
   return {
     code: out.join('\n'),
-    stats: { total: enabled.length, supported, skipped, hasScript, hasScreenshot },
+    stats: { total: enabled.length, supported: steps.length - skipped, skipped },
+    steps,
     warnings: [...warnings],
   };
 }
@@ -905,14 +915,6 @@ export function initExportSelenium() {
     readOptions: _getOpts,
     generate: generateSeleniumPy,
     regenerateFromStorage: false,
-    noticeLines: (stats) => {
-      const msgs = [];
-      if (stats.skipped > 0)  msgs.push(`${stats.skipped} action(s) skipped (switch)`);
-      if (stats.hasScript)    msgs.push('script → driver.execute_script() — please review');
-      return msgs;
-    },
-    // Selenium: only 'switch' is skipped; 'script' needs manual verification
-    isSkipped: (a) => a.type === 'switch',
     copyText: (code) => code,
     file: (code) => ({ text: code, type: 'text/x-python' }),
     beforeOpen: _autoFillStartUrl,

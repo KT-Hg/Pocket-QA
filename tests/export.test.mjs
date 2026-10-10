@@ -212,3 +212,40 @@ test('the Selenium script switches stdout to UTF-8 before its first print', () =
   assert.ok(reconfigure > 0 && reconfigure < firstPrint, `reconfigure at ${reconfigure}, first print at ${firstPrint}`);
   assert.equal(compilePy(code), null);
 });
+
+// One step of each kind the Actions tab tells apart; step 2 is disabled, so numbers are the scenario's own.
+const stepKinds = [
+  { type: 'navigate', url: 'https://example.com/' },
+  { type: 'click', selector: '#off', selectors: { css: '#off' }, disabled: true },
+  { type: 'click', selector: '#a', selectors: { css: '#a' } },
+  { type: 'uploadFile', selector: '#f', selectors: { css: '#f' }, folderPath: 'C:\in', fileNames: ['a.txt'] },
+  { type: 'teleport', selector: '#t' },
+  { type: 'script', code: 'console.log(1)' },
+  { type: 'click', selector: '#in-frame', selectors: { css: '#in-frame' }, frameId: 3 },
+  { type: 'screenshot' },
+];
+const statusOf = (steps) => Object.fromEntries(steps.map((s) => [s.n, s.status]));
+
+test('each export says, step by step, what it exported, skipped or wants checked', () => {
+  const py = generateSeleniumPy('kinds', stepKinds, {});
+  assert.deepEqual(statusOf(py.steps), { 1: 'ok', 3: 'ok', 4: 'skip', 5: 'skip', 6: 'verify', 7: 'verify', 8: 'ok' });
+  const js = generateBookmarklet('kinds', stepKinds, {});
+  assert.deepEqual(statusOf(js.steps), { 1: 'verify', 3: 'ok', 4: 'skip', 5: 'skip', 6: 'verify', 7: 'verify', 8: 'skip' });
+  for (const { steps } of [py, js]) {
+    assert.ok(steps.every((s) => s.type === stepKinds[s.n - 1].type), 'each step names its action type');
+    assert.ok(steps.filter((s) => s.status !== 'ok').every((s) => s.reason), 'a step not exported as is says why');
+    assert.match(steps.find((s) => s.n === 7).reason, /iframe/);
+  }
+  // Upload File and an unknown type are skipped by the code, so they count as skipped.
+  assert.deepEqual([py.stats.supported, py.stats.skipped], [5, 2]);
+  assert.deepEqual([js.stats.supported, js.stats.skipped], [4, 3]);
+});
+
+test('a Switch block is one skipped step per action in it', () => {
+  const { steps, stats } = generateSeleniumPy('demo', actions, vars);
+  assert.deepEqual(statusOf(steps), { 1: 'ok', 2: 'ok', 3: 'ok', 4: 'skip', 5: 'skip', 6: 'skip', 7: 'ok' });
+  assert.match(steps.find((s) => s.n === 5).reason, /Switch block at step 4/);
+  assert.equal(stats.skipped, 3);
+  // The same in the bookmarklet, but for its step 1, a Navigate, which reloads the page there.
+  assert.deepEqual(statusOf(generateBookmarklet('demo', actions, vars).steps), { ...statusOf(steps), 1: 'verify' });
+});

@@ -6,6 +6,7 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
+import { mark, newStep, blockSteps } from './export/steps.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -217,7 +218,7 @@ function _conditionsToJS(cond) {
 }
 
 // Generates the "if (condExpr) {" header for a condition action
-function condHeader(action, stepNum) {
+function condHeader(action, stepNum, step) {
   const sel = getBestSel(action);
   const s = valueToJS(sel);
   const exp = valueToJS(action.expectedValue);
@@ -239,20 +240,26 @@ function condHeader(action, stepNum) {
   };
 
   const expr = exprMap[action.conditionType] || `true /* unknown: ${commentText(action.conditionType)} */`;
+  if (!exprMap[action.conditionType]) mark(step, 'verify', 'unknown condition type — exported as always true');
   return [
     `// Step ${stepNum}: condition — ${commentText(action.conditionType)}${lbl}`,
     `if (${expr}) {`
   ];
 }
 
-// Generates JS lines for a single non-condition action
-function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
+// Generates JS lines for a single non-condition action, and marks `step`
+// (export/steps.js) when the action is not exported as is.
+function actionLines(action, step, stepDelay, elTimeout, ctx) {
+  const stepNum = step.n;
   const lbl = action.label ? ` — ${commentText(action.label)}` : '';
   const delay = action.delay != null ? action.delay : stepDelay;
   const sel = getBestSel(action);
   const v = `_el${stepNum}`;
 
   if (SKIPPED_TYPES.has(action.type)) {
+    mark(step, 'skip', action.type === 'switch'
+      ? 'a Switch needs the extension to choose what plays'
+      : 'screenshots need the extension');
     return [`// Step ${stepNum}: [SKIPPED] ${commentText(action.type)} — requires Chrome Extension API`];
   }
 
@@ -330,6 +337,7 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
     case 'navigate':
       out.push(`// Step ${stepNum}: navigate${lbl}`);
       out.push(`// ⚠ Page will reload — steps after this will not execute unless injected on next load`);
+      mark(step, 'verify', 'the page reloads: steps after it do not run in a bookmarklet');
       // The action editor writes navigate targets to .url; imported/older scenarios
       // sometimes carry .value instead — the Python export already accepted both.
       out.push(`window.location.href = ${valueToJS(action.url || action.value)};`);
@@ -349,6 +357,7 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
       // top-level 'await' works inside the script without syntax errors.
       const { code, unresolved } = _scriptCodeWithVars(action.code || action.value || '', ctx);
       out.push(`// Step ${stepNum}: script${lbl}`);
+      mark(step, 'verify', 'custom JS, pasted in as is — check it');
       if (unresolved.length) {
         out.push(`// ⚠ Not substituted below: ${commentText(unresolved.map(n => '${' + n + '}').join(', '))}`);
         out.push(`//   Only static variables can be inlined into script code. These are`);
@@ -399,6 +408,9 @@ function actionLines(action, stepNum, stepDelay, elTimeout, ctx) {
 
     default:
       out.push(`// Step ${stepNum}: ${commentText(action.type)}${lbl} — [unsupported type, skipped]`);
+      mark(step, 'skip', action.type === 'uploadFile'
+        ? 'a bookmarklet cannot read local files'
+        : 'not an action type this version knows');
   }
 
   return out;
@@ -421,6 +433,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx) {
       out.push(`// Step ${abs + 1}: [SKIPPED] switch block — steps ${abs + 2}–${end + 1} not exported (requires Chrome Extension API)`);
       out.push('');
       ctx.warnings.add(`Switch block at step ${abs + 1} skipped together with its ${end - abs} action(s)`);
+      ctx.steps.push(...blockSteps(ctx.all, abs, end));
       i = end - baseIdx + 1;
       continue;
     }
@@ -431,10 +444,12 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx) {
     }
 
     const stepNum = baseIdx + i + 1;
+    const step    = newStep(action, stepNum);
+    ctx.steps.push(step);
 
     if (action.type === 'condition') {
       const skipCount = conditionSkip(action); // 0 for an emptied Condition: empty body
-      out.push(...condHeader(action, stepNum));
+      out.push(...condHeader(action, stepNum, step));
       // Same span playback skips: a Switch and its block count as one action.
       const bodyEnd = ctx.all ? conditionSkipTarget(ctx.all, abs, skipCount, ctx.layout) - baseIdx : i + 1 + skipCount;
       const body = actions.slice(i + 1, bodyEnd);
@@ -444,7 +459,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx) {
       out.push('');
       i = Math.max(i + 1, bodyEnd);
     } else {
-      out.push(...actionLines(action, stepNum, stepDelay, elTimeout, ctx));
+      out.push(...actionLines(action, step, stepDelay, elTimeout, ctx));
       out.push('');
       i++;
     }
@@ -462,7 +477,8 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx) {
  * @param {object}   opts
  * @param {number}   opts.stepDelay  - Default inter-step delay in ms (default 300).
  * @param {number}   opts.elTimeout  - Element wait timeout in ms (default 5000).
- * @returns {{ code: string, stats: { total, supported, skipped, hasNavigate, staticVarCount, randomVarCount } }}
+ * @returns {{ code: string, stats: { total, supported, skipped, staticVarCount, randomVarCount }, steps: object[], warnings: string[] }}
+ *   steps: what became of each enabled action (popup/export/steps.js).
  */
 export function generateBookmarklet(scenarioName, actions, variables, opts = {}) {
   const { stepDelay = 300, elTimeout = 5000 } = opts;
@@ -513,16 +529,8 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
 
   const all    = actions || [];
   const layout = getSwitchLayout(all);
-  const ctx = { staticVars, warnings, all, layout };
-
-  // A Switch block is skipped with everything in it (see processActions).
-  let skipped = 0, supported = 0, hasNavigate = false;
-  all.forEach((a, j) => {
-    if (!a || a.disabled) return;
-    if (SKIPPED_TYPES.has(a.type) || layout[j]?.chain?.length) skipped++;
-    else supported++;
-    if (a.type === 'navigate') hasNavigate = true;
-  });
+  const steps  = [];
+  const ctx = { staticVars, warnings, all, layout, steps };
 
   const out = [];
 
@@ -721,13 +729,15 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     }
   }
 
+  const skipped = steps.filter((s) => s.status === 'skip').length;
   return {
     code: out.join('\n'),
     stats: {
-      total: enabled.length, supported, skipped, hasNavigate,
+      total: enabled.length, supported: steps.length - skipped, skipped,
       staticVarCount: Object.keys(staticVars).length,
       randomVarCount: Object.keys(randomSpecs).length
     },
+    steps,
     warnings: [...warnings]
   };
 }
@@ -750,10 +760,6 @@ export function initExportBookmarklet() {
     }),
     generate: generateBookmarklet,
     regenerateFromStorage: true,
-    noticeLines: (stats) => (stats.skipped > 0
-      ? [`${stats.skipped} action(s) skipped (screenshot/switch — requires Extension API)`]
-      : []),
-    isSkipped: (a) => SKIPPED_TYPES.has(a.type),
     copyText: toBookmarkletUrl,
     // .js file: pretty-printed, without javascript: prefix
     file: (code) => ({ text: _toJsFile(code), type: 'application/javascript' }),

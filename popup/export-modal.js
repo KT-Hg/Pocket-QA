@@ -4,8 +4,8 @@
  * reviews, the tabs, Copy, Download, Regenerate, and focus.
  *
  * Each export passes what is its own (see initExportModal): its element ids,
- * how its code is generated, what it cannot export, and how the code is copied
- * and saved.
+ * how its code is generated, and how the code is copied and saved. What became
+ * of each action comes from the generator itself (popup/export/steps.js).
  */
 
 import { showToast, lockScroll, unlockScroll, escHtml, getUsedVarNames } from './utils.js';
@@ -35,11 +35,9 @@ const COPIED_LABEL_MS = 1500;
  * @param {string}   cfg.title        - header, followed by " — <scenario>"
  * @param {string}   cfg.fileSuffix   - after the scenario's safe name, e.g. '_selenium.py'
  * @param {Function} cfg.readOptions  - () → the generator's options, read from the Settings tab
- * @param {Function} cfg.generate     - (scenarioName, actions, variables, options) → { code, stats, warnings }
+ * @param {Function} cfg.generate     - (scenarioName, actions, variables, options) → { code, stats, steps, warnings }
  * @param {boolean}  cfg.regenerateFromStorage - Regenerate reads the scenario and all
  *                                      variables again (else it reuses what was opened)
- * @param {Function} cfg.noticeLines  - (stats) → lines for the warning bar, before the generator's own
- * @param {Function} cfg.isSkipped    - (action) → true when the export leaves it out
  * @param {Function} cfg.copyText     - (code) → what Copy puts on the clipboard
  * @param {Function} cfg.file         - (code) → { text, type } that Download saves
  * @param {Function} [cfg.beforeOpen] - run first each time the modal opens
@@ -82,13 +80,12 @@ export function initExportModal(cfg) {
     const codeEl = document.querySelector(`#${prefix}Code code`);
     if (codeEl) codeEl.textContent = result.code;
 
-    // Warning bar — skipped steps plus anything the generator could not express
-    // faithfully (renamed identifiers, unresolved ${...}, script placeholders).
-    // These used to surface only when the exported code was run.
+    // Warning bar — steps not exported as is, plus anything the generator could
+    // not express faithfully (renamed identifiers, unresolved ${...}, script
+    // placeholders). These used to surface only when the exported code was run.
     const warning = byId('Warning');
     const skipMsg = byId('SkipMsg');
-    const msgs = [...cfg.noticeLines(result.stats)];
-    msgs.push(...(result.warnings || []));
+    const msgs = [...stepNotices(result.steps), ...(result.warnings || [])];
     if (msgs.length) {
       skipMsg.style.whiteSpace = 'pre-line';
       skipMsg.textContent = msgs.join('\n');
@@ -103,7 +100,7 @@ export function initExportModal(cfg) {
     renderVariables(byId('NoVars'), byId('VarList'), vars);
 
     // Actions review tab
-    const actStats = renderActionsTab(prefix, run.actions, cfg.isSkipped);
+    const actStats = renderActionsTab(prefix, run.actions, result.steps);
 
     // Stats pills
     const { supported, skipped } = result.stats;
@@ -247,6 +244,18 @@ export function initExportModal(cfg) {
   modal?.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 }
 
+/** Warning-bar lines for the steps not exported as is: one per reason, with its step numbers. */
+function stepNotices(steps) {
+  const byReason = new Map();
+  for (const s of steps) {
+    if (s.status === 'ok') continue;
+    const key = `${s.status === 'skip' ? 'Skipped' : 'Check'} — ${s.reason}`;
+    if (!byReason.has(key)) byReason.set(key, []);
+    byReason.get(key).push(s.n);
+  }
+  return [...byReason].map(([key, ns]) => `${key}: step${ns.length > 1 ? 's' : ''} ${ns.join(', ')}`);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // VARIABLES TAB
 // ─────────────────────────────────────────────────────────────────────────────
@@ -347,35 +356,36 @@ function actionDesc(a) {
   }
 }
 
-function renderActionsTab(prefix, actions, isSkipped) {
+// How each step status of export/steps.js shows in the Actions tab.
+const STEP_STATUS_VIEW = {
+  ok:     { cls: 'ok',   label: '✓ OK',     rowCls: '' },
+  verify: { cls: 'warn', label: '⚠ Verify', rowCls: 'row-warn' },
+  skip:   { cls: 'skip', label: '— Skip',   rowCls: 'row-skip' },
+};
+
+// One row per step the generator reported, numbered as in the scenario and the code's comments.
+function renderActionsTab(prefix, actions, steps) {
   const listEl    = document.getElementById(`${prefix}ActList`);
   const summaryEl = document.getElementById(`${prefix}ActSummary`);
   if (!listEl || !summaryEl) return { okCount: 0, warnCount: 0, skipCount: 0 };
 
-  let okCount = 0, skipCount = 0, warnCount = 0;
   let html = '';
-
-  const enabled = (actions || []).filter(a => !a.disabled);
-  enabled.forEach((a, i) => {
+  for (const s of steps) {
+    const a = actions?.[s.n - 1] || {};
     // The fallback label is a.type straight out of an imported .json, so both it
     // and the class name are escaped at the interpolation site below.
     const info = ACT_TYPE_INFO[a.type] || { icon: '●', label: String(a.type ?? 'unknown'), cls: 'wait' };
-    const desc = actionDesc(a);
-    let status, statusLabel, rowCls;
-    if (isSkipped(a)) {
-      status = 'skip'; statusLabel = '— Skip'; rowCls = 'row-skip'; skipCount++;
-    } else if (a.type === 'script') {
-      status = 'warn'; statusLabel = '⚠ Verify'; rowCls = 'row-warn'; warnCount++;
-    } else {
-      status = 'ok'; statusLabel = '✓ OK'; rowCls = ''; okCount++;
-    }
-    html += `<div class="export-bm-action-row ${rowCls}">
-      <span class="export-bm-action-step">${i + 1}</span>
+    const view = STEP_STATUS_VIEW[s.status];
+    html += `<div class="export-bm-action-row ${view.rowCls}">
+      <span class="export-bm-action-step">${s.n}</span>
       <span class="export-bm-action-type abt-${escHtml(info.cls)}">${info.icon} ${escHtml(info.label)}</span>
-      <span class="export-bm-action-desc">${escHtml(desc)}</span>
-      <span class="export-bm-action-status ast-${status}">${statusLabel}</span>
+      <span class="export-bm-action-desc">${escHtml(actionDesc(a))}</span>
+      <span class="export-bm-action-status ast-${view.cls}" title="${escHtml(s.reason)}">${view.label}</span>
     </div>`;
-  });
+  }
+  const okCount   = steps.filter(s => s.status === 'ok').length;
+  const warnCount = steps.filter(s => s.status === 'verify').length;
+  const skipCount = steps.filter(s => s.status === 'skip').length;
   listEl.innerHTML = html;
 
   let sumHtml = '<span class="export-bm-act-sum-label">Will export:</span>';
@@ -387,7 +397,7 @@ function renderActionsTab(prefix, actions, isSkipped) {
   const badge = document.getElementById(`${prefix}ActCount`);
   if (badge) {
     const warnTotal = skipCount + warnCount;
-    badge.textContent = warnTotal > 0 ? `${warnTotal} ⚠` : String(enabled.length);
+    badge.textContent = warnTotal > 0 ? `${warnTotal} ⚠` : String(steps.length);
     badge.className   = 'export-bm-tab-count' + (warnTotal > 0 ? ' warn' : '');
   }
 
