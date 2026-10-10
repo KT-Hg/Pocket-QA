@@ -28,6 +28,12 @@ const exportFileBase = (scenarioName) => safeFileName(scenarioName).replace(/\s+
 const COPIED_LABEL_MS = 1500;
 // How long typing in a Settings field has to pause before the code follows it.
 const TYPING_SETTLE_MS = 300;
+// How long the lines of a step shown from the Actions tab stay tinted.
+const STEP_FLASH_MS = 1500;
+// Room left above a step's first line once it is scrolled to.
+const STEP_SCROLL_MARGIN_PX = 8;
+// The comment every export opens a step with: "# Step 7: …", "// Step 7: …".
+const STEP_LINE = /^\s*(?:#|\/\/) Step (\d+)\b/;
 
 // The modal's elements are #export<Suffix>.
 const PREFIX = 'export';
@@ -183,7 +189,7 @@ function render(result) {
 
   // Code preview
   const codeEl = byId('Code')?.querySelector('code');
-  if (codeEl) codeEl.textContent = result.code;
+  if (codeEl) renderCode(codeEl, result.code);
 
   // Warning bar (Code tab): one line counting the steps not exported as is and
   // what the generator could not express faithfully (renamed identifiers,
@@ -276,6 +282,51 @@ function download() {
   downloadBlob(new Blob([text], { type }), fileName());
 }
 
+/**
+ * The code into `codeEl`, a span per line, the line breaks between them as
+ * text: its text is the code as is (Select all, the checks that read it). A
+ * line that opens a step carries its number (data-step).
+ */
+function renderCode(codeEl, code) {
+  const lines = document.createDocumentFragment();
+  code.split('\n').forEach((text, i) => {
+    if (i) lines.append('\n');
+    const line = document.createElement('span');
+    line.className = 'export-bm-line';
+    const step = STEP_LINE.exec(text);
+    if (step) line.dataset.step = step[1];
+    line.textContent = text;
+    lines.append(line);
+  });
+  codeEl.replaceChildren(lines);
+}
+
+let flashTimer = null;
+
+/**
+ * Show step `n` in the Code tab: its first line near the top of the code, its
+ * lines (to the next step or blank line) tinted a moment. A step in a skipped
+ * Switch block has no comment of its own: the block's is shown.
+ */
+function showStep(n) {
+  const pre = byId('Code');
+  const lines = [...pre.querySelectorAll('.export-bm-line')];
+  const starts = lines.filter((l) => l.dataset.step && Number(l.dataset.step) <= n);
+  const start = starts.find((l) => Number(l.dataset.step) === n) || starts.at(-1);
+  if (!start) return;
+  switchTab('preview');
+  const from = lines.indexOf(start);
+  const end = lines.findIndex((l, i) => i > from && (l.dataset.step || !l.textContent.trim()));
+  clearTimeout(flashTimer);
+  pre.querySelectorAll('.export-bm-line-flash').forEach((l) => l.classList.remove('export-bm-line-flash'));
+  for (const line of lines.slice(from, end < 0 ? lines.length : end)) line.classList.add('export-bm-line-flash');
+  flashTimer = setTimeout(() => start.parentNode?.querySelectorAll('.export-bm-line-flash')
+    .forEach((l) => l.classList.remove('export-bm-line-flash')), STEP_FLASH_MS);
+  pre.scrollTop += start.getBoundingClientRect().top - pre.getBoundingClientRect().top - STEP_SCROLL_MARGIN_PX;
+  // The row that was clicked is hidden now: keyboard focus goes on to the code.
+  pre.focus({ preventScroll: true });
+}
+
 // The scenario as saved now, for one edited while the modal is open.
 function reload() {
   load(() => {
@@ -316,6 +367,14 @@ function wireModal() {
   byId('Download')?.addEventListener('click', download);
   byId('Reload')?.addEventListener('click', reload);
   byId('Warning')?.addEventListener('click', () => switchTab('actions'));
+  byId('ActList')?.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-step]');
+    if (row) showStep(Number(row.dataset.step));
+  });
+  byId('StepsBtn')?.addEventListener('click', () => {
+    const first = byId('Code')?.querySelector('[data-step]');
+    if (first) showStep(Number(first.dataset.step));
+  });
   followSettings(modal);
 
   byId('WrapBtn')?.addEventListener('click', () => {
@@ -496,7 +555,8 @@ const STEP_STATUS_VIEW = {
   skip:   { cls: 'skip', label: '— Skip',   rowCls: 'row-skip' },
 };
 
-// One row per step the generator reported, numbered as in the scenario and the code's comments.
+// One row per step the generator reported, numbered as in the scenario and the code's
+// comments; a row is a button that shows its step in the code (showStep).
 function renderActionsTab(prefix, actions, steps) {
   const listEl = document.getElementById(`${prefix}ActList`);
   if (!listEl) return;
@@ -511,14 +571,14 @@ function renderActionsTab(prefix, actions, steps) {
     // A step named in the scenario reads by its name; what it acts on follows, dimmed.
     const desc = escHtml(actionDesc(a));
     const label = a.label ? String(a.label).trim() : '';
-    html += `<div class="export-bm-action-row ${view.rowCls}">
+    html += `<button type="button" class="export-bm-action-row ${view.rowCls}" data-step="${s.n}" title="Show step ${s.n} in the code">
       <span class="export-bm-action-step">${s.n}</span>
       <span class="export-bm-action-type abt-${escHtml(info.cls)}">${info.icon} ${escHtml(info.label)}</span>
       <span class="export-bm-action-desc">${label
         ? `<span class="export-bm-action-label">${escHtml(label)}</span> <span class="export-bm-action-sel">${desc}</span>`
         : desc}</span>
       <span class="export-bm-action-status ast-${view.cls}" title="${escHtml(s.reason)}">${view.label}</span>
-    </div>`;
+    </button>`;
   }
   const warnCount = steps.filter(s => s.status === 'verify').length;
   const skipCount = steps.filter(s => s.status === 'skip').length;

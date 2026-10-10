@@ -348,6 +348,22 @@
   overflow-y: auto;
 }
 
+/* A line of code: as wide as the box at least, so a tint spans it; an empty one
+   keeps a line's height. */
+.export-bm-line {
+  display: inline-block;
+  min-width: 100%;
+  min-height: 1.6em;
+  vertical-align: top;
+  transition: background-color 0.4s;
+}
+
+/* The lines of a step shown from the Actions tab, for a moment. */
+.export-bm-line-flash { background: rgba(59, 130, 246, 0.18); }
+[data-theme="dark"] .export-bm-line-flash { background: rgba(96, 165, 250, 0.22); }
+
+.export-bm-code:focus-visible { outline-offset: -2px; }
+
 .export-bm-code::-webkit-scrollbar { width: 6px; height: 6px; }
 .export-bm-code::-webkit-scrollbar-track { background: transparent; }
 .export-bm-code::-webkit-scrollbar-thumb { background: var(--code-toolbar-border); border-radius: 3px; }
@@ -945,19 +961,30 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   line-height: 1.5;
 }
 
-/* Action row */
+/* Action row: a button that shows its step in the code */
 .export-bm-action-row {
   display: flex;
   align-items: center;
   gap: 7px;
+  width: 100%;
+  margin: 0;
   padding: 6px 14px;
+  border: 0;
   border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: normal;
+  text-align: left;
+  cursor: pointer;
   transition: background 0.1s;
   min-height: 34px;
 }
 
 .export-bm-action-row:last-child { border-bottom: none; }
-.export-bm-action-row:hover      { background: var(--secondary-bg); }
+.export-bm-action-row:hover      { background: var(--secondary-bg); border-color: var(--border); transform: none; }
+.export-bm-action-row:focus-visible { outline-offset: -2px; }
 .export-bm-action-row.row-skip   { opacity: 0.55; }
 .export-bm-action-row.row-warn   { background: rgba(239,68,68,.03); }
 

@@ -89,6 +89,9 @@
  *                 does not move between tabs; the bookmarklet's warnings take one
  *                 line, which opens the Actions tab listing each reason and note;
  *                 at 480 × 500 nothing is cut off
+ *   export-jump   a row of the export Actions tab, clicked or entered, opens the Code
+ *                 tab with its "Step n" line in view and its lines tinted; ↧ Steps
+ *                 shows Step 1
  *   export-formats  the Export Code card offers the bookmarklet, Selenium and Playwright,
  *                 each opening its own export with a "⬇ Download" button; the last
  *                 button keeps the others' size, in the middle of its row
@@ -1370,6 +1373,50 @@ async function checkExportLayout(ctx) {
   }
 }
 
+/** A real key press on the focused element of `page`. */
+async function pressKey(page, key, code, keyCode, text) {
+  await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: keyCode, ...(text ? { text } : {}) });
+  await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: keyCode });
+}
+
+async function checkExportJump(ctx) {
+  const sample = await makeScenario(ctx, 'e2e export jump', EXPORT_SAMPLE);
+  const popup = await openPopup(ctx, { width: 480, height: 600 });
+  try {
+    await openExport(popup, sample, 'exportSelenium');
+    // The line that opens step n: its text, whether the code box shows it, whether it is tinted.
+    const stepLine = (n) => popup.evaluate(`(() => {
+      const pre = document.getElementById('exportCode');
+      const line = pre.querySelector('.export-bm-line[data-step="${n}"]');
+      const p = pre.getBoundingClientRect(), r = line.getBoundingClientRect();
+      return { text: line.textContent, inView: r.top >= p.top && r.bottom <= p.bottom, scrollTop: Math.round(pre.scrollTop),
+        tinted: line.classList.contains('export-bm-line-flash') && getComputedStyle(line).backgroundColor !== 'rgba(0, 0, 0, 0)',
+        codeTab: !document.getElementById('exportTabPreview').hidden };
+    })()`);
+    await showExportTab(popup, 'actions');
+    await popup.evaluate(`document.querySelector('#exportActList [data-step="7"]').click()`);
+    await sleep(SETTLE_MS);
+    const seven = await stepLine(7);
+    check(seven.codeTab && seven.inView && seven.tinted && seven.scrollTop > 0 && seven.text.trim().startsWith('# Step 7:'),
+      'a click on row 7 opens the Code tab on "# Step 7", tinted', seven);
+    await popup.evaluate(`document.getElementById('exportStepsBtn').click()`);
+    await sleep(SETTLE_MS);
+    const first = await stepLine(1);
+    check(first.inView && first.text.trim().startsWith('# Step 1:'), '↧ Steps shows Step 1', first);
+    // By keyboard: row 10 focused, Enter.
+    await showExportTab(popup, 'actions');
+    await popup.evaluate(`document.querySelector('#exportActList [data-step="10"]').focus()`);
+    await pressKey(popup, 'Enter', 'Enter', 13, '\r');
+    await sleep(SETTLE_MS);
+    const ten = await stepLine(10);
+    check(ten.codeTab && ten.inView && ten.tinted, 'Enter on row 10 shows step 10 in the code', ten);
+    const text = await popup.evaluate(`document.querySelector('#exportCode code').textContent`);
+    check(text.split('\n').length > 50 && /\n\s*# Step 10: /.test(text), 'the code box\'s text is still the code, line for line', text.length);
+  } finally {
+    await popup.close();
+  }
+}
+
 async function checkExportFormats(ctx) {
   const id = await makeScenario(ctx, 'e2e export formats', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
   const popup = await openPopup(ctx);
@@ -2013,6 +2060,7 @@ const CHECKS = [
   ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
   ['export-live-settings', 'The export code follows its Settings', checkExportLiveSettings],
   ['export-layout', 'The export modal\'s size in a 600 and a 500 px popup', checkExportLayout],
+  ['export-jump', 'From a row of the Actions tab to its code', checkExportJump],
   ['export-formats', 'The formats the Export Code card offers', checkExportFormats],
   ['export-playwright', 'The Playwright Test export in the popup', checkExportPlaywright],
   ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
