@@ -58,6 +58,47 @@ export const FIND_CHILD_JS = String.raw`(parent, cond) => {
   return _tryFind(cond);
 }`;
 
+/** The Condition types CHECK_COND_JS answers; an export stops on any other. */
+export const CONDITION_TYPES = new Set([
+  'elementExists', 'elementNotExists', 'elementVisible', 'elementHidden', 'textContains', 'textEquals',
+  'valueEquals', 'valueContains', 'urlContains', 'urlEquals', 'hasClass', 'hasAttribute',
+]);
+
+/**
+ * (type, el, expected) → whether a Condition holds; CHECK_CONDITION in content.js.
+ * `el` is the element found now (null when there is none, and for the URL types).
+ * Visible means displayed, not visibility:hidden, not opacity 0 and with a size —
+ * not offsetParent, which a position:fixed element lacks. Text is textContent,
+ * hidden parts included. hasAttribute "name=value" compares the value.
+ */
+export const CHECK_COND_JS = String.raw`(type, el, expected) => {
+  const shown = (e) => {
+    const style = getComputedStyle(e), rect = e.getBoundingClientRect();
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;
+  };
+  switch (type) {
+    case 'elementExists':    return !!el;
+    case 'elementNotExists': return !el;
+    case 'elementVisible':   return !!el && shown(el);
+    case 'elementHidden':    return !el || !shown(el);
+    case 'textContains':     return !!el && el.textContent.includes(expected);
+    case 'textEquals':       return !!el && el.textContent.trim() === (expected || '').trim();
+    case 'valueEquals':      return !!el && 'value' in el && el.value === expected;
+    case 'valueContains':    return !!el && 'value' in el && el.value.includes(expected);
+    case 'urlContains':      return window.location.href.includes(expected);
+    case 'urlEquals':        return window.location.href === expected;
+    case 'hasClass':         return !!el && el.classList.contains(expected);
+    case 'hasAttribute': {
+      if (!el) return false;
+      const eq = (expected || '').indexOf('=');
+      if (eq < 0) return el.hasAttribute(expected);
+      const name = expected.slice(0, eq);
+      return el.hasAttribute(name) && el.getAttribute(name) === expected.slice(eq + 1);
+    }
+    default: throw new Error('Unknown condition type "' + type + '"');
+  }
+}`;
+
 /**
  * (el, from, attr) → what Read DOM reads from `el` for its "Read from" choice
  * (text, visible, value, attr); readElementValue in content.js.

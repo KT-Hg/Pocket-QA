@@ -6,7 +6,7 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
-import { FIND_CHILD_JS, READ_VAL_JS } from './export/page-js.js';
+import { FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES } from './export/page-js.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
@@ -103,7 +103,7 @@ function valueToPy(val) {
 // variable called `driver` or `class` would otherwise overwrite the WebDriver or
 // fail to parse, so those get a `_v` suffix.
 const _RESERVED_PY = new Set([
-  'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index',
+  'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   'Select', 'ActionChains', 'NoSuchElementException', 'webdriver', 'e', 'print',
   'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
   'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
@@ -176,52 +176,31 @@ function _jsEscapeHelperPy() {
   ];
 }
 
-// Generates the Python if-condition expression for a condition action
+/**
+ * The `if` test of a condition action: the in-page check (_check_cond, the
+ * CHECK_COND_JS of popup/export/page-js.js) on the element found now — the
+ * Selenium expressions it replaces matched `.text` (what Selenium shows) where
+ * playback reads textContent, and compared textEquals untrimmed. null for a
+ * type this version does not know.
+ */
 function condExprPy(action, selPy) {
-  const exp = valueToPy(action.expectedValue);
-  switch (action.conditionType) {
-    case 'elementExists':
-      return `len(driver.find_elements(${selPy})) > 0`;
-    case 'elementNotExists':
-      return `len(driver.find_elements(${selPy})) == 0`;
-    case 'elementVisible':
-      return `(lambda _e: bool(_e) and _e[0].is_displayed())(driver.find_elements(${selPy}))`;
-    case 'elementHidden':
-      return `(lambda _e: not _e or not _e[0].is_displayed())(driver.find_elements(${selPy}))`;
-    case 'textContains':
-      return `(driver.find_element(${selPy}).text if driver.find_elements(${selPy}) else '') and ${exp} in driver.find_element(${selPy}).text`;
-    case 'textEquals':
-      return `(driver.find_element(${selPy}).text.strip() if driver.find_elements(${selPy}) else '') == ${exp}`;
-    case 'valueEquals':
-      return `(driver.find_element(${selPy}).get_attribute('value') or '' if driver.find_elements(${selPy}) else '') == ${exp}`;
-    case 'valueContains':
-      return `${exp} in (driver.find_element(${selPy}).get_attribute('value') or '' if driver.find_elements(${selPy}) else '')`;
-    case 'urlContains':
-      return `${exp} in driver.current_url`;
-    case 'urlEquals':
-      return `driver.current_url == ${exp}`;
-    case 'hasClass':
-      return `${exp} in (driver.find_element(${selPy}).get_attribute('class') or '' if driver.find_elements(${selPy}) else '')`;
-    case 'hasAttribute': {
-      // If expectedValue is "attr=value", split on the first '=' and generate
-      // a proper attribute-value comparison (get_attribute("attr=value") always returns None).
-      const rawExp = String(action.expectedValue || '');
-      const eqIdx  = rawExp.indexOf('=');
-      if (eqIdx > 0) {
-        // Both halves go through valueToPy: JSON.stringify used to freeze a
-        // `data-id=${host}` into the literal string "${host}".
-        const attrNamePy = valueToPy(rawExp.slice(0, eqIdx));
-        const attrValPy  = valueToPy(rawExp.slice(eqIdx + 1));
-        return `(driver.find_element(${selPy}).get_attribute(${attrNamePy}) == ${attrValPy}) if driver.find_elements(${selPy}) else False`;
-      }
-      // No '=' — check that the attribute exists (non-null, non-empty)
-      return `bool(driver.find_element(${selPy}).get_attribute(${exp})) if driver.find_elements(${selPy}) else False`;
-    }
-    default:
-      // A type this version does not know. Not "True  # unknown …": the comment
-      // took the `:` of the `if` with it and the script did not parse.
-      return null;
-  }
+  const type = action.conditionType;
+  if (!CONDITION_TYPES.has(type)) return null;
+  const locator = type.startsWith('url') ? 'None' : `(${selPy})`;
+  return `_check_cond(${JSON.stringify(type)}, ${locator}, ${valueToPy(action.expectedValue)})`;
+}
+
+// The _check_cond() runtime helper: content.js CHECK_CONDITION, run in the page.
+function _checkCondHelperPy() {
+  return [
+    '# Same check as the extension (content.js CHECK_CONDITION), on the element found now.',
+    ...pyPageJs('_CHECK_COND_JS', CHECK_COND_JS),
+    '',
+    '',
+    'def _check_cond(cond_type, locator, expected):',
+    '    found = driver.find_elements(*locator) if locator else []',
+    '    return driver.execute_script(_CHECK_COND_JS, cond_type, found[0] if found else None, expected)',
+  ];
 }
 
 /**
@@ -571,8 +550,11 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx = {}) {
       out.push(`# Step ${stepNum}: condition — ${commentText(action.conditionType)}${lbl}`);
       const condPy = condExprPy(action, selPy);
       if (condPy === null) {
-        ctx.warnings?.add(`Condition step ${stepNum}: type "${action.conditionType}" is unknown — exported as always true`);
-        mark(step, 'verify', 'unknown condition type — exported as always true');
+        // As a run does: it stops there. The name stays in the comment above, never
+        // in code; the block is kept for a check put in by hand.
+        ctx.warnings?.add(`Condition step ${stepNum}: type "${action.conditionType}" is unknown — the exported code stops there, as a run does`);
+        mark(step, 'verify', 'unknown condition type — the exported code stops there, as a run does');
+        out.push(`raise Exception(${JSON.stringify(`Condition step ${stepNum}: unknown condition type, named in the comment above`)})`);
       }
       out.push(`if ${condPy ?? 'True'}:`);
 
@@ -692,6 +674,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   out.push('');
 
   // ── Runtime helpers ──
+  if (needsCondition) {
+    out.push(..._checkCondHelperPy());
+    out.push('');
+    out.push('');
+  }
   if (needsChildCond) {
     out.push(..._findChildHelperPy());
     out.push('');

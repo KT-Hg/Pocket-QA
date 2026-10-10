@@ -973,6 +973,15 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   <span id="note" style="display:none">ref 7731</span>
 </div>
 <input id="picked">
+<div id="conds">
+  <div id="tagged" data-id="5">tagged</div>
+  <div id="fixedBox" style="position:fixed;top:0;right:0;width:40px;height:20px">fixed</div>
+  <div id="ghost" style="opacity:0">ghost</div>
+  <div id="note2">Note <span style="display:none">secret</span></div>
+  <div id="total">  Total: 42  </div>
+  <button id="c1">c1</button><button id="c2">c2</button><button id="c3">c3</button>
+  <button id="c4">c4</button><button id="c5">c5</button><button id="c6">c6</button>
+</div>
 <script>
   const run = new URLSearchParams(location.search).get('run');
   const clicks = [], alerts = [];
@@ -1047,6 +1056,24 @@ const EXPORT_CASES = [
       { type: 'input', selector: '#picked', selectors: { css: '#picked' }, value: '${ref}' },
     ],
     expect: { fields: { picked: 'ref 7731' }, clicks: ['tagBob', 'editBob', 'nameBob'], alerts: [] },
+  },
+  {
+    // Each Condition guards one click: hasAttribute name=value, visible / hidden by
+    // style and size (a fixed element has no offsetParent), text by textContent,
+    // textEquals trimmed on both sides.
+    name: 'conditions',
+    actions: [
+      ['hasAttribute', '#tagged', 'data-id=5', '#c1'],
+      ['elementVisible', '#fixedBox', '', '#c2'],
+      ['elementHidden', '#ghost', '', '#c3'],
+      ['textContains', '#note2', 'secret', '#c4'],
+      ['textEquals', '#total', ' Total: 42 ', '#c5'],
+      ['elementVisible', '#ghost', '', '#c6'],
+    ].flatMap(([conditionType, sel, expectedValue, guarded]) => [
+      { type: 'condition', conditionType, selector: sel, selectors: { css: sel }, expectedValue, skipCount: 1 },
+      { type: 'click', selector: guarded, selectors: { css: guarded } },
+    ]),
+    expect: { clicks: ['c1', 'c2', 'c3', 'c4', 'c5'], alerts: [] },
   },
 ];
 

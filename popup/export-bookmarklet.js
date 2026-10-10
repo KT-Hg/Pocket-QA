@@ -7,7 +7,7 @@ import { activeValue, parseRandomSpec, parsePickSpec } from '../shared/var-spec.
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { mark, newStep, blockSteps } from './export/steps.js';
-import { FIND_CHILD_JS, READ_VAL_JS } from './export/page-js.js';
+import { FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES } from './export/page-js.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -33,7 +33,7 @@ function makeRandomFn(type, length) {
 // `sleep` would shadow a helper and one called `class` is a SyntaxError — those
 // get a `_v` suffix instead.
 const _RESERVED_JS = new Set([
-  'sleep', 'getEl', 'setInput', '_qsel', '_findChild', '_readVal', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
+  'sleep', 'getEl', 'setInput', '_qsel', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
   'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete',
   'do', 'else', 'enum', 'export', 'extends', 'false', 'finally', 'for', 'function', 'if',
   'import', 'in', 'instanceof', 'new', 'null', 'return', 'super', 'switch', 'this', 'throw',
@@ -223,34 +223,23 @@ function _conditionsToJS(cond) {
   return `{${parts.join(', ')}}`;
 }
 
-// Generates the "if (condExpr) {" header for a condition action
-function condHeader(action, stepNum, step) {
-  const sel = getBestSel(action);
-  const s = valueToJS(sel);
-  const exp = valueToJS(action.expectedValue);
+/**
+ * The "if (…) {" that opens a condition action's block: the in-page check
+ * (_checkCond, popup/export/page-js.js) on the element found now. A type this
+ * version does not know stops the run there, as playback does; its name stays in
+ * the comment, never in code, and the block is kept for a check put in by hand.
+ */
+function condHeader(action, stepNum, step, ctx) {
+  const type = action.conditionType;
   const lbl = action.label ? ` — ${commentText(action.label)}` : '';
-
-  const exprMap = {
-    elementExists:    `_qsel(${s}) !== null`,
-    elementNotExists: `_qsel(${s}) === null`,
-    elementVisible:   `(() => { const _e=_qsel(${s}); return !!_e && _e.offsetParent!==null; })()`,
-    elementHidden:    `(() => { const _e=_qsel(${s}); return !_e || _e.offsetParent===null; })()`,
-    textContains:     `(_qsel(${s})?.textContent||'').includes(${exp})`,
-    textEquals:       `(_qsel(${s})?.textContent||'').trim()===${exp}`,
-    valueEquals:      `(_qsel(${s})?.value||'')===${exp}`,
-    valueContains:    `(_qsel(${s})?.value||'').includes(${exp})`,
-    urlContains:      `window.location.href.includes(${exp})`,
-    urlEquals:        `window.location.href===${exp}`,
-    hasClass:         `(_qsel(${s})?.classList.contains(${exp})??false)`,
-    hasAttribute:     `(_qsel(${s})?.hasAttribute(${exp})??false)`,
-  };
-
-  const expr = exprMap[action.conditionType] || `true /* unknown: ${commentText(action.conditionType)} */`;
-  if (!exprMap[action.conditionType]) mark(step, 'verify', 'unknown condition type — exported as always true');
-  return [
-    `// Step ${stepNum}: condition — ${commentText(action.conditionType)}${lbl}`,
-    `if (${expr}) {`
-  ];
+  const head = `// Step ${stepNum}: condition — ${commentText(type)}${lbl}`;
+  if (!CONDITION_TYPES.has(type)) {
+    mark(step, 'verify', 'unknown condition type — the exported code stops there, as a run does');
+    ctx.warnings.add(`Condition step ${stepNum}: type "${type}" is unknown — the exported code stops there, as a run does`);
+    return [head, `throw new Error(${JSON.stringify(`Condition step ${stepNum}: unknown condition type, named in the comment above`)});`, 'if (true) {'];
+  }
+  const el = type.startsWith('url') ? 'null' : `_qsel(${valueToJS(getBestSel(action))})`;
+  return [head, `if (_checkCond(${JSON.stringify(type)}, ${el}, ${valueToJS(action.expectedValue)})) {`];
 }
 
 // Generates JS lines for a single non-condition action, and marks `step`
@@ -455,7 +444,7 @@ function processActions(actions, baseIdx, stepDelay, elTimeout, ctx) {
 
     if (action.type === 'condition') {
       const skipCount = conditionSkip(action); // 0 for an emptied Condition: empty body
-      out.push(...condHeader(action, stepNum, step));
+      out.push(...condHeader(action, stepNum, step, ctx));
       // Same span playback skips: a Switch and its block count as one action.
       const bodyEnd = ctx.all ? conditionSkipTarget(ctx.all, abs, skipCount, ctx.layout) - baseIdx : i + 1 + skipCount;
       const body = actions.slice(i + 1, bodyEnd);
@@ -580,6 +569,10 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('  };');
   out.push('');
   out.push(...declarePageJs('_findChild', FIND_CHILD_JS));
+  if (enabled.some(a => a.type === 'condition')) {
+    out.push('');
+    out.push(...declarePageJs('_checkCond', CHECK_COND_JS));
+  }
   if (enabled.some(a => a.type === 'readdom')) {
     out.push('');
     out.push(...declarePageJs('_readVal', READ_VAL_JS));

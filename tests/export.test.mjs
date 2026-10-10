@@ -66,7 +66,7 @@ test('exports without blocks are unchanged in shape', () => {
     { type: 'click', selector: '#b', selectors: { css: '#b' } },
   ];
   const { code } = generateBookmarklet('plain', plain, {});
-  assert.match(code, /if \(_qsel\("#x"\) !== null\) \{\n\s+\/\/ Step 2: click/);
+  assert.match(code, /if \(_checkCond\("elementExists", _qsel\("#x"\), ''\)\) \{\n\s+\/\/ Step 2: click/);
   assert.match(code, /\}\n\n\s+\/\/ Step 3: click/);
 });
 
@@ -156,9 +156,86 @@ test('a name, label or type cannot end its comment or string, in either export',
 
   const js = generateBookmarklet(HOSTILE_NAME, hostile, {});
   for (const line of js.code.split(/\r\n|[\n\r\u2028\u2029]/).filter((l) => l.includes('INJECTED'))) {
-    assert.match(line.trim(), /^\/\/|true \/\* unknown: /, line);
+    assert.match(line.trim(), /^\/\//, line);
   }
+  assert.ok(js.warnings.some((w) => /type "isChecked/.test(w)), 'an unknown condition type is a warning');
   new Function(js.code.replace(/^javascript:/, ''));
+});
+
+// Fakes for running CHECK_COND_JS outside a page: an element is its style, size, text and attributes.
+const fakeEl = ({ style = {}, size = [10, 10], text = '', attrs = {}, value, classes = [] } = {}) => ({
+  style: { display: 'block', visibility: 'visible', opacity: '1', ...style },
+  getBoundingClientRect: () => ({ width: size[0], height: size[1] }),
+  textContent: text,
+  ...(value !== undefined ? { value } : {}),
+  classList: { contains: (c) => classes.includes(c) },
+  hasAttribute: (n) => n in attrs,
+  getAttribute: (n) => (n in attrs ? attrs[n] : null),
+});
+
+test('the in-page condition check answers as playback does (content.js CHECK_CONDITION)', async () => {
+  const { CHECK_COND_JS, CONDITION_TYPES } = await import('../popup/export/page-js.js');
+  globalThis.getComputedStyle = (el) => el.style;
+  globalThis.window = { location: { href: 'https://shop.test/cart?id=7' } };
+  try {
+    const check = new Function(`return (${CHECK_COND_JS})`)();
+    const fixed = fakeEl(); // position:fixed has no offsetParent, but it is on screen
+    const ghost = fakeEl({ style: { opacity: '0' } });
+    const cases = [
+      ['elementExists', fixed, '', true], ['elementExists', null, '', false],
+      ['elementNotExists', null, '', true],
+      ['elementVisible', fixed, '', true], ['elementVisible', ghost, '', false],
+      ['elementVisible', fakeEl({ size: [0, 0] }), '', false], ['elementVisible', null, '', false],
+      ['elementHidden', ghost, '', true], ['elementHidden', fakeEl({ style: { visibility: 'hidden' } }), '', true],
+      ['elementHidden', fixed, '', false], ['elementHidden', null, '', true],
+      ['textContains', fakeEl({ text: 'Note secret' }), 'secret', true], ['textContains', null, 'x', false],
+      ['textEquals', fakeEl({ text: '  Total: 42  ' }), ' Total: 42 ', true],
+      ['valueEquals', fakeEl({ value: 'a' }), 'a', true], ['valueEquals', fakeEl(), 'a', false],
+      ['valueContains', fakeEl({ value: 'abc' }), 'b', true],
+      ['urlContains', null, 'cart', true], ['urlEquals', null, 'https://shop.test/cart?id=7', true],
+      ['hasClass', fakeEl({ classes: ['on'] }), 'on', true],
+      ['hasAttribute', fakeEl({ attrs: { 'data-id': '5' } }), 'data-id=5', true],
+      ['hasAttribute', fakeEl({ attrs: { 'data-id': '6' } }), 'data-id=5', false],
+      ['hasAttribute', fakeEl({ attrs: { disabled: '' } }), 'disabled', true],
+    ];
+    for (const [type, el, expected, want] of cases) {
+      assert.equal(check(type, el, expected), want, `${type} ${expected}`);
+    }
+    assert.deepEqual([...new Set(cases.map((c) => c[0]))].sort(), [...CONDITION_TYPES].sort(), 'every type is covered');
+    assert.throws(() => check('isChecked', fixed, ''), /Unknown condition type "isChecked"/);
+  } finally {
+    delete globalThis.getComputedStyle;
+    delete globalThis.window;
+  }
+});
+
+test('both exports check a Condition with the in-page check, and stop on an unknown type', () => {
+  const steps = [
+    { type: 'condition', conditionType: 'hasAttribute', selector: '#t', selectors: { css: '#t' }, expectedValue: 'data-id=${n}', skipCount: 1 },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'condition', conditionType: 'urlContains', expectedValue: 'cart', skipCount: 1 },
+    { type: 'click', selector: '#b', selectors: { css: '#b' } },
+    { type: 'condition', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' }, skipCount: 1 },
+    { type: 'click', selector: '#d', selectors: { css: '#d' } },
+  ];
+  const py = generateSeleniumPy('conds', steps, { n: '5' });
+  assert.match(py.code, /^ {4}if _check_cond\("hasAttribute", \(By\.CSS_SELECTOR, "#t"\), f"data-id=\{n\}"\):$/m);
+  assert.match(py.code, /^ {4}if _check_cond\("urlContains", None, "cart"\):$/m);
+  // It stops there; the block after it is kept for a check put in by hand.
+  assert.match(py.code, /^ {4}raise Exception\("Condition step 5: unknown condition type, named in the comment above"\)\n {4}if True:\n {8}# Step 6: click$/m);
+  assert.equal(compilePy(py.code), null);
+
+  const js = generateBookmarklet('conds', steps, { n: '5' });
+  assert.match(js.code, /^ {4}if \(_checkCond\("hasAttribute", _qsel\("#t"\), `data-id=\$\{n\}`\)\) \{$/m);
+  assert.match(js.code, /^ {4}if \(_checkCond\("urlContains", null, "cart"\)\) \{$/m);
+  assert.match(js.code, /^ {4}throw new Error\("Condition step 5: unknown condition type, named in the comment above"\);\n {4}if \(true\) \{\n {6}\/\/ Step 6: click$/m);
+  new Function(js.code.replace(/^javascript:/, ''));
+
+  for (const r of [py, js]) {
+    assert.equal(r.steps.find((s) => s.n === 5).status, 'verify');
+    assert.match(r.steps.find((s) => s.n === 5).reason, /stops there/);
+    assert.ok(r.warnings.some((w) => /Condition step 5: type "isChecked" is unknown \u2014 the exported code stops there/.test(w)));
+  }
 });
 
 test('the copied bookmark URL is the code as written, and it runs', async () => {
