@@ -1053,7 +1053,10 @@ function saveExportState(req, reply) {
  * is what playback must leave (fields listed; clicks, alerts and marks in full,
  * none when left out); each export of `runners` (default both) must then leave
  * exactly what playback left; `files` are what the Selenium run must save, by
- * name, each with a check on the PNG's { width, height }. Add a case per
+ * name, each with a check on the PNG's { width, height }. With `pageVar`, each run
+ * starts on another page and that variable holds the URL of its own; with
+ * `bookmarkletClicks: 2` the bookmark is clicked once there, then again on the
+ * page it opened. Add a case per
  * behaviour an export has to share with playback.
  */
 // The folder of this harness: Upload File cases upload its own files.
@@ -1174,6 +1177,18 @@ const EXPORT_CASES = [
     actions: [{ type: 'screenshot_full' }],
     files: { 'screenshot_full_step1.png': ({ height }) => height > 3000 },
   },
+  {
+    // A Navigate first. The bookmarklet, clicked on another page, opens the page
+    // and stops; clicked again there, it plays the rest.
+    name: 'navigate-first',
+    pageVar: 'page',
+    bookmarkletClicks: 2,
+    actions: [
+      { type: 'navigate', url: '${page}' },
+      { type: 'click', selector: '#submit', selectors: { css: '#submit' } },
+    ],
+    expect: { clicks: ['submit'] },
+  },
 ];
 
 // The exported Selenium script, first run included (Selenium Manager may fetch a driver).
@@ -1211,6 +1226,17 @@ async function pythonMissing() {
   return error.code === 'ENOENT' ? 'no python on PATH' : `no selenium for python (${String(stderr).trim().split('\n').pop()})`;
 }
 
+/** Wait (up to PLAY_TIMEOUT_MS) until `page` has loaded `url`, then a moment more. */
+async function untilOn(page, url) {
+  for (let waited = 0; waited < PLAY_TIMEOUT_MS; waited += POLL_MS) {
+    // Mid-navigation the page may not answer at all.
+    const href = await page.evaluate('document.readyState === "complete" && location.href').catch(() => null);
+    if (href === url) break;
+    await sleep(POLL_MS);
+  }
+  await sleep(PAGE_SETTLE_MS);
+}
+
 /** The fields whose values differ between two page states, as { field: [a, b] }. */
 function stateDiff(a, b) {
   const out = {};
@@ -1235,7 +1261,10 @@ async function checkExportRun(ctx) {
   const pageUrl = (key) => `${ctx.base}/export?run=${encodeURIComponent(key)}`;
   try {
     for (const c of EXPORT_CASES) {
-      await ctx.send({ type: 'SAVE_VARIABLES', variables: c.variables || {} });
+      // The URL of each run's own page, in the variable named by `pageVar`.
+      const pageVars = (runner) => (c.pageVar ? { [c.pageVar]: pageUrl(`${c.name}:${runner}`) } : {});
+      const startUrl = (runner) => pageUrl(`${c.name}:${c.pageVar ? 'start' : runner}`);
+      await ctx.send({ type: 'SAVE_VARIABLES', variables: { ...c.variables, ...pageVars('playback') } });
       const id = await makeScenario(ctx, `e2e export ${c.name}`, c.actions);
       // The exports get what the modal hands them: the stored actions, and the variables they use.
       const actions = (await ctx.send({ type: 'GET_SCENARIOS' })).scenarios[id].actions;
@@ -1245,26 +1274,29 @@ async function checkExportRun(ctx) {
       const states = {};
       const runners = c.runners || ['bookmarklet', 'selenium'];
 
-      await ctx.web.goto(pageUrl(`${c.name}:playback`));
+      await ctx.web.goto(startUrl('playback'));
       await sleep(PAGE_SETTLE_MS);
       const played = await play(ctx, id);
       if (played.timedOut) fail(`${c.name}: playback did not finish`);
       states.playback = exportStates.get(`${c.name}:playback`)?.state;
 
       if (runners.includes('bookmarklet')) {
-        await ctx.web.goto(pageUrl(`${c.name}:bookmarklet`));
-        const url = toBookmarkletUrl(generateBookmarklet(c.name, actions, variables).code);
-        // What a click on the bookmark runs: the URL, percent-decoded.
-        await ctx.web.evaluate(decodeURIComponent(url.slice('javascript:'.length)), BOOKMARKLET_RUN_TIMEOUT_MS)
-          .catch((e) => fail(`${c.name}: the bookmarklet threw: ${e.message}`));
+        await ctx.web.goto(startUrl('bookmarklet'));
+        const url = toBookmarkletUrl(generateBookmarklet(c.name, actions, { ...variables, ...pageVars('bookmarklet') }).code);
+        for (let click = 1; click <= (c.bookmarkletClicks || 1); click++) {
+          if (click > 1) await untilOn(ctx.web, pageUrl(`${c.name}:bookmarklet`));
+          // What a click on the bookmark runs: the URL, percent-decoded.
+          await ctx.web.evaluate(decodeURIComponent(url.slice('javascript:'.length)), BOOKMARKLET_RUN_TIMEOUT_MS)
+            .catch((e) => fail(`${c.name}: the bookmarklet threw on click ${click}: ${e.message}`));
+        }
         await sleep(SETTLE_MS);
         states.bookmarklet = exportStates.get(`${c.name}:bookmarklet`)?.state;
       }
 
       if (!noPython && runners.includes('selenium')) {
         const file = join(dir, `${c.name}.py`);
-        writeFileSync(file, generateSeleniumPy(c.name, actions, variables,
-          { driverType: 'Edge', startUrl: pageUrl(`${c.name}:selenium`) }).code);
+        writeFileSync(file, generateSeleniumPy(c.name, actions, { ...variables, ...pageVars('selenium') },
+          { driverType: 'Edge', startUrl: startUrl('selenium') }).code);
         const env = HEADED ? process.env : { ...process.env, PYTHONPATH: dir };
         // In the temporary folder: what the script saves (screenshots) lands there.
         const r = await runFile('python', [file], { env, cwd: dir, timeout: PYTHON_RUN_TIMEOUT_MS });

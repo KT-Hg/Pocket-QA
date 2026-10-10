@@ -504,3 +504,44 @@ test('Selenium saves the whole page for a full-page screenshot, the way each dri
   assert.deepEqual(safari.steps.map((s) => s.status), ['verify', 'verify', 'ok']);
   assert.match(safari.steps[0].reason, /Safari/);
 });
+
+test('a bookmarklet that starts with a Navigate opens the page and stops, and plays on once there', async () => {
+  const steps = [{ type: 'navigate', url: 'https://shop.test/cart/' }, { type: 'wait', delay: 0 }];
+  const { code, steps: status } = generateBookmarklet('nav', steps, {});
+  // What a click on the bookmark runs, on a page at `href`: where it sent the page, what it said, whether it finished.
+  const click = async (href) => {
+    const seen = { alerts: [], done: false, location: { href } };
+    const saved = { location: globalThis.location, alert: globalThis.alert, log: console.log };
+    globalThis.location = seen.location;
+    globalThis.alert = (m) => seen.alerts.push(m);
+    console.log = (m) => { if (/completed/.test(m)) seen.done = true; };
+    try {
+      await new Function(`return ${code.slice('javascript:'.length)}`)();
+    } finally {
+      Object.assign(globalThis, { location: saved.location, alert: saved.alert });
+      if (saved.location === undefined) delete globalThis.location;
+      if (saved.alert === undefined) delete globalThis.alert;
+      console.log = saved.log;
+    }
+    return seen;
+  };
+  const elsewhere = await click('https://shop.test/home');
+  assert.equal(elsewhere.location.href, 'https://shop.test/cart/', 'sent to the page');
+  assert.equal(elsewhere.alerts.length, 1, 'and told to run the bookmark again');
+  assert.equal(elsewhere.done, false, 'nothing after the Navigate ran');
+  for (const there of ['https://shop.test/cart/', 'https://shop.test/cart', 'https://shop.test/cart#top']) {
+    const again = await click(there);
+    assert.deepEqual([again.location.href, again.alerts.length, again.done], [there, 0, true], there);
+  }
+  assert.equal(status[0].status, 'verify');
+  assert.match(status[0].reason, /run the bookmark again/);
+});
+
+test('a Navigate after the first step still ends a bookmarklet, and says so', () => {
+  const steps = [{ type: 'click', selector: '#a', selectors: { css: '#a' } }, { type: 'navigate', url: 'https://shop.test/' },
+    { type: 'click', selector: '#b', selectors: { css: '#b' } }];
+  const { code, steps: status } = generateBookmarklet('nav', steps, {});
+  assert.match(code, /^ {4}window\.location\.href = "https:\/\/shop\.test\/";$/m);
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'verify', 'ok']);
+  assert.match(status[1].reason, /steps after it do not run/);
+});

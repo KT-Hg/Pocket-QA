@@ -323,15 +323,31 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       break;
     }
 
-    case 'navigate':
-      out.push(`// Step ${stepNum}: navigate${lbl}`);
-      out.push(`// ⚠ Page will reload — steps after this will not execute unless injected on next load`);
-      mark(step, 'verify', 'the page reloads: steps after it do not run in a bookmarklet');
+    case 'navigate': {
       // The action editor writes navigate targets to .url; imported/older scenarios
       // sometimes carry .value instead — the Python export already accepted both.
-      out.push(`window.location.href = ${valueToJS(action.url || action.value)};`);
+      const url = valueToJS(action.url || action.value);
+      out.push(`// Step ${stepNum}: navigate${lbl}`);
+      if (stepNum === ctx.firstNavigate) {
+        // A bookmarklet ends with its page. Clicked elsewhere, it opens this one and
+        // stops; clicked again there, it finds itself on it and plays the rest. The
+        // page is the same one whatever its #fragment or trailing slash.
+        mark(step, 'verify', 'opens the page and stops: run the bookmark again on it to play the rest');
+        out.push(`const _nav${stepNum} = ${url};`);
+        out.push(`const _at${stepNum} = (u) => { const x = new URL(u, location.href); return x.origin + x.pathname.replace(/\\/+$/, '') + x.search; };`);
+        out.push(`if (_at${stepNum}(_nav${stepNum}) !== _at${stepNum}(location.href)) {`);
+        out.push(`  alert('Opening ' + _nav${stepNum} + '. Run the bookmark again once it has loaded.');`);
+        out.push(`  location.href = _nav${stepNum};`);
+        out.push(`  return;`);
+        out.push(`}`);
+        break;
+      }
+      out.push(`// ⚠ Page will reload — steps after this will not execute unless injected on next load`);
+      mark(step, 'verify', 'the page reloads: steps after it do not run in a bookmarklet');
+      out.push(`window.location.href = ${url};`);
       out.push(`await sleep(1000);`);
       break;
+    }
 
     case 'wait': {
       const ms = action.delay != null ? action.delay : (parseInt(action.value) || 1000);
@@ -519,7 +535,10 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   const all    = actions || [];
   const layout = getSwitchLayout(all);
   const steps  = [];
-  const ctx = { staticVars, warnings, all, layout, steps };
+  // The step number of a Navigate that comes first (waits aside), else 0.
+  const first = enabled.find(a => a.type !== 'wait');
+  const firstNavigate = first?.type === 'navigate' ? all.indexOf(first) + 1 : 0;
+  const ctx = { staticVars, warnings, all, layout, steps, firstNavigate };
   // The steps first: the helpers declared below depend on what they use.
   const bodyLines = processActions(all, 0, stepDelay, elTimeout, ctx);
 
