@@ -1704,6 +1704,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
 <ul id="pickMenu" style="display:none"><li>One</li><li>Two</li><li>Three</li></ul>
 <select id="pickSel"><option value="">-</option><option value="a">A</option><option value="b">B</option></select>
 <shadow-box id="sbox"></shadow-box>
+<div id="fileZone" style="min-height:30px">drop files here</div>
 <iframe id="frm" src="/frame" style="height:60px"></iframe>
 <div id="tall" style="height:3000px"></div>
 <script>
@@ -1740,6 +1741,10 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   }));
   const files = document.getElementById('files');
   files.addEventListener('change', () => mark('files ' + [...files.files].map((f) => f.name).join(',')));
+  // A drop zone for files: it names those dropped on it.
+  const fileZone = document.getElementById('fileZone');
+  for (const t of ['dragenter', 'dragover']) fileZone.addEventListener(t, (e) => e.preventDefault());
+  fileZone.addEventListener('drop', (e) => { e.preventDefault(); mark('fileZone ' + [...e.dataTransfer.files].map((f) => f.name).join(',')); });
   // The frame (/frame) reports what is done in it through its parent.
   window.frameMark = (m) => mark(m);
   // A web component: a button in its open shadow root, and one added there a moment later.
@@ -1907,6 +1912,16 @@ const EXPORT_CASES = [
     actions: [{ type: 'uploadFile', selector: '#files', selectors: { css: '#files' }, uploadMode: 'input',
       folderPath: TOOLS_DIR, fileNames: ['e2e.mjs', '${second}'] }],
     expect: { marks: ['files e2e.mjs,verify.mjs'] },
+  },
+  {
+    // Upload File to a drop zone: the files set on a hidden file input, then dropped on the
+    // zone, as playback does it through CDP. A bookmarklet cannot read files.
+    name: 'dropzone',
+    runners: ['selenium', 'pytest', 'playwright'],
+    variables: { second: 'verify.mjs' },
+    actions: [{ type: 'uploadFile', selector: '#fileZone', selectors: { css: '#fileZone' }, uploadMode: 'dropzone',
+      folderPath: TOOLS_DIR, fileNames: ['e2e.mjs', '${second}'] }],
+    expect: { marks: ['fileZone e2e.mjs,verify.mjs'] },
   },
   {
     // Dropdown "Choose item #": item 2 of a list that opens on a click, the last option of a <select>.

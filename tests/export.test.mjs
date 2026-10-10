@@ -464,7 +464,7 @@ test('the bookmarklet lists a locator once: an id and the CSS #id are the same s
   assert.ok(code.includes('const _el2 = await getEl("#m", 5000);'), 'one left: the short form');
 });
 
-test('Selenium uploads files into a file input as playback does, and leaves a drop zone out', () => {
+test('Selenium uploads files into a file input, and drops them on a drop zone, as playback does', () => {
   const up = (extra) => ({ type: 'uploadFile', selector: '#f', selectors: { css: '#f' }, ...extra });
   const steps = [
     up({ folderPath: 'C:\\in\\', fileNames: ['a.txt', '${name}'] }),
@@ -478,9 +478,11 @@ test('Selenium uploads files into a file input as playback does, and leaves a dr
   assert.ok(code.includes('    el2.send_keys("/home/me/in/old.txt")\n'), 'an older action with one fileName');
   assert.match(code, /^ {4}el1 = _find\(\[\(By\.CSS_SELECTOR, "#f"\)\], 10\)$/m,
     'present is enough: pages hide their file inputs');
-  assert.match(code, /^ {4}# Step 3: upload to a drop zone — \[SKIPPED\] needs the extension$/m);
+  // A drop zone: the files set on a hidden file input (the bridge playback adds), then dropped on the zone.
+  assert.match(code, /^ {4}# Step 3: upload file to a drop zone\n {4}_at = .*\n {4}el3 = _find\(\[\(By\.CSS_SELECTOR, "#f"\)\], 10\)\n {4}el3_b = driver\.execute_script\(_DROP_BRIDGE_JS\)\n {4}el3_b\.send_keys\("C:\\\\in\\\\a\.txt"\)\n {4}driver\.execute_script\(_DROP_FILES_JS, el3, el3_b\)$/m);
+  assert.match(code, /^_DROP_FILES_JS = r"""return \(/m);
   assert.match(code, /^ {4}raise Exception\("Upload File \(step 4\): missing folder or file name\(s\)"\)$/m);
-  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'skip', 'verify']);
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'verify']);
   assert.equal(compilePy(code), null);
 });
 
@@ -671,6 +673,8 @@ async function runSpec(code, { kind = 'text', checks = {}, text = 'read' } = {})
   };
   const page = {
     locator,
+    // The hidden file input an upload to a drop zone fills.
+    evaluateHandle: async () => ({ asElement: () => locator('bridge') }),
     goto: async (u) => calls.push(`goto ${u}`),
     waitForTimeout: async (ms) => calls.push(`wait ${ms}`),
     // A string is a script step; a function with [type, element, expected] a Condition.
@@ -782,7 +786,7 @@ test('Playwright: Child Condition, Read DOM, Choose item #, drag and Upload File
   assert.match(code, /const el1 = \(await el1_p\.evaluateHandle\(_findChild, \{matchMode: "all", textContains: `\$\{who\}`, classContains: "row"\}\)\)\.asElement\(\);/);
   assert.match(code, /if \(!el1\) throw new Error\('Child condition not matched \(step 1\)'\);/);
   assert.match(code, /const el2_m = new RegExp\(.*, "i"\)\.exec\(el2_t\);/);
-  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'ok', 'skip', 'ok']);
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok']);
   assert.equal(checkModule(code), null);
   const calls = await runSpec(code, { text: 'Total: 42' });
   assert.deepEqual(calls.filter((c) => !c.startsWith('goto')), [
@@ -791,6 +795,9 @@ test('Playwright: Child Condition, Read DOM, Choose item #, drag and Upload File
     'evaluate #dd ["-1","#menu li",10000]',
     'drag #s #z',
     'upload #f ["C:\\\\in\\\\a.txt","C:\\\\in\\\\b.txt"]',
+    // A drop zone: the files on a hidden file input, then dropped on the zone.
+    'upload bridge ["C:\\\\in\\\\a.txt"]',
+    'evaluate #zone {"sel":"bridge"}',
     'fill #o "Total: 42 42"',
   ], 'the extract fills its variables, and the step after uses them');
 });

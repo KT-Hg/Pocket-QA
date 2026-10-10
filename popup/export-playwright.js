@@ -18,12 +18,14 @@ import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
 import { exportVariables, inFrame, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import { parseCSV, _delimiterOf } from './csv/csv-parse.js';
-import { SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS } from './export/page-js.js';
+import {
+  SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS, DROP_BRIDGE_JS, DROP_FILES_JS,
+} from './export/page-js.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
 
 // What the generated spec declares for itself, beside the JS reserved words.
 const RESERVED = new Set(['test', 'page', 'TIMEOUT', '_find', '_first', '_input', '_setInput', '_js', '_SCRIPT_INPUT_TYPES',
-  '_checkCond', '_findChild', '_readVal', '_pick', '_inFrames', '_var', '_url', '_firstOrigin', 'process', '_row', '_rows', '_column',
+  '_checkCond', '_findChild', '_readVal', '_pick', '_dropBridge', '_dropFiles', '_inFrames', '_var', '_url', '_firstOrigin', 'process', '_row', '_rows', '_column',
   'readFileSync', 'join', '_delimiterOf', 'parseCSV', ...JS_RESERVED]);
 // The steps' elements (el3, el3_t) share the test function with the variables.
 const ident = jsIdentifier(RESERVED, /^el\d+(_|$)/);
@@ -183,6 +185,10 @@ const _pick = async (el, [raw, itemSel, timeout]) => {
 ${PICK_ITEM_JS.split('\n').map((l) => `  ${l}`).join('\n')}
   return _pickItem(el, raw, itemSel, timeout);
 };`,
+  drop: `// An upload to a drop zone as the extension makes it (bg/cdp/upload.js): the files set on a
+// hidden file input, then dropped on the zone with one DataTransfer.
+const _dropBridge = ${DROP_BRIDGE_JS};
+const _dropFiles = ${DROP_FILES_JS};`,
 };
 
 // The spec's _js, written out from its own source: escaping quotes, backticks and
@@ -236,17 +242,19 @@ function uploadLines(a, s) {
   let names = [];
   if (Array.isArray(a.fileNames) && a.fileNames.length) names = a.fileNames;
   else if (a.fileName) names = [a.fileName];
-  if (a.uploadMode === 'dropzone') {
-    mark(s.step, 'skip', 'an upload to a drop zone needs the extension');
-    return [`// Step ${s.n}: upload to a drop zone${s.lbl} — [SKIPPED] needs the extension`];
-  }
+  const zone = a.uploadMode === 'dropzone';
+  const head = `// Step ${s.n}: upload file${names.length > 1 ? 's' : ''}${zone ? ' to a drop zone' : ''}${s.lbl}`;
   if (!folder || !names.length) {
     mark(s.step, 'verify', 'no folder or file name — the exported code stops there, as a run does');
-    return [`// Step ${s.n}: upload file${s.lbl}`, `throw new Error("Upload File (step ${s.n}): missing folder or file name(s)");`];
+    return [head, `throw new Error("Upload File (step ${s.n}): missing folder or file name(s)");`];
   }
   const sep = folder.includes('\\') ? '\\' : '/';
-  return [`// Step ${s.n}: upload file${names.length > 1 ? 's' : ''}${s.lbl}`, ...s.find(),
-    `await ${s.el}.setInputFiles([${names.map((nm) => valueJS(`${folder}${sep}${nm}`)).join(', ')}]);`];
+  const files = `[${names.map((nm) => valueJS(`${folder}${sep}${nm}`)).join(', ')}]`;
+  if (!zone) return [head, ...s.find(), `await ${s.el}.setInputFiles(${files});`];
+  // As playback drops them (bg/cdp/upload.js): set on a hidden file input, then dropped on the zone.
+  s.ctx.uses.add('drop');
+  return [head, ...s.find(), `const ${s.el}_b = (await page.evaluateHandle(_dropBridge)).asElement();`,
+    `await ${s.el}_b.setInputFiles(${files});`, `await ${s.el}.evaluate(_dropFiles, ${s.el}_b);`];
 }
 
 /**
@@ -395,7 +403,7 @@ function helperLines(body, uses, dataFile) {
     [body.some((l) => l.includes('await _find(')), FIND_HELPER],
     [body.some((l) => l.includes('await _inFrames(')), FRAMES_HELPER],
     [uses.has('first'), FIRST_HELPER],
-    ...['check', 'child', 'read', 'pick'].map((name) => [uses.has(name), PAGE_HELPERS[name]]),
+    ...['check', 'child', 'read', 'pick', 'drop'].map((name) => [uses.has(name), PAGE_HELPERS[name]]),
     [uses.has('input'), INPUT_HELPER],
     [uses.has('js'), JS_HELPER],
   ];

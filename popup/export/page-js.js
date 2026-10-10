@@ -59,6 +59,33 @@ export const FIND_CHILD_JS = String.raw`(parent, cond) => {
 }`;
 
 /**
+ * () → a hidden <input type="file" multiple> added to the page: the bridge an
+ * upload to a drop zone fills with its files, as setFileDropZoneViaCdp of
+ * bg/cdp/upload.js adds it.
+ */
+export const DROP_BRIDGE_JS = String.raw`() => {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.multiple = true;
+  inp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+  inp.setAttribute('data-cdp-dz-bridge', '1');
+  document.documentElement.appendChild(inp);
+  return inp;
+}`;
+
+/**
+ * (zone, bridge) → the bridge's files dropped on `zone` — dragenter, dragover and
+ * drop with one DataTransfer holding them, as setFileDropZoneViaCdp fires them —
+ * and the bridge removed.
+ */
+export const DROP_FILES_JS = String.raw`(zone, bridge) => {
+  const dt = new DataTransfer();
+  Array.from(bridge.files).forEach((f) => dt.items.add(f));
+  ['dragenter', 'dragover', 'drop'].forEach((t) => zone.dispatchEvent(new DragEvent(t, { bubbles: true, cancelable: true, dataTransfer: dt })));
+  bridge.remove();
+}`;
+
+/**
  * (selector) → the first element a CSS selector finds in the page or in an open
  * shadow root inside it (a web component's), or null — querySelectorDeep in
  * content.js, the walk playback makes with an action's CSS selector when the page

@@ -8,6 +8,7 @@ import { mark } from './export/steps.js';
 import { exportVariables, inFrame, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
+  DROP_BRIDGE_JS, DROP_FILES_JS,
 } from './export/page-js.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
@@ -173,7 +174,7 @@ function valueToPy(val) {
 // fail to parse, `re` or `open` hide what a helper calls, so those get a `_v` suffix.
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
-  '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS', '_QUERY_DEEP_JS', '_locate_in_frames',
+  '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS', '_QUERY_DEEP_JS', '_locate_in_frames', '_DROP_BRIDGE_JS', '_DROP_FILES_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
   'pytest', 'browser', 'dom_var', '_at', 'os', '_save_failure', '_var', '_url', '_first_origin', '_start_browser',
   'urlsplit', 'urlunsplit', '_row', '_rows', '_column',
@@ -252,6 +253,15 @@ function _saveFailureHelperPy() {
     '        driver.save_screenshot(os.path.splitext(os.path.basename(__file__))[0] + "_failure.png")',
     '    except Exception:',
     '        pass',
+  ];
+}
+
+// The in-page halves of an upload to a drop zone: the bridge input, and the drop of its files.
+function _dropHelperPy() {
+  return [
+    '# An upload to a drop zone as the extension makes it (bg/cdp/upload.js).',
+    ...pyPageJs('_DROP_BRIDGE_JS', DROP_BRIDGE_JS),
+    ...pyPageJs('_DROP_FILES_JS', DROP_FILES_JS),
   ];
 }
 
@@ -838,12 +848,8 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       let names = [];
       if (Array.isArray(action.fileNames) && action.fileNames.length) names = action.fileNames;
       else if (action.fileName) names = [action.fileName];
-      if (action.uploadMode === 'dropzone') {
-        out.push(`# Step ${stepNum}: upload to a drop zone${lbl} — [SKIPPED] needs the extension`);
-        mark(step, 'skip', 'an upload to a drop zone needs the extension');
-        break;
-      }
-      out.push(`# Step ${stepNum}: upload file${names.length > 1 ? 's' : ''}${lbl}`);
+      const zone = action.uploadMode === 'dropzone';
+      out.push(`# Step ${stepNum}: upload file${names.length > 1 ? 's' : ''}${zone ? ' to a drop zone' : ''}${lbl}`);
       if (!folder || !names.length) {
         out.push(`raise Exception("Upload File (step ${stepNum}): missing folder or file name(s)")`);
         mark(step, 'verify', 'no folder or file name — the exported code stops there, as a run does');
@@ -851,9 +857,17 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       }
       const sep   = folder.includes('\\') ? '\\' : '/';
       const paths = names.map((n) => valueToPy(`${folder}${sep}${n}`));
+      const files = paths.length === 1 ? paths[0] : `"\\n".join([${paths.join(', ')}])`;
       // Present is enough: pages hide their file inputs, and send_keys still fills one.
       out.push(`${elVar} = ${find(locs)}`);
-      out.push(`${elVar}.send_keys(${paths.length === 1 ? paths[0] : `"\\n".join([${paths.join(', ')}])`})`);
+      if (zone) {
+        // As playback drops them (bg/cdp/upload.js): set on a hidden file input, then dropped on the zone.
+        out.push(`${elVar}_b = driver.execute_script(_DROP_BRIDGE_JS)`);
+        out.push(`${elVar}_b.send_keys(${files})`);
+        out.push(`driver.execute_script(_DROP_FILES_JS, ${elVar}, ${elVar}_b)`);
+      } else {
+        out.push(`${elVar}.send_keys(${files})`);
+      }
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
     }
@@ -1039,6 +1053,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
   if (dataFile) {
     out.push(..._csvHelpersPy());
+    out.push('');
+    out.push('');
+  }
+  if (bodyLines.some((l) => l.includes('_DROP_FILES_JS'))) {
+    out.push(..._dropHelperPy());
     out.push('');
     out.push('');
   }

@@ -61,9 +61,8 @@ xuất đánh dấu ⚠ Verify hoặc — Skip cho từng bước liên quan, k�
   tới frame cùng origin với trang (bằng CSS hoặc XPath, không lồng frame trong frame); frame khác origin thì không
   (⚠ Verify). Một Condition ghi trong frame vẫn được kiểm ở trang chính ở cả ba bản (⚠ Verify). Phát lại cũng chỉ thấy
   frame trên cùng với các bước đi qua CDP (xem mục trên).
-- **Upload File vào drop zone** không được xuất ở định dạng nào (cần cầu nối DataTransfer của extension). Upload vào
-  `<input type="file">` thì Selenium (`send_keys`) và Playwright (`setInputFiles`) làm được; bookmarklet không đọc
-  được tệp trên máy nên bỏ qua mọi Upload File.
+- **Upload File:** bookmarklet không đọc được tệp trên máy nên bỏ qua mọi Upload File, vào `<input type="file">` cũng như
+  vào drop zone. Selenium và Playwright làm được cả hai (drop zone qua một input ẩn làm cầu nối, như phát lại).
 - **Switch** bị bỏ qua ở cả ba bản xuất code, Switch có khối bị bỏ qua cùng cả khối: chọn case và nhảy sang scenario
   khác là việc của extension.
 - **Bookmarklet và Navigate:** Navigate đầu tiên cần bấm 2 lần (mở trang rồi dừng, bấm lại khi trang đã tải). Nếu

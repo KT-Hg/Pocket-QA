@@ -1,6 +1,7 @@
 /**
  * cdp/upload.js — Upload File through CDP: DOM.setFileInputFiles on a file input, or
- * on a hidden input whose files are then dropped on a drop zone.
+ * on a hidden input whose files are then dropped on a drop zone (the code exports
+ * do the same with DROP_BRIDGE_JS and DROP_FILES_JS of popup/export/page-js.js).
  */
 
 import { ignoreLastError } from '../last-error.js';
