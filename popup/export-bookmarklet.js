@@ -392,23 +392,27 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     out.push(...declarePageJs(name, src));
     out.push('');
   }
-  out.push(...declarePageJs('_findChild', FIND_CHILD_JS));
+  // One empty line between two parts, whichever of them are there.
+  const blank = () => { if (out[out.length - 1] !== '') out.push(''); };
+  // Only for a step with a Child Condition: it is the longest helper, and the
+  // bookmark's URL grows with it.
+  if (bodyLines.some((l) => l.includes('_findChild('))) out.push(...declarePageJs('_findChild', FIND_CHILD_JS));
   if (enabled.some(a => a.type === 'condition')) {
-    out.push('');
+    blank();
     out.push(...declarePageJs('_checkCond', CHECK_COND_JS));
   }
   if (enabled.some(a => a.type === 'readdom')) {
-    out.push('');
+    blank();
     out.push(...declarePageJs('_readVal', READ_VAL_JS));
   }
 
   if (enabled.some(a => a.type === 'dropdown' && a.pick)) {
-    out.push('');
+    blank();
     out.push(...PICK_ITEM_JS.split('\n').map((l) => `  ${l}`));
   }
 
   if (Object.keys(randomSpecs).length > 0) {
-    out.push('');
+    blank();
     out.push('  // --- RANDOM VARIABLE GENERATORS ---');
     for (const [k, spec] of Object.entries(randomSpecs)) {
       const safe = _sanitizeVarName(k);
@@ -422,7 +426,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     || writtenVars.size > 0;
 
   if (hasVars) {
-    out.push('');
+    blank();
     out.push('  // --- VARIABLES ---');
     // A name a step writes to has to be `let`, and must not also be declared by
     // the writtenVars pass below: `const result = "seed"` followed by
@@ -458,7 +462,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     }
   }
 
-  out.push('');
+  blank();
   out.push('  // --- MAIN FLOW ---');
   out.push('  try {');
   out.push('');

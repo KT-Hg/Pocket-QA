@@ -957,3 +957,11 @@ test('the three exports warn alike about the variables: one identifier for two n
     assert.ok(warnings.some((w) => w.startsWith('"city" is a Fallback variable')), `${gen.name}: ${warnings}`);
   }
 });
+
+test('bookmarklet: _findChild is declared only for a step with a Child Condition', () => {
+  const click = { type: 'click', selector: '#a', selectors: { css: '#a' } };
+  assert.doesNotMatch(generateBookmarklet('b', [click], {}).code, /_findChild/);
+  const code = generateBookmarklet('b', [{ ...click, conditions: { textContains: 'x' } }], {}).code;
+  assert.match(code, /const _findChild = /);
+  new Function(code.replace(/^javascript:/, ''));
+});
