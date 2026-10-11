@@ -20,7 +20,7 @@ A Chrome Manifest V3 extension that records browser interactions and replays the
 | **CSV Run** | Run a scenario once per row; export results to XLSX / HTML / ZIP with screenshots |
 | **SQL Test Cases** | Vietnamese/English. Parse a SELECT/INSERT/UPDATE/DELETE statement and derive a test case list — EP + BVA, decision table / MC-DC, NULL & 3-valued logic, JOIN cardinality, grouping and paging — with one panel for editing the sample values every case draws on, exported as CSV or JSON |
 | **DB Test Session** | Records every row changed through **Adminer** — edit form, grid edits, bulk delete, `INSERT`, and hand-written SQL — and rolls a whole test run back, with a preview of the exact SQL and a drift check per row. (Whole-table snapshots, backup tables and rollback after Playback are built but temporarily hidden.) |
-| **Export** | Scenario JSON, folder JSON, full backup/restore, JS Bookmarklet, Selenium Python (script or pytest), Playwright Test, Robot Framework |
+| **Export** | Scenario JSON, folder JSON, full backup/restore, JS Bookmarklet, Selenium Python (script or pytest), Playwright Test, Robot Framework, Selenium Java (TestNG) |
 | **UI** | Dark/light theme, 5 drag-to-reorder tabs, collapsible cards, hotkeys |
 
 ---
@@ -66,7 +66,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 
 ### Data
 - Global variables table (`${varName}` → value)
-- **Export Code** — turn any saved scenario into a JS Bookmarklet, a Selenium Python script or pytest test, a Playwright Test spec or a Robot Framework test
+- **Export Code** — turn any saved scenario into a JS Bookmarklet, a Selenium Python script or pytest test, a Playwright Test spec, a Robot Framework test or a Selenium Java TestNG class
 - Scheduled playback at a set time — one-off, or **Repeat daily**
 - CSV data-driven runs (one scenario execution per CSV row)
 - **SQL Test Case Designer** — opens `sqlcases.html` in its own tab (see below)
@@ -191,7 +191,7 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
 
 ## Export Code
 
-From the **Data** tab → **Export Code** card, select any saved scenario (the card starts on the one selected in Manage Scenarios; the list is grouped by folder) and pick one of four formats — the buttons wait for a scenario. All four open the same window, with four tabs:
+From the **Data** tab → **Export Code** card, select any saved scenario (the card starts on the one selected in Manage Scenarios; the list is grouped by folder) and pick one of five formats — the buttons wait for a scenario. All five open the same window, with four tabs:
 
 - **Code** — the code, coloured (comments, strings, keywords; each `Step N` comment in bold), with *↧ Steps* (to Step 1, past the helpers), *wrap* (remembered) and *select all*. When some steps are not exported as is, one line above the code counts them (`⚠ 2 to check · 2 skipped · 1 note — see Actions`); a click opens Actions.
 - **Variables** — the variables the scenario uses, with the values that will be baked in.
@@ -206,46 +206,47 @@ The window keeps the popup's height whatever the tab, so Copy and Download stay 
 | 🐍 Selenium Python | `<name>_selenium.py` (Script) or `test_<name>.py` (pytest) | `python` / `pytest` with `selenium` 4.x |
 | 🎭 Playwright Test | `<name>.spec.js` | `npx playwright test` with `@playwright/test` |
 | 🤖 Robot Framework | `<name>.robot` | `robot` with `robotframework-seleniumlibrary` |
+| ☕ Selenium Java | `<Name>Test.java` (the class it holds) | `mvn test` / `gradle test` with `selenium-java` 4 and `testng` 7 |
 
 The file name keeps letters of any language (`đăng_nhập_selenium.py`).
 
 **Playback is the standard.** A code export does what a run of the scenario does, and where it cannot, the step says so in the Actions tab and in a comment in the code — nothing is dropped silently:
 
-| Step type | Bookmarklet | Selenium | Playwright | Robot |
-|---|---|---|---|---|
-| Click, Input, Hover, Dropdown (incl. *Choose item #*), Drag & Drop, Wait, Read DOM, Condition, Child Condition | ✓ | ✓ | ✓ | ✓ |
-| Navigate | one click per page (see below) ⚠ | ✓ | ✓ | ✓ |
-| Script (custom JS) | ⚠ pasted in as is | ⚠ `execute_script` | ⚠ `page.evaluate` | ⚠ `Execute Javascript` |
-| Screenshot (visible / full page / element / → variable) | — | ✓ (Safari: visible part only ⚠) | ✓ | ✓ (Safari: visible part only ⚠) |
-| Upload File to an `<input type="file">` | — (no access to local files) | ✓ `send_keys` | ✓ `setInputFiles` | ✓ `Choose File` |
-| Upload File to a drop zone | — | ✓ hidden bridge input, then a drop | ✓ hidden bridge input, then a drop | ✓ hidden bridge input, then a drop |
-| Element inside an open shadow root | ✓ | ✓ | ✓ | ✓ |
-| Step recorded inside an iframe | frames of the same site ⚠ | ✓ page, then its frames | ✓ page, then its frames | ✓ page, then its frames |
-| Switch block on a variable (its cases ranges of this scenario) | ✓ `if / else if` | ✓ `if / elif` | ✓ `if / else if` | ✓ `IF / ELSE IF` |
-| Switch to another scenario, to action #N, Always | — | — | — | — |
+| Step type | Bookmarklet | Selenium | Playwright | Robot | Java |
+|---|---|---|---|---|---|
+| Click, Input, Hover, Dropdown (incl. *Choose item #*), Drag & Drop, Wait, Read DOM, Condition, Child Condition | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Navigate | one click per page (see below) ⚠ | ✓ | ✓ | ✓ | ✓ |
+| Script (custom JS) | ⚠ pasted in as is | ⚠ `execute_script` | ⚠ `page.evaluate` | ⚠ `Execute Javascript` | ⚠ `executeScript` |
+| Screenshot (visible / full page / element / → variable) | — | ✓ (Safari: visible part only ⚠) | ✓ | ✓ (Safari: visible part only ⚠) | ✓ (Safari: visible part only ⚠) |
+| Upload File to an `<input type="file">` | — (no access to local files) | ✓ `send_keys` | ✓ `setInputFiles` | ✓ `Choose File` | ✓ `sendKeys` |
+| Upload File to a drop zone | — | ✓ hidden bridge input, then a drop | ✓ hidden bridge input, then a drop | ✓ hidden bridge input, then a drop | ✓ hidden bridge input, then a drop |
+| Element inside an open shadow root | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Step recorded inside an iframe | frames of the same site ⚠ | ✓ page, then its frames | ✓ page, then its frames | ✓ page, then its frames | ✓ page, then its frames |
+| Switch block on a variable (its cases ranges of this scenario) | ✓ `if / else if` | ✓ `if / elif` | ✓ `if / else if` | ✓ `IF / ELSE IF` | ✓ `if / else if` |
+| Switch to another scenario, to action #N, Always | — | — | — | — | — |
 
 What the formats share:
 
-- **Locators with fallbacks**, tried in playback's order: the selector type chosen in the form first, then full XPath → id → XPath → CSS → `data-testid` → `data-id` → `name` → text (the exact trimmed text of the innermost element, in the recorded tag). The first that finds an element wins (`getEl([...])`, `_find([...])`, `Find Element`); a locator the page cannot parse is passed over. A CSS locator the page has no match for is looked for inside open shadow roots too.
-- **The extension's own in-page code** where a plain driver call would do something else: Read DOM (each "Read from" choice), Child Condition, Conditions and *Choose item #* run the functions playback runs, and Input fills date / time / color / range fields through playback's value setter. The bookmarklet also clicks, hovers, fills every field and drags (HTML5 drag events) as playback does; Selenium, Playwright and Robot use their own mouse and keyboard for those.
+- **Locators with fallbacks**, tried in playback's order: the selector type chosen in the form first, then full XPath → id → XPath → CSS → `data-testid` → `data-id` → `name` → text (the exact trimmed text of the innermost element, in the recorded tag). The first that finds an element wins (`getEl([...])`, `_find([...])`, `Find Element`, `find(...)`); a locator the page cannot parse is passed over. A CSS locator the page has no match for is looked for inside open shadow roots too.
+- **The extension's own in-page code** where a plain driver call would do something else: Read DOM (each "Read from" choice), Child Condition, Conditions and *Choose item #* run the functions playback runs, and Input fills date / time / color / range fields through playback's value setter. The bookmarklet also clicks, hovers, fills every field and drags (HTML5 drag events) as playback does; Selenium, Playwright, Robot and Java use their own mouse and keyboard for those.
 - **A Condition of a type the export does not know stops the exported code there**, as a run does — it throws with the type named in a comment — and the window shows a warning. A Switch with a block is skipped *together with its block*, otherwise every case would run. A disabled action is not exported, but the number of steps a Condition skips is still counted against the original list.
-- **`${var}`** in values, selectors and the Read DOM attribute become template literals / f-strings / Robot `${var}`; values are baked in at export time — edit the Variables table and export again, or set one from the environment when the code runs (below). Names, labels and types only ever reach a string or a one-line comment.
-- **A step recorded inside an iframe** is looked for in the page, then in its frames (frames in frames too) by Selenium, Playwright and Robot. The bookmarklet reaches only the frames of its own site (⚠ Verify). A Condition recorded in a frame is checked in the top page, as before (⚠ Verify).
+- **`${var}`** in values, selectors and the Read DOM attribute become template literals / f-strings / Robot `${var}` / Java variables; values are baked in at export time — edit the Variables table and export again, or set one from the environment when the code runs (below). Names, labels and types only ever reach a string or a one-line comment.
+- **A step recorded inside an iframe** is looked for in the page, then in its frames (frames in frames too) by Selenium, Playwright, Robot and Java. The bookmarklet reaches only the frames of its own site (⚠ Verify). A Condition recorded in a frame is checked in the top page, as before (⚠ Verify).
 
-**Running the exported code.** Without exporting again, the environment can change a run of the Selenium script or test, the Playwright spec or the Robot test (the bookmarklet has no environment):
+**Running the exported code.** Without exporting again, the environment can change a run of the Selenium script or test, the Playwright spec, the Robot test or the Java test (the bookmarklet has no environment):
 
 | Variable | What it does | Formats |
 |---|---|---|
-| `PQA_BASE_URL` | Another site to run on (staging, production): every URL on the site of the first page opened goes to the same page there; other sites are left alone | Selenium, Playwright, Robot |
-| `PQA_BROWSER` | `Chrome`, `Edge`, `Firefox` or `Safari`, instead of the exported one | Selenium, Robot (Playwright: the project's choice) |
-| `PQA_HEADLESS` | `1` no browser window, `0` a window | Selenium, Robot |
-| `PQA_<name>` | The value of the variable `<name>` (`PQA_username=bob`) | Selenium, Playwright, Robot |
+| `PQA_BASE_URL` | Another site to run on (staging, production): every URL on the site of the first page opened goes to the same page there; other sites are left alone | Selenium, Playwright, Robot, Java |
+| `PQA_BROWSER` | `Chrome`, `Edge`, `Firefox` or `Safari`, instead of the exported one | Selenium, Robot, Java (Playwright: the project's choice) |
+| `PQA_HEADLESS` | `1` no browser window, `0` a window | Selenium, Robot, Java |
+| `PQA_<name>` | The value of the variable `<name>` (`PQA_username=bob`) | Selenium, Playwright, Robot, Java |
 
 Headless runs get a 1920 × 1080 window, so a responsive page shows its desktop layout. The file's opening comment lists the variables it reads.
 
-**When a step fails**, the error names it and what it looked for — `Step 3: click — Sign in: no element found by …` — in the bookmarklet's alert, the script's `❌` line, the pytest and Robot reports, and the Playwright report, where each step is a `test.step`. The page as the step left it is saved: `<file name>_failure.png` (Selenium script and pytest, beside the file; Robot, in its output folder), a screenshot and a trace in `test-results/` (Playwright).
+**When a step fails**, the error names it and what it looked for — `Step 3: click — Sign in: no element found by …` — in the bookmarklet's alert, the script's `❌` line, the pytest, Robot and TestNG reports, and the Playwright report, where each step is a `test.step`. The page as the step left it is saved: `<file name>_failure.png` (Selenium script and pytest, beside the file; Robot, in its output folder), `<Class>_failure.png` (Java, where the test runs), a screenshot and a trace in `test-results/` (Playwright).
 
-**A data file (CSV)** — the *Data file* setting of pytest and Playwright — runs the test once per row of a CSV read beside the test file: each column sets the variable of its name (over the Variables tab's value), and a column no variable has is a variable too. The file is read as the extension reads a CSV (delimiter detected, quoted values). Robot has no data file yet.
+**A data file (CSV)** — the *Data file* setting of pytest and Playwright — runs the test once per row of a CSV read beside the test file: each column sets the variable of its name (over the Variables tab's value), and a column no variable has is a variable too. The file is read as the extension reads a CSV (delimiter detected, quoted values). Robot and Java have no data file yet.
 
 ### ⚡ JS Bookmarklet
 
@@ -390,6 +391,34 @@ Login Form
     Set Test Variable    \${PQA_AT}    Step 3: click — Sign in
     ${el3}=    Find Element    xpath://button    text:button:Sign in    clickable=${True}
     Click Element    ${el3}
+```
+
+### ☕ Selenium Java
+
+- A TestNG class for a Maven or Gradle project with `org.seleniumhq.selenium:selenium-java` 4 and `org.testng:testng` 7: put `<Name>Test.java` in `src/test/java` and run `mvn test` (Gradle: `test { useTestNG() }`). The file is UTF-8; with JDK 18 or later that is javac's default, else set the project's source encoding. The class is named after the scenario, as its file is (`Đăng nhập` → `ĐăngNhậpTest`).
+- The steps call the class's own methods, which do what playback does: `find(...)` / `findClickable(...)` try each locator in turn (`css(...)` looks inside open shadow roots too, `text(...)` is the extension's Text search), `input(...)`, `checkCond(...)`, `findChild(...)`, `readVal(...)`, `chooseItem(...)` and `dropFiles(...)` run the extension's in-page code.
+- A failed test's message starts with the step and `<Class>_failure.png` is saved where the test runs. A variable a step uses that nothing defines is its `${name}` text, as a run leaves it.
+- Settings: Starting URL, **WebDriver**, **Headless** (as in Selenium Python), delay between steps (500 ms), element timeout (10 000 ms).
+
+```java
+@Test
+public void testLoginForm() throws Exception {
+    String username = var("username", "alice");
+    try {
+        // Step 2: input — Email
+        at = "Step 2: input — Email";
+        WebElement el2 = find(By.id("email"), By.xpath("//input[@id=\"email\"]"), css("#email"));
+        input(el2, username);
+        Thread.sleep(500);
+
+        // Step 3: click — Sign in
+        at = "Step 3: click — Sign in";
+        WebElement el3 = findClickable(By.xpath("//button"), text("Sign in", "button"));
+        el3.click();
+    } catch (Exception | AssertionError e) {
+        throw new AssertionError((at.isEmpty() ? "Error" : at) + ": " + ..., e);
+    }
+}
 ```
 
 The limits that remain are listed in [docs/known-issues.md](docs/known-issues.md).
@@ -1178,10 +1207,10 @@ node tools/verify.mjs --all      # … + ESLint vs baseline + smoke and e2e runs
 | Tool | What it proves |
 |---|---|
 | `tools/check-imports.mjs` | Every `import` resolves and every imported name is exported; manifest paths, `<script>`/`<link>` in the pages, `getURL('…')` and `files: ['…']` exist; every module an Adminer page imports is in `web_accessible_resources`. |
-| `tests/*.test.mjs` | Unit tests, plus four characterization tests. `golden.test.mjs`: the pure modules, the CSV result files and the four exports (bookmarklet, Selenium, Playwright, Robot) must return exactly what is stored in `tests/golden/` (rewrite with `node tests/golden/update.mjs`). `router.test.mjs`: background.js driven through 140 steps against an in-memory `chrome` (`tests/helpers/chrome-fake.mjs`) must reproduce `tests/golden/router.json` — answers, chrome.* calls, storage and state (rewrite with `node tests/router.test.mjs --update`). `playback.test.mjs`: every action type through its success and failure paths (prompt retry / skip / stop / no answer), Condition skips, Switch jumps, nested scenarios and blocks, and the single / resume / sequence / CSV entry points → `tests/golden/playback.json`. `capture.test.mjs`: visible, full page, scroll, segment, element and window capture with zoom, tiling past 4 000 px, cancels and the capture messages → `tests/golden/capture.json`; frames and canvases are described rather than drawn (`tests/helpers/bg-fakes.mjs`), so the transcript shows every tile and where it was stitched. Both rewrite with `--update`. Rewrite only for an intended change, in its own commit. |
+| `tests/*.test.mjs` | Unit tests, plus four characterization tests. `golden.test.mjs`: the pure modules, the CSV result files and the five exports (bookmarklet, Selenium, Playwright, Robot, Java) must return exactly what is stored in `tests/golden/` (rewrite with `node tests/golden/update.mjs`). `router.test.mjs`: background.js driven through 140 steps against an in-memory `chrome` (`tests/helpers/chrome-fake.mjs`) must reproduce `tests/golden/router.json` — answers, chrome.* calls, storage and state (rewrite with `node tests/router.test.mjs --update`). `playback.test.mjs`: every action type through its success and failure paths (prompt retry / skip / stop / no answer), Condition skips, Switch jumps, nested scenarios and blocks, and the single / resume / sequence / CSV entry points → `tests/golden/playback.json`. `capture.test.mjs`: visible, full page, scroll, segment, element and window capture with zoom, tiling past 4 000 px, cancels and the capture messages → `tests/golden/capture.json`; frames and canvases are described rather than drawn (`tests/helpers/bg-fakes.mjs`), so the transcript shows every tile and where it was stitched. Both rewrite with `--update`. Rewrite only for an intended change, in its own commit. |
 | `tools/smoke.mjs` | Loads the unpacked extension in Chromium: the service worker starts and answers, the five pages load without errors and follow the shared theme key, `content.js` answers PING, the DB tools modules load on an Adminer-looking page. `--shots <dir>` saves light/dark screenshots of every popup tab (as if opened on an activated http page) and of the other pages, for a before/after comparison. Needs Playwright: `NODE_PATH` to an install, or `PLAYWRIGHT_CORE` = a `playwright-core` directory; `CHROMIUM_PATH` picks the browser (branded Chrome ignores `--load-extension`; Edge and Chromium accept it). |
 | `tools/smoke-cdp.mjs` | The same checks as `smoke.mjs` (and `--shots`, with animations stopped so two runs give identical images) without Playwright: it drives the browser over the DevTools protocol with Node's own WebSocket (Node 22+, `tools/lib/cdp-browser.mjs`). It also checks the popup on an activated page: the status bar says Active and the Now Playing bar opens its panel. `CHROMIUM_PATH` picks the browser, else the usual Edge / Chromium install; downloads stay in a temporary profile. `verify --smoke` runs it when Playwright is missing. |
-| `tools/e2e.mjs` | Plays real scenarios in the browser (same driver) against a test page and checks the page: Dropdown "Choose item #" in a custom list and in a `<select>`, a Dropdown known only by an escaped id or by an XPath, Switch Always, the 512-character Random cap, two visible screenshots within a second, variable suggestions in the popup, a Switch draft listing the scenarios when the popup reopens, and the export window (`export-*`: the formats the card offers and the card itself, skipped steps, Reload scenario, the code following the Settings, its size in a 600 and a 500 px popup, a row of Actions leading to its code, the colours, the tabs by keyboard, Headless, Output, the start URL from the tab, Settings kept between popups, Playwright). `export-run` plays each case of `EXPORT_CASES` and runs it as the exported bookmarklet, Selenium script (headless Edge), pytest test, Playwright spec and Robot test, then compares the page each one leaves with what playback left; it also checks that a failing step is named, the environment variables and the CSV data file. Without python + selenium, pytest, `PQA_PLAYWRIGHT_DIR` (a folder outside the repo with `@playwright/test` installed) or `PQA_ROBOT_PYTHON` (a python, e.g. of a venv outside the repo, with `robotframework-seleniumlibrary`) those runs are skipped, not failed. `tests/export-robot.test.mjs` runs Robot too (escaping, `--dryrun`) when `PQA_ROBOT_PYTHON` has it. `--only <name>` runs one check; `--ext <dir>` runs another checkout, e.g. an older commit in a `git worktree`, to see a check fail there. |
+| `tools/e2e.mjs` | Plays real scenarios in the browser (same driver) against a test page and checks the page: Dropdown "Choose item #" in a custom list and in a `<select>`, a Dropdown known only by an escaped id or by an XPath, Switch Always, the 512-character Random cap, two visible screenshots within a second, variable suggestions in the popup, a Switch draft listing the scenarios when the popup reopens, and the export window (`export-*`: the formats the card offers and the card itself, skipped steps, Reload scenario, the code following the Settings, its size in a 600 and a 500 px popup, a row of Actions leading to its code, the colours, the tabs by keyboard, Headless, Output, the start URL from the tab, Settings kept between popups, Playwright). `export-run` plays each case of `EXPORT_CASES` and runs it as the exported bookmarklet, Selenium script (headless Edge), pytest test, Playwright spec, Robot test and Java test, then compares the page each one leaves with what playback left; it also checks that a failing step is named, the environment variables and the CSV data file. Without python + selenium, pytest, `PQA_PLAYWRIGHT_DIR` (a folder outside the repo with `@playwright/test` installed) `PQA_ROBOT_PYTHON` (a python, e.g. of a venv outside the repo, with `robotframework-seleniumlibrary`), or `PQA_JAVA_HOME` + `PQA_JAVA_LIBS` (a JDK and a folder of the `selenium-java` and `testng` jars, outside the repo) those runs are skipped, not failed. `tests/export-robot.test.mjs` runs Robot too (escaping, `--dryrun`) when `PQA_ROBOT_PYTHON` has it; `tests/export-java.test.mjs` runs Java (escaping) and javac (every synthetic scenario, `-Werror`) with those two. `--only <name>` runs one check; `--ext <dir>` runs another checkout, e.g. an older commit in a `git worktree`, to see a check fail there. |
 | `tools/eslint.config.mjs` | `npx --yes eslint@9.39.5 -c tools/eslint.config.mjs .` — a change may not raise any rule's count above `tools/eslint-baseline.json`. |
 
 ### Key Technical Constraints (WHY knowledge)

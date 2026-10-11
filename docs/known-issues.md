@@ -57,12 +57,12 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 Chuẩn là phát lại: bản xuất làm khác phát lại là bug. Những chỗ dưới đây chưa làm giống được; tab Actions của cửa sổ
 xuất đánh dấu ⚠ Verify hoặc — Skip cho từng bước liên quan, kèm lý do.
 
-- **Bước ghi trong iframe:** Selenium, Playwright và Robot tìm element ở trang chính rồi trong từng frame. Bookmarklet chỉ với
+- **Bước ghi trong iframe:** Selenium, Playwright, Robot và Java tìm element ở trang chính rồi trong từng frame. Bookmarklet chỉ với
   tới frame cùng origin với trang (bằng CSS hoặc XPath, không lồng frame trong frame); frame khác origin thì không
   (⚠ Verify). Một Condition ghi trong frame vẫn được kiểm ở trang chính ở mọi bản (⚠ Verify). Phát lại cũng chỉ thấy
   frame trên cùng với các bước đi qua CDP (xem mục trên).
 - **Upload File:** bookmarklet không đọc được tệp trên máy nên bỏ qua mọi Upload File, vào `<input type="file">` cũng như
-  vào drop zone. Selenium, Playwright và Robot làm được cả hai (drop zone qua một input ẩn làm cầu nối, như phát lại).
+  vào drop zone. Selenium, Playwright, Robot và Java làm được cả hai (drop zone qua một input ẩn làm cầu nối, như phát lại).
 - **Switch:** Switch có khối theo biến, mọi case là một dải action của chính scenario (hoặc rỗng), không có "Continue
   at" riêng và không lỗi, được xuất thành `if / elif / else` trên giá trị biến lúc chạy. Các Switch khác — case nhảy
   sang scenario khác, nhảy tới action #N, "Always", có "Continue at" — vẫn bị bỏ qua (cùng cả khối nếu có khối): việc
@@ -72,8 +72,7 @@ xuất đánh dấu ⚠ Verify hoặc — Skip cho từng bước liên quan, k�
   (`sessionStorage` của site này không sang được site kia). Navigate nằm trong Condition hoặc trong case của Switch vẫn
   tải lại trang và các bước sau nó không chạy. Scenario chỉ có Navigate ở bước đầu giữ cách cũ: bấm lại khi đã ở đúng
   trang; nếu trang đó chuyển hướng sang trang khác của cùng site thì lại mở trang và dừng.
-- **Kéo thả trong Selenium và Robot** dùng ActionChains (Robot: `Drag And Drop` của SeleniumLibrary); mới kiểm chạy
-  thật trên Edge (e2e `export-run`), chưa kiểm trên Firefox và Safari.
-- **Robot chưa có Data file (CSV):** pytest và Playwright chạy một test cho mỗi dòng của tệp CSV; Robot thì chưa (cần
-  DataDriver hoặc một test template cho mỗi dòng).
-- **Chưa có Selenium Java** (T21–T22 của plan 5, tuỳ chọn, chưa làm).
+- **Kéo thả trong Selenium, Robot và Java** dùng chuỗi thao tác chuột của WebDriver (ActionChains, `Drag And Drop` của
+  SeleniumLibrary, `Actions`); mới kiểm chạy thật trên Edge (e2e `export-run`), chưa kiểm trên Firefox và Safari.
+- **Robot và Java chưa có Data file (CSV):** pytest và Playwright chạy một test cho mỗi dòng của tệp CSV; Robot (cần
+  DataDriver hoặc test template) và Java (cần `@DataProvider`) thì chưa.
