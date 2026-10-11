@@ -1,6 +1,6 @@
 /**
  * highlight.js — the colours of the export modal's code: the comments, strings
- * and keywords of Python and JavaScript — of Robot Framework its comments, section
+ * and keywords of Python, JavaScript and Java — of Robot Framework its comments, section
  * headers and control words (IF, FOR, END…) — nothing more, with no library (no
  * dependency, no build step). The code is read a character at a time, in or out
  * of a string or comment, so a # or // inside a string stays string and a quote
@@ -18,6 +18,10 @@ const KEYWORDS = {
     'else', 'export', 'false', 'finally', 'for', 'from', 'function', 'if', 'import', 'in', 'instanceof', 'let', 'new',
     'null', 'of', 'return', 'switch', 'this', 'throw', 'true', 'try', 'typeof', 'undefined', 'var', 'void', 'while',
     'yield']),
+  java: new Set(['abstract', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class', 'continue', 'default', 'do',
+    'double', 'else', 'extends', 'false', 'final', 'finally', 'float', 'for', 'if', 'implements', 'import', 'instanceof',
+    'int', 'interface', 'long', 'new', 'null', 'package', 'private', 'protected', 'public', 'return', 'short', 'static',
+    'super', 'switch', 'this', 'throw', 'throws', 'true', 'try', 'void', 'while']),
   robot: new Set(['IF', 'ELSE', 'END', 'FOR', 'IN', 'WHILE', 'RETURN', 'BREAK', 'CONTINUE', 'TRY', 'EXCEPT', 'FINALLY', 'VAR']),
 };
 
@@ -30,12 +34,12 @@ const PY_PREFIX = /^[rRbBuUfF]{1,2}$/;
 
 /**
  * The code in coloured pieces, a list per line: [text, kind], kind 'cmt', 'str',
- * 'kw' or null. `lang` is 'py' for Python, 'robot' for Robot Framework, anything
- * else JavaScript.
+ * 'kw' or null. `lang` is 'py' for Python, 'robot' for Robot Framework, 'java'
+ * for Java (read as JavaScript is, its own keywords), anything else JavaScript.
  */
 export function highlightLines(code, lang) {
   const lines = [[]];
-  for (const [text, kind] of tokens(code, { py: pyToken, robot: robotToken }[lang] || jsToken)) {
+  for (const [text, kind] of tokens(code, { py: pyToken, robot: robotToken, java: javaToken }[lang] || jsToken)) {
     text.split('\n').forEach((part, i) => {
       if (i) lines.push([]);
       if (part) lines[lines.length - 1].push([part, kind]);
@@ -93,8 +97,11 @@ function robotToken(code, i) {
   return [end, kind];
 }
 
+// The Java piece at `i`: as JavaScript's, with Java's keywords.
+const javaToken = (code, i, state) => jsToken(code, i, state, KEYWORDS.java);
+
 // The JavaScript piece at `i`: [where it ends, its kind]; keeps `state` up to date.
-function jsToken(code, i, state) {
+function jsToken(code, i, state, keywords = KEYWORDS.js) {
   const c = code[i];
   if (code.startsWith('//', i)) return [lineEnd(code, i), 'cmt'];
   if (code.startsWith('/*', i)) {
@@ -107,7 +114,7 @@ function jsToken(code, i, state) {
     return [value, 'str'];
   }
   if (/[A-Za-z_$]/.test(c)) {
-    const [end, kind, word] = wordAt(code, i, KEYWORDS.js);
+    const [end, kind, word] = wordAt(code, i, keywords);
     state.prev = word;
     return [end, kind];
   }

@@ -64,6 +64,10 @@
   background: linear-gradient(90deg, #00a99d, #10b981 50%, #00a99d);
 }
 
+.export-bm-accent-java {
+  background: linear-gradient(90deg, #8b5cf6, #f89820 50%, #8b5cf6);
+}
+
 .export-bm-header-inner {
   display: flex;
   align-items: center;
@@ -130,6 +134,18 @@
   background: rgba(16, 185, 129, 0.1);
   color: #6ee7b7;
   border-color: rgba(16, 185, 129, 0.3);
+}
+
+.export-bm-lang-badge-java {
+  background: rgba(139, 92, 246, 0.1);
+  color: #5b21b6;
+  border: 1.5px solid rgba(139, 92, 246, 0.3);
+}
+
+[data-theme="dark"] .export-bm-lang-badge-java {
+  background: rgba(139, 92, 246, 0.1);
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.3);
 }
 
 .export-bm-header-text {
@@ -943,7 +959,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   line-height: 1.2;
 }
 
-/* JS = amber, PY = blue, Playwright = red, Robot = green: the tinted role, in the format's colour. The tokens
+/* JS = amber, PY = blue, Playwright = red, Robot = green, Java = purple: the tinted role, in the format's colour. The tokens
    already carry both themes, so there is no dark-mode copy of these. */
 .export-code-js {
   border-color: color-mix(in srgb, var(--warning) 40%, transparent);
@@ -983,6 +999,16 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
 .export-code-rf:hover:not(:disabled) {
   background: color-mix(in srgb, var(--success) 14%, transparent) !important;
   border-color: var(--success);
+}
+
+.export-code-java {
+  border-color: color-mix(in srgb, var(--secondary) 40%, transparent);
+  background: color-mix(in srgb, var(--secondary) 8%, transparent);
+  color: var(--secondary-dark) !important;
+}
+.export-code-java:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--secondary) 14%, transparent) !important;
+  border-color: var(--secondary);
 }
 
 /* === Export modal — top accent strip & lang chip === */

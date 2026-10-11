@@ -786,6 +786,10 @@
           <span class="export-code-icon" aria-hidden="true">🤖</span>
           <span class="export-code-name">Robot Framework</span>
         </button>
+        <button id="exportJava" class="export-code-btn export-code-java" data-desc="Selenium Java: a TestNG test class for mvn test">
+          <span class="export-code-icon" aria-hidden="true">☕</span>
+          <span class="export-code-name">Selenium Java</span>
+        </button>
       </div>
     </div>
 
@@ -1818,6 +1822,53 @@
               <small>Max wait time for elements</small>
             </div>
             <input type="number" id="exportRfElTimeout" class="export-bm-setting-input" value="10000" min="500" max="60000" />
+            <span class="export-bm-setting-unit">ms</span>
+          </div>
+        </div>
+        <div data-format="java" hidden>
+          <div class="export-bm-setting-row export-bm-setting-row-stack">
+            <div class="export-bm-setting-label">
+              Starting URL <span class="export-bm-url-from-tab" id="exportJavaUrlFromTab" style="display:none;">📍 Current tab</span>
+              <small>Opened first, unless the scenario starts with a Navigate</small>
+            </div>
+            <div class="export-bm-url-field">
+              <input type="url" id="exportJavaStartUrl" class="export-bm-setting-input" placeholder="https://…" />
+              <button id="exportJavaGetUrl" class="export-bm-icon-btn" title="Get URL from current tab" style="font-size:11px;">🔄</button>
+            </div>
+          </div>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">WebDriver</div>
+            <select id="exportJavaDriver" class="export-bm-setting-select">
+              <option value="Chrome" selected>Chrome</option>
+              <option value="Firefox">Firefox</option>
+              <option value="Edge">Edge</option>
+              <option value="Safari">Safari</option>
+            </select>
+          </div>
+          <label class="export-bm-setting-row" id="exportJavaHeadlessRow">
+            <span class="export-bm-setting-label">
+              Headless
+              <small>No browser window, as on a CI server</small>
+            </span>
+            <span class="hl-toggle-switch">
+              <input type="checkbox" id="exportJavaHeadless" role="switch" />
+              <span class="hl-toggle-slider" aria-hidden="true"></span>
+            </span>
+          </label>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Delay between steps
+              <small>Time to wait after each action</small>
+            </div>
+            <input type="number" id="exportJavaStepDelay" class="export-bm-setting-input" value="500" min="0" max="10000" />
+            <span class="export-bm-setting-unit">ms</span>
+          </div>
+          <div class="export-bm-setting-row">
+            <div class="export-bm-setting-label">
+              Element timeout
+              <small>Max wait time for elements</small>
+            </div>
+            <input type="number" id="exportJavaElTimeout" class="export-bm-setting-input" value="10000" min="500" max="60000" />
             <span class="export-bm-setting-unit">ms</span>
           </div>
         </div>

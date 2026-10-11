@@ -49,8 +49,8 @@ let modalWired = false;
  *
  * @param {object}   cfg
  * @param {string}   cfg.triggerId     - the button that opens the modal for it
- * @param {string}   cfg.format        - its Settings block ([data-format]) and strip / chip style ('js', 'py', 'pw', 'rf')
- * @param {string}   cfg.badge         - the chip's text ('JS', 'PY', 'PW', 'RF')
+ * @param {string}   cfg.format        - its Settings block ([data-format]) and strip / chip style ('js', 'py', 'pw', 'rf', 'java')
+ * @param {string}   cfg.badge         - the chip's text ('JS', 'PY', 'PW', 'RF', 'JV')
  * @param {string}   cfg.title         - header, followed by " — <scenario>"
  * @param {Function} cfg.fileName      - (base, options) → the file name, from the scenario's safe name
  *                                       and the options the code was made with
@@ -247,7 +247,7 @@ function render(result) {
 
   // Code preview
   const codeEl = byId('Code')?.querySelector('code');
-  if (codeEl) renderCode(codeEl, result.code, { py: 'py', rf: 'robot' }[run.cfg.format] || 'js');
+  if (codeEl) renderCode(codeEl, result.code, { py: 'py', rf: 'robot', java: 'java' }[run.cfg.format] || 'js');
 
   // Warning bar (Code tab): one line counting the steps not exported as is and
   // what the generator could not express faithfully (renamed identifiers,
@@ -344,7 +344,7 @@ function download() {
 }
 
 /**
- * The code into `codeEl`, coloured as `lang` ('py', 'robot' or 'js'): a span per line,
+ * The code into `codeEl`, coloured as `lang` ('py', 'robot', 'java' or 'js'): a span per line,
  * the line breaks between them as text, so its text is the code as is (Select
  * all, the checks that read it). A line that opens a step carries its number
  * (data-step). Built from text nodes, never parsed as HTML: the code holds the

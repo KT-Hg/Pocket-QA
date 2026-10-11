@@ -10,7 +10,7 @@
  */
 
 import { commentText } from './utils.js';
-import { exportFileBase } from './export-modal.js';
+import { exportFileBase, initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
@@ -759,4 +759,45 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
     steps,
     warnings: [...warnings],
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI MODULE — the modal is popup/export-modal.js; what is particular to this export
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Wire the Selenium Java export. */
+export function initExportJava() {
+  const number = (id, fallback) => parseInt(document.getElementById(id)?.value) || fallback;
+  initExportModal({
+    triggerId: 'exportJava',
+    format: 'java',
+    badge: 'JV',
+    title: 'Export Java',
+    // The driver before Headless, which Safari turns off. The start URL follows the tab instead.
+    remember: ['exportJavaDriver', 'exportJavaHeadless', 'exportJavaStepDelay', 'exportJavaElTimeout'],
+    // The class's name: a public class's file is named after it.
+    fileName: (base) => `${javaClassName(base)}.java`,
+    readOptions: () => ({
+      stepDelay: number('exportJavaStepDelay', 500),
+      elTimeout: number('exportJavaElTimeout', 10000),
+      driverType: document.getElementById('exportJavaDriver')?.value || 'Chrome',
+      headless: !!document.getElementById('exportJavaHeadless')?.checked,
+      startUrl: document.getElementById('exportJavaStartUrl')?.value.trim() || '',
+    }),
+    generate: generateJava,
+    copyText: (code) => code,
+    file: (code) => ({ text: code, type: 'text/x-java' }),
+    startUrl: { field: 'exportJavaStartUrl', button: 'exportJavaGetUrl', badge: 'exportJavaUrlFromTab' },
+    wire: () => document.getElementById('exportJavaDriver')?.addEventListener('change', syncHeadless),
+  });
+}
+
+// Safari has no headless mode: with it chosen, Headless is off and cannot be turned on.
+function syncHeadless() {
+  const safari = document.getElementById('exportJavaDriver')?.value === 'Safari';
+  const box = document.getElementById('exportJavaHeadless');
+  if (!box) return;
+  if (safari) box.checked = false;
+  box.disabled = safari;
+  document.getElementById('exportJavaHeadlessRow').title = safari ? 'Safari has no headless mode' : '';
 }

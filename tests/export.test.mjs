@@ -997,7 +997,7 @@ test('the export code colours: joined, the pieces are the code of every golden e
   const { highlightLines } = await import('../popup/export/highlight.js');
   const { readFileSync } = await import('node:fs');
   let checked = 0;
-  for (const [file, lang] of [['export-bookmarklet', 'js'], ['export-selenium', 'py'], ['export-playwright', 'js'], ['export-robot', 'robot']]) {
+  for (const [file, lang] of [['export-bookmarklet', 'js'], ['export-selenium', 'py'], ['export-playwright', 'js'], ['export-robot', 'robot'], ['export-java', 'java']]) {
     const golden = JSON.parse(readFileSync(new URL(`./golden/${file}.json`, import.meta.url), 'utf8'));
     for (const [key, { code }] of Object.entries(golden)) {
       if (typeof code !== 'string') continue;
@@ -1023,6 +1023,9 @@ test('the export code colours: strings, comments and keywords, each where it is'
   // Robot: a header, a comment that starts a cell (not an escaped \# or one inside a cell), a control word in a cell.
   assert.deepEqual(kinds('*** Test Cases ***\n    # Step 1\n    IF    $ok    Log    a #b    \\#c\n    END\n    Log    IFrame  # note', 'robot'),
     [['kw:*** Test Cases ***'], ['cmt:# Step 1'], ['kw:IF'], ['kw:END'], ['cmt:# note']]);
+  // Java: its own keywords (not JavaScript's `let`), a char literal, a // in a string.
+  assert.deepEqual(kinds('public static String let = "a // b"; // note\nif (c == \'x\') throw e;', 'java'),
+    [['kw:public', 'kw:static', 'str:"a // b"', 'cmt:// note'], ['kw:if', "str:'x'", 'kw:throw']]);
 });
 
 test('the exports warn alike about the variables: one identifier for two names, a name that is not one, a Fallback', async () => {
