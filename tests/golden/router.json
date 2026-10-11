@@ -4550,5 +4550,20 @@
    "tabs.sendMessage [1,{\"type\":\"STOP_PICK_MODE\",\"tabId\":2}]"
   ],
   "console": []
+ },
+ {
+  "step": "page: window capture result refused",
+  "type": "WINDOW_CAPTURE_RESULT",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›"
+  ],
+  "responses": [],
+  "calls": [],
+  "console": []
  }
 ]

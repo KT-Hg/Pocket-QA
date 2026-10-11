@@ -450,6 +450,13 @@ await send('page: its own tab is recorded', { type: 'RECORDED_ACTION', action: {
 await send('page: stop record returns no actions', { type: 'STOP_RECORD' }, { sender: PAGE_SENDER });
 await send('page: stop pick mode names another tab', { type: 'STOP_PICK_MODE', tabId: 2 }, { sender: PAGE_SENDER });
 
+// The window-capture listener closes a browser window and writes a data: URL to
+// disk; only the capture page (an extension page) drives it. A web page naming a
+// window id is refused: no window closed, nothing downloaded, no response.
+await send('page: window capture result refused', { type: 'WINDOW_CAPTURE_RESULT', dataUrl: 'data:image/png;base64,AA==', crop: false }, {
+  sender: { ...PAGE_SENDER, tab: { ...PAGE_SENDER.tab, windowId: 7 } },
+});
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -489,6 +496,13 @@ test('a web page cannot record another tab or read what was recorded', () => {
   // Stop Pick Mode from a web page goes to its own tab, not the one it named.
   const pick = _stepOf('page: stop pick mode names another tab')?.calls.filter((c) => c.startsWith('tabs.sendMessage'));
   assert.deepEqual(pick, ['tabs.sendMessage [1,{"type":"STOP_PICK_MODE","tabId":2}]']);
+});
+test('a web page cannot drive the window capture', () => {
+  const step = _stepOf('page: window capture result refused');
+  assert.deepEqual(step?.responses, [], 'the listener stays silent for a web page');
+  const calls = step?.calls || [];
+  assert.ok(!calls.some((c) => c.startsWith('windows.remove')), 'no window closed');
+  assert.ok(!calls.some((c) => c.startsWith('downloads.download')), 'nothing downloaded');
 });
 test('from a web page, a recorded action is a click or an input with known fields only', () => {
   assert.deepEqual(_stepOf('from a web page: recorded uploadFile dropped')?.responses, [{ received: false }]);
