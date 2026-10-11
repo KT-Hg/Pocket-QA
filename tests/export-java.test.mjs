@@ -87,10 +87,12 @@ test('java: a variable nothing defines is its ${name} text, as a run leaves it; 
   assert.doesNotMatch(generateJava('t', [{ type: 'navigate', url: 'https://x.test/' }], {}).code, /locateInFrames/);
 });
 
-// A label javac would read as code if a \u in it were left as is, and a step of each kind.
+// Text javac would read as code if a \u in it were left as is: in a label, and in
+// a dropdown's item number, which reaches the step comment through stepWhat.
 const NASTY = [
   { type: 'navigate', url: 'https://x.test/' },
   { type: 'click', selector: '#a', selectors: { css: '#a' }, label: 'C:\\users\\u000a System.exit(1); */' },
+  { type: 'dropdown', selector: '#dd', selectors: { css: '#dd' }, pick: { index: '1\\u000a } System.exit(1); //', itemSelector: '' } },
   { type: 'condition', conditionType: 'noSuchType', selector: '#b', selectors: { css: '#b' }, skipCount: 1 },
   { type: 'click', selector: '#c', selectors: { css: '#c' } },
   { type: 'uploadFile', selector: '#f', selectors: { css: '#f' } },
