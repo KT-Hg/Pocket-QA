@@ -13,17 +13,14 @@
 import { commentText } from './utils.js';
 import { initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName, normalizeVarRef } from '../shared/var-name.js';
-import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
+import { normalizeVarRef } from '../shared/var-name.js';
+import { patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, pickLabel, walkActions, warnUndefinedVars } from './export/walk.js';
-import {
-  FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
-  DROP_BRIDGE_JS, DROP_FILES_JS, PICK_ITEM_ASYNC_JS,
-} from './export/page-js.js';
+import { exportVariables, inFrame, locatorsFor, pickLabel, readTargets, uploadPaths, walkActions, warnUndefinedVars } from './export/walk.js';
+import { CONDITION_TYPES, PAGE_CALLS } from './export/page-js.js';
 
 // Robot reads a variable's name ignoring case, spaces and underscores: two names are one when these match.
 const robotKey = (name) => String(name).toLowerCase().replace(/[\s_]/g, '');
@@ -94,19 +91,6 @@ function locRobot({ type, value, tag }) {
 
 const locsRobot = (locs) => locs.map(locRobot).join('    ');
 
-// The in-page code a step runs, as Execute Javascript takes it: its arguments in order.
-const pageCall = (src) => `return (${src}).apply(null, arguments)`;
-const PAGE_JS = {
-  FIND_TEXT_JS: pageCall(FIND_TEXT_JS),
-  QUERY_DEEP_JS: pageCall(QUERY_DEEP_JS),
-  SET_INPUT_JS: pageCall(SET_INPUT_JS),
-  CHECK_COND_JS: pageCall(CHECK_COND_JS),
-  FIND_CHILD_JS: pageCall(FIND_CHILD_JS),
-  READ_VAL_JS: pageCall(READ_VAL_JS),
-  DROP_BRIDGE_JS: pageCall(DROP_BRIDGE_JS),
-  DROP_FILES_JS: pageCall(DROP_FILES_JS),
-  PICK_ITEM_JS: PICK_ITEM_ASYNC_JS,
-};
 
 // UTF-8 text as base64, in the popup and in Node alike.
 const base64 = (s) => btoa(Array.from(new TextEncoder().encode(s), (b) => String.fromCharCode(b)).join(''));
@@ -311,30 +295,16 @@ function findLines(action, el, ctx, clickable = false) {
     `\${${el}}=    Find Child    \${${el}_p}    \${${el}_c}    ${ctx.n}`];
 }
 
-// The paths playback hands an upload (bg/playback/steps/upload.js), a line each; null without a folder or a name.
+// The upload paths (export/walk.js uploadPaths) as one Robot argument, a line each; null without a folder or a name.
 function uploadFiles(a) {
-  const folder = String(a.folderPath || '').replace(/[/\\]+$/, '');
-  let names = [];
-  if (Array.isArray(a.fileNames) && a.fileNames.length) names = a.fileNames;
-  else if (a.fileName) names = [a.fileName];
-  const sep = folder.includes('\\') ? '\\' : '/';
-  return folder && names.length ? valueRobot(names.map((name) => `${folder}${sep}${name}`).join('\n')) : null;
-}
-
-// What a Read DOM writes: "Save to var", else (no pattern) dom_var, and each ${name} of its pattern.
-function readTargets(a) {
-  const slots = a.pattern ? patternVarNames(a.pattern) : [];
-  const vn = normalizeVarName(a.varName);
-  let whole = null;
-  if (vn) whole = robotIdent(vn);
-  else if (!slots.length) whole = 'dom_var';
-  return { whole, slots };
+  const paths = uploadPaths(a);
+  return paths ? valueRobot(paths.join('\n')) : null;
 }
 
 // Read DOM: each ${name} of the pattern takes its part of the text, "Save to var" the whole.
 function readdomLines(a, s) {
   s.ctx.uses.add('read');
-  const { whole, slots } = readTargets(a);
+  const { whole, slots } = readTargets(a, robotIdent);
   const read = `Read Value    \${${s.el}}    ${robotText(a.readFrom || 'text')}    ${valueRobot(a.attrName || '')}`;
   const out = s.find();
   if (!slots.length) return [...out, `\${${whole}}=    ${read}`];
@@ -425,7 +395,7 @@ function stepWhat(a) {
       return `upload file${many ? 's' : ''}${a.uploadMode === 'dropzone' ? ' to a drop zone' : ''}`;
     }
     case 'readdom': {
-      const { whole, slots } = readTargets(a);
+      const { whole, slots } = readTargets(a, robotIdent);
       return `read DOM → ${[whole, ...slots.map(robotIdent)].filter(Boolean).map((t) => `"${t}"`).join(', ')}`;
     }
     default: return a.type;
@@ -623,7 +593,7 @@ export function generateRobot(scenarioName, actions, variables, opts = {}) {
     `\${PQA_HEADLESS}     ${headless ? 1 : 0}`,
     '${PQA_AT}           ${EMPTY}',
     '${PQA_FIRST_ORIGIN}    ${None}',
-    ...helpers.map((h, k) => `${k ? '...' : '&{PQA_B64}'}${' '.repeat(k ? 17 : 10)}${h}=${base64(PAGE_JS[h])}`),
+    ...helpers.map((h, k) => `${k ? '...' : '&{PQA_B64}'}${' '.repeat(k ? 17 : 10)}${h}=${base64(PAGE_CALLS[h])}`),
     ...table,
     '',
     '',

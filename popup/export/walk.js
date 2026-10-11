@@ -10,7 +10,8 @@ import {
   blockEnd, caseRange, conditionSkip, conditionSkipTarget, hasBlock, isBlockCase, validateSwitch,
 } from '../../shared/switch-blocks.js';
 import { locatorsOf } from '../../shared/locator-order.js';
-import { writtenVarNames } from '../../shared/var-name.js';
+import { normalizeVarName, writtenVarNames } from '../../shared/var-name.js';
+import { patternVarNames } from '../../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../../shared/var-spec.js';
 import { commentText, getUsedVarNames } from '../utils.js';
 import { blockSteps, newStep } from './steps.js';
@@ -21,6 +22,34 @@ import { blockSteps, newStep } from './steps.js';
  * character in it cannot break the comment), or ? when there is none.
  */
 export const pickLabel = (action) => commentText(String(action.pick?.index ?? '?').replace(/\s+/g, ' '));
+
+/**
+ * The paths an Upload File action hands the page, as playback joins them
+ * (bg/playback/steps/upload.js): the folder (its trailing separators dropped)
+ * joined to each file name with the folder's own separator. null when there is no
+ * folder or no name. Each export escapes them its own way.
+ */
+export function uploadPaths(action) {
+  const folder = String(action.folderPath || '').replace(/[/\\]+$/, '');
+  let names = [];
+  if (Array.isArray(action.fileNames) && action.fileNames.length) names = action.fileNames;
+  else if (action.fileName) names = [action.fileName];
+  if (!folder || !names.length) return null;
+  const sep = folder.includes('\\') ? '\\' : '/';
+  return names.map((name) => `${folder}${sep}${name}`);
+}
+
+/**
+ * What a Read DOM step writes: `whole` is its "Save to var" name through `ident`
+ * (the export's identifier rule), or dom_var when it has neither a save name nor a
+ * pattern; `slots` are the raw ${name}s of its pattern.
+ */
+export function readTargets(action, ident) {
+  const slots = action.pattern ? patternVarNames(action.pattern) : [];
+  const vn = normalizeVarName(action.varName);
+  const whole = vn ? ident(vn) : (slots.length ? null : 'dom_var');
+  return { whole, slots };
+}
 
 /**
  * A scenario's variables as an export declares them, and what to warn about,

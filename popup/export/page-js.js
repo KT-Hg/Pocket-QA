@@ -349,3 +349,23 @@ export const PICK_ITEM_ASYNC_JS = `const done = arguments[arguments.length - 1];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 ${PICK_ITEM_JS}
 _pickItem(arguments[0], arguments[1], arguments[2], arguments[3]).then(() => done(null), (e) => done(String(e && e.message || e)));`;
+
+/**
+ * Each page function as a driver's executeScript takes it — `return
+ * (<source>).apply(null, arguments)` — by the name the Selenium Java and Robot
+ * exports store it under (both built this table the same way). The bookmarklet
+ * and Playwright inline the source instead.
+ */
+const pageCall = (src) => `return (${src}).apply(null, arguments)`;
+export const PAGE_CALLS = {
+  FIND_TEXT_JS: pageCall(FIND_TEXT_JS),
+  QUERY_DEEP_JS: pageCall(QUERY_DEEP_JS),
+  SET_INPUT_JS: pageCall(SET_INPUT_JS),
+  CHECK_COND_JS: pageCall(CHECK_COND_JS),
+  FIND_CHILD_JS: pageCall(FIND_CHILD_JS),
+  READ_VAL_JS: pageCall(READ_VAL_JS),
+  DROP_BRIDGE_JS: pageCall(DROP_BRIDGE_JS),
+  DROP_FILES_JS: pageCall(DROP_FILES_JS),
+  // The Dropdown helper is driven asynchronously, so it is the async form, not a call.
+  PICK_ITEM_JS: PICK_ITEM_ASYNC_JS,
+};

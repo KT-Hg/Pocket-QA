@@ -12,17 +12,14 @@
 import { commentText } from './utils.js';
 import { exportFileBase, initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarName, normalizeVarRef } from '../shared/var-name.js';
-import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
+import { normalizeVarRef } from '../shared/var-name.js';
+import { patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
-import {
-  FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
-  DROP_BRIDGE_JS, DROP_FILES_JS, PICK_ITEM_ASYNC_JS,
-} from './export/page-js.js';
+import { exportVariables, inFrame, locatorsFor, pickLabel, readTargets, undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars } from './export/walk.js';
+import { CONDITION_TYPES, PAGE_CALLS, PICK_ITEM_ASYNC_JS } from './export/page-js.js';
 
 /**
  * The class a scenario's file holds, from the file name's base (export-modal.js
@@ -102,8 +99,6 @@ function jsConstant(name, src) {
   return [`    static final String ${name} = String.join("\\n",`,
     ...lines.map((l, k) => `        ${javaText(l)}${k < lines.length - 1 ? ',' : ');'}`)];
 }
-
-const pageCall = (src) => `return (${src}).apply(null, arguments)`;
 
 // The class's own code every test has: the browser, the site, finding an element as the extension does.
 const BASE_HELPERS = String.raw`    /** PQA_BROWSER (Chrome, Edge, Firefox or Safari), else the exported one; PQA_HEADLESS=1: no window, at a desktop size. */
@@ -347,18 +342,6 @@ const STEP_HELPERS = {
     }`],
 };
 
-const PAGE_JS = {
-  FIND_TEXT_JS: pageCall(FIND_TEXT_JS),
-  QUERY_DEEP_JS: pageCall(QUERY_DEEP_JS),
-  SET_INPUT_JS: pageCall(SET_INPUT_JS),
-  CHECK_COND_JS: pageCall(CHECK_COND_JS),
-  FIND_CHILD_JS: pageCall(FIND_CHILD_JS),
-  READ_VAL_JS: pageCall(READ_VAL_JS),
-  DROP_BRIDGE_JS: pageCall(DROP_BRIDGE_JS),
-  DROP_FILES_JS: pageCall(DROP_FILES_JS),
-  PICK_ITEM_JS: PICK_ITEM_ASYNC_JS,
-};
-
 /**
  * A Script step: the code as a Java string, each ${name} put in through js() as
  * the extension escapes it; a line per literal.
@@ -389,30 +372,16 @@ function findLines(action, el, ctx, clickable = false) {
   return [`WebElement ${el}p = find(${locs});`, `WebElement ${el} = findChild(${el}p, ${ctx.n}${pairs.map((p) => `, ${p}`).join('')});`];
 }
 
-// The paths playback hands an upload (bg/playback/steps/upload.js), a line each; null without a folder or a name.
+// The upload paths (export/walk.js uploadPaths) as one Java string, a line each; null without a folder or a name.
 function uploadFiles(a) {
-  const folder = String(a.folderPath || '').replace(/[/\\]+$/, '');
-  let names = [];
-  if (Array.isArray(a.fileNames) && a.fileNames.length) names = a.fileNames;
-  else if (a.fileName) names = [a.fileName];
-  const sep = folder.includes('\\') ? '\\' : '/';
-  return folder && names.length ? valueJava(names.map((name) => `${folder}${sep}${name}`).join('\n')) : null;
-}
-
-// What a Read DOM writes: "Save to var", else (no pattern) dom_var, and each ${name} of its pattern.
-function readTargets(a) {
-  const slots = a.pattern ? patternVarNames(a.pattern) : [];
-  const vn = normalizeVarName(a.varName);
-  let whole = null;
-  if (vn) whole = javaIdent(vn);
-  else if (!slots.length) whole = 'dom_var';
-  return { whole, slots };
+  const paths = uploadPaths(a);
+  return paths ? valueJava(paths.join('\n')) : null;
 }
 
 // Read DOM: each ${name} of the pattern takes its part of the text, "Save to var" the whole.
 function readdomLines(a, s) {
   s.ctx.uses.add('read');
-  const { whole, slots } = readTargets(a);
+  const { whole, slots } = readTargets(a, javaIdent);
   const read = `readVal(${s.el}, ${javaText(a.readFrom || 'text')}, ${valueJava(a.attrName || '')})`;
   const out = s.find();
   if (!slots.length) return [...out, `${whole} = ${read};`];
@@ -505,7 +474,7 @@ function stepWhat(a) {
       return `upload file${many ? 's' : ''}${a.uploadMode === 'dropzone' ? ' to a drop zone' : ''}`;
     }
     case 'readdom': {
-      const { whole, slots } = readTargets(a);
+      const { whole, slots } = readTargets(a, javaIdent);
       return `read DOM → ${[whole, ...slots.map(javaIdent)].filter(Boolean).map((t) => `"${t}"`).join(', ')}`;
     }
     default: return a.type;
@@ -623,7 +592,7 @@ function variableLines(enabled, variables, { staticVars, randomSpecs, pickSpecs,
 // The variables a step assigns to, as the steps name them (readTargets, screenshot_tovar).
 function assignedIdents(a) {
   if (a.type === 'readdom') {
-    const { whole, slots } = readTargets(a);
+    const { whole, slots } = readTargets(a, javaIdent);
     return [whole, ...slots.map(javaIdent)].filter(Boolean);
   }
   return a.type === 'screenshot_tovar' ? [javaIdent(a.varName || 'screenshot')] : [];
@@ -665,7 +634,7 @@ function helperLines(uses, frames) {
       .map((u) => STEP_HELPERS[u][1].replace('        TOP_PAGE\n', frames ? '        driver.switchTo().defaultContent();\n' : ''))];
   return [
     "    // The extension's own in-page code (popup/export/page-js.js), run through executeScript.",
-    ...pageJs.flatMap((h) => [...jsConstant(h, PAGE_JS[h]), '']),
+    ...pageJs.flatMap((h) => [...jsConstant(h, PAGE_CALLS[h]), '']),
     ...blocks.join('\n\n').split('\n'),
   ];
 }

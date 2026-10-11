@@ -68,7 +68,11 @@ test('robot: a scenario name that starts with * is one test case, not a section'
       + 'print(json.dumps(tests))\n';
     const res = spawnSync(ROBOT_PY, ['-c', py, file], { encoding: 'utf-8' });
     assert.equal(res.status, 0, res.stdout + res.stderr);
-    assert.deepEqual(JSON.parse(res.stdout), ['*Smoke test'], 'the * name is one test case');
+    // Exactly one test case — a `*…` line read as a section would give none — whose
+    // name is the scenario's. get_model keeps the escape (\*Smoke test); a run unescapes it.
+    const tests = JSON.parse(res.stdout);
+    assert.equal(tests.length, 1, `one test case, got ${JSON.stringify(tests)}`);
+    assert.match(tests[0], /Smoke test$/);
     assert.equal(robot({ 'star.robot': code }, ['--dryrun']).status, 0, 'a dry run accepts the file');
   } finally {
     rmSync(dir, { recursive: true, force: true });

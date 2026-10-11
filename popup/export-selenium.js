@@ -5,7 +5,7 @@ import { normalizeVarName, normalizeVarRef, writtenVarNames } from '../shared/va
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
   DROP_BRIDGE_JS, DROP_FILES_JS,
@@ -842,23 +842,18 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       break;
 
     case 'uploadFile': {
-      // The paths playback hands the file input (bg/playback/steps/upload.js): the
-      // folder without its trailing separators, joined to each name with the
-      // folder's own kind of separator. An older action holds one fileName.
-      const folder = String(action.folderPath || '').replace(/[/\\]+$/, '');
-      let names = [];
-      if (Array.isArray(action.fileNames) && action.fileNames.length) names = action.fileNames;
-      else if (action.fileName) names = [action.fileName];
+      // The paths playback hands the file input (export/walk.js uploadPaths): the
+      // folder joined to each file name. null when a folder or name is missing.
+      const paths = uploadPaths(action);
       const zone = action.uploadMode === 'dropzone';
-      out.push(`# Step ${stepNum}: upload file${names.length > 1 ? 's' : ''}${zone ? ' to a drop zone' : ''}${lbl}`);
-      if (!folder || !names.length) {
+      out.push(`# Step ${stepNum}: upload file${paths && paths.length > 1 ? 's' : ''}${zone ? ' to a drop zone' : ''}${lbl}`);
+      if (!paths) {
         out.push(`raise Exception("Upload File (step ${stepNum}): missing folder or file name(s)")`);
         mark(step, 'verify', 'no folder or file name — the exported code stops there, as a run does');
         break;
       }
-      const sep   = folder.includes('\\') ? '\\' : '/';
-      const paths = names.map((n) => valueToPy(`${folder}${sep}${n}`));
-      const files = paths.length === 1 ? paths[0] : `"\\n".join([${paths.join(', ')}])`;
+      const pyPaths = paths.map((p) => valueToPy(p));
+      const files = pyPaths.length === 1 ? pyPaths[0] : `"\\n".join([${pyPaths.join(', ')}])`;
       // Present is enough: pages hide their file inputs, and send_keys still fills one.
       out.push(`${elVar} = ${find(locs)}`);
       if (zone) {
