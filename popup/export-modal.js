@@ -25,6 +25,9 @@ import { highlightLines } from './export/highlight.js';
  */
 export const exportFileBase = (scenarioName) => safeFileName(scenarioName).replace(/\s+/g, '_').toLowerCase();
 
+// The browsers a driver/WebDriver export may target; each generator keeps to this set.
+export const DRIVER_TYPES = new Set(['Chrome', 'Edge', 'Firefox', 'Safari']);
+
 // How long the Copy button says "Copied".
 const COPIED_LABEL_MS = 1500;
 // How long typing in a Settings field has to pause before the code follows it.
@@ -62,6 +65,7 @@ let modalWired = false;
  *                                       order they are put back
  * @param {object}   [cfg.startUrl]    - its Starting URL setting: { field, button, badge } ids — filled
  *                                       from the tab on opening when empty, again by the button
+ * @param {object}   [cfg.headless]    - its Headless setting that Safari turns off: { driver, box, row } ids
  * @param {Function} [cfg.wire]        - wires its own extra controls
  */
 export function initExportModal(cfg) {
@@ -73,7 +77,20 @@ export function initExportModal(cfg) {
   });
   rememberSettings(cfg);
   if (cfg.startUrl) document.getElementById(cfg.startUrl.button)?.addEventListener('click', () => fillCurrentUrl(cfg.startUrl));
+  if (cfg.headless) document.getElementById(cfg.headless.driver)?.addEventListener('change', () => syncHeadless(cfg.headless));
   cfg.wire?.();
+}
+
+// Safari has no headless mode: with it chosen, Headless is off and cannot be turned on.
+// Run when the driver/browser select changes (restoreSettings fires that on open too).
+function syncHeadless({ driver, box, row }) {
+  const safari = document.getElementById(driver)?.value === 'Safari';
+  const checkbox = document.getElementById(box);
+  if (!checkbox) return;
+  if (safari) checkbox.checked = false;
+  checkbox.disabled = safari;
+  const rowEl = document.getElementById(row);
+  if (rowEl) rowEl.title = safari ? 'Safari has no headless mode' : '';
 }
 
 // The URL of the page the popup is over, or '' for a browser or extension page.

@@ -11,7 +11,7 @@
  */
 
 import { commentText } from './utils.js';
-import { initExportModal } from './export-modal.js';
+import { DRIVER_TYPES, initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarRef } from '../shared/var-name.js';
 import { patternRegexSource } from '../shared/text-pattern.js';
@@ -549,9 +549,6 @@ function settingsLines(name, envVars) {
   ];
 }
 
-// The drivers the Settings tab offers.
-const DRIVER_TYPES = new Set(['Chrome', 'Edge', 'Firefox', 'Safari']);
-
 /**
  * The scenario as a Robot Framework test (SeleniumLibrary).
  *
@@ -642,16 +639,6 @@ export function initExportRobot() {
     copyText: (code) => code,
     file: (code) => ({ text: code, type: 'text/plain' }),
     startUrl: { field: 'exportRfStartUrl', button: 'exportRfGetUrl', badge: 'exportRfUrlFromTab' },
-    wire: () => document.getElementById('exportRfBrowser')?.addEventListener('change', syncHeadless),
+    headless: { driver: 'exportRfBrowser', box: 'exportRfHeadless', row: 'exportRfHeadlessRow' },
   });
-}
-
-// Safari has no headless mode: with it chosen, Headless is off and cannot be turned on.
-function syncHeadless() {
-  const safari = document.getElementById('exportRfBrowser')?.value === 'Safari';
-  const box = document.getElementById('exportRfHeadless');
-  if (!box) return;
-  if (safari) box.checked = false;
-  box.disabled = safari;
-  document.getElementById('exportRfHeadlessRow').title = safari ? 'Safari has no headless mode' : '';
 }

@@ -1,5 +1,5 @@
 import { commentText } from './utils.js';
-import { initExportModal } from './export-modal.js';
+import { DRIVER_TYPES, initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef, writtenVarNames } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
@@ -329,9 +329,6 @@ function _setInputHelperPy() {
     ...pyPageJs('_SET_INPUT_JS', SET_INPUT_JS),
   ];
 }
-
-// The drivers the Settings tab offers.
-const DRIVER_TYPES = new Set(['Chrome', 'Edge', 'Firefox', 'Safari']);
 
 // The line that starts the browser (_start_browser); Safari has no headless mode, which is a warning.
 function driverPy(driverType, headless, warnings) {
@@ -1224,8 +1221,8 @@ export function initExportSelenium() {
     copyText: (code) => code,
     file: (code) => ({ text: code, type: 'text/x-python' }),
     startUrl: { field: 'exportSeleniumStartUrl', button: 'exportSeleniumGetUrl', badge: 'exportSeleniumUrlFromTab' },
+    headless: { driver: 'exportSeleniumDriver', box: 'exportSeleniumHeadless', row: 'exportSeleniumHeadlessRow' },
     wire: () => {
-      document.getElementById('exportSeleniumDriver')?.addEventListener('change', _syncHeadless);
       document.getElementById('exportSeleniumOutput')?.addEventListener('change', _syncDataRow);
       _syncDataRow();
     },
@@ -1250,12 +1247,3 @@ function _syncDataRow() {
   if (row) row.hidden = document.getElementById('exportSeleniumOutput')?.value !== 'pytest';
 }
 
-// Safari has no headless mode: with it chosen, Headless is off and cannot be turned on.
-function _syncHeadless() {
-  const safari = document.getElementById('exportSeleniumDriver')?.value === 'Safari';
-  const box = document.getElementById('exportSeleniumHeadless');
-  if (!box) return;
-  if (safari) box.checked = false;
-  box.disabled = safari;
-  document.getElementById('exportSeleniumHeadlessRow').title = safari ? 'Safari has no headless mode' : '';
-}

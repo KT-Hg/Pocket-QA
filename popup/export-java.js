@@ -10,7 +10,7 @@
  */
 
 import { commentText } from './utils.js';
-import { exportFileBase, initExportModal } from './export-modal.js';
+import { DRIVER_TYPES, exportFileBase, initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
 import { normalizeVarRef } from '../shared/var-name.js';
 import { patternRegexSource } from '../shared/text-pattern.js';
@@ -639,9 +639,6 @@ function helperLines(uses, frames) {
   ];
 }
 
-// The drivers the Settings tab offers.
-const DRIVER_TYPES = new Set(['Chrome', 'Edge', 'Firefox', 'Safari']);
-
 /**
  * The scenario as a TestNG test class (Selenium Java).
  *
@@ -762,16 +759,6 @@ export function initExportJava() {
     copyText: (code) => code,
     file: (code) => ({ text: code, type: 'text/x-java' }),
     startUrl: { field: 'exportJavaStartUrl', button: 'exportJavaGetUrl', badge: 'exportJavaUrlFromTab' },
-    wire: () => document.getElementById('exportJavaDriver')?.addEventListener('change', syncHeadless),
+    headless: { driver: 'exportJavaDriver', box: 'exportJavaHeadless', row: 'exportJavaHeadlessRow' },
   });
-}
-
-// Safari has no headless mode: with it chosen, Headless is off and cannot be turned on.
-function syncHeadless() {
-  const safari = document.getElementById('exportJavaDriver')?.value === 'Safari';
-  const box = document.getElementById('exportJavaHeadless');
-  if (!box) return;
-  if (safari) box.checked = false;
-  box.disabled = safari;
-  document.getElementById('exportJavaHeadlessRow').title = safari ? 'Safari has no headless mode' : '';
 }
