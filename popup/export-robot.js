@@ -17,7 +17,7 @@ import { normalizeVarName, normalizeVarRef } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
-import { waitMs } from '../shared/wait-ms.js';
+import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
 import { exportVariables, inFrame, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
@@ -445,7 +445,7 @@ function actionLines(action, step, ctx) {
   const lines = STEP_LINES[action.type](action, s);
   if (!lines) return [`# Step ${n}: switch [SKIPPED] — requires extension scenario routing`];
   // The pause after a step, as in a run: none after a wait, or where the step stops the test.
-  const delay = secs(action.delay != null ? Number(action.delay) : ctx.stepDelay);
+  const delay = secs(stepDelayMs(action.delay != null ? action.delay : ctx.stepDelay));
   if (delay > 0 && action.type !== 'wait' && !lines[0].startsWith('Fail')) lines.push(`Sleep    ${delay}`);
   return [`# Step ${n}: ${commentText(stepWhat(action))}${lbl}`, ...lines];
 }
@@ -486,7 +486,7 @@ function switchLines(action, step, branches) {
   cases.forEach((b, k) => out.push(`${k ? 'ELSE IF' : 'IF'}    $sw${n} == ${pyText(b.value)}`, ...body(b.body)));
   if (fallback) out.push(cases.length ? 'ELSE' : 'IF    True', ...body(fallback.body));
   if (cases.length || fallback) out.push('END');
-  const delay = secs(Number(action.delay) || 0);
+  const delay = secs(stepDelayMs(action.delay));
   if (delay > 0) out.push(`Sleep    ${delay}`);
   return out;
 }

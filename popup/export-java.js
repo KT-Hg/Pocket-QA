@@ -16,7 +16,7 @@ import { normalizeVarName, normalizeVarRef } from '../shared/var-name.js';
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
-import { waitMs } from '../shared/wait-ms.js';
+import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
 import { exportVariables, inFrame, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
@@ -525,7 +525,7 @@ function actionLines(action, step, ctx) {
   const lines = STEP_LINES[action.type](action, s);
   if (!lines) return [`// Step ${n}: switch [SKIPPED] — requires extension scenario routing`];
   // The pause after a step, as in a run: none after a wait, or where the step stops the test.
-  const delay = Math.round(action.delay != null ? Number(action.delay) : ctx.stepDelay);
+  const delay = Math.round(stepDelayMs(action.delay != null ? action.delay : ctx.stepDelay));
   if (delay > 0 && action.type !== 'wait' && !lines[0].startsWith('stop(')) lines.push(`Thread.sleep(${delay});`);
   return [`// Step ${n}: ${javaComment(stepWhat(action))}${lbl}`, ...lines];
 }
@@ -564,7 +564,7 @@ function switchLines(action, step, branches) {
   cases.forEach((b, k) => out.push(`${k ? '} else if' : 'if'} (sw${n}.equals(${javaText(String(b.value ?? ''))})) {`, ...indent(b.body)));
   if (fallback) out.push(cases.length ? '} else {' : 'if (true) {', ...indent(fallback.body));
   if (cases.length || fallback) out.push('}');
-  const delay = Math.round(Number(action.delay) || 0);
+  const delay = Math.round(stepDelayMs(action.delay));
   if (delay > 0) out.push(`Thread.sleep(${delay});`);
   return out;
 }

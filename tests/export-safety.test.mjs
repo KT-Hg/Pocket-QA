@@ -234,3 +234,24 @@ test('Playwright: no variable shadows a name the test defines for itself', () =>
       `a variable named "${n}" shadows what the test defines`);
   }
 });
+
+// A step delay that is not a finite number above 0 — Infinity (JSON's 1e400), or
+// text — must produce no wait, as playback waits none (setTimeout makes it 0).
+test('a non-finite step delay produces no wait', () => {
+  const noWait = [
+    { type: 'navigate', url: 'https://x.test/', delay: 0 },
+    { type: 'click', ...HS, delay: 1e400 }, // Infinity
+    { type: 'click', ...HS, delay: 'abc' },
+  ];
+  const py = generateSeleniumPy('S', noWait, {}).code;
+  const java = generateJava('S', noWait, {}).code;
+  const robot = generateRobot('S', noWait, {}).code;
+  assert.doesNotMatch(py, /time\.sleep\(/, 'Python: no sleep for a non-finite delay');
+  assert.doesNotMatch(java, /Thread\.sleep\(/, 'Java: no sleep for a non-finite delay');
+  // A step's Sleep sits at the test body's indent (4 spaces); the retry Sleep inside
+  // a keyword is deeper, so this matches only a step delay.
+  assert.doesNotMatch(robot, /\n {4}Sleep\b/, 'Robot: no step Sleep for a non-finite delay');
+  for (const [lang, code] of [['Python', py], ['Java', java], ['Robot', robot]]) {
+    assert.ok(!code.includes('Infinity') && !code.includes('NaN'), `${lang}: no Infinity or NaN in the code`);
+  }
+});

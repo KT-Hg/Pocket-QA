@@ -11,7 +11,7 @@ import {
   DROP_BRIDGE_JS, DROP_FILES_JS,
 } from './export/page-js.js';
 import { cssEscape } from '../shared/css-escape.js';
-import { waitMs } from '../shared/wait-ms.js';
+import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 
 function msToSec(ms) {
   return parseFloat((ms / 1000).toFixed(3));
@@ -664,7 +664,7 @@ function _buildChildCondPy(conditions, elVar, find, locs, stepNum) {
 function actionLines(action, step, stepDelay, elTimeout, ctx) {
   const stepNum = step.n;
   const lbl    = action.label ? ` — ${commentText(action.label)}` : '';
-  const delay  = msToSec(action.delay != null ? Number(action.delay) : stepDelay);
+  const delay  = msToSec(stepDelayMs(action.delay != null ? action.delay : stepDelay));
   const tout   = msToSec(elTimeout);
   const locs   = locatorsFor(action);
   const elVar  = `el${stepNum}`;
@@ -912,7 +912,7 @@ function switchLinesPy(action, step, branches) {
   const body = (lines) => (lines.every((l) => l === '') ? ['    pass'] : lines.map((l) => (l === '' ? '' : `    ${l}`)));
   cases.forEach((b, k) => out.push(`${k ? 'elif' : 'if'} ${value} == ${JSON.stringify(String(b.value ?? ''))}:`, ...body(b.body)));
   if (fallback) out.push(cases.length ? 'else:' : 'if True:', ...body(fallback.body));
-  const delay = msToSec(Number(action.delay) || 0);
+  const delay = msToSec(stepDelayMs(action.delay));
   if (delay > 0) out.push(`time.sleep(${delay})`);
   return out;
 }
