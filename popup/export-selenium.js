@@ -176,6 +176,7 @@ const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS', '_QUERY_DEEP_JS', '_locate_in_frames', '_DROP_BRIDGE_JS', '_DROP_FILES_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
+  '_js', '_read_val', '_find_child', '_READ_VAL_JS', '_FIND_CHILD_JS',
   'pytest', 'browser', 'dom_var', '_at', 'os', '_save_failure', '_var', '_url', '_first_origin', '_start_browser',
   'urlsplit', 'urlunsplit', '_row', '_rows', '_column',
   're', 'sys', 'open', 'str', 'int', 'len', 'range', 'hasattr', 'Exception',

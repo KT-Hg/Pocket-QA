@@ -187,3 +187,50 @@ test('bookmarklet keeps poison out of the JS code', () => {
   // The browser decodes the URL's %-escapes before it runs the code.
   jsOracle(decodePercent(toBookmarkletUrl(code)), 'bookmarklet URL');
 });
+
+// ── No variable shadows a name the generated file defines for itself ─────────
+// A scenario that pulls in every helper, so the file declares them all, then the
+// same names used as variables: each must come out renamed (NAME_v), or a
+// scenario could bind over a helper the steps call. `sv` is the scenario's own
+// Script variable, not a helper, so it is left out of the check.
+const HS = { selector: '#a', selectors: { css: '#a' } };
+const ALL_HELPERS = [
+  { type: 'navigate', url: 'https://x.test/' },
+  { type: 'script', code: 'return ${sv};' },
+  { type: 'readdom', ...HS, readFrom: 'visible' },
+  { type: 'click', ...HS, conditions: { matchMode: 'any', textContains: 'x' } },
+  { type: 'screenshot_full' },
+  { type: 'dropdown', ...HS, pick: { index: '1', itemSelector: '' } },
+  { type: 'condition', conditionType: 'elementExists', ...HS, skipCount: 1 },
+  { type: 'click', ...HS },
+];
+const definedNames = (code, patterns) => {
+  const out = new Set();
+  for (const re of patterns) for (const m of code.matchAll(re)) out.add(m[1]);
+  out.delete('sv');
+  return out;
+};
+
+test('Selenium: no variable shadows a name the script defines for itself', () => {
+  const defs = generateSeleniumPy('S', ALL_HELPERS, { sv: 'x' }).code;
+  const names = definedNames(defs, [/^def ([A-Za-z_]\w*)\(/gm, /^([A-Za-z_]\w*) = /gm]);
+  assert.ok(['_js', '_read_val', '_find_child', '_READ_VAL_JS', '_FIND_CHILD_JS'].every((n) => names.has(n)),
+    `the Read DOM and Script helpers are among the names the script defines: ${[...names].join(', ')}`);
+  const withVars = generateSeleniumPy('S', [{ type: 'navigate', url: 'https://x.test/' }],
+    Object.fromEntries([...names].map((n) => [n, 'x']))).code;
+  for (const n of names) {
+    assert.ok(withVars.includes(`${n}_v = _var("${n}"`),
+      `a variable named "${n}" shadows what the script defines — add it to _RESERVED_PY`);
+  }
+});
+
+test('Playwright: no variable shadows a name the test defines for itself', () => {
+  const defs = generatePlaywright('S', ALL_HELPERS, { sv: 'x' }).code;
+  const names = definedNames(defs, [/^(?:async )?function ([A-Za-z_$][\w$]*)\(/gm, /^(?:const|let|var) ([A-Za-z_$][\w$]*) =/gm]);
+  const withVars = generatePlaywright('S', [{ type: 'navigate', url: 'https://x.test/' }],
+    Object.fromEntries([...names].map((n) => [n, 'x']))).code;
+  for (const n of names) {
+    assert.ok(withVars.includes(`const ${n}_v = _var("${n}"`),
+      `a variable named "${n}" shadows what the test defines`);
+  }
+});
