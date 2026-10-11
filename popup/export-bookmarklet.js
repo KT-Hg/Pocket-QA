@@ -6,7 +6,7 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, topLevelIndices, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, pickLabel, topLevelIndices, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
   PICK_ITEM_JS, QUERY_DEEP_JS,
@@ -91,11 +91,6 @@ function _scriptCodeWithVars(rawCode, ctx) {
 /** A page-js.js function, declared in the bookmarklet at the indent of its body. */
 function declarePageJs(name, src) {
   return `const ${name} = ${src};`.split('\n').map((l) => `  ${l}`);
-}
-
-/** One line for a step comment: the item number as written, whitespace folded. */
-function _pickLabel(action) {
-  return String(action.pick?.index ?? '?').replace(/\s+/g, ' ');
 }
 
 function indentLines(lines, spaces) {
@@ -204,7 +199,7 @@ function actionLines(action, step, ctx, top = false) {
 
     case 'dropdown':
       if (action.pick) {
-        out.push(`// Step ${stepNum}: dropdown → item #${_pickLabel(action)}${lbl}`);
+        out.push(`// Step ${stepNum}: dropdown → item #${pickLabel(action)}${lbl}`);
         out.push(`const ${v} = await getEl(${sel}${at});`);
         out.push(`await _pickItem(${v}, ${valueToJS(action.pick.index)}, ${valueToJS(action.pick.itemSelector || '')}, ${elTimeout});`);
         if (delay > 0) out.push(`await sleep(${delay});`);

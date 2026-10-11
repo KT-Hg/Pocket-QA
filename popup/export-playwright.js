@@ -16,7 +16,7 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import { parseCSV, _delimiterOf } from './csv/csv-parse.js';
 import {
   SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS, DROP_BRIDGE_JS, DROP_FILES_JS,
@@ -296,7 +296,7 @@ const STEP_LINES = {
   dropdown: (a, s) => {
     if (!a.pick) return [`// Step ${s.n}: open dropdown (freeze)${s.lbl}`, ...s.find(), `await ${s.el}.click();`];
     s.ctx.uses.add('pick');
-    return [`// Step ${s.n}: dropdown → item #${String(a.pick.index ?? '?').replace(/\s+/g, ' ')}${s.lbl}`, ...s.find(),
+    return [`// Step ${s.n}: dropdown → item #${pickLabel(a)}${s.lbl}`, ...s.find(),
       `await ${s.el}.evaluate(_pick, [${valueJS(a.pick.index)}, ${valueJS(a.pick.itemSelector || '')}, TIMEOUT]);`];
   },
   // Playwright's drag fires the HTML5 drag events, as a real mouse does.

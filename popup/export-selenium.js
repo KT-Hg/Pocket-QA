@@ -5,7 +5,7 @@ import { normalizeVarName, normalizeVarRef, writtenVarNames } from '../shared/va
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
   DROP_BRIDGE_JS, DROP_FILES_JS,
@@ -719,7 +719,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
 
     case 'dropdown':
       if (action.pick) {
-        out.push(`# Step ${stepNum}: dropdown → item #${String(action.pick.index ?? '?').replace(/\s+/g, ' ')}${lbl}`);
+        out.push(`# Step ${stepNum}: dropdown → item #${pickLabel(action)}${lbl}`);
         out.push(`${elVar} = ${find(locs, true)}`);
         out.push(`_pick_item(${elVar}, ${valueToPy(action.pick.index)}, ${valueToPy(action.pick.itemSelector || '')}, ${tout})`);
         if (delay > 0) out.push(`time.sleep(${delay})`);

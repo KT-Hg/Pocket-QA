@@ -18,7 +18,7 @@ import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
   DROP_BRIDGE_JS, DROP_FILES_JS, PICK_ITEM_ASYNC_JS,
@@ -493,7 +493,7 @@ const STEP_LINES = {
 // Raw text: actionLines escapes the whole return through javaComment once, at the comment line.
 function stepWhat(a) {
   switch (a.type) {
-    case 'dropdown': return a.pick ? `dropdown → item #${String(a.pick.index ?? '?').replace(/\s+/g, ' ')}` : 'open dropdown (freeze)';
+    case 'dropdown': return a.pick ? `dropdown → item #${pickLabel(a)}` : 'open dropdown (freeze)';
     case 'dragdrop': return 'drag & drop';
     case 'script': return 'execute script';
     case 'screenshot': return 'screenshot (visible)';

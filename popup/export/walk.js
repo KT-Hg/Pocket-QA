@@ -12,8 +12,15 @@ import {
 import { locatorsOf } from '../../shared/locator-order.js';
 import { writtenVarNames } from '../../shared/var-name.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../../shared/var-spec.js';
-import { getUsedVarNames } from '../utils.js';
+import { commentText, getUsedVarNames } from '../utils.js';
 import { blockSteps, newStep } from './steps.js';
+
+/**
+ * The item a Dropdown step chose, for the "dropdown → item #…" comment every
+ * export writes: the pick index on one line (commentText, so a newline or control
+ * character in it cannot break the comment), or ? when there is none.
+ */
+export const pickLabel = (action) => commentText(String(action.pick?.index ?? '?').replace(/\s+/g, ' '));
 
 /**
  * A scenario's variables as an export declares them, and what to warn about,
