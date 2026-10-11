@@ -49,8 +49,9 @@ export function robotIdent(name) {
 
 /**
  * Text as one Robot argument, exactly: \ doubled; $ @ & % before { escaped (they
- * open a variable); a # that starts it (a comment) and the = after a leading
- * name (a named argument) escaped; a line break, CR and tab as \n \r \t, any other
+ * open a variable); a # or * that starts it (a comment, a settings/section marker
+ * or a templated name) and the = after a leading name (a named argument) escaped;
+ * a line break, CR and tab as \n \r \t, any other
  * control or space character as \uXXXX (Robot splits on two of them); a space
  * that starts or ends it, or follows another, as ${SPACE}. Empty: ${EMPTY}.
  */
@@ -60,7 +61,7 @@ export function robotText(s) {
   const SHORT = { '\n': '\\n', '\r': '\\r', '\t': '\\t' };
   return text.replace(/\\/g, '\\\\').replace(/([$@&%])\{/g, '\\$1{')
     .replace(/[\x00-\x1f\x7f-\x9f]|(?! )\s/g, (c) => SHORT[c] || `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
-    .replace(/^#/, '\\#').replace(/^(\w+)=/, '$1\\=')
+    .replace(/^([#*])/, '\\$1').replace(/^(\w+)=/, '$1\\=')
     .replace(/ (?= )/g, '${SPACE}').replace(/^ /, '${SPACE}').replace(/ $/, '${SPACE}');
 }
 

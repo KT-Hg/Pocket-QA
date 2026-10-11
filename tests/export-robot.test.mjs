@@ -38,12 +38,41 @@ test('robot: text becomes one argument with exactly that value', () => {
   assert.equal(robotText('${x} @{y} &{z} %{w}'), '\\${x} \\@{y} \\&{z} \\%{w}');
   assert.equal(robotText('#x'), '\\#x');
   assert.equal(robotText('a#b'), 'a#b');
+  assert.equal(robotText('*a'), '\\*a');   // a leading * (a section/settings or templated marker) is escaped
+  assert.equal(robotText('a*b'), 'a*b');   // only at the start
+  assert.equal(robotText('*Smoke test'), '\\*Smoke test');
   assert.equal(robotText('msg=hi'), 'msg\\=hi');
   assert.equal(robotText('a b=c'), 'a b=c');
   assert.equal(robotText('a\nb\rc\td'), 'a\\nb\\rc\\td');
   assert.equal(robotText('a b'), 'a\\u00a0b');
   assert.equal(robotText(' a  b '), '${SPACE}a${SPACE} b${SPACE}');
   assert.equal(robotText('   '), '${SPACE}${SPACE}${SPACE}');
+});
+
+test('robot: a scenario name that starts with * is one test case, not a section', { skip: NO_ROBOT }, () => {
+  const { code } = generateRobot('*Smoke test', [
+    { type: 'navigate', url: 'https://x.test/' },
+    { type: 'input', selector: '#a', selectors: { css: '#a' }, value: '*also data' },
+  ], {});
+  const dir = mkdtempSync(join(tmpdir(), 'pqa-robot-'));
+  try {
+    const file = join(dir, 'star.robot');
+    writeFileSync(file, code);
+    const py = 'import sys, json\n'
+      + 'from robot.api import get_model\n'
+      + 'from robot.api.parsing import ModelVisitor\n'
+      + 'tests = []\n'
+      + 'class V(ModelVisitor):\n'
+      + '    def visit_TestCase(self, node): tests.append(node.name)\n'
+      + 'V().visit(get_model(sys.argv[1]))\n'
+      + 'print(json.dumps(tests))\n';
+    const res = spawnSync(ROBOT_PY, ['-c', py, file], { encoding: 'utf-8' });
+    assert.equal(res.status, 0, res.stdout + res.stderr);
+    assert.deepEqual(JSON.parse(res.stdout), ['*Smoke test'], 'the * name is one test case');
+    assert.equal(robot({ 'star.robot': code }, ['--dryrun']).status, 0, 'a dry run accepts the file');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('robot: every tricky text reaches a keyword as it was', { skip: NO_ROBOT }, () => {
