@@ -16,6 +16,7 @@ const FILES = {
   exportSelenium: 'export-selenium.json',
   exportPlaywright: 'export-playwright.json',
   exportRobot: 'export-robot.json',
+  exportJava: 'export-java.json',
 };
 
 // Indented down to `depth`, one line per value below it: small files whose diff

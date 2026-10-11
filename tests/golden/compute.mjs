@@ -120,10 +120,11 @@ async function _compute() {
   const { generateSeleniumPy } = await import('../../popup/export-selenium.js');
   const { generatePlaywright } = await import('../../popup/export-playwright.js');
   const { generateRobot } = await import('../../popup/export-robot.js');
+  const { generateJava } = await import('../../popup/export-java.js');
 
   const all = scenarios();
   const allActions = all.flatMap((s) => s.actions);
-  const out = { pure: {}, switchBlocks: {}, exportBookmarklet: {}, exportSelenium: {}, exportPlaywright: {}, exportRobot: {} };
+  const out = { pure: {}, switchBlocks: {}, exportBookmarklet: {}, exportSelenium: {}, exportPlaywright: {}, exportRobot: {}, exportJava: {} };
   const P = out.pure;
 
   // ── var-name ──────────────────────────────────────────────────────────────
@@ -317,6 +318,7 @@ async function _compute() {
       out.exportSelenium[key] = run(() => generateSeleniumPy(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
       out.exportPlaywright[key] = run(() => generatePlaywright(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
       out.exportRobot[key] = run(() => generateRobot(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
+      out.exportJava[key] = run(() => generateJava(s.name, clone(s.actions), clone(VARIABLE_SETS[setName])));
     }
   });
   const syn = SYNTHETIC_SCENARIOS[0];
@@ -332,6 +334,8 @@ async function _compute() {
     { dataFile: 'data.csv', startUrl: 'https://start.example/' }));
   out.exportRobot[`${syn.name} | opts`] = run(() => generateRobot(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs),
     { stepDelay: 0, elTimeout: 1234, driverType: 'Firefox', headless: true, startUrl: 'https://start.example/${page}' }));
+  out.exportJava[`${syn.name} | opts`] = run(() => generateJava(syn.name, clone(syn.actions), clone(VARIABLE_SETS.configs),
+    { stepDelay: 0, elTimeout: 1234, driverType: 'Edge', headless: true, startUrl: 'https://start.example/${page}' }));
 
   return out;
 }

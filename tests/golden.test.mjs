@@ -14,6 +14,7 @@ const FILES = {
   exportSelenium: 'export-selenium.json',
   exportPlaywright: 'export-playwright.json',
   exportRobot: 'export-robot.json',
+  exportJava: 'export-java.json',
 };
 
 const actual = await computeGolden();
