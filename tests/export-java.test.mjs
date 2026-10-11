@@ -56,14 +56,18 @@ test('java: variable and class names Java takes, a file and its class always one
   assert.equal(javaIdent('driver'), 'driver_v');
   assert.equal(javaIdent('el3'), 'el3_v');
   assert.equal(javaIdent('_'), '__v');
-  for (const name of ['Login Form', 'đăng nhập', '2fa login', 'a/b:c', '***', 'Test', 'x'.repeat(200), 'iPhone checkout']) {
+  for (const name of ['Login Form', 'đăng nhập', '2fa login', 'a/b:c', '***', 'Test', 'x'.repeat(200), 'iPhone checkout',
+    'Test ½', 'x²', 'a⃣b']) {
     const cls = javaClassName(name);
-    assert.match(cls, /^\p{L}[\p{L}\p{N}\p{M}]*Test$/u, name);
+    // Every character is one Character.isJavaIdentifierPart accepts: no ½/² (No), no enclosing marks (Me).
+    assert.match(cls, /^\p{L}[\p{L}\p{Nd}\p{Nl}\p{Mn}\p{Mc}]*Test$/u, name);
     assert.equal(javaClassName(exportFileBase(name)), cls, `${name}: the file's base gives the same class`);
   }
   assert.equal(javaClassName('Login Form'), 'LoginFormTest');
   assert.equal(javaClassName('đăng nhập'), 'ĐăngNhậpTest');
   assert.equal(javaClassName('2fa login'), 'Scenario2faLoginTest');
+  assert.equal(javaClassName('x²'), 'XTest');       // ² (No) dropped
+  assert.equal(javaClassName('Test ½'), 'TestTest'); // ½ (No) dropped
 });
 
 test('java: each step exported, skipped or to check as in the Selenium Python export', () => {

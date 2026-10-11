@@ -26,11 +26,15 @@ import {
 
 /**
  * The class a scenario's file holds, from the file name's base (export-modal.js
- * exportFileBase), so the class and its file always match: each run of letters and
- * digits capitalised, then Test — "đăng_nhập" → ĐăngNhậpTest.
+ * exportFileBase), so the class and its file always match: each run of identifier
+ * characters capitalised, then Test — "đăng_nhập" → ĐăngNhậpTest.
+ *
+ * Only the characters Character.isJavaIdentifierPart accepts are kept: letters,
+ * decimal and letter numbers (Nd, Nl) and combining marks (Mn, Mc). Other numbers
+ * (½, ² — No) and enclosing marks (Me) are dropped, so the class name compiles.
  */
 export function javaClassName(scenarioName) {
-  const parts = exportFileBase(scenarioName).normalize('NFC').split(/[^\p{L}\p{N}\p{M}]+/u).filter(Boolean);
+  const parts = exportFileBase(scenarioName).normalize('NFC').split(/[^\p{L}\p{Nd}\p{Nl}\p{Mn}\p{Mc}]+/u).filter(Boolean);
   const name = parts.map((p) => p[0].toUpperCase() + p.slice(1)).join('');
   if (!name) return 'ScenarioTest';
   return `${/^\p{L}/u.test(name) ? '' : 'Scenario'}${name}Test`;
