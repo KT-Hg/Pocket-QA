@@ -13,3 +13,12 @@
 export function fromExtensionPage(sender) {
   return String(sender?.url || '').startsWith(chrome.runtime.getURL(''));
 }
+
+/**
+ * The tab a message is about: an extension page (the popup) may name any tab with
+ * request.tabId; a content script acts only on its own tab, so a web page cannot
+ * have another tab's work done to it by naming its id. undefined when neither gives one.
+ */
+export function targetTab(request, sender) {
+  return (fromExtensionPage(sender) && request?.tabId) || sender?.tab?.id;
+}
