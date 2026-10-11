@@ -339,3 +339,13 @@ const _pickItem = async (el, raw, itemSel, timeout) => {
     return;
   }
 };`;
+
+/**
+ * PICK_ITEM_JS for a driver's async script call (Selenium's execute_async_script,
+ * Robot's Execute Async Javascript): arguments el, raw, itemSel, timeout, then the
+ * callback, given null or the error's message.
+ */
+export const PICK_ITEM_ASYNC_JS = `const done = arguments[arguments.length - 1];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+${PICK_ITEM_JS}
+_pickItem(arguments[0], arguments[1], arguments[2], arguments[3]).then(() => done(null), (e) => done(String(e && e.message || e)));`;

@@ -22,7 +22,7 @@ import { mark } from './export/steps.js';
 import { exportVariables, inFrame, locatorsFor, walkActions, warnUndefinedVars } from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
-  DROP_BRIDGE_JS, DROP_FILES_JS, PICK_ITEM_JS,
+  DROP_BRIDGE_JS, DROP_FILES_JS, PICK_ITEM_ASYNC_JS,
 } from './export/page-js.js';
 
 // Robot reads a variable's name ignoring case, spaces and underscores: two names are one when these match.
@@ -104,11 +104,7 @@ const PAGE_JS = {
   READ_VAL_JS: pageCall(READ_VAL_JS),
   DROP_BRIDGE_JS: pageCall(DROP_BRIDGE_JS),
   DROP_FILES_JS: pageCall(DROP_FILES_JS),
-  // Execute Async Javascript: its last argument is the callback, given null or the error.
-  PICK_ITEM_JS: `const done = arguments[arguments.length - 1];
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-${PICK_ITEM_JS}
-_pickItem(arguments[0], arguments[1], arguments[2], arguments[3]).then(() => done(null), (e) => done(String(e && e.message || e)));`,
+  PICK_ITEM_JS: PICK_ITEM_ASYNC_JS,
 };
 
 // UTF-8 text as base64, in the popup and in Node alike.
