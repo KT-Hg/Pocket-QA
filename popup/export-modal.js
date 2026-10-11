@@ -23,7 +23,7 @@ import { highlightLines } from './export/highlight.js';
  * what a file name cannot hold replaced and spaces as underscores. Letters
  * outside a–z stay — keeping only [a-z0-9] turned "Đăng nhập" into "__ng_nh_p".
  */
-const exportFileBase = (scenarioName) => safeFileName(scenarioName).replace(/\s+/g, '_').toLowerCase();
+export const exportFileBase = (scenarioName) => safeFileName(scenarioName).replace(/\s+/g, '_').toLowerCase();
 
 // How long the Copy button says "Copied".
 const COPIED_LABEL_MS = 1500;
