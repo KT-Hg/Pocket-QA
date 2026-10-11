@@ -12,7 +12,7 @@ import { updateBadge } from '../badge.js';
 import { refuseRecordingIfPlaying } from '../playback.js';
 import { ignoreLastError } from '../last-error.js';
 import { isAnyPlaybackActive } from '../run-state.js';
-import { fromExtensionPage } from '../sender.js';
+import { fromExtensionPage, targetTab } from '../sender.js';
 import { SELECTOR_KEYS } from '../../shared/var-name.js';
 
 // A playback checkpoint younger than this is offered for resume when its tab reloads.
@@ -159,7 +159,7 @@ export const recordingHandlers = {
       sendResponse({ started: false, error: 'Cannot start recording while playback is active' });
       return;
     }
-    const tabId = request.tabId || sender.tab?.id || null;
+    const tabId = targetTab(request, sender) || null;
     const startRecording = (scenarioId) => {
       state.recording = true;
       state.recordingTabId = tabId;
@@ -175,11 +175,14 @@ export const recordingHandlers = {
       broadcastRecordingState(true);
       sendResponse({ started: true });
     };
-    if (request.scenarioId) {
+    // Only an extension page names the scenario to record into; a web page's
+    // request.scenarioId is ignored so a page cannot append its recorded input to
+    // any scenario it names — it falls back to the last selected one, as a hotkey does.
+    if (fromExtensionPage(sender) && request.scenarioId) {
       startRecording(request.scenarioId);
     } else {
-      // Hotkey-triggered recording: no scenarioId in request, so we fall back to
-      // the last selected scenario from the popup (async storage read).
+      // Hotkey-triggered (or page-triggered) recording: no usable scenarioId, so we
+      // fall back to the last selected scenario from the popup (async storage read).
       chrome.storage.local.get(["lastSelectedScenario"], (res) => {
         startRecording(res?.lastSelectedScenario || null);
       });
@@ -189,6 +192,10 @@ export const recordingHandlers = {
   }),
 
   STOP_RECORD: _afterRestore((request, sender, sendResponse) => {
+    // Only the popup gets the recorded actions back; a web page gets a bare ack, so
+    // a compromised renderer cannot read what was typed while recording (a password
+    // on another tab went into the stream — it would have come back as data here).
+    const fromExt = fromExtensionPage(sender);
     state.recording = false;
     const sid = state.recordingScenarioId;
     state.recordingScenarioId = null;
@@ -208,14 +215,14 @@ export const recordingHandlers = {
           scenarios[sid].actions = [...existing, ...newActions];
           await setScenarios(scenarios);
           chrome.storage.local.set({ pendingRecordScenarioId: sid });
-          sendResponse({ actions: scenarios[sid].actions, scenarioId: sid });
+          sendResponse(fromExt ? { actions: scenarios[sid].actions, scenarioId: sid } : { received: true });
         } else {
-          sendResponse({ actions: newActions });
+          sendResponse(fromExt ? { actions: newActions } : { received: true });
         }
       });
       return true;
     }
-    sendResponse({ actions: state.currentActions });
+    sendResponse(fromExt ? { actions: state.currentActions } : { received: true });
     return;
   }),
 };

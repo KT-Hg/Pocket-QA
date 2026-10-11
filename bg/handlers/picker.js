@@ -7,6 +7,7 @@
  */
 
 import { state } from '../state.js';
+import { targetTab } from '../sender.js';
 import { updateBadge } from '../badge.js';
 import { sendCaptureNotification } from '../notify.js';
 import { takeElementScreenshot } from '../screenshot.js';
@@ -17,7 +18,7 @@ function pickMode(request, sender, sendResponse) {
   const { type } = request;
   state.pickMode = (type === "START_PICK_MODE");
   updateBadge();
-  const tabId = request.tabId || sender.tab?.id;
+  const tabId = targetTab(request, sender);
   if (tabId) chrome.tabs.sendMessage(tabId, request);
   sendResponse({ sent: true });
   return;
@@ -61,7 +62,7 @@ export const pickerHandlers = {
       if (flags.elemShotPickPending && request.selector) {
         chrome.storage.local.remove(["elemShotPickPending", "elemShotPickCrop", "lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId"]);
         const crop = !!flags.elemShotPickCrop;
-        const tabId = request.tabId || sender.tab?.id;
+        const tabId = targetTab(request, sender);
         if (!tabId) { _elemShotErr("Lost track of the tab — try the capture again"); return; }
         {
           readCaptureSettings(({ saveMode, prefix }) => {
