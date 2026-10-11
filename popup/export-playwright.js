@@ -282,7 +282,7 @@ const STEP_LINES = {
   screenshot_tovar: (a, s) => {
     const name = normalizeVarName(a.varName);
     const v = name ? ident(name) : `${s.el}_file`;
-    const out = [`// Step ${s.n}: screenshot → variable "${name || 'screenshot'}"${s.lbl}`,
+    const out = [`// Step ${s.n}: screenshot → variable "${commentText(name) || 'screenshot'}"${s.lbl}`,
       `${name ? '' : 'const '}${v} = "screenshot_${name ? v : 'screenshot'}_step${s.n}.png";`];
     if (a.target === 'element') out.push(...s.find(), `await ${s.el}.screenshot({ path: ${v} });`);
     else out.push(`await page.screenshot({ path: ${v}${a.target === 'full' ? ', fullPage: true' : ''} });`);
