@@ -140,6 +140,10 @@ async function call(step, fn, { setup, budget = 300_000 } = {}) {
 }
 
 const SENDER = { tab: { id: 1, windowId: 1, url: 'https://example.com/start' }, frameId: 0 };
+// The window capture's messages come from the popup and the capture window, both
+// extension pages; bg/screenshot/window.js answers only those. (A bare {} or a
+// tab-only sender stands for the capture window, whose id rides in sender.tab.)
+const WINCAP_SENDER = { url: 'chrome-extension://testextensionid/capture-window.html' };
 
 /** Send a message to every onMessage listener, as Chrome does. */
 async function send(step, request, { sender = SENDER, setup, budget = 300_000 } = {}) {
@@ -501,10 +505,10 @@ await send('CANCEL_FULL_SCREENSHOT', { type: 'CANCEL_FULL_SCREENSHOT' });
 await send('unrelated message', { type: 'GET_EXTENSION_STATUS' });
 
 // window capture
-await send('OPEN_WINDOW_CAPTURE', { type: 'OPEN_WINDOW_CAPTURE', crop: false });
-await send('OPEN_WINDOW_CAPTURE again: focus it', { type: 'OPEN_WINDOW_CAPTURE', crop: true });
+await send('OPEN_WINDOW_CAPTURE', { type: 'OPEN_WINDOW_CAPTURE', crop: false }, { sender: WINCAP_SENDER });
+await send('OPEN_WINDOW_CAPTURE again: focus it', { type: 'OPEN_WINDOW_CAPTURE', crop: true }, { sender: WINCAP_SENDER });
 await send('WINDOW_CAPTURE_RESULT', { type: 'WINDOW_CAPTURE_RESULT', dataUrl: png(1280, 720, 'window'), crop: false }, {
-  sender: { tab: { id: 90, windowId: 9 } },
+  sender: { ...WINCAP_SENDER, tab: { id: 90, windowId: 9 } },
   setup: () => {
     const base = chrome.windows.remove;
     chrome.windows.remove = (id, cb) => base(id, () => { cb?.(); for (const fn of [...fake.events['windows.onRemoved']]) fn(id); });
@@ -513,27 +517,29 @@ await send('WINDOW_CAPTURE_RESULT', { type: 'WINDOW_CAPTURE_RESULT', dataUrl: pn
 });
 saved.restore?.(); saved.restore = null;
 await send('OPEN_WINDOW_CAPTURE with remembered bounds', { type: 'OPEN_WINDOW_CAPTURE', crop: true }, {
+  sender: WINCAP_SENDER,
   setup: () => { fake.data.local.windowCaptureBounds = { width: 1000, height: 800, left: 10, top: 20 }; },
 });
 await send('WINDOW_CAPTURE_RESULT, crop, window lingers', { type: 'WINDOW_CAPTURE_RESULT', dataUrl: png(1280, 720, 'window'), crop: true }, {
-  sender: { tab: { id: 90, windowId: 9 } },
+  sender: { ...WINCAP_SENDER, tab: { id: 90, windowId: 9 } },
   setup: WM({ watermarkFormat: '{url}  {datetime}' }),
 });
 fake.data.local.watermarkEnabled = false;
 await send('WINDOW_CAPTURE_RESULT, ask, cancelled, no type tag', { type: 'WINDOW_CAPTURE_RESULT', dataUrl: png(10, 10, 'w') }, {
-  sender: {},
+  sender: WINCAP_SENDER,
   setup: () => {
     Object.assign(fake.data.sync, { screenshotSaveMode: 'ask', screenshotTypeInName: false });
     download = () => ({ __lastError: 'Download canceled by the user' });
   },
 });
 await send('WINDOW_CAPTURE_RESULT, download fails', { type: 'WINDOW_CAPTURE_RESULT', dataUrl: png(10, 10, 'w') }, {
-  sender: {},
+  sender: WINCAP_SENDER,
   setup: () => { download = () => ({ __lastError: 'Invalid filename' }); },
 });
 Object.assign(fake.data.sync, { screenshotSaveMode: 'auto' });
 delete fake.data.sync.screenshotTypeInName;
 await send('OPEN_WINDOW_CAPTURE, stale window id', { type: 'OPEN_WINDOW_CAPTURE' }, {
+  sender: WINCAP_SENDER,
   setup: () => {
     const base = chrome.windows.update;
     chrome.windows.update = (id, props, cb) => base(id, props, () => {
@@ -544,7 +550,7 @@ await send('OPEN_WINDOW_CAPTURE, stale window id', { type: 'OPEN_WINDOW_CAPTURE'
   },
 });
 saved.restore?.(); saved.restore = null;
-await send('RESTORE_BADGE while recording', { type: 'RESTORE_BADGE' }, { setup: () => { state.recording = true; } });
+await send('RESTORE_BADGE while recording', { type: 'RESTORE_BADGE' }, { sender: WINCAP_SENDER, setup: () => { state.recording = true; } });
 state.recording = false;
 
 // the update lock
@@ -556,8 +562,8 @@ await send('locked: TAKE_SCREENSHOT_FULL', { type: 'TAKE_SCREENSHOT_FULL' }, {
     for (const fn of fake.events['storage.onChanged']) fn({ remoteConfig: { newValue: fake.data.local.remoteConfig }, lastUpdateAt: { newValue: 1 } }, 'local');
   },
 });
-await send('locked: OPEN_WINDOW_CAPTURE', { type: 'OPEN_WINDOW_CAPTURE' });
-await send('locked: WINDOW_CAPTURE_RESULT still saves', { type: 'WINDOW_CAPTURE_RESULT', dataUrl: png(10, 10, 'w') }, { sender: {} });
+await send('locked: OPEN_WINDOW_CAPTURE', { type: 'OPEN_WINDOW_CAPTURE' }, { sender: WINCAP_SENDER });
+await send('locked: WINDOW_CAPTURE_RESULT still saves', { type: 'WINDOW_CAPTURE_RESULT', dataUrl: png(10, 10, 'w') }, { sender: WINCAP_SENDER });
 
 // A web page's content script names another tab: its own is captured.
 await send('TAKE_SCREENSHOT from a web page naming another tab', { type: 'TAKE_SCREENSHOT', tabId: 3 }, {

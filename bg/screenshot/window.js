@@ -23,6 +23,7 @@ import { ensureLockState, notifyLocked } from '../update-check.js';
 import { sendCaptureNotification } from '../notify.js';
 import { updateBadge } from '../badge.js';
 import { ignoreLastError } from '../last-error.js';
+import { fromExtensionPage } from '../sender.js';
 
 /**
  * Fallback size, used only the first time — big enough for Chrome's window
@@ -170,6 +171,10 @@ const WINDOW_CAPTURE_TYPES = ['OPEN_WINDOW_CAPTURE', 'WINDOW_CAPTURE_RESULT', 'R
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (!WINDOW_CAPTURE_TYPES.includes(request?.type)) return;
+  // Only the capture window (an extension page) drives this — it closes a browser
+  // window and writes a data: URL to disk. A web page is refused, as the router
+  // refuses the types it never sends; its listener stays silent (no response).
+  if (!fromExtensionPage(sender)) return;
 
   if (request.type === 'RESTORE_BADGE') {
     // The capture page drives the badge itself while counting down, but only the
