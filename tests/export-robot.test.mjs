@@ -56,6 +56,44 @@ test('robot: every tricky text reaches a keyword as it was', { skip: NO_ROBOT },
   assert.equal(res.status, 0, res.stdout + res.stderr);
 });
 
+// Every character Python's str.splitlines() (and so Robot) breaks a line on, each
+// followed by a marker, in a comment (the step label) and in a step comment built
+// from text (the dropdown item number): none may open a keyword or a test case.
+const SPLIT_MARK = 'PWN!PWN';
+const SPLIT_POISON = 'x' + [13, 10, 11, 12, 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029]
+  .map((c) => String.fromCharCode(c) + SPLIT_MARK).join('');
+
+test("robot: a scenario's text opens no keyword or test of its own", { skip: NO_ROBOT }, () => {
+  const { code } = generateRobot('Poison', [
+    { type: 'navigate', url: 'https://x.test/' },
+    { type: 'dropdown', selector: '#d', selectors: { css: '#d' }, pick: { index: SPLIT_POISON, itemSelector: '' }, label: SPLIT_POISON },
+    { type: 'click', selector: '#c', selectors: { css: '#c' }, label: SPLIT_POISON },
+  ], {});
+  const dir = mkdtempSync(join(tmpdir(), 'pqa-robot-'));
+  try {
+    const file = join(dir, 'poison.robot');
+    writeFileSync(file, code);
+    // Parse with Robot's own parser; list the test cases and the keyword calls.
+    const py = 'import sys, json\n'
+      + 'from robot.api import get_model\n'
+      + 'from robot.api.parsing import ModelVisitor\n'
+      + 'tests = []; kws = []\n'
+      + 'class V(ModelVisitor):\n'
+      + '    def visit_TestCase(self, node): tests.append(node.name); self.generic_visit(node)\n'
+      + '    def visit_KeywordCall(self, node): kws.append(node.keyword or "")\n'
+      + 'V().visit(get_model(sys.argv[1]))\n'
+      + 'print(json.dumps({"tests": tests, "kws": kws}))\n';
+    const res = spawnSync(ROBOT_PY, ['-c', py, file], { encoding: 'utf-8' });
+    assert.equal(res.status, 0, res.stdout + res.stderr);
+    const { tests, kws } = JSON.parse(res.stdout);
+    // One test case — the scenario — and no keyword whose name is injected text.
+    assert.deepEqual(tests, ['Poison'], `extra test case(s) from the scenario's text: ${JSON.stringify(tests)}`);
+    assert.ok(!kws.some((k) => k.includes(SPLIT_MARK)), `a keyword name carries injected text: ${JSON.stringify(kws)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('robot: variable names Robot can use, not one it or the test has', () => {
   assert.equal(robotIdent('user'), 'user');
   assert.equal(robotIdent('họ tên'), 'h__t_n');

@@ -409,6 +409,7 @@ const STEP_LINES = {
 };
 
 // What a step's comment calls it — as the Selenium export does, so a failure reads the same in both.
+// Raw text: actionLines passes the whole return through commentText once, at the comment line.
 function stepWhat(a) {
   switch (a.type) {
     case 'dropdown': return a.pick ? `dropdown → item #${String(a.pick.index ?? '?').replace(/\s+/g, ' ')}` : 'open dropdown (freeze)';
@@ -426,7 +427,7 @@ function stepWhat(a) {
       const { whole, slots } = readTargets(a);
       return `read DOM → ${[whole, ...slots.map(robotIdent)].filter(Boolean).map((t) => `"${t}"`).join(', ')}`;
     }
-    default: return commentText(a.type);
+    default: return a.type;
   }
 }
 
@@ -445,7 +446,7 @@ function actionLines(action, step, ctx) {
   // The pause after a step, as in a run: none after a wait, or where the step stops the test.
   const delay = secs(action.delay != null ? Number(action.delay) : ctx.stepDelay);
   if (delay > 0 && action.type !== 'wait' && !lines[0].startsWith('Fail')) lines.push(`Sleep    ${delay}`);
-  return [`# Step ${n}: ${stepWhat(action)}${lbl}`, ...lines];
+  return [`# Step ${n}: ${commentText(stepWhat(action))}${lbl}`, ...lines];
 }
 
 /**

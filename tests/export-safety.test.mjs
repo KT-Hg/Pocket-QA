@@ -27,6 +27,7 @@ import { generateSeleniumPy } from '../popup/export-selenium.js';
 import { generateBookmarklet, toBookmarkletUrl } from '../popup/export-bookmarklet.js';
 import { generatePlaywright } from '../popup/export-playwright.js';
 import { generateJava } from '../popup/export-java.js';
+import { generateRobot } from '../popup/export-robot.js';
 
 const MARKER = 'PWN!PWN';
 const LS = String.fromCharCode(0x2028); // LINE SEPARATOR — blank, but a newline to JS and Robot
@@ -170,6 +171,10 @@ test('Selenium pytest keeps poison out of the Python code', () => {
 
 test('Selenium Java keeps poison out of the Java code', () => {
   javaOracle(generateJava('S', ACTIONS_STR, VARIABLES).code, 'selenium java');
+});
+
+test('Robot keeps poison out of its own line structure', () => {
+  robotOracle(generateRobot('S', ACTIONS_STR, VARIABLES).code, 'robot');
 });
 
 test('Playwright keeps poison out of the JS code', () => {

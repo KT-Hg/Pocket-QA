@@ -13,9 +13,13 @@ export function escHtml(s) {
  * line, so it cannot end the comment and carry on as code — a label
  * "x\n    os.system(…)" in an imported scenario became a line of the Selenium
  * script — and with no "*" "/" to close a JS block comment early.
+ *
+ * "One line" means to every exported language: the stripped set is every
+ * character Python's str.splitlines() breaks on (so a Robot # comment cannot
+ * open a keyword line), which is a superset of the newlines of JS and Java.
  */
 export function commentText(s) {
-  return String(s ?? '').replace(/[\r\n\u2028\u2029]+/g, ' ').replace(/\*\//g, '* /');
+  return String(s ?? '').replace(/[\r\n\v\f\x1c-\x1e\x85\u2028\u2029]+/g, ' ').replace(/\*\//g, '* /');
 }
 
 /* === Action Icons === */
