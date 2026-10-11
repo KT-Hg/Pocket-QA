@@ -1998,6 +1998,12 @@ function _hotkeyScreenshot() {
 }
 
 document.addEventListener('keydown', (e) => {
+  // Only a real key press fires a hotkey. A page can dispatch a synthetic
+  // KeyboardEvent, but it cannot start a recording or a capture on its own, nor
+  // cancel the user's full-page capture with a fake Escape — so this comes before
+  // every branch below, the Escape ones included.
+  if (!e.isTrusted) return;
+
   // Held keys re-fire 'keydown' at the OS repeat rate. Without this guard, a
   // press that lasts a beat too long re-triggers the matched hotkey (most
   // visibly: two screenshots from one press of Alt+P) instead of one.

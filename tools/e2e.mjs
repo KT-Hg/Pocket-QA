@@ -540,6 +540,14 @@ async function checkHotkeys(ctx) {
   const plain = { key: await lastKey(), recording: await recording() };
   if (plain.recording) await ctx.send({ type: 'STOP_RECORD' });
   check(plain.key === 'key KeyR prevented' && plain.recording, 'and a plain Alt+R still does', plain);
+
+  // A page's own synthetic Alt+R is not a trusted key: on an activated tab it
+  // fires no hotkey and the page keeps the key (it is not prevented).
+  await ctx.web.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', code: 'KeyR', altKey: true, bubbles: true }))`);
+  await sleep(SETTLE_MS);
+  const fake = { key: await lastKey(), recording: await recording() };
+  if (fake.recording) await ctx.send({ type: 'STOP_RECORD' });
+  check(fake.key === 'key KeyR free' && !fake.recording, "a page's synthetic Alt+R on an activated tab fires no hotkey", fake);
   await activate(false);
 }
 
