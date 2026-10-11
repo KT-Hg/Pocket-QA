@@ -110,8 +110,10 @@
  *                 names it; every case runs as the exported Playwright .spec.js too
  *                 (PQA_PLAYWRIGHT_DIR: a folder with @playwright/test), and every case
  *                 the Selenium script runs as the exported Robot Framework test too
- *                 (PQA_ROBOT_PYTHON: a python with robotframework-seleniumlibrary).
- *                 No python, selenium, pytest, Playwright or Robot: those runs are skipped,
+ *                 (PQA_ROBOT_PYTHON: a python with robotframework-seleniumlibrary) and as
+ *                 the exported Java TestNG class (PQA_JAVA_HOME: a JDK; PQA_JAVA_LIBS: a
+ *                 folder of the selenium-java and testng jars).
+ *                 No python, selenium, pytest, Playwright, Robot or Java: those runs are skipped,
  *                 not failed. fails-at-step: a scenario whose step 3 finds nothing,
  *                 run by each export, has its error name the step, its label and the
  *                 locator
@@ -136,7 +138,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { asActiveTab, launchWithExtension, sleep } from './lib/cdp-browser.mjs';
 
@@ -2089,6 +2091,31 @@ const runRobot = (file, outDir, env = process.env) => runFile(ROBOT_PYTHON,
   ['-m', 'robot', '--outputdir', outDir, '--consolecolors', 'off', '--consolewidth', '160', file],
   { cwd: outDir, timeout: PYTHON_RUN_TIMEOUT_MS, env: { ...env, PYTHONIOENCODING: 'utf-8' } });
 
+// A JDK and a folder of the selenium-java and testng jars (with their own): the Java runs use them.
+// Without either, they are skipped, not failed.
+const JAVA_HOME = process.env.PQA_JAVA_HOME || '';
+const JAVA_LIBS = process.env.PQA_JAVA_LIBS || '';
+const javaTool = (tool) => join(JAVA_HOME, 'bin', tool);
+
+/** Why the Java runs cannot happen here, or null when they can. */
+function javaMissing() {
+  if (!JAVA_HOME || !existsSync(javaTool(process.platform === 'win32' ? 'javac.exe' : 'javac'))) return 'no JDK (set PQA_JAVA_HOME)';
+  return JAVA_LIBS && existsSync(JAVA_LIBS) ? null : 'no selenium-java + testng jars (set PQA_JAVA_LIBS)';
+}
+
+/**
+ * Compile a test class into `outDir` and run it there with TestNG (what it saves
+ * lands there), its output in UTF-8; a failed compile is returned as the run.
+ */
+async function runJava(file, className, outDir, env = process.env) {
+  const libs = join(JAVA_LIBS, '*');
+  const built = await runFile(javaTool('javac'), ['-encoding', 'UTF-8', '-cp', libs, '-d', outDir, file], { timeout: PYTHON_RUN_TIMEOUT_MS });
+  if (built.error) return built;
+  return runFile(javaTool('java'), ['-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', '-cp', [outDir, libs].join(delimiter),
+    'org.testng.TestNG', '-testclass', className, '-verbose', '2'],
+  { cwd: outDir, timeout: PYTHON_RUN_TIMEOUT_MS, env });
+}
+
 /** Why the Selenium run cannot happen on this machine, or null when it can. */
 async function pythonMissing() {
   const { error, stderr } = await runFile('python', ['-c', 'import selenium']);
@@ -2199,6 +2226,17 @@ async function checkFailsAtStep(ctx, run) {
       'fails-at-step: the Robot report\'s message names step 3, its label and what it looked for', report.split('\n').filter((l) => /Step 3|nope/.test(l)).slice(0, 2));
     check(existsSync(join(out, 'fails_at_step_failure.png')), 'fails-at-step: the Robot test leaves fails_at_step_failure.png', null);
   }
+  if (run.javaHere) {
+    const out = mkdtempSync(join(run.dir, 'java-'));
+    const cls = run.javaClassName('fails at step');
+    writeFileSync(join(out, `${cls}.java`), run.generateJava('fails at step', FAILING_STEPS, {},
+      { ...opts, driverType: 'Edge', startUrl: page('java'), headless: !HEADED }).code);
+    const r = await runJava(join(out, `${cls}.java`), cls, out);
+    const report = String(r.stdout);
+    check(r.error && report.split('\n').some((l) => NAMES_STEP_3.test(l) && NAMES_LOCATOR.test(l)),
+      'fails-at-step: the TestNG report names step 3, its label and what it looked for', report.split('\n').filter((l) => /Step 3|nope/.test(l)).slice(0, 2));
+    check(existsSync(join(out, `${cls}_failure.png`)), `fails-at-step: the Java test leaves ${cls}_failure.png`, null);
+  }
 }
 
 /**
@@ -2237,6 +2275,16 @@ async function checkEnvOverrides(ctx, run) {
     await sleep(SETTLE_MS);
     check(!r.error && reached('robot')?.fields?.echo === 'Yo there',
       'env: the Robot test opens PQA_BASE_URL\'s site and takes PQA_salute, with no export', r.error ? String(r.stdout).trim().split('\n').slice(-6) : reached('robot')?.fields?.echo);
+  }
+  if (run.javaHere) {
+    const out = mkdtempSync(join(run.dir, 'java-'));
+    const cls = run.javaClassName('env');
+    writeFileSync(join(out, `${cls}.java`), run.generateJava('env', steps, { salute: 'Hi' },
+      { driverType: 'Edge', startUrl: deadStart('java'), headless: !HEADED, stepDelay: 0 }).code);
+    const r = await runJava(join(out, `${cls}.java`), cls, out, env('java'));
+    await sleep(SETTLE_MS);
+    check(!r.error && reached('java')?.fields?.echo === 'Yo there',
+      'env: the Java test opens PQA_BASE_URL\'s site and takes PQA_salute, with no export', r.error ? String(r.stdout + r.stderr).trim().split('\n').slice(-6) : reached('java')?.fields?.echo);
   }
 }
 
@@ -2306,6 +2354,10 @@ async function checkExportRun(ctx) {
   const { generateRobot } = await import(extModule('popup/export-robot.js')).catch(() => ({}));
   const robotHere = !!generateRobot && await hasRobot();
   if (generateRobot && !robotHere) console.log(`  – the Robot runs are skipped: no robotframework-seleniumlibrary for ${ROBOT_PYTHON} (set PQA_ROBOT_PYTHON)`);
+  const { generateJava, javaClassName } = await import(extModule('popup/export-java.js')).catch(() => ({}));
+  const noJava = generateJava && javaMissing();
+  if (noJava) console.log(`  – the Java runs are skipped: ${noJava}`);
+  const javaHere = !!generateJava && !noJava;
   const dir = mkdtempSync(join(tmpdir(), 'pqa-export-'));
   let headlessChecked = false;
   const pageUrl = (key) => `${ctx.base}/export?run=${encodeURIComponent(key)}`;
@@ -2403,11 +2455,24 @@ async function checkExportRun(ctx) {
         checkFiles(c, 'Robot', out);
       }
 
+      // And the Java test.
+      if (javaHere && runners.includes('selenium')) {
+        const out = mkdtempSync(join(dir, 'java-'));
+        const cls = javaClassName(c.name);
+        writeFileSync(join(out, `${cls}.java`), generateJava(c.name, actions, { ...variables, ...pageVars('java') },
+          { driverType: 'Edge', startUrl: startUrl('java'), headless: !HEADED }).code);
+        const r = await runJava(join(out, `${cls}.java`), cls, out);
+        if (r.error) fail(`${c.name}: the Java test failed: ${String(r.stdout + r.stderr).trim().split('\n').filter((l) => !/^\s+at /.test(l)).slice(-6).join(' | ')}`);
+        await sleep(SETTLE_MS);
+        states.java = exportStates.get(`${c.name}:java`)?.state;
+        checkFiles(c, 'Java', out);
+      }
+
       // Fields not named in `expect` are taken as playback left them.
       const expected = { clicks: [], alerts: [], marks: [], ...c.expect, fields: { ...states.playback?.fields, ...c.expect?.fields } };
       const wanted = stateDiff(states.playback, expected);
       check(states.playback && !Object.keys(wanted).length, `${c.name}: playback leaves the expected page`, wanted);
-      for (const runner of ['bookmarklet', 'selenium', 'pytest', 'playwright', 'robot']) {
+      for (const runner of ['bookmarklet', 'selenium', 'pytest', 'playwright', 'robot', 'java']) {
         if (!(runner in states)) continue;
         const diff = stateDiff(states.playback, states[runner]);
         check(states[runner] && !Object.keys(diff).length,
@@ -2415,9 +2480,12 @@ async function checkExportRun(ctx) {
       }
     }
     if (!CASES || CASES.includes('csv-data')) await checkCsvData(ctx, { dir, pageUrl, pytestHere, pwRun, pwCli, generateSeleniumPy, generatePlaywright });
-    if (!CASES || CASES.includes('env')) await checkEnvOverrides(ctx, { dir, noPython, pwRun, pwCli, robotHere, generateSeleniumPy, generatePlaywright, generateRobot });
+    if (!CASES || CASES.includes('env')) {
+      await checkEnvOverrides(ctx, { dir, noPython, pwRun, pwCli, robotHere, javaHere, generateSeleniumPy, generatePlaywright, generateRobot, generateJava, javaClassName });
+    }
     if (!CASES || CASES.includes('fails-at-step')) {
-      await checkFailsAtStep(ctx, { dir, pageUrl, noPython, pytestHere, pwRun, pwCli, robotHere, generateBookmarklet, toBookmarkletUrl, generateSeleniumPy, generatePlaywright, generateRobot });
+      await checkFailsAtStep(ctx, { dir, pageUrl, noPython, pytestHere, pwRun, pwCli, robotHere, javaHere, generateBookmarklet, toBookmarkletUrl,
+        generateSeleniumPy, generatePlaywright, generateRobot, generateJava, javaClassName });
     }
     if (pytestHere && !CASES) {
       const file = join(dir, 'test_failing_step.py');
