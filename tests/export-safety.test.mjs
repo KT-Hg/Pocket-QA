@@ -235,6 +235,16 @@ test('Playwright: no variable shadows a name the test defines for itself', () =>
   }
 });
 
+// A helper is pulled into the Python export by a step that calls it, not by a
+// label that happens to name it (which the old string scan of the output did).
+test('Python helpers are chosen by use, not by a label naming them', () => {
+  const label = 'mentions _find([ and _save_full_page( and _DROP_FILES_JS';
+  const { code } = generateSeleniumPy('S', [{ type: 'navigate', url: 'https://x.test/', label }], {});
+  assert.doesNotMatch(code, /\ndef _locate\(/, 'no _locate/_find helper');
+  assert.doesNotMatch(code, /\ndef _save_full_page\(/, 'no full-page helper');
+  assert.doesNotMatch(code, /\n_DROP_FILES_JS = /, 'no drop helper');
+});
+
 // A step delay that is not a finite number above 0 — Infinity (JSON's 1e400), or
 // text — must produce no wait, as playback waits none (setTimeout makes it 0).
 test('a non-finite step delay produces no wait', () => {

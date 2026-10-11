@@ -666,8 +666,14 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
   const locs   = locatorsFor(action);
   const elVar  = `el${stepNum}`;
   const out    = [];
-  // The expression that waits for an element of this scenario (waitPy).
-  const find   = (l, clickable = false) => waitPy(l, tout, clickable, ctx.frames === 'all');
+  // The expression that waits for an element of this scenario (waitPy). It pulls in
+  // the _locate/_find helpers only when it is the multi-locator form that calls them
+  // — a single plain locator waits inline, with no helper.
+  const find   = (l, clickable = false) => {
+    const expr = waitPy(l, tout, clickable, ctx.frames === 'all');
+    if (expr.includes('_find(')) ctx.uses.add('locate');
+    return expr;
+  };
 
   switch (action.type) {
     case 'click':
@@ -805,6 +811,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
 
     case 'screenshot_full':
       out.push(`# Step ${stepNum}: screenshot (full page)${lbl}`);
+      ctx.uses.add('full');
       out.push(fullPagePy(`f"screenshot_full_step${stepNum}.png"`, ctx.driverType, step));
       if (delay > 0) out.push(`time.sleep(${delay})`);
       break;
@@ -824,6 +831,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
         out.push(`${elVar} = ${find(locs)}`);
         out.push(`${elVar}.screenshot(_ss_file${stepNum})`);
       } else if (action.target === 'full') {
+        ctx.uses.add('full');
         out.push(fullPagePy(`_ss_file${stepNum}`, ctx.driverType, step));
       } else {
         out.push(`driver.save_screenshot(_ss_file${stepNum})`);
@@ -854,6 +862,7 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       // Present is enough: pages hide their file inputs, and send_keys still fills one.
       out.push(`${elVar} = ${find(locs)}`);
       if (zone) {
+        ctx.uses.add('drop');
         // As playback drops them (bg/cdp/upload.js): set on a hidden file input, then dropped on the zone.
         out.push(`${elVar}_b = driver.execute_script(_DROP_BRIDGE_JS)`);
         out.push(`${elVar}_b.send_keys(${files})`);
@@ -972,9 +981,13 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   // by text) decides which helpers and imports the script needs.
   // A step recorded in a frame: every element is looked for in the page and its frames.
   const frames = enabled.some((a) => inFrame(a) && a.type !== 'condition') ? 'all' : 'none';
-  const bodyLines   = stepLines(stepDelay, elTimeout, { all, layout, warnings, steps, driverType, frames });
-  const needsLocate = needsCondition || bodyLines.some(l => l.includes('_find(['));
-  const needsFullPage = bodyLines.some(l => l.includes('_save_full_page('));
+  // `uses`: what the steps reached for as they were written (like the Java/Robot
+  // exports), so a helper is pulled in by a step that calls it, never by a label
+  // that happens to name it.
+  const ctx = { all, layout, warnings, steps, driverType, frames, uses: new Set() };
+  const bodyLines   = stepLines(stepDelay, elTimeout, ctx);
+  const needsLocate = needsCondition || ctx.uses.has('locate');
+  const needsFullPage = ctx.uses.has('full');
 
   const out = [];
   out.push(...runNotesPy(pytest, driverType, headless, Object.keys(variables || {})));
@@ -1067,7 +1080,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
     out.push('');
     out.push('');
   }
-  if (bodyLines.some((l) => l.includes('_DROP_FILES_JS'))) {
+  if (ctx.uses.has('drop')) {
     out.push(..._dropHelperPy());
     out.push('');
     out.push('');
