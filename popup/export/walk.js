@@ -47,7 +47,9 @@ export function uploadPaths(action) {
 export function readTargets(action, ident) {
   const slots = action.pattern ? patternVarNames(action.pattern) : [];
   const vn = normalizeVarName(action.varName);
-  const whole = vn ? ident(vn) : (slots.length ? null : 'dom_var');
+  let whole = null;
+  if (vn) whole = ident(vn);
+  else if (!slots.length) whole = 'dom_var';
   return { whole, slots };
 }
 

@@ -19,7 +19,7 @@ import { cssEscape } from '../shared/css-escape.js';
 import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
 import { exportVariables, inFrame, locatorsFor, pickLabel, readTargets, undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars } from './export/walk.js';
-import { CONDITION_TYPES, PAGE_CALLS, PICK_ITEM_ASYNC_JS } from './export/page-js.js';
+import { CONDITION_TYPES, PAGE_CALLS } from './export/page-js.js';
 
 /**
  * The class a scenario's file holds, from the file name's base (export-modal.js
