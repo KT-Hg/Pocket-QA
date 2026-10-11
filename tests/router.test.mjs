@@ -436,6 +436,20 @@ await send('highlights: a web page saves under a pattern', { type: 'HL_SAVE_PAGE
 // With the document Chrome says sent it, the engine goes into that document.
 await send('highlight engine: HL_LOAD from a document', { type: 'HL_LOAD' }, { sender: { ...PAGE_SENDER, frameId: 4, documentId: 'doc-4' } });
 
+// A web page drives neither another tab's recording nor the scenario it writes to,
+// and Stop from a page returns no actions. The page is on tab 1; it names tab 2
+// (where a password is typed) and a scenario to append to. The recording stays on
+// tab 1, tab 2's input is dropped, and Stop comes back with a bare ack. Last, so
+// its recording state does not show up in the steps above.
+await send('page: start record names another tab', { type: 'START_RECORD', tabId: 2, scenarioId: 's1' }, {
+  sender: PAGE_SENDER,
+  setup: () => { state.pickMode = false; fake.data.local.lastSelectedScenario = null; },
+});
+await send('page: another tab types a password', { type: 'RECORDED_ACTION', action: { type: 'input', selector: '#pw', value: 'hunter2' } }, { sender: OTHER_TAB_SENDER });
+await send('page: its own tab is recorded', { type: 'RECORDED_ACTION', action: { type: 'input', selector: '#q', value: 'typed' } }, { sender: PAGE_SENDER });
+await send('page: stop record returns no actions', { type: 'STOP_RECORD' }, { sender: PAGE_SENDER });
+await send('page: stop pick mode names another tab', { type: 'STOP_PICK_MODE', tabId: 2 }, { sender: PAGE_SENDER });
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -458,6 +472,23 @@ test('a recording takes actions from its own tab only', () => {
   ]);
   const recorded = _stepOf('stop record (tab 1 only)')?.responses?.[0]?.actions;
   assert.deepEqual(recorded?.map((a) => a.selector), ['#go']);
+});
+test('a web page cannot record another tab or read what was recorded', () => {
+  // The recording is on the page's own tab: the named tab 2 is told not to record.
+  const broadcast = _stepOf('page: start record names another tab')?.calls.filter((c) => c.startsWith('tabs.sendMessage'));
+  assert.deepEqual(broadcast, [
+    'tabs.sendMessage [1,{"type":"RECORDING_STATE","recording":true}]',
+    'tabs.sendMessage [2,{"type":"RECORDING_STATE","recording":false}]',
+  ]);
+  assert.deepEqual(_stepOf('page: another tab types a password')?.responses, [{ received: false }]);
+  assert.deepEqual(_stepOf('page: its own tab is recorded')?.responses, [{ received: true }]);
+  // Stop from a web page returns a bare ack — never the recorded actions.
+  assert.deepEqual(_stepOf('page: stop record returns no actions')?.responses, [{ received: true }]);
+  // The password typed on the other tab is nowhere in the transcript.
+  assert.ok(!JSON.stringify(transcript).includes('hunter2'), 'the other tab input must not leak');
+  // Stop Pick Mode from a web page goes to its own tab, not the one it named.
+  const pick = _stepOf('page: stop pick mode names another tab')?.calls.filter((c) => c.startsWith('tabs.sendMessage'));
+  assert.deepEqual(pick, ['tabs.sendMessage [1,{"type":"STOP_PICK_MODE","tabId":2}]']);
 });
 test('from a web page, a recorded action is a click or an input with known fields only', () => {
   assert.deepEqual(_stepOf('from a web page: recorded uploadFile dropped')?.responses, [{ received: false }]);
