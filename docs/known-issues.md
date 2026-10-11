@@ -52,6 +52,16 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   Màu dự phòng phải đặt trong `@supports`: viết ngay phía trên thì không có tác dụng, vì khai báo dùng `var()` không
   bị bỏ qua lúc parse.
 
+## Cố ý giữ (không coi là bug)
+
+- **Wait 0 ms chờ 500 ms.** `waitMs` (`shared/wait-ms.js`) đọc `delay || value || 500`, nên `delay: 0` (0 là
+  falsy) rơi về mặc định 500 ms — cả phát lại lẫn bản xuất đều vậy. Giữ nguyên để một Wait cũ không đặt thời gian
+  vẫn chờ 500 ms như trước; muốn "chờ 0 ms" thật thì phải phân biệt 0 với "không đặt" ở mọi nơi đọc trường này.
+- **Listener snapshot của dbtools nhận message từ mọi trang có content script dbtools.** `serveSnapshots`
+  (`dbtools/snapstore.js`) phục vụ put / get / remove vào kho snapshot riêng của dbtools (IndexedDB), không kiểm
+  người gửi. Cố ý: content script dbtools (trên trang Adminer) cần gọi nó, và kho này là của dbtools — không phải
+  dữ liệu scenario của extension, cũng không chạm tới nó.
+
 ## Giới hạn của Export Code
 
 Chuẩn là phát lại: bản xuất làm khác phát lại là bug. Những chỗ dưới đây chưa làm giống được; tab Actions của cửa sổ

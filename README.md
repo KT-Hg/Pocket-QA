@@ -230,7 +230,7 @@ What the formats share:
 - **Locators with fallbacks**, tried in playback's order: the selector type chosen in the form first, then full XPath → id → XPath → CSS → `data-testid` → `data-id` → `name` → text (the exact trimmed text of the innermost element, in the recorded tag). The first that finds an element wins (`getEl([...])`, `_find([...])`, `Find Element`, `find(...)`); a locator the page cannot parse is passed over. A CSS locator the page has no match for is looked for inside open shadow roots too.
 - **The extension's own in-page code** where a plain driver call would do something else: Read DOM (each "Read from" choice), Child Condition, Conditions and *Choose item #* run the functions playback runs, and Input fills date / time / color / range fields through playback's value setter. The bookmarklet also clicks, hovers, fills every field and drags (HTML5 drag events) as playback does; Selenium, Playwright, Robot and Java use their own mouse and keyboard for those.
 - **A Condition of a type the export does not know stops the exported code there**, as a run does — it throws with the type named in a comment — and the window shows a warning. A Switch with a block is skipped *together with its block*, otherwise every case would run. A disabled action is not exported, but the number of steps a Condition skips is still counted against the original list.
-- **`${var}`** in values, selectors and the Read DOM attribute become template literals / f-strings / Robot `${var}` / Java variables; values are baked in at export time — edit the Variables table and export again, or set one from the environment when the code runs (below). Names, labels and types only ever reach a string or a one-line comment.
+- **`${var}`** in values, selectors and the Read DOM attribute become template literals / f-strings / Robot `${var}` / Java variables; values are baked in at export time — edit the Variables table and export again, or set one from the environment when the code runs (below). A scenario's own text — its name, a label, a value, a dropdown item number, a Script's code — only ever reaches a string or a one-line comment, in every one of the five languages, so a scenario imported from someone else cannot turn its text into code in the file you export (a newline or a quote in it is escaped for the language it lands in).
 - **A step recorded inside an iframe** is looked for in the page, then in its frames (frames in frames too) by Selenium, Playwright, Robot and Java. The bookmarklet reaches only the frames of its own site (⚠ Verify). A Condition recorded in a frame is checked in the top page, as before (⚠ Verify).
 
 **Running the exported code.** Without exporting again, the environment can change a run of the Selenium script or test, the Playwright spec, the Robot test or the Java test (the bookmarklet has no environment):
@@ -774,6 +774,8 @@ All hotkeys are configurable in the **Settings** tab and synced via `chrome.stor
 | Screenshot (Element) | `Alt+E` |
 
 > **Start/Stop Recording hotkeys only fire on activated tabs.** The content script verifies `IS_TAB_ACTIVATED` before acting — the check is enforced at the logic layer, not just the UI.
+>
+> **Hotkeys fire only on a real key press.** The content script's `keydown` handler ignores untrusted events (`event.isTrusted`), so a page cannot dispatch a synthetic key to start a recording, take a capture, or cancel one with a fake Escape. A key sent over the DevTools protocol (Selenium, the e2e harness) is trusted and still works.
 
 ---
 
