@@ -184,7 +184,7 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
 | `screenshot` | Capture visible viewport |
 | `screenshot_full` | Full page via CDP |
 | `screenshot_element` | Specific element via CDP clip |
-| `screenshot_tovar` | Visible / full page / element → the variable receives the **filename**; the image itself is carried into the CSV export |
+| `screenshot_tovar` | Visible / full page / element → the variable receives the **filename**; the image itself is carried into the CSV export. Optional **Filename** (`value`): the image's name in the CSV run's **ZIP** export only — `${var}` filled in per row, `a/b` makes a subfolder, `.png` added; empty = the variable name |
 | `uploadFile` | Inject local file(s) into `<input type="file">` (CDP) or drag-and-drop zone (DataTransfer bridge); supports multiple files and `${variable}` filenames |
 
 ---
@@ -880,6 +880,7 @@ chrome.storage.local (10 MB, 5 MB before Chrome 114 — device-local)
   settings (watermark, screenshot config, theme, tab order)
   highlights (hl_v1) and highlight URL patterns (hl_patterns_v1)
   csvRunResults (text results only), _csvRows (rows of the active CSV run)
+  csvExportFormat, csvZipFolderName, csvZipRowNumber (the CSV card's export choices)
   updateStatus, updateAvailableSince, lastUpdateAt, remoteConfig (version check + lock)
   Pending context flags (pick, drag-drop, form draft)
   activatedTabs whitelist
@@ -897,6 +898,9 @@ chrome.storage.session (1 MB — survives SW restart, lost on browser close)
 
 IndexedDB — FastRecorder_CsvScreenshots (disk, no hard quota)
   CSV screenshot results: key = "rowIndex:varName", value = base64 PNG
+  CSV row results: key = rowIndex, value = { rowIndex, vars, failures, ssNames? }
+    (ssNames: { varName: Filename } of the row's Screenshot → Variable steps
+     that have one, filled in — only the ZIP export reads it)
   No extra permissions needed — safe for Web Store publication
 
 IndexedDB — FastRecorder_DbtoolsSnapshots (disk, no hard quota)
@@ -1079,6 +1083,15 @@ as well an editor, a terminal or a design tool.
 4. Live progress shown in the Now Playing mini panel
 5. Results exported as **XLSX** (images in cells), **HTML** (embedded images), or **ZIP** (screenshot files + CSV). Changing the format after a run clears the accumulated results.
 6. `screenshot_tovar` actions save screenshots per row into the export
+
+**ZIP layout.** `results.csv`, then one folder per row holding that row's screenshots: `row_01/shot.png`, `row_02/shot.png` … The ZIP's **Advanced** section (under Export format, shown only while ZIP is chosen) names them:
+
+- **Folder name** — a template filled in from each row, e.g. `abc ${name}` → `abc john/`, `abc kate/`. `${column}` takes the row's CSV value; a variable the run wrote (Read DOM) wins over a column of the same name. Characters Windows refuses and `/` become `_`, a trailing dot or space is dropped; a name that comes out empty (or an empty field) is `row_NN`.
+- **Add row number** — the row's number in the CSV after the name: `abc john_01`, `abc kate_02`, `abc john_03`. No effect on `row_NN`.
+- Two rows that land on one name (case ignored, as on Windows) get `_2`, `_3` … in row order: `abc john`, `abc kate`, `abc john_2`.
+- Inside a folder, an image is named by its Screenshot → Variable's **Filename** (filled in for that row; `a/b` makes a subfolder), else by its variable. Two images on one name get `_2`.
+
+The section is never locked: after a run, change the names and download again — no new run needed. The folder name and the checkbox are remembered across popups. The Filename does not change the XLSX / HTML / CSV exports or the variable's value.
 
 ---
 
