@@ -1086,7 +1086,7 @@ as well an editor, a terminal or a design tool.
 
 **ZIP layout.** `results.csv`, then one folder per row holding that row's screenshots: `row_01/shot.png`, `row_02/shot.png` … The ZIP's **Advanced** section (under Export format, shown only while ZIP is chosen) names them:
 
-- **Folder name** — a template filled in from each row, e.g. `abc ${name}` → `abc john/`, `abc kate/`. `${column}` takes the row's CSV value; a variable the run wrote (Read DOM) wins over a column of the same name. Characters Windows refuses and `/` become `_`, a trailing dot or space is dropped; a name that comes out empty (or an empty field) is `row_NN`.
+- **Folder name** — a template filled in from each row, e.g. `abc ${name}` → `abc john/`, `abc kate/`. `${column}` takes the row's CSV value; a variable the run wrote (Read DOM) wins over a column of the same name. Characters Windows refuses and `/` become `_`, a trailing dot or space is dropped; a name that comes out empty (or an empty field) is `row_NN`. Typing `${` (or Ctrl+Space) lists the names it can use: the loaded CSV's columns, the variables the card's scenario writes, and the Data tab variables it reads (a row keeps only those, so one the scenario never uses is not offered).
 - **Add row number** — the row's number in the CSV after the name: `abc john_01`, `abc kate_02`, `abc john_03`. No effect on `row_NN`.
 - Two rows that land on one name (case ignored, as on Windows) get `_2`, `_3` … in row order: `abc john`, `abc kate`, `abc john_2`.
 - Inside a folder, an image is named by its Screenshot → Variable's **Filename** (filled in for that row; `a/b` makes a subfolder), else by its variable. Two images on one name get `_2`.

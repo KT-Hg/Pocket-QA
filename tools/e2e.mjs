@@ -132,6 +132,13 @@
  *                 while ZIP is chosen, also when code sets the format; a saved
  *                 folder name and Add row number come back in a new popup, the
  *                 section open
+ *   csv-zip-suggest  typing ${ in the ZIP Folder name lists the CSV columns, the
+ *                 variables the card's scenario writes and the Data tab ones it
+ *                 reads, not a Data tab variable it never uses; Enter inserts one
+ *   csv-zip-run   a CSV run (john, kate, john) downloaded as a ZIP from the popup:
+ *                 folders "abc ${name}" (abc john_2 for the repeat; _01 … with Add
+ *                 row number, downloaded again with no new run), the image of a
+ *                 Screenshot → Variable named by its Filename; HTML / XLSX unchanged
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed] [--cases <a,b>]
  *        --cases runs only those cases of export-run (and its fails-at-step check when named).
@@ -2637,6 +2644,40 @@ async function checkCsvZipAdvanced(ctx) {
   await ctx.ext.evaluate(`chrome.storage.local.remove(['csvExportFormat', 'csvZipFolderName', 'csvZipRowNumber'])`);
 }
 
+async function checkCsvZipSuggest(ctx) {
+  await ctx.send({ type: 'SAVE_VARIABLES', variables: { env: 'qa', unused: 'x' } });
+  const id = await makeScenario(ctx, 'e2e csv zip suggest', [
+    { type: 'input', selector: '#name', selectors: { css: '#name' }, value: '${env}', delay: 0 },
+    { type: 'readdom', selector: '#total', selectors: { css: '#total' }, varName: 'order', readFrom: 'text', delay: 0 },
+  ]);
+  await ctx.ext.evaluate(`chrome.storage.local.set({ csvExportFormat: 'zip', csvZipFolderName: '' })`);
+  const popup = await openPopup(ctx);
+  try {
+    await popup.evaluate(`(async () => {
+      document.querySelector('.tab-btn[data-tab="tabData"]').click();
+      document.getElementById('csvRunCard').classList.remove('collapsed');
+      (await import(chrome.runtime.getURL('popup/ui-state.js'))).ui.csvParsed = { headers: ['name', 'city'], rows: [] };
+      const sel = document.getElementById('csvScenarioSelect'); sel.value = ${JSON.stringify(id)};
+      document.getElementById('csvZipAdvanced').open = true;
+      document.getElementById('csvZipFolderName').focus();
+    })()`);
+    await popup.send('Input.insertText', { text: 'abc ${' });
+    await sleep(SETTLE_MS);
+    const names = await popup.evaluate(`[...document.querySelectorAll('.var-suggest .vs-name')].map((e) => e.textContent)`);
+    check(['name', 'city', 'order', 'env'].every((n) => names.includes(n)) && !names.includes('unused'),
+      'Folder name: ${ lists the CSV columns, what the scenario writes and the Data tab variables it reads — not one it never uses', names);
+    for (const type of ['keyDown', 'keyUp']) await popup.send('Input.dispatchKeyEvent', { type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    await sleep(SETTLE_MS);
+    const value = await popup.evaluate(`document.getElementById('csvZipFolderName').value`);
+    const saved = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('csvZipFolderName', (s) => r(s.csvZipFolderName)))`);
+    check(/^abc \$\{\w+\}$/.test(value) && saved === value, 'Enter inserts ${name}, and the folder name is saved', { value, saved });
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await popup.close();
+    await ctx.ext.evaluate(`chrome.storage.local.remove(['csvExportFormat', 'csvZipFolderName'])`);
+  }
+}
+
 /** The file names inside a ZIP, from its central directory. */
 function zipNames(file) {
   const b = readFileSync(file);
@@ -2747,6 +2788,7 @@ const CHECKS = [
   ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
   ['record-restart', 'A recording across a worker restart', checkRecordRestart],
   ['csv-zip-advanced', 'The ZIP\'s Advanced section in the CSV card', checkCsvZipAdvanced],
+  ['csv-zip-suggest', 'Variable suggestions in the ZIP Folder name', checkCsvZipSuggest],
   ['csv-zip-run', 'A CSV run downloaded as a ZIP with named folders', checkCsvZipRun],
 ];
 

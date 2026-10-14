@@ -4,7 +4,11 @@
  */
 
 import { formatStamp } from '../../shared/time-format.js';
+import { writtenVarNames } from '../../shared/var-name.js';
+import { variableType } from '../../shared/var-order.js';
+import { varValueDetail } from '../../shared/var-suggest.js';
 import { downloadBlob, downloadCsvText } from '../lib/download.js';
+import { attachVarSuggest } from '../ui/var-suggest.js';
 import { ui } from '../ui-state.js';
 import { getReadVarNames, showToast } from '../utils.js';
 import { parseCSV } from './csv-parse.js';
@@ -17,6 +21,28 @@ export function getInputVarsFromScenario(scenarioId) {
   const scenario = ui.scenariosCache[scenarioId];
   if (!scenario?.actions) return new Set();
   return getReadVarNames(scenario.actions);
+}
+
+/**
+ * The names a ZIP Folder name can use: what a row's folder is filled in from
+ * (zipEntries) — the CSV's columns, then what the card's scenario writes (Read
+ * DOM, Screenshot → Variable), then the Data tab variables it reads. A row's
+ * result keeps only the variables its scenario reads or writes, so a Data tab
+ * variable it never uses would stay ${name} and is not offered.
+ */
+async function folderNameVars() {
+  const actions = ui.scenariosCache[document.getElementById("csvScenarioSelect")?.value]?.actions || [];
+  const table = await new Promise((r) => chrome.runtime.sendMessage({ type: "GET_VARIABLES" }, (res) => { void chrome.runtime.lastError; r(res); }));
+  const vars = table?.variables || {};
+  const out = [];
+  const seen = new Set();
+  const add = (name, kind, detail) => { if (!seen.has(name)) { seen.add(name); out.push({ name, kind, detail }); } };
+  for (const name of ui.csvParsed?.headers || []) add(name, "c", { text: "CSV column" });
+  for (const name of actions.flatMap(writtenVarNames)) add(name, "w", { text: "set by the scenario" });
+  for (const name of getReadVarNames(actions)) {
+    if (Object.hasOwn(vars, name)) add(name, variableType(vars[name]), varValueDetail(vars[name]));
+  }
+  return out;
 }
 
 export function renderCsvScenarioSelect() {
@@ -113,6 +139,7 @@ export function stopCsvCountdown() {
 }
 
 export function initCsvRun() {
+  attachVarSuggest(document.getElementById("csvZipFolderName"), { mode: "ref", getEntries: folderNameVars });
   document.getElementById("csvFile")?.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
     const previewEl = document.getElementById("csvPreview");
