@@ -880,7 +880,8 @@ chrome.storage.local (10 MB, 5 MB before Chrome 114 — device-local)
   settings (watermark, screenshot config, theme, tab order)
   highlights (hl_v1) and highlight URL patterns (hl_patterns_v1)
   csvRunResults (text results only), _csvRows (rows of the active CSV run)
-  csvExportFormat, csvZipFolderName, csvZipRowNumber (the CSV card's export choices)
+  csvExportFormat, csvZipFolderName, csvZipRowNumber (the CSV card's export choices),
+  csvScenarioId (the scenario last chosen in the CSV card)
   updateStatus, updateAvailableSince, lastUpdateAt, remoteConfig (version check + lock)
   Pending context flags (pick, drag-drop, form draft)
   activatedTabs whitelist
@@ -1086,7 +1087,7 @@ as well an editor, a terminal or a design tool.
 
 **ZIP layout.** `results.csv`, then one folder per row holding that row's screenshots: `row_01/shot.png`, `row_02/shot.png` … The ZIP's **Advanced** section (under Export format, shown only while ZIP is chosen) names them:
 
-- **Folder name** — a template filled in from each row, e.g. `abc ${name}` → `abc john/`, `abc kate/`. `${column}` takes the row's CSV value; a variable the run wrote (Read DOM) wins over a column of the same name. Characters Windows refuses and `/` become `_`, a trailing dot or space is dropped; a name that comes out empty (or an empty field) is `row_NN`. Typing `${` (or Ctrl+Space) lists the names it can use: the loaded CSV's columns, the variables the card's scenario writes, and the Data tab variables it reads (a row keeps only those, so one the scenario never uses is not offered).
+- **Folder name** — a template filled in from each row, e.g. `abc ${name}` → `abc john/`, `abc kate/`. `${column}` takes the row's CSV value; a variable the run wrote (Read DOM) wins over a column of the same name. Characters Windows refuses and `/` become `_`, a trailing dot or space is dropped; a name that comes out empty (or an empty field) is `row_NN`. Typing `${` (or Ctrl+Space) lists the names it can use: the CSV's columns, the variables the scenario writes, and the Data tab variables it reads (a row keeps only those). Nothing has to be chosen first: with no file in the card, the CSV loaded last stands in; with no scenario chosen, the one chosen last (`csvScenarioId`); with none ever chosen, every Data tab variable is listed.
 - **Add row number** — the row's number in the CSV after the name: `abc john_01`, `abc kate_02`, `abc john_03`. No effect on `row_NN`.
 - Two rows that land on one name (case ignored, as on Windows) get `_2`, `_3` … in row order: `abc john`, `abc kate`, `abc john_2`.
 - Inside a folder, an image is named by its Screenshot → Variable's **Filename** (filled in for that row; `a/b` makes a subfolder), else by its variable. Two images on one name get `_2`.

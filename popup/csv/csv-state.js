@@ -104,6 +104,19 @@ function _handleCsvStop(label) {
   });
 }
 
+// The card's choices, kept across popup reopens: the export format and the ZIP's
+// naming come back in csv-restore.js; the scenario only feeds the Folder name's
+// suggestions (csv-run.js).
+function _rememberChoices() {
+  const keep = (id, event, key, read) => document.getElementById(id)?.addEventListener(event, (e) => {
+    chrome.storage.local.set({ [key]: read(e.target) });
+  });
+  keep("csvExportFormat",   "change", "csvExportFormat",  (el) => el.value);
+  keep("csvScenarioSelect", "change", "csvScenarioId",    (el) => el.value);
+  keep("csvZipFolderName",  "input",  "csvZipFolderName", (el) => el.value);
+  keep("csvZipRowNumber",   "change", "csvZipRowNumber",  (el) => el.checked);
+}
+
 export function initCsvState() {
   document.getElementById("startCsvRun")?.addEventListener("click", () => {
     const scenarioId = document.getElementById("csvScenarioSelect")?.value;
@@ -181,16 +194,7 @@ export function initCsvState() {
       { title: "Change Export Format?", danger: true, okLabel: "Clear & change" }
     );
   });
-  // Persist export format selection across popup reopens
-  document.getElementById("csvExportFormat")?.addEventListener("change", (e) => {
-    chrome.storage.local.set({ csvExportFormat: e.target.value });
-  });
-  document.getElementById("csvZipFolderName")?.addEventListener("input", (e) => {
-    chrome.storage.local.set({ csvZipFolderName: e.target.value });
-  });
-  document.getElementById("csvZipRowNumber")?.addEventListener("change", (e) => {
-    chrome.storage.local.set({ csvZipRowNumber: e.target.checked });
-  });
+  _rememberChoices();
   // Show format-locked warning when user clicks the format area while in done state
   // pointer-events:none on the select lets clicks fall through to this parent div
   document.getElementById("csvFormatRow")?.addEventListener("click", () => {

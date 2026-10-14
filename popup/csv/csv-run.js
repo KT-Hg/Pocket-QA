@@ -25,23 +25,28 @@ export function getInputVarsFromScenario(scenarioId) {
 
 /**
  * The names a ZIP Folder name can use: what a row's folder is filled in from
- * (zipEntries) — the CSV's columns, then what the card's scenario writes (Read
- * DOM, Screenshot → Variable), then the Data tab variables it reads. A row's
- * result keeps only the variables its scenario reads or writes, so a Data tab
- * variable it never uses would stay ${name} and is not offered.
+ * (zipEntries) — the CSV's columns, then what the scenario writes (Read DOM,
+ * Screenshot → Variable), then the Data tab variables it reads (a row keeps
+ * only the variables its scenario reads or writes). Nothing has to be chosen
+ * first: the CSV loaded last (csvSessionData) and the scenario chosen last
+ * (csvScenarioId) stand in, and with no scenario at all every Data tab
+ * variable is offered.
  */
 async function folderNameVars() {
-  const actions = ui.scenariosCache[document.getElementById("csvScenarioSelect")?.value]?.actions || [];
-  const table = await new Promise((r) => chrome.runtime.sendMessage({ type: "GET_VARIABLES" }, (res) => { void chrome.runtime.lastError; r(res); }));
+  const [last, table] = await Promise.all([
+    chrome.storage.local.get(["csvSessionData", "csvScenarioId"]),
+    new Promise((r) => chrome.runtime.sendMessage({ type: "GET_VARIABLES" }, (res) => { void chrome.runtime.lastError; r(res); })),
+  ]);
+  const scenarioId = document.getElementById("csvScenarioSelect")?.value || last.csvScenarioId;
+  const actions = ui.scenariosCache[scenarioId]?.actions;
   const vars = table?.variables || {};
   const out = [];
   const seen = new Set();
   const add = (name, kind, detail) => { if (!seen.has(name)) { seen.add(name); out.push({ name, kind, detail }); } };
-  for (const name of ui.csvParsed?.headers || []) add(name, "c", { text: "CSV column" });
-  for (const name of actions.flatMap(writtenVarNames)) add(name, "w", { text: "set by the scenario" });
-  for (const name of getReadVarNames(actions)) {
-    if (Object.hasOwn(vars, name)) add(name, variableType(vars[name]), varValueDetail(vars[name]));
-  }
+  for (const name of (ui.csvParsed || last.csvSessionData)?.headers || []) add(name, "c", { text: "CSV column" });
+  for (const name of (actions || []).flatMap(writtenVarNames)) add(name, "w", { text: "set by the scenario" });
+  const dataNames = actions ? [...getReadVarNames(actions)].filter((n) => Object.hasOwn(vars, n)) : Object.keys(vars);
+  for (const name of dataNames) add(name, variableType(vars[name]), varValueDetail(vars[name]));
   return out;
 }
 

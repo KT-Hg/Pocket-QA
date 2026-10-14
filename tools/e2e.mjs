@@ -132,9 +132,11 @@
  *                 while ZIP is chosen, also when code sets the format; a saved
  *                 folder name and Add row number come back in a new popup, the
  *                 section open
- *   csv-zip-suggest  typing ${ in the ZIP Folder name lists the CSV columns, the
- *                 variables the card's scenario writes and the Data tab ones it
- *                 reads, not a Data tab variable it never uses; Enter inserts one
+ *   csv-zip-suggest  typing ${ in the ZIP Folder name lists names with nothing
+ *                 chosen in the CSV card: the Data tab variables when no scenario
+ *                 was ever chosen; after a reopen, the last CSV's columns, what the
+ *                 last scenario writes and the Data tab ones it reads (not one it
+ *                 never uses); Enter inserts one
  *   csv-zip-run   a CSV run (john, kate, john) downloaded as a ZIP from the popup:
  *                 folders "abc ${name}" (abc john_2 for the repeat; _01 … with Add
  *                 row number, downloaded again with no new run), the image of a
@@ -2650,22 +2652,44 @@ async function checkCsvZipSuggest(ctx) {
     { type: 'input', selector: '#name', selectors: { css: '#name' }, value: '${env}', delay: 0 },
     { type: 'readdom', selector: '#total', selectors: { css: '#total' }, varName: 'order', readFrom: 'text', delay: 0 },
   ]);
-  await ctx.ext.evaluate(`chrome.storage.local.set({ csvExportFormat: 'zip', csvZipFolderName: '' })`);
-  const popup = await openPopup(ctx);
-  try {
-    await popup.evaluate(`(async () => {
+  const keys = ['csvExportFormat', 'csvZipFolderName', 'csvSessionData', 'csvScenarioId'];
+  await ctx.ext.evaluate(`chrome.storage.local.remove(${JSON.stringify(keys)})`);
+  await ctx.ext.evaluate(`chrome.storage.local.set({ csvExportFormat: 'zip' })`);
+  // A new popup with nothing chosen in the CSV card: type "abc ${" key by key.
+  const typeInFolderName = async (popup) => {
+    await popup.evaluate(`(() => {
       document.querySelector('.tab-btn[data-tab="tabData"]').click();
       document.getElementById('csvRunCard').classList.remove('collapsed');
-      (await import(chrome.runtime.getURL('popup/ui-state.js'))).ui.csvParsed = { headers: ['name', 'city'], rows: [] };
-      const sel = document.getElementById('csvScenarioSelect'); sel.value = ${JSON.stringify(id)};
       document.getElementById('csvZipAdvanced').open = true;
-      document.getElementById('csvZipFolderName').focus();
+      const i = document.getElementById('csvZipFolderName'); i.value = ''; i.focus();
     })()`);
-    await popup.send('Input.insertText', { text: 'abc ${' });
+    for (const ch of 'abc ${') {
+      await popup.send('Input.dispatchKeyEvent', { type: 'keyDown', key: ch, text: ch });
+      await popup.send('Input.dispatchKeyEvent', { type: 'keyUp', key: ch });
+    }
     await sleep(SETTLE_MS);
-    const names = await popup.evaluate(`[...document.querySelectorAll('.var-suggest .vs-name')].map((e) => e.textContent)`);
+    return popup.evaluate(`[...document.querySelectorAll('.var-suggest .vs-name')].map((e) => e.textContent)`);
+  };
+  let popup = await openPopup(ctx);
+  try {
+    let names = await typeInFolderName(popup);
+    check(names.includes('env') && names.includes('unused'),
+      'Folder name, no scenario ever chosen and no CSV: ${ lists the Data tab variables', names);
+    // Choose a scenario and load a CSV once, as a user does, then open a new popup.
+    await popup.evaluate(`(() => { const s = document.getElementById('csvScenarioSelect'); s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    const csvDir = mkdtempSync(join(tmpdir(), 'pqa-csv-'));
+    writeFileSync(join(csvDir, 'people.csv'), 'name,city\njohn,HN\n');
+    const { result } = await popup.send('Runtime.evaluate', { expression: `document.getElementById('csvFile')` });
+    await popup.send('DOM.getDocument', {});
+    await popup.send('DOM.setFileInputFiles', { files: [join(csvDir, 'people.csv')], objectId: result.objectId });
+    await sleep(SETTLE_MS);
+    rmSync(csvDir, { recursive: true, force: true });
+    await popup.close();
+    popup = await openPopup(ctx);
+    names = await typeInFolderName(popup);
     check(['name', 'city', 'order', 'env'].every((n) => names.includes(n)) && !names.includes('unused'),
-      'Folder name: ${ lists the CSV columns, what the scenario writes and the Data tab variables it reads — not one it never uses', names);
+      'reopened with nothing chosen: the last CSV\'s columns, what the last scenario writes and the Data tab variables it reads', names);
     for (const type of ['keyDown', 'keyUp']) await popup.send('Input.dispatchKeyEvent', { type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
     await sleep(SETTLE_MS);
     const value = await popup.evaluate(`document.getElementById('csvZipFolderName').value`);
@@ -2674,7 +2698,7 @@ async function checkCsvZipSuggest(ctx) {
     if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   } finally {
     await popup.close();
-    await ctx.ext.evaluate(`chrome.storage.local.remove(['csvExportFormat', 'csvZipFolderName'])`);
+    await ctx.ext.evaluate(`chrome.storage.local.remove(${JSON.stringify(keys)})`);
   }
 }
 
