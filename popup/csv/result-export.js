@@ -1,12 +1,22 @@
 /**
  * result-export.js — the result file of a CSV data-driven run, as CSV, HTML
- * (screenshots inline as base64) or XLSX (screenshots anchored in their cells).
+ * (screenshots inline as base64), XLSX (screenshots anchored in their cells) or
+ * ZIP (results.csv plus one folder of screenshots per row).
  *
  * Pure: takes the parsed CSV, the per-row results and the screenshots, returns
  * text or a Blob. Downloading is the caller's job.
  */
 
+import { applyVars } from '../../bg/interpolate.js';
+import { safeName } from '../../bg/screenshot/filename.js';
 import { ZipWriter } from '../lib/zip-writer.js';
+
+function _b64Bytes(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
 
 // Format failures array into a human-readable bug string
 function _formatBug(failures) {
@@ -269,13 +279,54 @@ ${imgRels.join('\n')}</Relationships>` : '';
 </Relationships>`);
     zip.add('xl/drawings/drawing1.xml', drawingXml);
     zip.add('xl/drawings/_rels/drawing1.xml.rels', drawingRelsXml);
-    for (const img of imageEntries) {
-      const bin = atob(img.base64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      zip.add(`xl/media/image${img.idx}.png`, bytes);
-    }
+    for (const img of imageEntries) zip.add(`xl/media/image${img.idx}.png`, _b64Bytes(img.base64));
   }
 
   return zip.build('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+
+const _rowNum = (rowIndex) => String(rowIndex + 1).padStart(2, '0');
+
+// A row's folder: the template with the row's values, or row_NN when that comes
+// out empty. Windows refuses a folder name that ends in "." or a space.
+function _folderName(template, vars, rowIndex) {
+  const name = template && safeName(applyVars(template, vars)).replace(/\//g, '_').replace(/[. ]+$/, '');
+  return name || `row_${_rowNum(rowIndex)}`;
+}
+
+// `base`, else base_2, base_3 … — the first name `used` does not hold yet. Case is
+// ignored: Windows sees John/ and john/ as one folder.
+function _unique(used, base) {
+  let name = base;
+  for (let n = 2; used.has(name.toLowerCase()); n++) name = `${base}_${n}`;
+  used.add(name.toLowerCase());
+  return name;
+}
+
+/**
+ * The screenshot files of the ZIP export as [path, base64] pairs, in the order the
+ * screenshots come. Each row is one folder: row_NN, or `folderName` with ${column}
+ * filled in from that row (a variable the run wrote wins over the CSV column). Two
+ * rows that land on one name get _2, _3 … in row order.
+ */
+export function zipEntries(rows, results, screenshots, { folderName = '' } = {}) {
+  const ss = screenshots || {};
+  const template = folderName.trim();
+  const rowOf = (key) => Number(key.slice(0, key.indexOf(':')));
+  const byRow = new Map(results.map((r) => [r.rowIndex, r]));
+  // Named in row order, not key order: IndexedDB sorts the key "10:a" before "2:a".
+  const indexes = [...new Set([...byRow.keys(), ...Object.keys(ss).map(rowOf)])].sort((a, b) => a - b);
+  const used = new Set();
+  const folders = new Map(indexes.map((i) =>
+    [i, _unique(used, _folderName(template, { ...rows[i], ...byRow.get(i)?.vars }, i))]));
+  return Object.entries(ss).map(([key, b64]) =>
+    [`${folders.get(rowOf(key))}/${key.slice(key.indexOf(':') + 1)}.png`, b64]);
+}
+
+// ZIP export — results.csv (with a BOM, so Excel reads it as UTF-8) and zipEntries.
+export function generateResultZip(originalHeaders, originalRows, results, screenshots, naming) {
+  const zip = new ZipWriter();
+  zip.add('results.csv', '﻿' + generateResultCsv(originalHeaders, originalRows, results));
+  for (const [path, b64] of zipEntries(originalRows, results, screenshots, naming)) zip.add(path, _b64Bytes(b64));
+  return zip.build('application/zip');
 }

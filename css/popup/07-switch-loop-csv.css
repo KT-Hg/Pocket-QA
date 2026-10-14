@@ -290,6 +290,13 @@
   transform: none;
 }
 
+/* ZIP's Advanced section — shown only while ZIP is the chosen format (also when
+   code sets the value, which fires no change event); summary styled like .sw-help */
+#csvZipAdvanced { display: none; margin-top: 8px; }
+#csvRunCard:has(#csvExportFormat option[value="zip"]:checked) #csvZipAdvanced { display: block; }
+#csvZipAdvanced summary { cursor: pointer; font-size: 11px; font-weight: 600; color: var(--muted); user-select: none; }
+#csvZipAdvanced .form-grid { margin-top: 6px; }
+
 /* Feature 1: Progress wrap */
 .csv-progress-wrap { margin-top: 8px; }
 

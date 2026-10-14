@@ -38,10 +38,10 @@ export async function typeTagEnabled() {
  */
 export function buildScreenshotFilename(prefix, requestedName, typeTag = '') {
   if (requestedName) {
-    const name = _safeName(requestedName);
+    const name = safeName(requestedName);
     return name.endsWith('.png') ? name : `${name}.png`;
   }
-  return _safeName(`${prefix}${typeTag}_${formatStamp(new Date())}.png`);
+  return safeName(`${prefix}${typeTag}_${formatStamp(new Date())}.png`);
 }
 
 /**
@@ -50,7 +50,7 @@ export function buildScreenshotFilename(prefix, requestedName, typeTag = '') {
  * segment or a leading "/", and any of them fails the whole download. "\" is
  * read as the folder separator a Windows user meant.
  */
-function _safeName(name) {
+export function safeName(name) {
   return String(name)
     .replace(/\\/g, '/')
     .replace(/[<>:"|?*\p{Cc}]/gu, '_')

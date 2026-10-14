@@ -5,11 +5,10 @@
 
 import { formatStamp } from '../../shared/time-format.js';
 import { downloadBlob, downloadCsvText } from '../lib/download.js';
-import { ZipWriter } from '../lib/zip-writer.js';
 import { ui } from '../ui-state.js';
 import { getReadVarNames, showToast } from '../utils.js';
 import { parseCSV } from './csv-parse.js';
-import { generateResultCsv, generateResultHtml, generateResultXlsx } from './result-export.js';
+import { generateResultCsv, generateResultHtml, generateResultXlsx, generateResultZip } from './result-export.js';
 
 /* === CSV DATA-DRIVEN RUN === */
 
@@ -162,19 +161,9 @@ export function initCsvRun() {
             const blob = generateResultXlsx(ui.csvParsed.headers, ui.csvParsed.rows, results, ss, ssVarOrder);
             downloadBlob(blob, `csv_result_${ts}.xlsx`);
           } else if (format === "zip") {
-            const zip = new ZipWriter();
-            const csvText = generateResultCsv(ui.csvParsed.headers, ui.csvParsed.rows, results);
-            zip.add("results.csv", "﻿" + csvText);
-            for (const [key, b64] of Object.entries(ss)) {
-              const colonIdx = key.indexOf(":");
-              const rowNum = String(Number(key.slice(0, colonIdx)) + 1).padStart(2, "0");
-              const varName = key.slice(colonIdx + 1);
-              const binary = atob(b64);
-              const bytes = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              zip.add(`row_${rowNum}/${varName}.png`, bytes);
-            }
-            downloadBlob(zip.build("application/zip"), `csv_screenshots_${ts}.zip`);
+            const naming = { folderName: document.getElementById("csvZipFolderName")?.value || "" };
+            const blob = generateResultZip(ui.csvParsed.headers, ui.csvParsed.rows, results, ss, naming);
+            downloadBlob(blob, `csv_screenshots_${ts}.zip`);
           }
           showToast("Downloaded — results still available for re-download", "success");
         });

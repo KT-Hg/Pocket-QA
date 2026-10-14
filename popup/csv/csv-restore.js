@@ -1,6 +1,6 @@
 /**
- * csv/csv-restore.js — on popup open: the chosen export format and a CSV session
- * that is still running or finished.
+ * csv/csv-restore.js — on popup open: the chosen export format, the ZIP's naming
+ * and a CSV session that is still running or finished.
  */
 
 import { setCardOpen } from '../ui/collapsible.js';
@@ -9,11 +9,17 @@ import { updateCsvBadges } from './csv-run.js';
 import { setCsvState, startCsvPoll } from './csv-state.js';
 
 export function initCsvRestore() {
-  /* === Restore export format selection on every popup open === */
-  chrome.storage.local.get(["csvExportFormat"], (stored) => {
+  /* === Restore export format selection and ZIP naming on every popup open === */
+  chrome.storage.local.get(["csvExportFormat", "csvZipFolderName"], (stored) => {
     if (stored.csvExportFormat) {
       const sel = document.getElementById("csvExportFormat");
       if (sel) sel.value = stored.csvExportFormat;
+    }
+    const folderInput = document.getElementById("csvZipFolderName");
+    if (folderInput && stored.csvZipFolderName) {
+      folderInput.value = stored.csvZipFolderName;
+      // A custom name in use is not tucked away in a closed section.
+      document.getElementById("csvZipAdvanced").open = true;
     }
   });
   /* === Restore CSV session when popup reopens during/after a run === */

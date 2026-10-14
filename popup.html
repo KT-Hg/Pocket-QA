@@ -914,6 +914,19 @@
         </div>
       </div>
 
+      <!-- ZIP only (07-switch-loop-csv.css); never locked, so a finished run
+           can be downloaded again under other names -->
+      <details id="csvZipAdvanced">
+        <summary><span class="chev" aria-hidden="true">▸</span>Advanced</summary>
+        <div class="form-grid">
+          <label class="form-label" for="csvZipFolderName">Folder name</label>
+          <div>
+            <input id="csvZipFolderName" placeholder="row_01" spellcheck="false" autocomplete="off" />
+            <span class="form-hint">Empty = row_01. ${column} from the CSV, e.g. abc ${name}</span>
+          </div>
+        </div>
+      </details>
+
       <!-- Status text: idle messages / run summary -->
       <div id="csvStatus" style="font-size:12px; color:var(--muted); margin-top:4px;"></div>
 
