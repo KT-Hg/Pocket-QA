@@ -188,6 +188,9 @@ export function initCsvState() {
   document.getElementById("csvZipFolderName")?.addEventListener("input", (e) => {
     chrome.storage.local.set({ csvZipFolderName: e.target.value });
   });
+  document.getElementById("csvZipRowNumber")?.addEventListener("change", (e) => {
+    chrome.storage.local.set({ csvZipRowNumber: e.target.checked });
+  });
   // Show format-locked warning when user clicks the format area while in done state
   // pointer-events:none on the select lets clicks fall through to this parent div
   document.getElementById("csvFormatRow")?.addEventListener("click", () => {

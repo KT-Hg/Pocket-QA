@@ -130,7 +130,8 @@
  *                 sleeps after 30 s with nothing to do) still records that action
  *   csv-zip-advanced  the CSV card's Advanced section (ZIP folder name) shows only
  *                 while ZIP is chosen, also when code sets the format; a saved
- *                 folder name comes back in a new popup with the section open
+ *                 folder name and Add row number come back in a new popup, the
+ *                 section open
  *
  * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed] [--cases <a,b>]
  *        --cases runs only those cases of export-run (and its fails-at-step check when named).
@@ -2604,7 +2605,8 @@ async function checkRecordRestart(ctx) {
 async function checkCsvZipAdvanced(ctx) {
   const state = `(() => { const d = document.getElementById('csvZipAdvanced');
     document.getElementById('csvRunCard').classList.remove('collapsed');
-    return { shown: getComputedStyle(d).display !== 'none', open: d.open, name: document.getElementById('csvZipFolderName').value }; })()`;
+    return { shown: getComputedStyle(d).display !== 'none', open: d.open, name: document.getElementById('csvZipFolderName').value,
+      rowNumber: document.getElementById('csvZipRowNumber').checked }; })()`;
   const reopen = async (stored) => {
     await ctx.ext.evaluate(`chrome.storage.local.set(${JSON.stringify(stored)})`);
     const popup = await openPopup(ctx);
@@ -2619,17 +2621,19 @@ async function checkCsvZipAdvanced(ctx) {
   s = await popup.evaluate(state);
   check(s.shown && !s.open, 'ZIP chosen: Advanced shows, closed', s);
   await popup.close();
-  ({ popup, s } = await reopen({ csvExportFormat: 'zip', csvZipFolderName: 'abc ${name}' }));
-  check(s.shown && s.open && s.name === 'abc ${name}', 'reopened on ZIP with a saved folder name: shown, open, name kept', s);
-  await popup.evaluate(`(() => { const i = document.getElementById('csvZipFolderName'); i.value = 'x \${id}'; i.dispatchEvent(new Event('input')); })()`);
+  ({ popup, s } = await reopen({ csvExportFormat: 'zip', csvZipFolderName: 'abc ${name}', csvZipRowNumber: true }));
+  check(s.shown && s.open && s.name === 'abc ${name}' && s.rowNumber,
+    'reopened on ZIP with a saved folder name: shown, open, name and Add row number kept', s);
+  await popup.evaluate(`(() => { const i = document.getElementById('csvZipFolderName'); i.value = 'x \${id}'; i.dispatchEvent(new Event('input'));
+    document.getElementById('csvZipRowNumber').click(); })()`);
   await sleep(SETTLE_MS);
-  const saved = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('csvZipFolderName', (s) => r(s.csvZipFolderName)))`);
-  check(saved === 'x ${id}', 'a typed folder name is saved', saved);
+  const saved = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get(['csvZipFolderName', 'csvZipRowNumber'], r))`);
+  check(saved.csvZipFolderName === 'x ${id}' && saved.csvZipRowNumber === false, 'a typed folder name and the checkbox are saved', saved);
   await popup.close();
   ({ popup, s } = await reopen({ csvExportFormat: 'xlsx' }));
   check(!s.shown, 'reopened on XLSX: hidden again', s);
   await popup.close();
-  await ctx.ext.evaluate(`chrome.storage.local.remove(['csvExportFormat', 'csvZipFolderName'])`);
+  await ctx.ext.evaluate(`chrome.storage.local.remove(['csvExportFormat', 'csvZipFolderName', 'csvZipRowNumber'])`);
 }
 
 const CHECKS = [

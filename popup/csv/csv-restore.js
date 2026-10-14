@@ -10,11 +10,13 @@ import { setCsvState, startCsvPoll } from './csv-state.js';
 
 export function initCsvRestore() {
   /* === Restore export format selection and ZIP naming on every popup open === */
-  chrome.storage.local.get(["csvExportFormat", "csvZipFolderName"], (stored) => {
+  chrome.storage.local.get(["csvExportFormat", "csvZipFolderName", "csvZipRowNumber"], (stored) => {
     if (stored.csvExportFormat) {
       const sel = document.getElementById("csvExportFormat");
       if (sel) sel.value = stored.csvExportFormat;
     }
+    const rowNumber = document.getElementById("csvZipRowNumber");
+    if (rowNumber) rowNumber.checked = !!stored.csvZipRowNumber;
     const folderInput = document.getElementById("csvZipFolderName");
     if (folderInput && stored.csvZipFolderName) {
       folderInput.value = stored.csvZipFolderName;

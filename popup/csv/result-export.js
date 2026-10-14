@@ -287,11 +287,13 @@ ${imgRels.join('\n')}</Relationships>` : '';
 
 const _rowNum = (rowIndex) => String(rowIndex + 1).padStart(2, '0');
 
-// A row's folder: the template with the row's values, or row_NN when that comes
-// out empty. Windows refuses a folder name that ends in "." or a space.
-function _folderName(template, vars, rowIndex) {
+// A row's folder: the template with the row's values (+ _NN with `rowNumber`), or
+// row_NN when that comes out empty. Windows refuses a folder name that ends in "."
+// or a space.
+function _folderName(template, vars, rowIndex, rowNumber) {
   const name = template && safeName(applyVars(template, vars)).replace(/\//g, '_').replace(/[. ]+$/, '');
-  return name || `row_${_rowNum(rowIndex)}`;
+  if (!name) return `row_${_rowNum(rowIndex)}`;
+  return rowNumber ? `${name}_${_rowNum(rowIndex)}` : name;
 }
 
 // `base`, else base_2, base_3 … — the first name `used` does not hold yet. Case is
@@ -306,10 +308,11 @@ function _unique(used, base) {
 /**
  * The screenshot files of the ZIP export as [path, base64] pairs, in the order the
  * screenshots come. Each row is one folder: row_NN, or `folderName` with ${column}
- * filled in from that row (a variable the run wrote wins over the CSV column). Two
- * rows that land on one name get _2, _3 … in row order.
+ * filled in from that row (a variable the run wrote wins over the CSV column) and,
+ * with `rowNumber`, the row's number in the CSV after it (abc john_01). Two rows
+ * that land on one name get _2, _3 … in row order.
  */
-export function zipEntries(rows, results, screenshots, { folderName = '' } = {}) {
+export function zipEntries(rows, results, screenshots, { folderName = '', rowNumber = false } = {}) {
   const ss = screenshots || {};
   const template = folderName.trim();
   const rowOf = (key) => Number(key.slice(0, key.indexOf(':')));
@@ -318,7 +321,7 @@ export function zipEntries(rows, results, screenshots, { folderName = '' } = {})
   const indexes = [...new Set([...byRow.keys(), ...Object.keys(ss).map(rowOf)])].sort((a, b) => a - b);
   const used = new Set();
   const folders = new Map(indexes.map((i) =>
-    [i, _unique(used, _folderName(template, { ...rows[i], ...byRow.get(i)?.vars }, i))]));
+    [i, _unique(used, _folderName(template, { ...rows[i], ...byRow.get(i)?.vars }, i, rowNumber))]));
   return Object.entries(ss).map(([key, b64]) =>
     [`${folders.get(rowOf(key))}/${key.slice(key.indexOf(':') + 1)}.png`, b64]);
 }

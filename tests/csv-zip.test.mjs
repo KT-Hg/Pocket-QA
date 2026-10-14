@@ -63,7 +63,19 @@ test('duplicates resolve in row order, not in the IndexedDB key order ("10:" bef
   assert.equal(got[keys.indexOf('10:shot')], 'dup_2/shot.png');
 });
 
-test('generateResultZip: results.csv with a BOM, then the screenshots, as a ZIP blob', async () => {
+test('Add row number: the row\'s number in the CSV after the name', () => {
+  const { rows, results, ss } = run(['john', 'kate', 'john']);
+  assert.deepEqual(paths(rows, results, ss, { folderName: 'abc ${name}', rowNumber: true }),
+    ['abc john_01/shot.png', 'abc kate_02/shot.png', 'abc john_03/shot.png']);
+});
+
+test('Add row number with no template, or an empty name: plain row_NN, no second number', () => {
+  const { rows, results, ss } = run(['john', 'kate', '']);
+  assert.deepEqual(paths(rows, results, ss, { folderName: '', rowNumber: true }), ['row_01/shot.png', 'row_02/shot.png', 'row_03/shot.png']);
+  assert.deepEqual(paths(rows, results, ss, { folderName: '${name}', rowNumber: true }), ['john_01/shot.png', 'kate_02/shot.png', 'row_03/shot.png']);
+});
+
+test('generateResultZip:results.csv with a BOM, then the screenshots, as a ZIP blob', async () => {
   const { rows, results, ss } = run(['john', 'kate']);
   const blob = generateResultZip(['name'], rows, results, ss, { folderName: 'u ${name}' });
   assert.equal(blob.type, 'application/zip');

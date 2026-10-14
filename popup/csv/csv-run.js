@@ -161,7 +161,10 @@ export function initCsvRun() {
             const blob = generateResultXlsx(ui.csvParsed.headers, ui.csvParsed.rows, results, ss, ssVarOrder);
             downloadBlob(blob, `csv_result_${ts}.xlsx`);
           } else if (format === "zip") {
-            const naming = { folderName: document.getElementById("csvZipFolderName")?.value || "" };
+            const naming = {
+              folderName: document.getElementById("csvZipFolderName")?.value || "",
+              rowNumber: !!document.getElementById("csvZipRowNumber")?.checked,
+            };
             const blob = generateResultZip(ui.csvParsed.headers, ui.csvParsed.rows, results, ss, naming);
             downloadBlob(blob, `csv_screenshots_${ts}.zip`);
           }
