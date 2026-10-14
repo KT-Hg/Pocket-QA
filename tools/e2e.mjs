@@ -2636,6 +2636,57 @@ async function checkCsvZipAdvanced(ctx) {
   await ctx.ext.evaluate(`chrome.storage.local.remove(['csvExportFormat', 'csvZipFolderName', 'csvZipRowNumber'])`);
 }
 
+/** The file names inside a ZIP, from its central directory. */
+function zipNames(file) {
+  const b = readFileSync(file);
+  const eocd = b.length - 22; // the ZIP export writes no archive comment
+  const names = [];
+  for (let off = b.readUInt32LE(eocd + 16), n = b.readUInt16LE(eocd + 10); n > 0; n--) {
+    const len = b.readUInt16LE(off + 28);
+    names.push(b.toString('utf8', off + 46, off + 46 + len));
+    off += 46 + len + b.readUInt16LE(off + 30) + b.readUInt16LE(off + 32);
+  }
+  return names;
+}
+
+async function checkCsvZipRun(ctx) {
+  await reloadTestPage(ctx);
+  const rows = [{ name: 'john' }, { name: 'kate' }, { name: 'john' }];
+  const id = await makeScenario(ctx, 'e2e csv zip', [{ type: 'screenshot_tovar', target: 'visible', varName: 'shot', delay: 0 }]);
+  await ctx.ext.evaluate(`chrome.storage.local.set(${JSON.stringify({
+    csvSessionData: { headers: ['name'], rows }, csvExportFormat: 'zip', csvZipFolderName: 'abc ${name}', csvZipRowNumber: false })})`);
+  await ctx.web.bringToFront();
+  await ctx.send({ type: 'START_CSV_PLAYBACK', scenarioId: id, rows, delayBetween: 100, exportFormat: 'zip' });
+  await sleep(SETTLE_MS);
+  for (let waited = 0; waited < PLAY_TIMEOUT_MS && (await ctx.send({ type: 'GET_CSV_STATUS' }))?.active; waited += POLL_MS) await sleep(POLL_MS);
+  const popup = await openPopup(ctx);
+  // Each Download click: the ZIP that appears in the download folder, as entry names.
+  const download = async () => {
+    const zips = () => readdirSync(ctx.browser.downloadDir).filter((f) => f.endsWith('.zip'));
+    const before = new Set(zips());
+    await popup.evaluate(`document.getElementById('csvDownloadResult').click()`);
+    for (let waited = 0; waited < PLAY_TIMEOUT_MS; waited += POLL_MS) {
+      const added = zips().find((f) => !before.has(f));
+      if (added) { await sleep(SETTLE_MS); return zipNames(join(ctx.browser.downloadDir, added)); }
+      await sleep(POLL_MS);
+    }
+    return null;
+  };
+  try {
+    const named = await download();
+    check(JSON.stringify(named) === JSON.stringify(['results.csv', 'abc john/shot.png', 'abc kate/shot.png', 'abc john_2/shot.png']),
+      'ZIP named "abc ${name}": abc john, abc kate, abc john_2', named);
+    await popup.evaluate(`document.getElementById('csvZipRowNumber').click()`);
+    const numbered = await download();
+    check(JSON.stringify(numbered) === JSON.stringify(['results.csv', 'abc john_01/shot.png', 'abc kate_02/shot.png', 'abc john_03/shot.png']),
+      'with Add row number: abc john_01, abc kate_02, abc john_03 — downloaded again, no new run', numbered);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await popup.close();
+    await ctx.ext.evaluate(`chrome.storage.local.remove(['csvSessionData', 'csvExportFormat', 'csvZipFolderName', 'csvZipRowNumber'])`);
+  }
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -2683,6 +2734,7 @@ const CHECKS = [
   ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
   ['record-restart', 'A recording across a worker restart', checkRecordRestart],
   ['csv-zip-advanced', 'The ZIP\'s Advanced section in the CSV card', checkCsvZipAdvanced],
+  ['csv-zip-run', 'A CSV run downloaded as a ZIP with named folders', checkCsvZipRun],
 ];
 
 async function main() {
