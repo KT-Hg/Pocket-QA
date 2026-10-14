@@ -26,9 +26,13 @@ export async function runElementScreenshot(ctx, i, action) {
   return i;
 }
 
-/** Screenshot → variable (CSV mode). */
+/**
+ * Screenshot → variable (CSV mode). Its Filename (`value`, variables already
+ * filled in) only names the image in a CSV run's ZIP export: it is noted in
+ * ctx.screenshotNames, never used for the download.
+ */
 export async function runScreenshotToVar(ctx, i, action) {
-  const { tabId, fail, forceAutoSave, skipDownload, getSsSettings: _getSsSettings, resolvedVars, screenshotsResult } = ctx;
+  const { tabId, fail, forceAutoSave, skipDownload, getSsSettings: _getSsSettings, resolvedVars, screenshotsResult, screenshotNames } = ctx;
   const settings = await _getSsSettings();
   try {
     const saveMode = forceAutoSave ? 'auto' : (settings.screenshotSaveMode || 'auto');
@@ -54,6 +58,7 @@ export async function runScreenshotToVar(ctx, i, action) {
     if (res && ssVar) {
       resolvedVars[ssVar] = res.filename || '';
       if (screenshotsResult && res.base64) screenshotsResult[ssVar] = res.base64;
+      if (screenshotNames && action.value) screenshotNames[ssVar] = action.value;
     }
   } catch (e) {
     console.error('[PLAYBACK] screenshot_tovar failed:', e);

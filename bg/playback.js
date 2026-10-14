@@ -125,10 +125,13 @@ function _saveCheckpoint(frames, tabId) {
  * the caller moves on to the block's continueAt (see shared/switch-blocks.js).
  * `strict`: "Click through" is off for the scenario the actions belong to
  * (scenario.clickThrough === false) — see steps/click-through.js.
+ * `screenshotNames`: a CSV row's { varName: Filename } of its Screenshot →
+ * Variable steps, the names their images get in the ZIP export.
  */
 export async function playActionsOnTab(tabId, actions, {
   vars = null, screenshotsResult = null, forceAutoSave = false, skipDownload = false,
   startFromIndex = 0, failedActions = null, depth = 0, endAtIndex = null, frames = null, strict = false,
+  screenshotNames = null,
 } = {}) {
   if (depth > 10) {
     console.error('[PLAYBACK] Max switch/nested-scenario depth (10) exceeded — aborting branch');
@@ -147,7 +150,7 @@ export async function playActionsOnTab(tabId, actions, {
   // The run, as every step sees it (bg/playback/steps/). tabClosed and selfJumps
   // (Switch → "this scenario" hops taken in this run) change as it goes.
   const ctx = {
-    tabId, actions, resolvedVars, screenshotsResult, forceAutoSave, skipDownload,
+    tabId, actions, resolvedVars, screenshotsResult, screenshotNames, forceAutoSave, skipDownload,
     tabClosed: false, selfJumps: 0, strict,
   };
   const _onTabRemoved = (removedTabId) => {
@@ -182,11 +185,12 @@ export async function playActionsOnTab(tabId, actions, {
   Object.assign(ctx, {
     layout: _layout, fail, stickFallbacks: _stickFallbacks, getSsSettings: _getSsSettings,
     // A Switch case played as a run of its own, one level deeper. It shares this
-    // run's screenshots, save options and failure list; its variables are a copy.
+    // run's screenshots (and their names), save options and failure list; its
+    // variables are a copy.
     // `other`: the case plays another scenario — { scenarioId } for a new
     // checkpoint frame, and its own "Click through" (`strict`), which then applies.
     playNested: (acts, nestedVars, start, end, other = null) => playActionsOnTab(tabId, acts, {
-      vars: nestedVars, screenshotsResult, forceAutoSave, skipDownload, startFromIndex: start,
+      vars: nestedVars, screenshotsResult, screenshotNames, forceAutoSave, skipDownload, startFromIndex: start,
       failedActions, depth: depth + 1, endAtIndex: end, strict: other ? other.strict : strict,
       frames: other ? [..._frames, { scenarioId: other.scenarioId, actionIndex: start, endAtIndex: end }] : _frames,
     }),
@@ -663,10 +667,11 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
         actionIndex: 0, totalActions: actions.length,
       };
       const screenshotsResult = {};
+      const screenshotNames   = {};
       const failedActions     = [];
       const finalVars = await playActionsOnTab(
         tabId, actions, {
-          vars: rowVars, screenshotsResult, forceAutoSave: true, skipDownload, startFromIndex: 0,
+          vars: rowVars, screenshotsResult, screenshotNames, forceAutoSave: true, skipDownload, startFromIndex: 0,
           failedActions, strict: scenario.clickThrough === false,
         },
       );
@@ -692,7 +697,11 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
         if (k in filteredVarsRaw) filteredVars[k] = filteredVarsRaw[k];
       }
 
-      await csvResultWrite(i, { rowIndex: i, vars: filteredVars, failures: failedActions });
+      // ssNames only when a Screenshot → Variable has a Filename, so a row without
+      // one is recorded exactly as before.
+      const rowResult = { rowIndex: i, vars: filteredVars, failures: failedActions };
+      if (Object.keys(screenshotNames).length) rowResult.ssNames = screenshotNames;
+      await csvResultWrite(i, rowResult);
 
       for (const [vn, b64] of Object.entries(screenshotsResult)) {
         await ssWrite(i, vn, b64);

@@ -8,7 +8,7 @@
  */
 
 import { applyVars } from '../../bg/interpolate.js';
-import { safeName } from '../../bg/screenshot/filename.js';
+import { buildScreenshotFilename, safeName } from '../../bg/screenshot/filename.js';
 import { ZipWriter } from '../lib/zip-writer.js';
 
 function _b64Bytes(b64) {
@@ -310,7 +310,10 @@ function _unique(used, base) {
  * screenshots come. Each row is one folder: row_NN, or `folderName` with ${column}
  * filled in from that row (a variable the run wrote wins over the CSV column) and,
  * with `rowNumber`, the row's number in the CSV after it (abc john_01). Two rows
- * that land on one name get _2, _3 … in row order.
+ * that land on one name get _2, _3 … in row order. An image is named by its
+ * Screenshot → Variable's Filename as the row filled it in (result.ssNames; "a/b"
+ * makes a subfolder, as for a screenshot's Filename), else by its variable; two
+ * images on one name in a folder get _2 too.
  */
 export function zipEntries(rows, results, screenshots, { folderName = '', rowNumber = false } = {}) {
   const ss = screenshots || {};
@@ -322,8 +325,14 @@ export function zipEntries(rows, results, screenshots, { folderName = '', rowNum
   const used = new Set();
   const folders = new Map(indexes.map((i) =>
     [i, _unique(used, _folderName(template, { ...rows[i], ...byRow.get(i)?.vars }, i, rowNumber))]));
-  return Object.entries(ss).map(([key, b64]) =>
-    [`${folders.get(rowOf(key))}/${key.slice(key.indexOf(':') + 1)}.png`, b64]);
+  const filesIn = new Map(indexes.map((i) => [i, new Set()]));
+  return Object.entries(ss).map(([key, b64]) => {
+    const i = rowOf(key);
+    const vn = key.slice(key.indexOf(':') + 1);
+    const named = byRow.get(i)?.ssNames?.[vn];
+    const file = named ? buildScreenshotFilename('', named) : `${vn}.png`;
+    return [`${folders.get(i)}/${_unique(filesIn.get(i), file.slice(0, -4))}.png`, b64];
+  });
 }
 
 // ZIP export — results.csv (with a BOM, so Excel reads it as UTF-8) and zipEntries.

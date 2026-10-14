@@ -75,7 +75,24 @@ test('Add row number with no template, or an empty name: plain row_NN, no second
   assert.deepEqual(paths(rows, results, ss, { folderName: '${name}', rowNumber: true }), ['john_01/shot.png', 'kate_02/shot.png', 'row_03/shot.png']);
 });
 
-test('generateResultZip:results.csv with a BOM, then the screenshots, as a ZIP blob', async () => {
+test('a Screenshot → Variable Filename (ssNames) names the image like a screenshot Filename', () => {
+  const ss = { '0:shot': PNG, '0:sub': PNG, '0:plain': PNG, '0:bad': PNG, '0:png': PNG, '1:shot': PNG };
+  const results = [
+    { ...result(0), ssNames: { shot: 'alice_login', sub: 'sub/alice', bad: 'a:b?', png: 'done.png' } },
+    result(1), // no Filename used in this row
+  ];
+  assert.deepEqual(paths([{ name: 'alice' }, { name: 'bob' }], results, ss), [
+    'row_01/alice_login.png', 'row_01/sub/alice.png', 'row_01/plain.png', 'row_01/a_b_.png', 'row_01/done.png', 'row_02/shot.png',
+  ]);
+});
+
+test('two images on one name in a folder: _2, case ignored', () => {
+  const ss = { '0:a': PNG, '0:b': PNG, '0:c': PNG };
+  const results = [{ ...result(0), ssNames: { a: 'Same', b: 'same', c: 'same_2' } }];
+  assert.deepEqual(paths([], results, ss), ['row_01/Same.png', 'row_01/same_2.png', 'row_01/same_2_2.png']);
+});
+
+test('generateResultZip: results.csv with a BOM, then the screenshots, as a ZIP blob', async () => {
   const { rows, results, ss } = run(['john', 'kate']);
   const blob = generateResultZip(['name'], rows, results, ss, { folderName: 'u ${name}' });
   assert.equal(blob.type, 'application/zip');
