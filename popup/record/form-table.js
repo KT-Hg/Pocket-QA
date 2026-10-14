@@ -30,6 +30,7 @@ export const VALUE_BOX = new Map([
   ["screenshot",         FILENAME_BOX],
   ["screenshot_full",    FILENAME_BOX],
   ["screenshot_element", FILENAME_BOX],
+  ["screenshot_tovar",   { prop: "value", kind: "file", placeholder: "e.g. ${username}_login — name in the ZIP export; empty = variable name" }],
 ]);
 
 /** One-line kinds: Enter and pasted line breaks never get into them. */

@@ -648,6 +648,7 @@ const roundtripFixtures = (otherId) => [
   { type: 'screenshot_full', delay: 500 },
   { type: 'screenshot_element', selector: '#go', selectors: ROUNDTRIP_LOCATORS, value: 'go.png', delay: 500 },
   { type: 'screenshot_tovar', varName: 'shot', target: 'element', selector: '#go', selectors: ROUNDTRIP_LOCATORS, delay: 500 },
+  { type: 'screenshot_tovar', varName: 'named', target: 'page', value: 'sub/${user}_login', delay: 500 },
   { type: 'readdom', selector: '#title', selectors: { css: '#title' }, varName: 'title', readFrom: 'text', delay: 500 },
   { type: 'readdom', selector: '#title', selectors: { css: '#title' }, pattern: 'Hello ${who}!', matchCase: true, readFrom: 'text', delay: 500 },
   { type: 'readdom', selector: '#link', selectors: { css: '#link' }, varName: 'href', readFrom: 'attr', attrName: 'href', delay: 500 },
@@ -2652,7 +2653,11 @@ function zipNames(file) {
 async function checkCsvZipRun(ctx) {
   await reloadTestPage(ctx);
   const rows = [{ name: 'john' }, { name: 'kate' }, { name: 'john' }];
-  const id = await makeScenario(ctx, 'e2e csv zip', [{ type: 'screenshot_tovar', target: 'visible', varName: 'shot', delay: 0 }]);
+  // Two Screenshot → Variable: one with a Filename, which only the ZIP uses.
+  const id = await makeScenario(ctx, 'e2e csv zip', [
+    { type: 'screenshot_tovar', target: 'page', varName: 'after', value: '${name}_after', delay: 0 },
+    { type: 'screenshot_tovar', target: 'page', varName: 'shot', delay: 0 },
+  ]);
   await ctx.ext.evaluate(`chrome.storage.local.set(${JSON.stringify({
     csvSessionData: { headers: ['name'], rows }, csvExportFormat: 'zip', csvZipFolderName: 'abc ${name}', csvZipRowNumber: false })})`);
   await ctx.web.bringToFront();
@@ -2660,26 +2665,34 @@ async function checkCsvZipRun(ctx) {
   await sleep(SETTLE_MS);
   for (let waited = 0; waited < PLAY_TIMEOUT_MS && (await ctx.send({ type: 'GET_CSV_STATUS' }))?.active; waited += POLL_MS) await sleep(POLL_MS);
   const popup = await openPopup(ctx);
-  // Each Download click: the ZIP that appears in the download folder, as entry names.
-  const download = async () => {
-    const zips = () => readdirSync(ctx.browser.downloadDir).filter((f) => f.endsWith('.zip'));
-    const before = new Set(zips());
-    await popup.evaluate(`document.getElementById('csvDownloadResult').click()`);
+  // Each Download click (in `format`; the select is locked, code can still set it):
+  // the path of the file that appears in the download folder.
+  const download = async (format) => {
+    const files = () => readdirSync(ctx.browser.downloadDir).filter((f) => f.endsWith(`.${format}`));
+    const before = new Set(files());
+    await popup.evaluate(`document.getElementById('csvExportFormat').value = '${format}'; document.getElementById('csvDownloadResult').click()`);
     for (let waited = 0; waited < PLAY_TIMEOUT_MS; waited += POLL_MS) {
-      const added = zips().find((f) => !before.has(f));
-      if (added) { await sleep(SETTLE_MS); return zipNames(join(ctx.browser.downloadDir, added)); }
+      const added = files().find((f) => !before.has(f));
+      if (added) { await sleep(SETTLE_MS); return join(ctx.browser.downloadDir, added); }
       await sleep(POLL_MS);
     }
-    return null;
+    throw new Error(`no .${format} downloaded`);
   };
+  const entries = (folders) => ['results.csv', ...folders.flatMap((f, i) => [`${f}/${rows[i].name}_after.png`, `${f}/shot.png`])];
   try {
-    const named = await download();
-    check(JSON.stringify(named) === JSON.stringify(['results.csv', 'abc john/shot.png', 'abc kate/shot.png', 'abc john_2/shot.png']),
-      'ZIP named "abc ${name}": abc john, abc kate, abc john_2', named);
+    const named = zipNames(await download('zip'));
+    check(JSON.stringify(named) === JSON.stringify(entries(['abc john', 'abc kate', 'abc john_2'])),
+      'ZIP named "abc ${name}": abc john, abc kate, abc john_2; the Filename ${name}_after names its image', named);
     await popup.evaluate(`document.getElementById('csvZipRowNumber').click()`);
-    const numbered = await download();
-    check(JSON.stringify(numbered) === JSON.stringify(['results.csv', 'abc john_01/shot.png', 'abc kate_02/shot.png', 'abc john_03/shot.png']),
+    const numbered = zipNames(await download('zip'));
+    check(JSON.stringify(numbered) === JSON.stringify(entries(['abc john_01', 'abc kate_02', 'abc john_03'])),
       'with Add row number: abc john_01, abc kate_02, abc john_03 — downloaded again, no new run', numbered);
+    // HTML and XLSX: the variables' columns and images as before; the Filename is nowhere.
+    const html = readFileSync(await download('html'), 'utf8');
+    const xlsx = readFileSync(await download('xlsx')).toString('latin1');
+    check(/<th[^>]*>after<\/th>/.test(html) && (html.match(/<img /g) || []).length === 6 && !html.includes('_after')
+      && xlsx.includes('xl/media/image6.png') && !xlsx.includes('_after'),
+    'HTML / XLSX: one column per variable, six images, no Filename', { imgs: (html.match(/<img /g) || []).length });
     if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   } finally {
     await popup.close();

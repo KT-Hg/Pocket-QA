@@ -61,10 +61,11 @@ const _VALUE_LABEL_TEXTS = {
   screenshot:         'Filename',
   screenshot_full:    'Filename',
   screenshot_element: 'Filename',
+  screenshot_tovar:   'Filename',
 };
 
 // A screenshot's filename may be left empty; every other Value is the action's own.
-const _OPTIONAL_VALUE_TYPES = new Set(['screenshot', 'screenshot_full', 'screenshot_element']);
+const _OPTIONAL_VALUE_TYPES = new Set(['screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar']);
 
 /** Grey, and under the divider: Label, Delay (except a Wait's, which is the action), a screenshot's filename. */
 function _isOptionalStep(labelId, type) {
