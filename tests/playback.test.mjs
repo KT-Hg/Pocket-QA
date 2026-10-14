@@ -766,6 +766,30 @@ test('with Click through off, a CDP step fails on an element a user could not re
   assert.ok(!upload.some((c) => c.includes('DOM.setFileInputFiles')));
 });
 
+// A Screenshot → Variable's Filename, filled in per row, is kept with the row's
+// result (ssNames) for the ZIP export — also in a scenario a Switch goes into.
+// A screenshot without one, or a row where it comes out empty, keeps no name.
+await run('csv: screenshot filename', () => startCsvPlayback('sCsvNamed', [{ user: 'bob' }, { user: 'carol' }], 0, 'zip'), {
+  setup: () => {
+    Object.assign(fake.data.local.scenarios, {
+      sCsvNamed: { name: 'Named', actions: [
+        { type: 'screenshot_tovar', varName: 'shot', value: '${user}_login' },
+        { type: 'screenshot_tovar', varName: 'sub', value: 'sub/${user}' },
+        { type: 'screenshot_tovar', varName: 'plain' },
+        { type: 'switch', switchVar: '${user}', cases: [{ value: 'bob', scenarioId: 'csvNamedNested' }] },
+      ] },
+      csvNamedNested: { name: 'Named nested', actions: [{ type: 'screenshot_tovar', varName: 'inner', value: '${user}_inner' }] },
+    });
+  },
+});
+const namedResults = [...idb.stores.results.values()].map((r) => ({ rowIndex: r.rowIndex, ssNames: r.ssNames }));
+test('a CSV row keeps the Filename of each Screenshot → Variable, filled in, nested ones too', () => {
+  assert.deepEqual(namedResults, [
+    { rowIndex: 0, ssNames: { shot: 'bob_login', sub: 'sub/bob', inner: 'bob_inner' } },
+    { rowIndex: 1, ssNames: { shot: 'carol_login', sub: 'sub/carol' } },
+  ]);
+});
+
 test('a resumed run saves screenshots with the save mode set now', () => {
   const saveAs = (step) => _callsOf(step).filter((c) => c.startsWith('downloads.download')).map((c) => /"saveAs":(true|false)/.exec(c)?.[1]);
   assert.deepEqual(saveAs('screenshot settings: a run with Save As'), ['true']);
