@@ -294,6 +294,10 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
   const scenarios = await getScenarios();
   const scenario  = scenarios[scenarioId];
   if (!scenario) return;
+  // A session of its own: the run it picks up from closed (and rolled back) its
+  // session when it ended, which is why the resume was offered at all.
+  const dbGuard = await beginDbGuard(`${scenario.name || scenarioId} · resume`);
+  if (dbGuard && dbGuard.refused) return;
   const actions = scenario.actions || [];
   state.playback = {
     active: true, tabId, scenarioId, scenarioName: scenario.name || scenarioId,
@@ -338,6 +342,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
       'Playback complete',
       `"${scenario.name}" resumed & finished${_failSuffix(failedActions)}`,
     );
+    await endDbGuard(dbGuard);
   }
 }
 
