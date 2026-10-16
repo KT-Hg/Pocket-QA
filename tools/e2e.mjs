@@ -792,6 +792,27 @@ async function checkHighlight(ctx) {
   await setEnabled(true);
   const on = { mark: await markSoon(), engine: await engine() };
   check(on.engine === true && on.mark === 'John', 'turned on, the open page loads it and paints the highlight', on);
+
+  // The edit tooltip (a click on the mark): a colour, a note, then delete — each
+  // an edit the worker applies to the store (HL_EDIT).
+  const stored = () => ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('hl_v1', (x) => r(x.hl_v1?.[${JSON.stringify(url)}] || null)))`);
+  const openEdit = () => ctx.web.evaluate(`document.querySelector('mark[data-hl-id]').click()`);
+  await openEdit();
+  await sleep(SETTLE_MS);
+  await ctx.web.evaluate(`(() => {
+    document.querySelector('[data-hl-ui] button[title="Green"]').click();
+    document.querySelector('[data-hl-ui] textarea').value = 'n1';
+    [...document.querySelectorAll('[data-hl-ui] button')].find((b) => b.textContent === 'Save note').click();
+  })()`);
+  await sleep(SETTLE_MS);
+  const edited = await stored();
+  check(edited?.length === 1 && edited[0].color === 'green' && edited[0].note === 'n1', 'the edit tooltip saves a colour and a note', edited);
+  await openEdit();
+  await sleep(SETTLE_MS);
+  await ctx.web.evaluate(`document.querySelector('[data-hl-ui] button:has(polyline)').click()`);
+  await sleep(SETTLE_MS);
+  const removed = { stored: await stored(), mark: await mark() };
+  check(removed.stored === null && removed.mark === null, 'delete in the tooltip removes it, and the page drops out of the store', removed);
   await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.remove(['hl_v1', 'popupTheme', 'hl_enabled'], r))`);
   await ctx.web.goto(`${ctx.base}/page`);
   await sleep(PAGE_SETTLE_MS);

@@ -14,7 +14,7 @@
 /** Light / dark choice of the popup, shared by every extension page and in-page overlay. */
 export const THEME_KEY = 'popupTheme';
 
-/** Text highlights, keyed by normalized page URL (content.js writes through HL_SAVE_PAGE). */
+/** Text highlights, keyed by normalized page URL (written through the worker's HL_EDIT). */
 export const HIGHLIGHTS_KEY = 'hl_v1';
 
 /** URL patterns that group pages under one highlight key (popup Highlight tab). */

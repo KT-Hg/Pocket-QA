@@ -224,14 +224,14 @@ function _hlGetAll(cb) {
   } catch (_) { /* extension context invalidated: highlights are not restored */ }
 }
 
-// Saved by the worker (HL_SAVE_PAGE), one page at a time: two tabs reading,
-// changing and writing back the whole store at once each wrote their own copy,
-// and one tab's highlights were lost.
-function _hlSavePage(list, cb) {
+// Edits to this page's highlights (shared/highlight-store.js), applied by the
+// worker (HL_EDIT) to the store as it is then: sending the whole list this tab
+// had read lost a highlight another tab on the same page saved meanwhile.
+function _hlEdit(ops, cb) {
   const key = _hlNormalizeUrl(location.href);
   try {
     if (!_hlCtxOk()) { cb?.(); return; }
-    chrome.runtime.sendMessage({ type: 'HL_SAVE_PAGE', url: key, list }, () => {
+    chrome.runtime.sendMessage({ type: 'HL_EDIT', url: key, ops }, () => {
       try {
         void chrome.runtime.lastError;
         safeSend({ type: 'HL_UPDATED', url: key });
@@ -519,10 +519,7 @@ function _hlEditSetColor(color) {
     if (!m.dataset.hlHidden) m.style.setProperty('background-color', _hlBg(color), 'important');
   });
   _hlSetSwatchSel(color);
-  _hlGetPage(list => {
-    const item = list.find(h => h.id === id);
-    if (item) { item.color = color; _hlSavePage(list); }
-  });
+  _hlEdit([{ op: 'set', id, fields: { color } }]);
 }
 
 function _hlEditSaveNote() {
@@ -530,11 +527,7 @@ function _hlEditSaveNote() {
   const id = _hlTipEditId;
   const note = (_hlNoteInput.value || '').trim();
   _hlApplyNote(id, note);
-  _hlGetPage(list => {
-    const item = list.find(h => h.id === id);
-    if (item) { item.note = note; _hlSavePage(list, () => _hlHideTip()); }
-    else _hlHideTip();
-  });
+  _hlEdit([{ op: 'set', id, fields: { note } }], () => _hlHideTip());
 }
 
 function _hlHideTip() {
@@ -925,13 +918,10 @@ function _hlApply(color) {
 
   window.getSelection().removeAllRanges();
 
-  _hlGetPage(list => {
-    // srcUrl records the real page this highlight was made on. The storage key
-    // may be a URL pattern, so without it a pattern change would orphan the
-    // entry with no way to re-group it. See _hlRegroup.
-    list.push({ id, text, color, note, createdAt: Date.now(), srcUrl: location.href, anchor, parentSel, containerSelectors });
-    _hlSavePage(list);
-  });
+  // srcUrl records the real page this highlight was made on. The storage key
+  // may be a URL pattern, so without it a pattern change would orphan the
+  // entry with no way to re-group it. See hlRegroup (shared/highlight-store.js).
+  _hlEdit([{ op: 'add', item: { id, text, color, note, createdAt: Date.now(), srcUrl: location.href, anchor, parentSel, containerSelectors } }]);
 
   // Keep the tooltip open in edit mode on the highlight just created, so the
   // user can add a note if they want — but leave the note field collapsed until
@@ -1023,7 +1013,7 @@ function _hlRemove(id) {
     p.removeChild(mark);
     p.normalize();
   });
-  _hlGetPage(list => _hlSavePage(list.filter(h => h.id !== id)));
+  _hlEdit([{ op: 'remove', id }]);
 }
 
 // ── Clear page ──
@@ -1035,7 +1025,7 @@ function _hlClear() {
     p.removeChild(m);
   });
   document.body?.normalize();
-  _hlSavePage([]);
+  _hlEdit([{ op: 'clear' }]);
 }
 
 // ── Find a Range for text that may span across element boundaries (e.g. <a> tags) ──
@@ -1170,17 +1160,7 @@ function _hlRestore() {
     // One that just restored here demonstrably belongs to this page, so stamp
     // it — that keeps it re-groupable when patterns change later.
     const orphans = list.filter(h => !h.srcUrl && document.querySelector(`[data-hl-id="${h.id}"]`));
-    if (!orphans.length) return;
-    const ids = new Set(orphans.map(h => h.id));
-    _hlGetPage(fresh => {
-      let changed = false;
-      const next = fresh.map(h => {
-        if (h.srcUrl || !ids.has(h.id)) return h;
-        changed = true;
-        return { ...h, srcUrl: location.href };
-      });
-      if (changed) _hlSavePage(next);
-    });
+    if (orphans.length) _hlEdit(orphans.map(h => ({ op: 'set', id: h.id, fields: { srcUrl: location.href } })));
   });
 }
 

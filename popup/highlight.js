@@ -5,6 +5,7 @@
  */
 
 import { showConfirm, showToast, escHtml } from './utils.js';
+import { hlCanonicalUrl, hlMatchPattern, hlNormalizeUrl as normalizeUrl, hlRegroup } from '../shared/highlight-store.js';
 
 const HL_STORAGE_KEY  = 'hl_v1';
 const HL_PATTERNS_KEY = 'hl_patterns_v1';
@@ -90,71 +91,8 @@ export function initHighlight() {
   let builderSegs             = []; // path segments
   let builderStates           = []; // 'exact' | 'any' | 'end' per path segment
 
-  // ── URL normalisation (mirrors content-highlight.js logic) ──
-  // Supports * in both path segments AND subdomain (e.g. *.myapp.com/path)
-  // A bare #anchor jumps within the same document, so it must not fork the
-  // storage key. A #/route (or #!/route) hash is a router path and does name a
-  // different page, so that one stays part of the key.
-  function hlCanonicalUrl(url) {
-    const s = String(url || '');
-    const i = s.indexOf('#');
-    if (i === -1) return s;
-    const first = s[i + 1];
-    return (first === '/' || first === '!') ? s : s.slice(0, i);
-  }
-
-  function hlMatchPattern(url, pattern) {
-    const strip = s => hlCanonicalUrl(s).replace(/^https?:\/\//, '');
-    const pat = strip(pattern);
-    const u   = strip(url);
-    // A pattern naming no query of its own matches whatever query the URL
-    // carries — /products and /products?page=2 are one page as far as a
-    // grouping rule is concerned.
-    const target = pat.includes('?') ? u : u.split('?')[0];
-    // Escape all regex special chars except *, then convert * → one path segment
-    const escaped = pat
-      .replace(/[.+?^${}()|[\]\\]/g, c => '\\' + c)
-      .replace(/\*/g, '[^/?#]+');
-    try { return new RegExp('^' + escaped + '(/.*)?$').test(target); }
-    catch (_) { return false; }
-  }
-
-  function hlNormalizeUrl(url, list = patterns) {
-    for (const p of list) {
-      if (hlMatchPattern(url, p)) return p;
-    }
-    return hlCanonicalUrl(url);
-  }
-
-  // ── Re-group stored highlights against a pattern list ──
-  // hl_v1 is keyed by the *normalized* URL, so adding or removing a pattern
-  // moves the key every saved page resolves to. Without this, highlights made
-  // on page A vanish the moment a pattern that also covers A is added for
-  // page B — the data stays in storage but under a key nothing reads any more.
-  // Each entry carries srcUrl (the page it was actually made on), so the whole
-  // store can be re-bucketed from scratch. Works for add and remove alike.
-  // Legacy entries with no srcUrl fall back to their current key: correct when
-  // that key is a plain URL, and a no-op when it is a pattern (a pattern always
-  // matches itself), so nothing is ever dropped.
-  function hlRegroup(data, nextPatterns) {
-    const out = {};
-    for (const [key, list] of Object.entries(data || {})) {
-      if (!Array.isArray(list) || !list.length) continue;
-      for (const h of list) {
-        const src = h.srcUrl || key;
-        const newKey = hlNormalizeUrl(src, nextPatterns);
-        (out[newKey] ||= []).push({ ...h, srcUrl: src });
-      }
-    }
-    // Two buckets can merge into one; drop duplicate ids and keep a stable order.
-    for (const key of Object.keys(out)) {
-      const seen = new Set();
-      out[key] = out[key]
-        .filter(h => !seen.has(h.id) && seen.add(h.id))
-        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    }
-    return out;
-  }
+  // The key a URL's highlights go under, with the patterns as last loaded.
+  const hlNormalizeUrl = (url, list = patterns) => normalizeUrl(url, list);
 
   // ── Header / Toggle ──
   function syncToggleUI() {

@@ -1,5 +1,5 @@
 /**
- * handlers/highlight.js — loading the highlight engine into a page, and saving
+ * handlers/highlight.js — loading the highlight engine into a page, and editing
  * a page's text highlights.
  *
  * Each handler is (request, sender, sendResponse) and returns what the
@@ -7,21 +7,9 @@
  */
 
 import { HIGHLIGHTS_KEY, HIGHLIGHT_PATTERNS_KEY } from '../../shared/storage-keys.js';
+import { hlCanonicalUrl, validHighlightOps, applyHighlightOps } from '../../shared/highlight-store.js';
 import { runExclusive } from '../storage.js';
 import { fromExtensionPage } from '../sender.js';
-
-/**
- * The key a page's highlights go under, as content-highlight.js works it out
- * (_hlCanonicalUrl): the URL without its fragment, unless the fragment is a route
- * (#/… or #!…). A copy — that file is a classic script and cannot import it.
- */
-function _canonicalPageUrl(url) {
-  const s = String(url || '');
-  const i = s.indexOf('#');
-  if (i === -1) return s;
-  const first = s[i + 1];
-  return (first === '/' || first === '!') ? s : s.slice(0, i);
-}
 
 export const highlightHandlers = {
   /**
@@ -43,28 +31,27 @@ export const highlightHandlers = {
   },
 
   /**
-   * One page's highlights into the store every page shares. The content script
-   * used to read the whole store, change its page and write it all back; two
-   * tabs doing that at once each wrote their own copy, and one tab's highlights
-   * were lost. Here every save waits for the one before it.
+   * Edits to one page's highlights (shared/highlight-store.js), applied to the
+   * store as it is now and one at a time. Pages and the popup used to send the
+   * whole list they had read; two tabs on one page, or a page saving while the
+   * popup had the store open, each wrote back their own copy and one lost.
    */
-  HL_SAVE_PAGE(request, sender, sendResponse) {
-    const { url, list } = request;
-    if (typeof url !== 'string' || !url || !Array.isArray(list)) {
+  HL_EDIT(request, sender, sendResponse) {
+    const { url, ops } = request;
+    if (typeof url !== 'string' || !url || !validHighlightOps(ops)) {
       sendResponse({ ok: false });
       return;
     }
     runExclusive(async () => {
       // From a web page, only its own highlights: its own URL, or a pattern the
       // user grouped pages under (content-highlight.js _hlNormalizeUrl). A
-      // compromised renderer could otherwise overwrite any page's.
-      if (!fromExtensionPage(sender) && url !== _canonicalPageUrl(sender?.url)) {
+      // compromised renderer could otherwise change any page's.
+      if (!fromExtensionPage(sender) && url !== hlCanonicalUrl(sender?.url)) {
         const patterns = (await chrome.storage.local.get(HIGHLIGHT_PATTERNS_KEY))[HIGHLIGHT_PATTERNS_KEY] || [];
         if (!patterns.includes(url)) { sendResponse({ ok: false }); return; }
       }
       const all = (await chrome.storage.local.get(HIGHLIGHTS_KEY))[HIGHLIGHTS_KEY] || {};
-      all[url] = list;
-      await chrome.storage.local.set({ [HIGHLIGHTS_KEY]: all });
+      await chrome.storage.local.set({ [HIGHLIGHTS_KEY]: applyHighlightOps(all, url, ops) });
       sendResponse({ ok: true });
     });
     return true;

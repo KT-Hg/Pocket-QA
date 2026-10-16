@@ -330,12 +330,16 @@ await send('from a web page: REGISTER_FRAME answered', { type: 'REGISTER_FRAME' 
 const _stepOf = (step) => transcript.find((e) => e.step === step);
 
 // Two pages save their highlights at once (one from a web page's content
-// script): both are kept.
+// script), and a second tab on the first page makes one at the same moment:
+// all three are kept. Whole lists were sent before, and one of the two tabs on
+// the same page lost its highlight.
+const PAGE_SENDER_TAB2 = { ...PAGE_SENDER, tab: { ...PAGE_SENDER.tab, id: 2 } };
 {
   const responses = [];
   const saves = [
-    [{ type: 'HL_SAVE_PAGE', url: 'https://example.com/page', list: [{ id: 'h1', text: 'alpha' }] }, PAGE_SENDER],
-    [{ type: 'HL_SAVE_PAGE', url: 'example.com/b', list: [{ id: 'h2', text: 'beta' }] }, SENDER],
+    [{ type: 'HL_EDIT', url: 'https://example.com/page', ops: [{ op: 'add', item: { id: 'h1', text: 'alpha' } }] }, PAGE_SENDER],
+    [{ type: 'HL_EDIT', url: 'example.com/b', ops: [{ op: 'add', item: { id: 'h2', text: 'beta' } }] }, SENDER],
+    [{ type: 'HL_EDIT', url: 'https://example.com/page', ops: [{ op: 'add', item: { id: 'h1b', text: 'gamma' } }] }, PAGE_SENDER_TAB2],
   ];
   for (const [request, sender] of saves) {
     for (const fn of [...fake.events['runtime.onMessage']]) fn(request, sender, (p) => responses.push(p));
@@ -422,16 +426,27 @@ await send('schedules: a restore arms them', { type: 'RESTORE_ALL_DATA', data: {
   schedules: [{ id: 'scRestored', scenarioId: 's1', time: '05:30', enabled: true, repeat: true }],
 } });
 
-// From a web page, HL_SAVE_PAGE writes the page's own highlights only: its own
+// From a web page, HL_EDIT changes the page's own highlights only: its own
 // URL (fragment dropped unless it is a route), or a pattern the user grouped
 // pages under — not another page's.
-await send('highlights: a web page saves another page', { type: 'HL_SAVE_PAGE', url: 'https://bank.example/', list: [] }, { sender: PAGE_SENDER });
-await send('highlights: a web page saves its own, fragment dropped', { type: 'HL_SAVE_PAGE', url: 'https://example.com/page', list: [{ id: 'h3', text: 'own' }] }, {
+fake.data.local.hl_v1 = { ...fake.data.local.hl_v1, 'https://bank.example/': [{ id: 'b1', text: 'balance' }] };
+await send('highlights: a web page edits another page', { type: 'HL_EDIT', url: 'https://bank.example/', ops: [{ op: 'clear' }] }, { sender: PAGE_SENDER });
+await send('highlights: a web page saves its own, fragment dropped', { type: 'HL_EDIT', url: 'https://example.com/page', ops: [{ op: 'add', item: { id: 'h3', text: 'own' } }] }, {
   sender: { ...PAGE_SENDER, url: 'https://example.com/page#section-2' },
 });
-await send('highlights: a web page saves under a pattern', { type: 'HL_SAVE_PAGE', url: 'example.com/*', list: [{ id: 'h4', text: 'grouped' }] }, {
+await send('highlights: a web page saves under a pattern', { type: 'HL_EDIT', url: 'example.com/*', ops: [{ op: 'add', item: { id: 'h4', text: 'grouped' } }] }, {
   sender: PAGE_SENDER, setup: () => { fake.data.local.hl_patterns_v1 = ['example.com/*']; },
 });
+// An edit HL_EDIT does not know, or a field a `set` may not change, is refused
+// whole: nothing of the message is written.
+const hlBeforeBadEdits = JSON.stringify(fake.data.local.hl_v1);
+await send('highlights: an unknown edit', { type: 'HL_EDIT', url: 'https://example.com/page', ops: [{ op: 'add', item: { id: 'h5', text: 'x' } }, { op: 'replace', list: [] }] }, { sender: PAGE_SENDER });
+await send('highlights: a set of the text', { type: 'HL_EDIT', url: 'https://example.com/page', ops: [{ op: 'set', id: 'h3', fields: { text: 'changed' } }] }, { sender: PAGE_SENDER });
+await send('highlights: no edits', { type: 'HL_EDIT', url: 'https://example.com/page', ops: [] }, { sender: PAGE_SENDER });
+const hlAfterBadEdits = JSON.stringify(fake.data.local.hl_v1);
+// Removing a page's last highlight drops the page from the store.
+await send('highlights: add one', { type: 'HL_EDIT', url: 'https://example.com/gone', ops: [{ op: 'add', item: { id: 'g1', text: 'gone' } }] });
+await send('highlights: remove the last one', { type: 'HL_EDIT', url: 'https://example.com/gone', ops: [{ op: 'remove', id: 'g1' }] });
 
 // With the document Chrome says sent it, the engine goes into that document.
 await send('highlight engine: HL_LOAD from a document', { type: 'HL_LOAD' }, { sender: { ...PAGE_SENDER, frameId: 4, documentId: 'doc-4' } });
@@ -537,10 +552,10 @@ test('a restore arms the schedules it brings back', () => {
   assert.ok(_stepOf('schedules: a restore arms them')?.calls.some((c) => c.startsWith('alarms.create ["sched_scRestored"')));
 });
 test('a web page saves its own highlights only', () => {
-  assert.deepEqual(_stepOf('highlights: a web page saves another page')?.responses, [{ ok: false }]);
+  assert.deepEqual(_stepOf('highlights: a web page edits another page')?.responses, [{ ok: false }]);
   assert.deepEqual(_stepOf('highlights: a web page saves its own, fragment dropped')?.responses, [{ ok: true }]);
   assert.deepEqual(_stepOf('highlights: a web page saves under a pattern')?.responses, [{ ok: true }]);
-  assert.ok(!('https://bank.example/' in fake.data.local.hl_v1));
+  assert.deepEqual(fake.data.local.hl_v1['https://bank.example/'], [{ id: 'b1', text: 'balance' }]);
 });
 test('the highlight engine goes into the document that asked for it', () => {
   const calls = _stepOf('highlight engine: HL_LOAD from a document')?.calls || [];
@@ -559,6 +574,19 @@ test('a schedule with a start URL opens it in a new tab, and plays nothing on th
 });
 test('two pages saving highlights at once both keep them', () => {
   assert.deepEqual(Object.keys(savedHighlights).filter((k) => k.includes('example.com/')).sort(), ['example.com/b', 'https://example.com/page']);
+});
+test('two tabs on one page making highlights at once both keep them', () => {
+  assert.deepEqual(savedHighlights['https://example.com/page'].map((h) => h.id).sort(), ['h1', 'h1b']);
+});
+test('a malformed highlight edit is refused whole', () => {
+  for (const step of ['an unknown edit', 'a set of the text', 'no edits']) {
+    assert.deepEqual(_stepOf(`highlights: ${step}`)?.responses, [{ ok: false }], step);
+  }
+  assert.equal(hlAfterBadEdits, hlBeforeBadEdits);
+});
+test('removing the last highlight of a page drops the page', () => {
+  assert.deepEqual(_stepOf('highlights: remove the last one')?.responses, [{ ok: true }]);
+  assert.ok(!('https://example.com/gone' in fake.data.local.hl_v1));
 });
 test('a web page still gets what its content script sends answered', () => {
   assert.equal(_stepOf('from a web page: REGISTER_FRAME answered')?.responses.length, 1);
