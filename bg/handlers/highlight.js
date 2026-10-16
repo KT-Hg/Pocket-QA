@@ -7,7 +7,7 @@
  */
 
 import { HIGHLIGHTS_KEY, HIGHLIGHT_PATTERNS_KEY } from '../../shared/storage-keys.js';
-import { hlCanonicalUrl, validHighlightOps, applyHighlightOps } from '../../shared/highlight-store.js';
+import { hlCanonicalUrl, hlRegroup, validHighlightOps, applyHighlightOps } from '../../shared/highlight-store.js';
 import { runExclusive } from '../storage.js';
 import { fromExtensionPage } from '../sender.js';
 
@@ -52,6 +52,25 @@ export const highlightHandlers = {
       }
       const all = (await chrome.storage.local.get(HIGHLIGHTS_KEY))[HIGHLIGHTS_KEY] || {};
       await chrome.storage.local.set({ [HIGHLIGHTS_KEY]: applyHighlightOps(all, url, ops) });
+      sendResponse({ ok: true });
+    });
+    return true;
+  },
+
+  /**
+   * New URL patterns, and the store re-grouped under them (hlRegroup), in one
+   * write: the patterns and the keys they make can never disagree. The popup
+   * asks; a web page may not (it is not in the router's CONTENT_SCRIPT_TYPES).
+   */
+  HL_REGROUP(request, sender, sendResponse) {
+    const { patterns } = request;
+    if (!fromExtensionPage(sender) || !Array.isArray(patterns) || !patterns.every((p) => typeof p === 'string')) {
+      sendResponse({ ok: false });
+      return;
+    }
+    runExclusive(async () => {
+      const all = (await chrome.storage.local.get(HIGHLIGHTS_KEY))[HIGHLIGHTS_KEY] || {};
+      await chrome.storage.local.set({ [HIGHLIGHT_PATTERNS_KEY]: patterns, [HIGHLIGHTS_KEY]: hlRegroup(all, patterns) });
       sendResponse({ ok: true });
     });
     return true;

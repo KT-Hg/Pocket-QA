@@ -1,7 +1,8 @@
 /**
  * highlight.js — Popup module for the Highlight tab.
  * Communicates with content-highlight.js via chrome.tabs.sendMessage for the active tab.
- * For non-active URLs, reads/writes chrome.storage.local directly.
+ * Reads chrome.storage.local; every change to the store goes through the worker
+ * (HL_EDIT, HL_REGROUP), which applies it to the store as it is then.
  */
 
 import { showConfirm, showToast, escHtml } from './utils.js';
@@ -209,11 +210,7 @@ export function initHighlight() {
         if (isCurrentTab) {
           sendToTab({ type: 'HL_CLEAR' }, () => load());
         } else {
-          chrome.storage.local.get(HL_STORAGE_KEY, res => {
-            const data = res[HL_STORAGE_KEY] || {};
-            delete data[selectedUrl];
-            chrome.storage.local.set({ [HL_STORAGE_KEY]: data }, () => load());
-          });
+          editPage(selectedUrl, [{ op: 'clear' }], () => load());
         }
         showToast('Highlights cleared', 'success');
       },
@@ -452,21 +449,16 @@ export function initHighlight() {
   }
 
   function savePatterns() {
-    // Re-read rather than trusting allData — the content script may have saved
-    // a highlight since the last load().
-    chrome.storage.local.get(HL_STORAGE_KEY, res => {
-      const regrouped = hlRegroup(res[HL_STORAGE_KEY] || {}, patterns);
-      // One write, so the patterns and the buckets they key can never disagree.
-      chrome.storage.local.set(
-        { [HL_PATTERNS_KEY]: patterns, [HL_STORAGE_KEY]: regrouped },
-        () => {
-          // Selection is keyed by the old grouping — let load() re-derive it.
-          selectedUrl = '';
-          sendToTab({ type: 'HL_PATTERNS_UPDATED', patterns });
-          renderPatterns();
-          load();
-        }
-      );
+    // The worker re-groups the store as it is then, not allData — a page may
+    // have saved a highlight since the last load() — and writes the patterns
+    // with it in one go, so the two can never disagree.
+    chrome.runtime.sendMessage({ type: 'HL_REGROUP', patterns }, () => {
+      void chrome.runtime.lastError;
+      // Selection is keyed by the old grouping — let load() re-derive it.
+      selectedUrl = '';
+      sendToTab({ type: 'HL_PATTERNS_UPDATED', patterns });
+      renderPatterns();
+      load();
     });
   }
 
@@ -528,6 +520,17 @@ export function initHighlight() {
     });
   }
 
+  // Edits to one page's highlights (shared/highlight-store.js), applied by the
+  // worker to the store as it is then. Writing allData back lost a highlight a
+  // page saved after load(). storage.onChanged then loads the store again.
+  function editPage(url, ops, cb) {
+    chrome.runtime.sendMessage({ type: 'HL_EDIT', url, ops }, (res) => {
+      void chrome.runtime.lastError;
+      if (res?.ok) cb?.();
+      else showToast('Highlight not saved — try again', 'error');
+    });
+  }
+
   // ─────────────────────────────────────────────────────────
   function sendToTab(msg, cb) {
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
@@ -549,11 +552,12 @@ export function initHighlight() {
 
         // Self-heal: repairs stores orphaned by a pattern added before the
         // re-group existed, and backfills srcUrl on older entries. Writes only
-        // on an actual change, so this settles after one pass.
+        // on an actual change, so this settles after one pass. The write is the
+        // worker's (HL_REGROUP), on the store as it is by then.
         const healed = hlRegroup(allData, patterns);
         if (JSON.stringify(healed) !== JSON.stringify(allData)) {
           allData = healed;
-          chrome.storage.local.set({ [HL_STORAGE_KEY]: healed });
+          chrome.runtime.sendMessage({ type: 'HL_REGROUP', patterns }, () => { void chrome.runtime.lastError; });
         }
 
         const normalizedTabUrl = hlNormalizeUrl(activeTabUrl);
@@ -797,7 +801,7 @@ export function initHighlight() {
         const item = list.find(x => x.id === h.id);
         if (!item) return;
         item.disabled = !item.disabled;
-        chrome.storage.local.set({ [HL_STORAGE_KEY]: allData }, () => {
+        editPage(selectedUrl, [{ op: 'set', id: h.id, fields: { disabled: item.disabled } }], () => {
           const msgType = item.disabled ? 'HL_SET_HIDDEN' : 'HL_RESTORE';
           if (isCurrentTab) sendToTab({ type: msgType, id: h.id });
           render();
@@ -822,7 +826,7 @@ export function initHighlight() {
           const item = list.find(x => x.id === h.id);
           if (!item || item.color === newColor) return;
           item.color = newColor;
-          chrome.storage.local.set({ [HL_STORAGE_KEY]: allData }, () => {
+          editPage(selectedUrl, [{ op: 'set', id: h.id, fields: { color: newColor } }], () => {
             if (isCurrentTab) sendToTab({ type: 'HL_UPDATE_COLOR', id: h.id, color: newColor });
             render();
           });
@@ -844,7 +848,7 @@ export function initHighlight() {
         const val = noteInput.value.trim();
         item.note = val;
         openEditId = null;
-        chrome.storage.local.set({ [HL_STORAGE_KEY]: allData }, () => {
+        editPage(selectedUrl, [{ op: 'set', id: h.id, fields: { note: val } }], () => {
           if (isCurrentTab) sendToTab({ type: 'HL_UPDATE_NOTE', id: h.id, note: val });
           showToast(val ? 'Note saved' : 'Note cleared', 'success');
           render();
@@ -873,9 +877,8 @@ export function initHighlight() {
           showToast('Already exists on that page', 'warn');
           return;
         }
-        targetList.push({ id: crypto.randomUUID(), text: h.text, color: h.color, note: h.note || '', createdAt: Date.now(), srcUrl: targetUrl });
-        allData[targetUrl] = targetList;
-        chrome.storage.local.set({ [HL_STORAGE_KEY]: allData }, () => {
+        const copy = { id: crypto.randomUUID(), text: h.text, color: h.color, note: h.note || '', createdAt: Date.now(), srcUrl: targetUrl };
+        editPage(targetUrl, [{ op: 'add', item: copy }], () => {
           copyRow.classList.remove('open');
           showToast('Copied to page', 'success');
           updateStats();
@@ -894,12 +897,9 @@ export function initHighlight() {
         showConfirm(
           textPrev ? `"${textPrev}"` : 'Remove this highlight?',
           () => {
-            // Storage is the source of truth — update it directly so deletion
-            // works even on pages without a content script (e.g. file:// URLs).
-            const list = (allData[selectedUrl] || []).filter(x => x.id !== h.id);
-            if (list.length === 0) delete allData[selectedUrl];
-            else allData[selectedUrl] = list;
-            chrome.storage.local.set({ [HL_STORAGE_KEY]: allData }, () => {
+            // Storage is the source of truth — edit it, not just the page, so
+            // deletion works even on pages without a content script (file:// URLs).
+            editPage(selectedUrl, [{ op: 'remove', id: h.id }], () => {
               // Notify the content script to unwrap the DOM mark when present.
               if (isCurrentTab) sendToTab({ type: 'HL_REMOVE', id: h.id });
               load();

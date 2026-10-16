@@ -431,6 +431,7 @@ await send('schedules: a restore arms them', { type: 'RESTORE_ALL_DATA', data: {
 // pages under — not another page's.
 fake.data.local.hl_v1 = { ...fake.data.local.hl_v1, 'https://bank.example/': [{ id: 'b1', text: 'balance' }] };
 await send('highlights: a web page edits another page', { type: 'HL_EDIT', url: 'https://bank.example/', ops: [{ op: 'clear' }] }, { sender: PAGE_SENDER });
+const bankAfterPageEdit = JSON.parse(JSON.stringify(fake.data.local.hl_v1['https://bank.example/']));
 await send('highlights: a web page saves its own, fragment dropped', { type: 'HL_EDIT', url: 'https://example.com/page', ops: [{ op: 'add', item: { id: 'h3', text: 'own' } }] }, {
   sender: { ...PAGE_SENDER, url: 'https://example.com/page#section-2' },
 });
@@ -447,6 +448,29 @@ const hlAfterBadEdits = JSON.stringify(fake.data.local.hl_v1);
 // Removing a page's last highlight drops the page from the store.
 await send('highlights: add one', { type: 'HL_EDIT', url: 'https://example.com/gone', ops: [{ op: 'add', item: { id: 'g1', text: 'gone' } }] });
 await send('highlights: remove the last one', { type: 'HL_EDIT', url: 'https://example.com/gone', ops: [{ op: 'remove', id: 'g1' }] });
+const goneAfterRemove = 'https://example.com/gone' in fake.data.local.hl_v1;
+// The popup changes a highlight's colour while the page makes another one: both
+// stay. The popup used to write back the whole store it had loaded.
+fake.data.local.hl_patterns_v1 = [];
+fake.data.local.hl_v1 = { 'https://example.com/pop': [{ id: 'p1', text: 'one', color: 'yellow', srcUrl: 'https://example.com/pop' }] };
+{
+  const POP_PAGE = { ...PAGE_SENDER, tab: { ...PAGE_SENDER.tab, url: 'https://example.com/pop' }, url: 'https://example.com/pop' };
+  const responses = [];
+  for (const [request, sender] of [
+    [{ type: 'HL_EDIT', url: 'https://example.com/pop', ops: [{ op: 'set', id: 'p1', fields: { color: 'green' } }] }, SENDER],
+    [{ type: 'HL_EDIT', url: 'https://example.com/pop', ops: [{ op: 'add', item: { id: 'p2', text: 'two', srcUrl: 'https://example.com/pop' } }] }, POP_PAGE],
+  ]) {
+    for (const fn of [...fake.events['runtime.onMessage']]) fn(request, sender, (p) => responses.push(p));
+  }
+  await fake.settle();
+  snapshot({ step: 'highlights: the popup edits while the page saves', responses });
+}
+const hlAfterPopupEdit = JSON.parse(JSON.stringify(fake.data.local.hl_v1));
+// New patterns re-group the store in the same write; a web page may not ask.
+await send('highlights: a web page re-groups', { type: 'HL_REGROUP', patterns: ['example.com/*'] }, { sender: PAGE_SENDER });
+const hlAfterPageRegroup = JSON.stringify(fake.data.local);
+await send('highlights: the popup re-groups', { type: 'HL_REGROUP', patterns: ['example.com/*'] });
+const hlAfterRegroup = JSON.parse(JSON.stringify({ hl: fake.data.local.hl_v1, patterns: fake.data.local.hl_patterns_v1 }));
 
 // With the document Chrome says sent it, the engine goes into that document.
 await send('highlight engine: HL_LOAD from a document', { type: 'HL_LOAD' }, { sender: { ...PAGE_SENDER, frameId: 4, documentId: 'doc-4' } });
@@ -555,7 +579,7 @@ test('a web page saves its own highlights only', () => {
   assert.deepEqual(_stepOf('highlights: a web page edits another page')?.responses, [{ ok: false }]);
   assert.deepEqual(_stepOf('highlights: a web page saves its own, fragment dropped')?.responses, [{ ok: true }]);
   assert.deepEqual(_stepOf('highlights: a web page saves under a pattern')?.responses, [{ ok: true }]);
-  assert.deepEqual(fake.data.local.hl_v1['https://bank.example/'], [{ id: 'b1', text: 'balance' }]);
+  assert.deepEqual(bankAfterPageEdit, [{ id: 'b1', text: 'balance' }]);
 });
 test('the highlight engine goes into the document that asked for it', () => {
   const calls = _stepOf('highlight engine: HL_LOAD from a document')?.calls || [];
@@ -584,9 +608,20 @@ test('a malformed highlight edit is refused whole', () => {
   }
   assert.equal(hlAfterBadEdits, hlBeforeBadEdits);
 });
+test('the popup editing a highlight while the page saves another keeps both', () => {
+  assert.deepEqual(hlAfterPopupEdit['https://example.com/pop'].map((h) => [h.id, h.color || null]), [['p1', 'green'], ['p2', null]]);
+});
+test('the popup re-groups the store with its patterns; a web page may not', () => {
+  assert.deepEqual(_stepOf('highlights: a web page re-groups')?.responses, []);
+  assert.ok(!hlAfterPageRegroup.includes('"hl_patterns_v1":["example.com/*"]'));
+  assert.deepEqual(_stepOf('highlights: the popup re-groups')?.responses, [{ ok: true }]);
+  assert.deepEqual(hlAfterRegroup.patterns, ['example.com/*']);
+  assert.deepEqual(Object.keys(hlAfterRegroup.hl), ['example.com/*']);
+  assert.deepEqual(hlAfterRegroup.hl['example.com/*'].map((h) => h.id).sort(), ['p1', 'p2']);
+});
 test('removing the last highlight of a page drops the page', () => {
   assert.deepEqual(_stepOf('highlights: remove the last one')?.responses, [{ ok: true }]);
-  assert.ok(!('https://example.com/gone' in fake.data.local.hl_v1));
+  assert.equal(goneAfterRemove, false);
 });
 test('a web page still gets what its content script sends answered', () => {
   assert.equal(_stepOf('from a web page: REGISTER_FRAME answered')?.responses.length, 1);
