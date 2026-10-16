@@ -2378,6 +2378,7 @@
   "calls": [
    "storage.local.remove [\"playbackCheckpoint\"]",
    "storage.local.get [[\"scenarios\"]]",
+   "storage.local.get [\"dbtoolsSettings\"]",
    "action.setBadgeText [{\"text\":\"▶\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
    "tabs.update [1,{\"autoDiscardable\":false}]",
