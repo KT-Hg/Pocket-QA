@@ -2817,7 +2817,8 @@
    {"countdown":3}
   ],
   "calls": [
-   "tabs.sendMessage [1,{\"type\":\"START_VISIBLE_COUNTDOWN\",\"seconds\":3,\"crop\":false},{\"frameId\":0}]"
+   "scripting.executeScript [{\"target\":{\"tabId\":1,\"frameIds\":[0]},\"files\":[\"content-overlays.js\"]}]",
+   "tabs.sendMessage [1,{\"type\":\"START_VISIBLE_COUNTDOWN\",\"seconds\":3,\"crop\":false,\"fromHotkey\":false},{\"frameId\":0}]"
   ],
   "console": [],
   "zoom": {
@@ -2841,7 +2842,8 @@
    {"countdown":2}
   ],
   "calls": [
-   "tabs.sendMessage [1,{\"type\":\"START_VISIBLE_COUNTDOWN\",\"seconds\":2,\"crop\":true},{\"frameId\":0}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1,\"frameIds\":[0]},\"files\":[\"content-overlays.js\"]}]",
+   "tabs.sendMessage [1,{\"type\":\"START_VISIBLE_COUNTDOWN\",\"seconds\":2,\"crop\":true,\"fromHotkey\":false},{\"frameId\":0}]",
    "action.setBadgeText [{\"text\":\"2\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#3b82f6\"}]",
    "action.setBadgeText [{\"text\":\"1\"}]",

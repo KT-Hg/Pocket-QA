@@ -2943,6 +2943,7 @@
   "calls": [
    "tabs.getZoom [1]",
    "tabs.setZoom [1,1]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1,\"allFrames\":true},\"files\":[\"content-overlays.js\"]}]",
    "tabs.sendMessage [1,{\"type\":\"START_SEGMENT_TAB\",\"dir\":\"v\"}]"
   ],
   "console": [],
@@ -3095,6 +3096,7 @@
   "calls": [
    "tabs.getZoom [1]",
    "tabs.setZoom [1,1]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1,\"allFrames\":true},\"files\":[\"content-overlays.js\"]}]",
    "tabs.sendMessage [1,{\"type\":\"START_SEGMENT_TAB\",\"dir\":\"v\"}]"
   ],
   "console": [],
@@ -3177,6 +3179,7 @@
   ],
   "calls": [
    "tabs.getZoom [2]",
+   "scripting.executeScript [{\"target\":{\"tabId\":2,\"allFrames\":true},\"files\":[\"content-overlays.js\"]}]",
    "tabs.sendMessage [2,{\"type\":\"START_SEGMENT_TAB\",\"dir\":\"h\"}]"
   ],
   "console": [],
@@ -3358,6 +3361,7 @@
    "storage.local.get [[\"lastUpdateAt\",\"updateAvailableSince\",\"remoteConfig\"]]",
    "tabs.getZoom [1]",
    "tabs.setZoom [1,1]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1,\"allFrames\":true},\"files\":[\"content-overlays.js\"]}]",
    "tabs.sendMessage [1,{\"type\":\"START_SEGMENT_TAB\",\"dir\":\"v\"}]"
   ],
   "console": [],
