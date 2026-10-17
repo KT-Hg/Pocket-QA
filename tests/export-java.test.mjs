@@ -118,6 +118,8 @@ test('java: every synthetic scenario compiles with selenium-java and testng', { 
       for (const vars of Object.values(VARIABLE_SETS)) add(s.name, structuredClone(s.actions), structuredClone(vars), { headless: true });
     }
     add('nasty', NASTY, { class: 'x', driver: 'y' }, { driverType: 'Firefox' });
+    // With a data file: the data provider, readRows, column() and the row's variables.
+    for (const s of SYNTHETIC_SCENARIOS) add(s.name, structuredClone(s.actions), structuredClone(VARIABLE_SETS[Object.keys(VARIABLE_SETS)[0]]), { dataFile: 'data.csv' });
     const res = spawnSync(bin('javac'), ['-encoding', 'UTF-8', '-Werror', '-Xlint:all,-options,-serial', '-cp', join(LIBS, '*'),
       '-d', join(dir, 'out'), ...files], { encoding: 'utf-8' });
     assert.equal(res.status, 0, res.stdout + res.stderr);
@@ -155,17 +157,19 @@ test('java: readRows reads a CSV file as the CSV run does', { skip: NO_JDK }, as
       '            System.out.println("F");',
       '            for (Map<String, String> row : readRows(f)) {',
       '                System.out.println("R");',
-      `                for (Map.Entry<String, String> e : row.entrySet()) { System.out.println(${b64('e.getKey()')}); System.out.println(${b64('e.getValue()')}); }`,
+      `                for (Map.Entry<String, String> e : row.entrySet()) { System.out.println("K" + ${b64('e.getKey()')}); System.out.println("V" + ${b64('e.getValue()')}); }`,
       '            }', '        }', '    }', '}', ''].join('\n'));
     const res = spawnSync(bin('java'), ['-Dfile.encoding=UTF-8', join(dir, 'Probe.java'), ...texts.map((_, k) => join(dir, `d${k}.csv`))], { encoding: 'utf-8' });
     assert.equal(res.status, 0, res.stderr);
+    // F: a file, R: a row, K / V: a column and its value in base64 (an empty value is a bare V).
     const files = [];
-    let entry = null;
+    const text = (line) => Buffer.from(line.slice(1), 'base64').toString('utf-8');
+    let key = null;
     for (const line of res.stdout.split(/\r?\n/).filter(Boolean)) {
       if (line === 'F') files.push([]);
       else if (line === 'R') files.at(-1).push({});
-      else if (entry === null) entry = Buffer.from(line, 'base64').toString('utf-8');
-      else { files.at(-1).at(-1)[entry] = Buffer.from(line, 'base64').toString('utf-8'); entry = null; }
+      else if (line[0] === 'K') key = text(line);
+      else if (line[0] === 'V') files.at(-1).at(-1)[key] = text(line);
     }
     assert.deepEqual(files, texts.map((t) => parseCSV(t).rows));
   });

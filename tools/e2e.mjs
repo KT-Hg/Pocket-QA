@@ -2570,8 +2570,9 @@ async function checkEnvOverrides(ctx, run) {
 }
 
 /**
- * A pytest test and a Playwright spec exported with a data file run once per row
- * of it, each with its row's values: the page to open (a column no variable has)
+ * A pytest test, a Playwright spec, a Robot test (DataDriver, through the
+ * exported reader) and a Java TestNG class exported with a data file run once per
+ * row of it, each with its row's values: the page to open (a column no variable has)
  * and "who", whose column wins over the variable's "Zed" — one value quoted,
  * holding the delimiter.
  */
@@ -2605,6 +2606,30 @@ async function checkCsvData(ctx, run) {
     check(!r.error && /\b3 passed\b/.test(out) && JSON.stringify(names('playwright')) === JSON.stringify(who),
       'csv-data: Playwright runs a test per row of data.csv, each with its row', { out: out.trim().split('\n').slice(-2), names: names('playwright') });
   }
+  if (run.robotHere) {
+    const out = mkdtempSync(join(run.dir, 'robot-csv-'));
+    writeCsv(out, 'robot');
+    writeFileSync(join(out, run.ROBOT_READER_FILE), run.robotReaderPy());
+    writeFileSync(join(out, 'csv_data.robot'), run.generateRobot('csv data', steps, { who: 'Zed' },
+      { driverType: 'Edge', headless: !HEADED, dataFile: 'data.csv', stepDelay: 0 }).code);
+    const r = await runRobot(join(out, 'csv_data.robot'), out);
+    await sleep(SETTLE_MS);
+    const out2 = String(r.stdout);
+    check(!r.error && /3 tests, 3 passed, 0 failed/.test(out2) && JSON.stringify(names('robot')) === JSON.stringify(who),
+      'csv-data: Robot (DataDriver) runs a test per row of data.csv, each with its row', { out: out2.trim().split('\n').slice(-8), names: names('robot') });
+  }
+  if (run.javaHere) {
+    const out = mkdtempSync(join(run.dir, 'java-csv-'));
+    writeCsv(out, 'java');
+    const cls = run.javaClassName('csv data');
+    writeFileSync(join(out, `${cls}.java`), run.generateJava('csv data', steps, { who: 'Zed' },
+      { driverType: 'Edge', headless: !HEADED, dataFile: 'data.csv', stepDelay: 0 }).code);
+    const r = await runJava(join(out, `${cls}.java`), cls, out);
+    await sleep(SETTLE_MS);
+    const out2 = String(r.stdout) + String(r.stderr);
+    check(!r.error && /Total tests run: 3, Passes: 3, Failures: 0/.test(out2) && JSON.stringify(names('java')) === JSON.stringify(who),
+      'csv-data: Java (TestNG) runs a test per row of data.csv, each with its row', { out: out2.trim().split('\n').slice(-8), names: names('java') });
+  }
 }
 
 /** The frameId the extension knows the test tab's frame at `path` by, or null. */
@@ -2632,7 +2657,7 @@ async function checkExportRun(ctx) {
     console.log('  – the Playwright runs are skipped: set PQA_PLAYWRIGHT_DIR to a folder with @playwright/test installed');
   }
   if (!noPython && !pytestHere) console.log('  – the pytest runs are skipped: no pytest for python');
-  const { generateRobot } = await import(extModule('popup/export-robot.js')).catch(() => ({}));
+  const { generateRobot, robotReaderPy, ROBOT_READER_FILE } = await import(extModule('popup/export-robot.js')).catch(() => ({}));
   const robotHere = !!generateRobot && await hasRobot();
   if (generateRobot && !robotHere) console.log(`  – the Robot runs are skipped: no robotframework-seleniumlibrary for ${ROBOT_PYTHON} (set PQA_ROBOT_PYTHON)`);
   const { generateJava, javaClassName } = await import(extModule('popup/export-java.js')).catch(() => ({}));
@@ -2760,7 +2785,10 @@ async function checkExportRun(ctx) {
           `${c.name}: the ${runner} export leaves the page as playback does`, states[runner] ? diff : 'no state posted');
       }
     }
-    if (!CASES || CASES.includes('csv-data')) await checkCsvData(ctx, { dir, pageUrl, pytestHere, pwRun, pwCli, generateSeleniumPy, generatePlaywright });
+    if (!CASES || CASES.includes('csv-data')) {
+      await checkCsvData(ctx, { dir, pageUrl, pytestHere, pwRun, pwCli, robotHere, javaHere, generateSeleniumPy, generatePlaywright,
+        generateRobot, robotReaderPy, ROBOT_READER_FILE, generateJava, javaClassName });
+    }
     if (!CASES || CASES.includes('env')) {
       await checkEnvOverrides(ctx, { dir, noPython, pwRun, pwCli, robotHere, javaHere, generateSeleniumPy, generatePlaywright, generateRobot, generateJava, javaClassName });
     }
