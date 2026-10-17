@@ -2217,6 +2217,21 @@ const EXPORT_CASES = [
     ],
     expect: { clicks: ['after'], marks: ['frame go Zoe'] },
   },
+  {
+    // Conditions on elements inside the iframe: checked in the frame, as playback checks
+    // them (the exports used to look in the top page, where none of them is).
+    name: 'iframe-condition',
+    runners: ['bookmarklet', 'selenium', 'pytest', 'playwright'],
+    actions: [
+      { type: 'condition', conditionType: 'elementExists', selector: '#fGo', selectors: { css: '#fGo' }, skipCount: 1, inFrame: true },
+      { type: 'click', selector: '#c1', selectors: { css: '#c1' } },
+      { type: 'condition', conditionType: 'textContains', selector: '#fDd', selectors: { css: '#fDd' }, expectedValue: 'choose', skipCount: 1, inFrame: true },
+      { type: 'click', selector: '#c2', selectors: { css: '#c2' } },
+      { type: 'condition', conditionType: 'elementExists', selector: '#noSuch', selectors: { css: '#noSuch' }, skipCount: 1, inFrame: true },
+      { type: 'click', selector: '#c3', selectors: { css: '#c3' } },
+    ],
+    expect: { clicks: ['c1', 'c2'] },
+  },
   // A Switch block on a variable: the case whose value it has runs its action, then the step
   // after the block — the default case when no case has the value.
   ...[['switch-block', 'user', 'c2'], ['switch-default', 'guest', 'c3']].map(([name, role, clicked]) => ({

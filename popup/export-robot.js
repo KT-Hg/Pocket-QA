@@ -570,14 +570,17 @@ export function generateRobot(scenarioName, actions, variables, opts = {}) {
   const vars = exportVariables(variables, enabled, robotIdent, 'Robot', warnings);
   warnOneToRobot(variables, warnings);
   if (headless && driverType === 'Safari') warnings.add('Safari has no headless mode — the test opens a window');
-  const frames = enabled.some((a) => inFrame(a) && a.type !== 'condition') ? 'all' : 'none';
+  const frames = enabled.some(inFrame) ? 'all' : 'none';
   const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set(), frames, driverType };
   const bodyLines = stepLines(ctx);
   const { table, setup } = variableLines(vars);
 
   const helpers = ['FIND_TEXT_JS', 'QUERY_DEEP_JS', ...HELPERS_OF.filter(([use]) => ctx.uses.has(use)).map(([, h]) => h)];
+  // With frames, a Condition's element is looked for in them too, and checked in the one that holds it.
+  const stepKeyword = (u) => (u === 'condition' && frames === 'all'
+    ? STEP_KEYWORDS[u].replace('${el}=    Locate    @{locators}', '${el}=    Locate In Frames    @{locators}') : STEP_KEYWORDS[u]);
   const keywords = [BASE_KEYWORDS, findElementKeyword(frames === 'all'), ...(frames === 'all' ? [FRAMES_KEYWORDS] : []),
-    ...Object.keys(STEP_KEYWORDS).filter((u) => ctx.uses.has(u)).map((u) => STEP_KEYWORDS[u])];
+    ...Object.keys(STEP_KEYWORDS).filter((u) => ctx.uses.has(u)).map(stepKeyword)];
   const name = String(scenarioName ?? '').trim();
 
   const out = [

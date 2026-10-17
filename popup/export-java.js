@@ -275,7 +275,7 @@ const STEP_HELPERS = {
   condition: [['CHECK_COND_JS'], String.raw`    /** A Condition as the extension checks it (content.js CHECK_CONDITION), on the element found now, without waiting. */
     boolean checkCond(String type, String expected, By... locators) {
         TOP_PAGE
-        WebElement el = locators.length > 0 ? locate(locators) : null;
+        WebElement el = locators.length > 0 ? LOCATE(locators) : null;
         return Boolean.TRUE.equals(exec(CHECK_COND_JS, type, el, expected));
     }`],
   child: [['FIND_CHILD_JS'], String.raw`    /** The child a Child Condition picks in its parent (content.js findElementByCondition): criteria as name, value pairs. */
@@ -631,7 +631,8 @@ function helperLines(uses, frames) {
   const blocks = [BASE_HELPERS.replace('LOCATE(', frames ? 'locateInFrames(' : 'locate('),
     ...(frames ? [FRAMES_HELPERS] : []),
     ...Object.keys(STEP_HELPERS).filter((u) => uses.has(u))
-      .map((u) => STEP_HELPERS[u][1].replace('        TOP_PAGE\n', frames ? '        driver.switchTo().defaultContent();\n' : ''))];
+      .map((u) => STEP_HELPERS[u][1].replace('        TOP_PAGE\n', frames ? '        driver.switchTo().defaultContent();\n' : '')
+        .replace('LOCATE(', frames ? 'locateInFrames(' : 'locate('))];
   return [
     "    // The extension's own in-page code (popup/export/page-js.js), run through executeScript.",
     ...pageJs.flatMap((h) => [...jsConstant(h, PAGE_CALLS[h]), '']),
@@ -659,7 +660,7 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
   const steps = [];
   const vars = exportVariables(variables, enabled, javaIdent, 'Java', warnings);
   if (headless && driverType === 'Safari') warnings.add('Safari has no headless mode — the test opens a window');
-  const frames = enabled.some((a) => inFrame(a) && a.type !== 'condition') ? 'all' : 'none';
+  const frames = enabled.some(inFrame) ? 'all' : 'none';
   const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set(), frames, driverType };
   const body = stepLines(ctx);
   const varLines = variableLines(enabled, variables, vars, ctx.uses);

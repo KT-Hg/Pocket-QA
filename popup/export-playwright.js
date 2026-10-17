@@ -25,7 +25,7 @@ import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './
 
 // What the generated spec declares for itself, beside the JS reserved words.
 const RESERVED = new Set(['test', 'page', 'TIMEOUT', '_find', '_first', '_input', '_setInput', '_js', '_SCRIPT_INPUT_TYPES',
-  '_checkCond', '_findChild', '_readVal', '_pick', '_dropBridge', '_dropFiles', '_inFrames', '_var', '_url', '_firstOrigin', 'process', '_row', '_rows', '_column',
+  '_checkCond', '_checkInFrames', '_findChild', '_readVal', '_pick', '_dropBridge', '_dropFiles', '_inFrames', '_var', '_url', '_firstOrigin', 'process', '_row', '_rows', '_column',
   'readFileSync', 'join', '_delimiterOf', 'parseCSV', ...JS_RESERVED]);
 // The steps' elements (el3, el3_t) share the test function with the variables.
 const ident = jsIdentifier(RESERVED, /^el\d+(_|$)/);
@@ -158,6 +158,18 @@ async function _inFrames(page, selectors) {
     if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | ') + ' in the page or its frames');
     await page.waitForTimeout(100);
   }
+}`;
+
+const CHECK_FRAMES_HELPER = String.raw`// A Condition recorded inside a frame: its element looked for now in the page and each of
+// its frames, and checked in the frame that holds it (none found: checked with none).
+async function _checkInFrames(page, selectors, type, expected) {
+  for (const frame of page.frames()) {
+    for (const s of selectors) {
+      const el = frame.locator(s).first();
+      if (await el.count().catch(() => 0)) return frame.evaluate(_checkCond, [type, await el.elementHandle(), expected]);
+    }
+  }
+  return page.evaluate(_checkCond, [type, null, expected]);
 }`;
 
 const FIRST_HELPER = String.raw`// The element a Condition checks: the first selector that finds one now, without waiting.
@@ -335,13 +347,17 @@ function conditionHeader(action, step, ctx) {
     return [head, `throw new Error(${JSON.stringify(`Condition step ${step.n}: unknown condition type, named in the comment above`)});`, 'if (true) {'];
   }
   ctx.uses.add('check');
+  // The check is a step of the report; the steps it guards are steps of their own.
+  const title = JSON.stringify(head.slice('// '.length));
+  if (inFrame(action) && !type.startsWith('url')) {
+    ctx.uses.add('checkFrames');
+    return [head, `if (await test.step(${title}, async () => _checkInFrames(page, [${selectorsPW(locatorsFor(action)).join(', ')}], ${JSON.stringify(type)}, ${valueJS(action.expectedValue)}))) {`];
+  }
   let el = 'null';
   if (!type.startsWith('url')) {
     ctx.uses.add('first');
     el = `await _first(page, [${selectorsPW(locatorsFor(action)).join(', ')}])`;
   }
-  // The check is a step of the report; the steps it guards are steps of their own.
-  const title = JSON.stringify(head.slice('// '.length));
   return [head, `if (await test.step(${title}, async () => page.evaluate(_checkCond, [${JSON.stringify(type)}, ${el}, ${valueJS(action.expectedValue)}]))) {`];
 }
 
@@ -423,6 +439,7 @@ function helperLines(body, uses, dataFile) {
     [body.some((l) => l.includes('await _find(')), FIND_HELPER],
     [body.some((l) => l.includes('await _inFrames(')), FRAMES_HELPER],
     [uses.has('first'), FIRST_HELPER],
+    [uses.has('checkFrames'), CHECK_FRAMES_HELPER],
     ...['check', 'child', 'read', 'pick', 'drop'].map((name) => [uses.has(name), PAGE_HELPERS[name]]),
     [uses.has('input'), INPUT_HELPER],
     [uses.has('js'), JS_HELPER],

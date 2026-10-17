@@ -1160,16 +1160,32 @@ test('a step recorded in a frame: Selenium and Playwright look for its element i
   assert.match(py.code, /^ {4}el1 = _find\(\[\(By\.CSS_SELECTOR, "#fName"\)\], 10, frames=True\)$/m);
   assert.match(py.code, /^ {4}el2 = _find\(\[\(By\.ID, "after"\)\], 10, clickable=True, frames=True\)$/m);
   assert.match(py.code, /^def _locate_in_frames\(locators\):$/m);
-  assert.match(py.code, /^def _check_cond\(cond_type, locators, expected\):\n {4}driver\.switch_to\.default_content\(\)$/m);
+  assert.match(py.code, /^def _check_cond\(cond_type, locators, expected\):\n {4}driver\.switch_to\.default_content\(\)\n {4}el = _locate_in_frames\(locators\) if locators else None$/m,
+    'a Condition looks for its element in the frames too');
   assert.match(py.code, /^ {8}driver\.switch_to\.default_content\(\)\n {8}driver\.execute_script\("""go\(\)"""\)$/m, 'a script runs in the page');
-  assert.deepEqual(statusOf(py.steps), { 1: 'ok', 2: 'ok', 3: 'verify', 4: 'verify' }, 'a Condition is still checked in the page');
+  assert.deepEqual(statusOf(py.steps), { 1: 'ok', 2: 'ok', 3: 'ok', 4: 'verify' });
   assert.equal(compilePy(py.code), null);
 
   const pw = generatePlaywright('frames', steps, {}, { stepDelay: 0 });
   assert.match(pw.code, /const el1 = await _inFrames\(page, \["#fName"\]\);/);
   assert.match(pw.code, /const el2 = page\.locator\("#after"\)\.first\(\);/, 'a step of the page stays one');
-  assert.deepEqual(statusOf(pw.steps), { 1: 'ok', 2: 'ok', 3: 'verify', 4: 'verify' });
+  assert.match(pw.code, /_checkInFrames\(page, \["#x"\], "elementExists", ''\)/, 'a Condition in a frame is checked in its frame');
+  assert.deepEqual(statusOf(pw.steps), { 1: 'ok', 2: 'ok', 3: 'ok', 4: 'verify' });
   assert.equal(checkModule(pw.code), null);
+  // Robot and Java look for a Condition's element in the frames too.
+  const { generateRobot } = await import('../popup/export-robot.js');
+  const { generateJava } = await import('../popup/export-java.js');
+  const robot = generateRobot('frames', steps, {});
+  assert.match(robot.code, /^Check Condition\n(?:.*\n)*? {8}\$\{el\}= {4}Locate In Frames {4}@\{locators\}$/m);
+  assert.equal(statusOf(robot.steps)[3], 'ok');
+  const java = generateJava('frames', steps, {});
+  assert.match(java.code, /WebElement el = locators\.length > 0 \? locateInFrames\(locators\) : null;/);
+  assert.equal(statusOf(java.steps)[3], 'ok');
+  assert.match(generateJava('top', [{ ...steps[2], frameId: 0 }], {}).code, /WebElement el = locators\.length > 0 \? locate\(locators\) : null;/);
+  // A URL Condition recorded in a frame: playback reads the frame's URL, the exports the page's.
+  const urlInFrame = [{ type: 'condition', conditionType: 'urlContains', expectedValue: '/frame', frameId: 7, skipCount: 0 }];
+  assert.deepEqual(statusOf(generateSeleniumPy('url', urlInFrame, {}).steps), { 1: 'verify' });
+  assert.deepEqual(statusOf(generatePlaywright('url', urlInFrame, {}).steps), { 1: 'verify' });
   // No step in a frame: none of it.
   assert.doesNotMatch(generateSeleniumPy('top', [steps[1]], {}).code, /frames|_locate_in_frames/);
 });

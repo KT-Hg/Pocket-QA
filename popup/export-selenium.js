@@ -291,8 +291,9 @@ function condExprPy(action, locs) {
   return `_check_cond(${JSON.stringify(type)}, ${locator}, ${valueToPy(action.expectedValue)})`;
 }
 
-// The _check_cond() runtime helper: content.js CHECK_CONDITION, run in the page — from the
-// page itself with `frames`: a step before may have left the driver in a frame.
+// The _check_cond() runtime helper: content.js CHECK_CONDITION, run in the page — with
+// `frames`, from the page itself (a step before may have left the driver in a frame), its
+// element looked for in the frames too and checked in the one that holds it.
 function _checkCondHelperPy(frames) {
   return [
     '# Same check as the extension (content.js CHECK_CONDITION), on the element found now.',
@@ -301,7 +302,7 @@ function _checkCondHelperPy(frames) {
     '',
     'def _check_cond(cond_type, locators, expected):',
     ...(frames ? ['    driver.switch_to.default_content()'] : []),
-    '    el = _locate(locators) if locators else None',
+    `    el = ${frames ? '_locate_in_frames' : '_locate'}(locators) if locators else None`,
     '    return driver.execute_script(_CHECK_COND_JS, cond_type, el, expected)',
   ];
 }
@@ -980,7 +981,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   // The steps first: whether a step looks an element up by several locators (or
   // by text) decides which helpers and imports the script needs.
   // A step recorded in a frame: every element is looked for in the page and its frames.
-  const frames = enabled.some((a) => inFrame(a) && a.type !== 'condition') ? 'all' : 'none';
+  const frames = enabled.some(inFrame) ? 'all' : 'none';
   // `uses`: what the steps reached for as they were written (like the Java/Robot
   // exports), so a helper is pulled in by a step that calls it, never by a label
   // that happens to name it.

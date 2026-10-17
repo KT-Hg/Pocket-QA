@@ -112,7 +112,8 @@ function condHeader(action, stepNum, step, ctx) {
     ctx.warnings.add(`Condition step ${stepNum}: type "${type}" is unknown — the exported code stops there, as a run does`);
     return [head, `throw new Error(${JSON.stringify(`Condition step ${stepNum}: unknown condition type, named in the comment above`)});`, 'if (true) {'];
   }
-  const el = type.startsWith('url') ? 'null' : `_first(${locsJS(locatorsFor(action))})`;
+  // Recorded in a frame: its element in the same-origin frames too.
+  const el = type.startsWith('url') ? 'null' : `${inFrame(action) ? '_inFrames' : '_first'}(${locsJS(locatorsFor(action))})`;
   return [head, `if (_checkCond(${JSON.stringify(type)}, ${el}, ${valueToJS(action.expectedValue)})) {`];
 }
 
@@ -425,7 +426,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   out.push('  };');
   out.push('');
   // With a step recorded in a frame, getEl takes how to look (_first, or _inFrames for that step).
-  const framed = bodyLines.some((l) => l.includes(', _inFrames);'));
+  const framed = bodyLines.some((l) => l.includes('_inFrames'));
   if (framed) {
     out.push('  // An element recorded in a frame: in the page, then in the document of each frame of the same origin');
     out.push("  // (another origin's is out of a page script's reach), by CSS or XPath.");
