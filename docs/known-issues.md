@@ -79,6 +79,6 @@ xuất đánh dấu ⚠ Verify hoặc — Skip cho từng bước liên quan, k�
   trang; nếu trang đó chuyển hướng sang trang khác của cùng site thì lại mở trang và dừng.
 - **Kéo thả trong Selenium, Robot và Java** dùng chuỗi thao tác chuột của WebDriver (ActionChains, `Drag And Drop` của
   SeleniumLibrary, `Actions`); mới kiểm chạy thật trên Edge (e2e `export-run`), chưa kiểm trên Firefox và Safari.
-- **Robot chưa có Data file (CSV):** pytest, Playwright và Java chạy một test cho mỗi dòng của tệp CSV; Robot thì chưa.
-  DataDriver, thư viện thường dùng cho việc này, chỉ đọc các cột có tiêu đề dạng `${tên}` (cột khác bị bỏ qua), nên
-  không đọc được tệp CSV mà CSV run và các bản xuất kia dùng.
+- **Robot với Data file cần hai file:** DataDriver chỉ đọc cột có tiêu đề dạng `${tên}`, nên Download lưu thêm
+  `pqa_csv_reader.py` (reader đọc CSV như CSV run) và file đó phải nằm cạnh file `.robot`. Copy Code chỉ chép file
+  `.robot`. Trình duyệt có thể hỏi giữ lại file `.py`, như với bản xuất Selenium.

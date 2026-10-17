@@ -246,7 +246,7 @@ Headless runs get a 1920 × 1080 window, so a responsive page shows its desktop 
 
 **When a step fails**, the error names it and what it looked for — `Step 3: click — Sign in: no element found by …` — in the bookmarklet's alert, the script's `❌` line, the pytest, Robot and TestNG reports, and the Playwright report, where each step is a `test.step`. The page as the step left it is saved: `<file name>_failure.png` (Selenium script and pytest, beside the file; Robot, in its output folder), `<Class>_failure.png` (Java, where the test runs), a screenshot and a trace in `test-results/` (Playwright).
 
-**A data file (CSV)** — the *Data file* setting of pytest, Playwright and Java — runs the test once per row of a CSV read beside the test file (Java: in the folder the test runs in, a TestNG `@DataProvider`): each column sets the variable of its name (over the Variables tab's value), and a column no variable has is a variable too. The file is read as the extension reads a CSV (delimiter detected, quoted values). Robot has no data file yet.
+**A data file (CSV)** — the *Data file* setting of pytest, Playwright, Robot and Java — runs the test once per row of a CSV read beside the test file (Java: in the folder the test runs in, a TestNG `@DataProvider`; Robot: through DataDriver, below): each column sets the variable of its name (over the Variables tab's value), and a column no variable has is a variable too. The file is read as the extension reads a CSV (delimiter detected, quoted values).
 
 ### ⚡ JS Bookmarklet
 
@@ -374,6 +374,13 @@ test("Login Form", async ({ page }) => {
 | Headless | off | No browser window |
 | Delay between steps (ms) | 500 | `Sleep` after each action |
 | Element timeout (ms) | 10 000 | how long `Find Element` waits for an element |
+| Data file (CSV) | — | a test per row, through [DataDriver](https://github.com/Snooz82/robotframework-datadriver) (`pip install robotframework-datadriver`) |
+
+With a data file the steps move into the keyword `Pocket QA Row`, the suite's `Test Template`, and DataDriver makes a
+test of it for each row (Row 1, Row 2, …). DataDriver's own CSV readers take only columns headed `${name}`, so
+**Download also saves `pqa_csv_reader.py`**, a reader that reads the file as the CSV run does; keep it beside the
+`.robot` file (the browser may ask to keep a `.py` download). A column wins over the variable of its name and over
+`PQA_<name>`; a name only the file gives must be a column of every row.
 
 ```robotframework
 *** Test Cases ***
