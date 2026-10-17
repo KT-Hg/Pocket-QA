@@ -906,7 +906,9 @@ async function _pickVirtual(scroller, current, pick) {
 /** Rows of one height, the first at `first`: item #n is at first + (n - 1) × step. */
 async function _pickEvenRows(scroller, current, pick, first, step) {
   await _scrollList(scroller, scroller.scrollHeight);
-  const count = Math.round((_rowsShown(scroller, current).pop().offset - first) / step) + 1;
+  const last = _rowsShown(scroller, current).pop();
+  if (!last) return { error: 'the list showed no item once scrolled to its end' };
+  const count = Math.round((last.offset - first) / step) + 1;
   const random = parsePickIndex(pick.index).random;
   for (let attempt = 0; attempt < (random ? DROPDOWN_RANDOM_TRIES : 1); attempt++) {
     const r = pickItemIndex(pick.index, count);
