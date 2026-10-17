@@ -84,6 +84,19 @@ export function waitForTabLoad(tabId, timeoutMs = TAB_LOAD_TIMEOUT_MS) {
   });
 }
 
+/**
+ * content-overlays.js into the tab's top frame, or into every frame: the
+ * countdown pill, the failed-action prompt and the segment capture bar, which
+ * content.js does not carry. Sent before the message that needs one; a second
+ * injection does nothing, and a frame it cannot reach (no content.js, a page
+ * scripts may not run on) is left as it was — the message then goes unanswered
+ * there, as before.
+ */
+export function loadOverlays(tabId, allFrames = false) {
+  const target = allFrames ? { tabId, allFrames: true } : { tabId, frameIds: [0] };
+  return chrome.scripting.executeScript({ target, files: ['content-overlays.js'] }).catch(() => {});
+}
+
 // Returns a failure object on timeout so callers can distinguish "no content script" from real failures.
 export function tabMsg(tabId, msg, timeout = TAB_MESSAGE_TIMEOUT_MS, frameId = undefined) {
   return new Promise((resolve) => {

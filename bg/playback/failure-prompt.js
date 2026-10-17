@@ -6,7 +6,7 @@
 import { state } from '../state.js';
 import { updateBadge } from '../badge.js';
 import { sendAlertNotification } from '../notify.js';
-import { tabMsg, waitForTabLoad } from '../tabs.js';
+import { loadOverlays, tabMsg, waitForTabLoad } from '../tabs.js';
 
 // How often an open prompt checks whether the run was stopped elsewhere.
 const STOP_POLL_MS = 250;
@@ -59,10 +59,11 @@ function _promptInPage(tabId, info) {
     const poll = setInterval(() => {
       if (!state.playback.active) settle({ choice: FAIL_STOP, external: true });
     }, STOP_POLL_MS);
-    chrome.tabs.sendMessage(tabId, { type: 'ACTION_FAILED_PROMPT', ...info }, { frameId: 0 }, (res) => {
+    // The prompt is content-overlays.js's, which the page gets only now.
+    loadOverlays(tabId).then(() => chrome.tabs.sendMessage(tabId, { type: 'ACTION_FAILED_PROMPT', ...info }, { frameId: 0 }, (res) => {
       const err = chrome.runtime.lastError?.message;
       settle(err || !res?.choice ? { error: err || 'no answer' } : { choice: res.choice });
-    });
+    }));
   });
 }
 

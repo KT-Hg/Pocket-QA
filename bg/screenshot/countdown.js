@@ -3,11 +3,11 @@
  * when it can, on the toolbar badge when it cannot.
  */
 
-import { tabMsg } from '../tabs.js';
+import { loadOverlays, tabMsg } from '../tabs.js';
 import { updateBadge } from '../badge.js';
 
 /* ── Pre-capture countdown ──────────────────────────────────────────
- * The countdown pill is drawn by content.js, which manifest.json only injects
+ * The countdown pill is drawn by content-overlays.js, on top of content.js, which manifest.json only injects
  * into http, https and file tabs. The popup used to message that script itself,
  * so on any other tab — this extension's own pages (sqlcases.html, editor.html),
  * chrome://, the Web Store — the message had no receiving end and the capture
@@ -46,12 +46,14 @@ async function _badgeCountdown(seconds) {
  * @returns {Promise<boolean>} true when the caller still owes the shot; false
  *   when the page took the countdown over and will fire its own TAKE_SCREENSHOT.
  */
-export async function runCountdown(tabId, seconds, crop) {
+export async function runCountdown(tabId, seconds, crop, fromHotkey = false) {
   // A short timeout, because this is a liveness probe as much as a request:
   // content.js answers immediately, and a tab without it fails immediately too.
   // Only a page that is present but wedged waits out the timeout, and falling
   // back to the badge is the right answer there as well.
-  const res = await tabMsg(tabId, { type: 'START_VISIBLE_COUNTDOWN', seconds, crop }, PAGE_PROBE_TIMEOUT_MS);
+  // The pill is drawn by content-overlays.js, which the page gets only now.
+  await loadOverlays(tabId);
+  const res = await tabMsg(tabId, { type: 'START_VISIBLE_COUNTDOWN', seconds, crop, fromHotkey }, PAGE_PROBE_TIMEOUT_MS);
   if (res && res.ok) return false;
   await _badgeCountdown(seconds);
   return true;

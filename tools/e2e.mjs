@@ -364,6 +364,62 @@ async function checkCapture(ctx) {
   check(ctx.browser.downloads().length - before === 2, 'two PNG files saved', ctx.browser.downloads());
 }
 
+/** Polls `expr` on the test page until it is truthy, for up to `ms`; its last value. */
+async function pageSoon(ctx, expr, ms = 5_000) {
+  let v = null;
+  for (let waited = 0; !v && waited < ms; waited += POLL_MS) { v = await ctx.web.evaluate(expr); if (!v) await sleep(POLL_MS); }
+  return v;
+}
+
+// The overlays content.js does not carry (content-overlays.js): loaded by the worker
+// only for a countdown, a failed-action prompt or a segment capture.
+async function checkOverlays(ctx) {
+  await reloadTestPage(ctx);
+  await ctx.web.bringToFront();
+  const loaded = () => ctx.ext.evaluate(`chrome.scripting.executeScript({ target: { tabId: ${ctx.webTabId} },
+    func: () => !!window.__pqaOverlaysInjected }).then(([r]) => r.result)`);
+  check(await loaded() === false, 'a page that has not needed one carries no overlay code', null);
+
+  // The countdown the screenshot hotkey asks for, sent from the page as content.js sends it.
+  await ctx.ext.evaluate(`chrome.storage.sync.set({ screenshotSaveMode: 'auto', screenshotPrefix: 'e2e' })`);
+  const before = ctx.browser.downloads().length;
+  await ctx.ext.evaluate(`chrome.scripting.executeScript({ target: { tabId: ${ctx.webTabId} },
+    func: () => { chrome.runtime.sendMessage({ type: 'TAKE_SCREENSHOT', crop: false, fromHotkey: true, countdown: 2 }); } })`);
+  const pill = await pageSoon(ctx, `document.getElementById('__screenshot_countdown')?.textContent || null`);
+  let saved = 0;
+  for (let waited = 0; !saved && waited < 8_000; waited += POLL_MS) { await sleep(POLL_MS); saved = ctx.browser.downloads().length - before; }
+  check(!!pill?.includes('Screenshot in') && saved === 1, 'a hotkey countdown shows the pill on the page, then saves the shot', { pill, saved });
+
+  // A failed action (an option the <select> does not have): the prompt on the page; Stop ends the run.
+  const id = await makeScenario(ctx, 'e2e overlay prompt', [{ type: 'input', selector: '#sel', selectors: { css: '#sel' }, value: 'zzz', delay: 0 }]);
+  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: id });
+  const prompt = await pageSoon(ctx, `document.getElementById('__action_failed_prompt')?.textContent || null`, 10_000);
+  await ctx.web.evaluate(`document.querySelector('#__action_failed_prompt button[title="Record it as failed and end the run"]')?.click()`);
+  let st = null;
+  for (let waited = 0; waited < 5_000; waited += POLL_MS) { st = await ctx.send({ type: 'GET_EXTENSION_STATUS' }); if (!st?.playing) break; await sleep(POLL_MS); }
+  if (st?.playing) await ctx.send({ type: 'STOP_PLAYBACK' });
+  check(!!prompt?.includes('Action 1 of 1 failed') && !st?.playing, 'a failed action asks on the page, and Stop ends the run', { prompt, playing: st?.playing });
+
+  // A segment capture: the bar on the page; its ✕ ends the session.
+  await ctx.send({ type: 'START_SEGMENT_CAPTURE', tabId: ctx.webTabId, dir: 'vertical' });
+  const bar = await pageSoon(ctx, `[...document.querySelectorAll('div')].some((d) => d.textContent.startsWith('📍 Start:'))`);
+  await ctx.web.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+  await ctx.web.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+  const gone = !!(await pageSoon(ctx, `![...document.querySelectorAll('div')].some((d) => d.textContent.startsWith('📍 Start:'))`, 3_000));
+  check(bar === true && gone, 'a segment capture shows its bar on the page, and ESC takes it away', { bar, gone });
+  // Alt+X (segment stop) from content.js reaches the bar's capture through window.
+  const shotsBefore = ctx.browser.downloads().length;
+  await ctx.send({ type: 'START_SEGMENT_CAPTURE', tabId: ctx.webTabId, dir: 'vertical' });
+  await pageSoon(ctx, `[...document.querySelectorAll('div')].some((d) => d.textContent.startsWith('📍 Start:'))`);
+  for (const type of ['keyDown', 'keyUp']) {
+    await ctx.web.send('Input.dispatchKeyEvent', { type, key: 'x', code: 'KeyX', windowsVirtualKeyCode: 88, modifiers: 1 });
+  }
+  let segSaved = 0;
+  for (let waited = 0; !segSaved && waited < 10_000; waited += POLL_MS) { await sleep(POLL_MS); segSaved = ctx.browser.downloads().length - shotsBefore; }
+  check(segSaved === 1, 'the segment-stop hotkey captures the segment', { segSaved });
+  check(await loaded() === true, 'the overlay code is in the page once one was needed', null);
+}
+
 /** The popup as if opened on the activated test page; `size`: { width, height } other than POPUP_VIEWPORT. */
 async function openPopup(ctx, size = POPUP_VIEWPORT) {
   const popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...size });
@@ -2790,6 +2846,7 @@ const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
   ['capture', 'Two visible screenshots in a row', checkCapture],
+  ['overlays', 'The countdown, failed-action prompt and segment bar, loaded when needed', checkOverlays],
   ['suggest', 'Variable suggestions in the popup', checkSuggest],
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],

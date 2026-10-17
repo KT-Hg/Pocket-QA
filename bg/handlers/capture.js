@@ -10,6 +10,7 @@ import { idleSegmentCapture, state } from '../state.js';
 import { updateBadge } from '../badge.js';
 import { takeFullPageScreenshot, compareScreenshots, downloadDataUrl, openCropUI, buildScreenshotFilename, getPendingCrop, reportCaptureResult } from '../screenshot.js';
 import { ignoreLastError } from '../last-error.js';
+import { loadOverlays } from '../tabs.js';
 import { readCaptureSettings } from '../screenshot/settings.js';
 
 // After a zoom reset, the page gets this long to reflow before the selection starts.
@@ -35,7 +36,9 @@ function beginSegmentSession(tabId, dir, { crop, fromHotkey }) {
     void chrome.runtime.lastError;
     const needReset = typeof origZoom === 'number' && Math.abs(origZoom - 1) > 0.01;
     state.segmentCapture = { active: true, tabId, dir, crop, origZoom: needReset ? origZoom : null, fromHotkey };
-    const startSelection = () => chrome.tabs.sendMessage(tabId, { type: "START_SEGMENT_TAB", dir });
+    // The bar is content-overlays.js's; every frame gets it, as every frame gets the message.
+    const startSelection = () => loadOverlays(tabId, true)
+      .then(() => chrome.tabs.sendMessage(tabId, { type: "START_SEGMENT_TAB", dir }).catch(() => {}));
     if (needReset) chrome.tabs.setZoom(tabId, 1, () => { void chrome.runtime.lastError; setTimeout(startSelection, ZOOM_SETTLE_MS); });
     else startSelection();
   });

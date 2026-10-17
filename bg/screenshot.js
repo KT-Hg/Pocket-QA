@@ -77,7 +77,7 @@ function handleScreenshotRequest(request, sender, sendResponse) {
     // Answered now rather than in `seconds` time: the popup closes the moment it
     // asks for a countdown, so nothing is waiting for the capture's own result.
     sendResponse({ countdown: request.countdown });
-    runCountdown(tabId, request.countdown, !!request.crop).then((owed) => {
+    runCountdown(tabId, request.countdown, !!request.crop, !!request.fromHotkey).then((owed) => {
       if (!owed) return; // the page is running the count and will fire the shot
       // fromHotkey, because it means the same thing here: the popup is gone, so
       // a notification is the only feedback the badge countdown can leave behind.
