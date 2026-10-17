@@ -1162,6 +1162,46 @@ async function checkExportFileName(ctx) {
   }
 }
 
+// The Robot export with a data file: Download saves the test and the DataDriver
+// reader beside it, both for real — a page's second download is held back by the
+// browser, so the reader goes through chrome.downloads. A .py file waits for the
+// browser's "Keep" (as the Selenium export's does), so it is seen in the
+// download list, not yet on disk.
+async function checkExportRobotData(ctx) {
+  const id = await makeScenario(ctx, 'rf data', [{ type: 'input', selector: '#out', selectors: { css: '#out' }, value: '${who}' }]);
+  const popup = await openPopup(ctx);
+  try {
+    await popup.evaluate(`(() => {
+      const s = document.getElementById('exportCodeSelect');
+      s.value = ${JSON.stringify(id)};
+      s.dispatchEvent(new Event('change'));
+      document.getElementById('exportRobot').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS);
+    await popup.evaluate(`(() => {
+      const f = document.getElementById('exportRfData');
+      f.value = 'people.csv';
+      f.dispatchEvent(new Event('input', { bubbles: true }));
+      f.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+    await sleep(SETTLE_MS);
+    const code = await popup.evaluate(`document.querySelector('#exportCode code').textContent`);
+    check(/^Library {13}DataDriver {4}file=people\.csv {4}reader_class=pqa_csv_reader\.py$/m.test(code),
+      'the Robot code follows the Data file setting', code.split('\n').filter((l) => l.includes('DataDriver')));
+    await popup.evaluate(`document.getElementById('exportDownload').click()`);
+    let names = [];
+    for (let waited = 0; names.length < 2 && waited < 5_000; waited += POLL_MS) {
+      await sleep(POLL_MS);
+      names = await popup.evaluate(`new Promise((res) => chrome.downloads.search({}, (items) =>
+        res(items.map((i) => i.filename.split(/[\\\\/]/).pop()).filter((n) => /^(rf_data\\.robot|pqa_csv_reader\\.py)$/.test(n)))))`);
+    }
+    check(names.includes('rf_data.robot') && names.includes('pqa_csv_reader.py'),
+      'Download saves the .robot file and pqa_csv_reader.py beside it', names);
+  } finally {
+    await popup.close();
+  }
+}
+
 /**
  * The 11 steps the export modal is checked with (tasks/plan-6): named steps, a
  * Condition, a script, a full-page screenshot and an upload the bookmarklet
@@ -2999,6 +3039,7 @@ const CHECKS = [
   ['typed-text', 'A Text selector typed in the form', checkTypedText],
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
   ['export-file-name', 'The file name of an exported script', checkExportFileName],
+  ['export-robot-data', 'The Robot export with a data file: the test and its reader', checkExportRobotData],
   ['export-steps', 'The export modal tells which steps were skipped', checkExportSteps],
   ['export-regenerate', 'Reload scenario in the export modals', checkExportRegenerate],
   ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],

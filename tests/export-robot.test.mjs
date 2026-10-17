@@ -184,3 +184,71 @@ test('robot: a step in a frame is looked for in the frames too', () => {
   const top = generateRobot('t', [{ type: 'navigate', url: 'https://x.test/' }], {}).code;
   assert.doesNotMatch(top, /Locate In Frames/);
 });
+
+test('robot: a data file gives a test per row through DataDriver, a column first', () => {
+  const { ROBOT_READER_FILE } = REQUIRED;
+  const steps = [{ type: 'navigate', url: '${page}' }, { type: 'input', selector: '#n', selectors: { css: '#n' }, value: '${who}' },
+    { type: 'readdom', selector: '#t', varName: 'total' }];
+  const { code, warnings } = generateRobot('Login CSV', steps, { who: 'Zed' }, { dataFile: 'data.csv' });
+  assert.match(code, new RegExp(`^Library {13}DataDriver {4}file=data\.csv {4}reader_class=${ROBOT_READER_FILE.replace('.', '\.')}$`, 'm'));
+  assert.match(code, /^Test Template {7}Pocket QA Row$/m);
+  assert.match(code, /^\*\*\* Test Cases \*\*\*\nLogin CSV\n {4}\[Documentation\]/m, 'the test is only the template DataDriver copies');
+  assert.match(code, /^Pocket QA Row\n {4}\[Documentation\].*\n {4}Set Test Variable {4}\$\{PQA_ROW\} {4}\$\{DataDriver_TEST_DATA\}\[arguments\]\n {4}Start Browser$/m);
+  assert.match(code, /^ {4}\$\{who\}= {4}Row Value {4}who {4}\$\{who\}$/m, 'a column wins over the variable and PQA_who');
+  assert.match(code, /^ {4}\$\{page\}= {4}Row Column {4}page$/m, 'a name only a column gives');
+  assert.match(code, /^ {4}\$\{total\}= {4}Row Value {4}total {4}\$\{EMPTY\}$/m, 'a name a step writes, seeded by its column');
+  assert.ok(warnings.some((w) => w.includes(ROBOT_READER_FILE)), 'the modal says the reader goes with it');
+  // Without one: no trace of it.
+  assert.doesNotMatch(generateRobot('Login CSV', steps, { who: 'Zed' }).code, /DataDriver|Test Template|Row Value|PQA_ROW/);
+});
+
+const REQUIRED = await import('../popup/export-robot.js');
+
+test('robot: the DataDriver reader reads a CSV file as the CSV run does', async () => {
+  const { robotReaderPy, ROBOT_READER_FILE } = REQUIRED;
+  const { parseCSV } = await import('../popup/csv/csv-parse.js');
+  const texts = ['﻿name;note\r\nAnn;"two\nlines"\r\n  Bo  ;" kept "\r\n\r\n', 'a,b,c\n1,"x, ""y""",\n2\n', 'a\tb\n1\t2'];
+  const dir = mkdtempSync(join(tmpdir(), 'pqa-dd-'));
+  try {
+    // A stand-in for the two DataDriver classes the reader uses: the reader's own code is what runs.
+    const pkg = join(dir, 'DataDriver');
+    spawnSync(process.platform === 'win32' ? 'cmd' : 'mkdir', process.platform === 'win32' ? ['/c', 'mkdir', pkg] : [pkg]);
+    writeFileSync(join(pkg, '__init__.py'), '');
+    writeFileSync(join(pkg, 'AbstractReaderClass.py'), 'class AbstractReaderClass:\n    def __init__(self, file):\n        self.file = file\n');
+    writeFileSync(join(pkg, 'ReaderConfig.py'), 'class TestCaseData:\n    def __init__(self, test_case_name="", arguments=None):\n'
+      + '        self.test_case_name, self.arguments = test_case_name, arguments or {}\n');
+    writeFileSync(join(dir, ROBOT_READER_FILE), robotReaderPy());
+    texts.forEach((t, k) => writeFileSync(join(dir, `d${k}.csv`), t));
+    writeFileSync(join(dir, 'probe.py'), ['import json, os, sys', 'sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))',
+      'from pqa_csv_reader import pqa_csv_reader',
+      `out = [[(t.test_case_name, t.arguments) for t in pqa_csv_reader(os.path.join(os.path.dirname(os.path.abspath(__file__)), f"d{k}.csv")).get_data_from_source()] for k in range(${texts.length})]`,
+      'print(json.dumps(out))', ''].join('\n'));
+    const res = spawnSync('python', [join(dir, 'probe.py')], { encoding: 'utf-8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
+    if (res.error?.code === 'ENOENT') return; // no Python on this machine — nothing to run
+    assert.equal(res.status, 0, res.stderr);
+    const got = JSON.parse(res.stdout);
+    assert.deepEqual(got.map((f) => f.map(([, args]) => args)), texts.map((t) => parseCSV(t).rows));
+    assert.deepEqual(got[0].map(([name]) => name), ['Row 1', 'Row 2']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+const hasDataDriver = hasRobot && spawnSync(ROBOT_PY, ['-c', 'import DataDriver'], { stdio: 'ignore' }).status === 0;
+
+test('robot: with DataDriver, a dry run makes a test of each row', { skip: hasDataDriver ? false : 'no robotframework-datadriver (set PQA_ROBOT_PYTHON)' }, () => {
+  const { robotReaderPy, ROBOT_READER_FILE } = REQUIRED;
+  const { code } = generateRobot('Login CSV', [{ type: 'navigate', url: '${page}' }], {}, { dataFile: 'data.csv' });
+  const dir = mkdtempSync(join(tmpdir(), 'pqa-ddrun-'));
+  try {
+    writeFileSync(join(dir, 'login.robot'), code);
+    writeFileSync(join(dir, ROBOT_READER_FILE), robotReaderPy());
+    writeFileSync(join(dir, 'data.csv'), 'page;who\nhttps://a.test/;Ann\nhttps://b.test/;Bo\n');
+    const res = spawnSync(ROBOT_PY, ['-m', 'robot', '--dryrun', '--output', 'NONE', '--report', 'NONE', '--log', 'NONE', join(dir, 'login.robot')],
+      { cwd: dir, encoding: 'utf-8' });
+    assert.equal(res.status, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /2 tests, 2 passed, 0 failed/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

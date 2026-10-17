@@ -13,14 +13,15 @@
 import { commentText } from './utils.js';
 import { DRIVER_TYPES, initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarRef } from '../shared/var-name.js';
+import { normalizeVarRef, writtenVarNames } from '../shared/var-name.js';
 import { patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, pickLabel, readTargets, uploadPaths, walkActions, warnUndefinedVars } from './export/walk.js';
+import { exportVariables, inFrame, locatorsFor, pickLabel, readTargets, undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars } from './export/walk.js';
 import { CONDITION_TYPES, PAGE_CALLS } from './export/page-js.js';
+import { csvRowsPy } from './export-selenium.js';
 
 // Robot reads a variable's name ignoring case, spaces and underscores: two names are one when these match.
 const robotKey = (name) => String(name).toLowerCase().replace(/[\s_]/g, '');
@@ -480,12 +481,14 @@ const envName = (k) => `PQA_${/^[\w-]+$/.test(k) ? k : robotIdent(k)}`;
  * first lines taking each PQA_<name> from the environment when it is set — a
  * random or a pick value drawn first.
  */
-function variableLines({ staticVars, randomSpecs, pickSpecs, written }) {
+function variableLines({ staticVars, randomSpecs, pickSpecs, written }, csv = null) {
   const table = [];
   const setup = [];
   const declared = new Set();
   const fresh = (k) => !declared.has(robotIdent(k)) && declared.add(robotIdent(k));
-  const fromEnv = (k) => `\${${robotIdent(k)}}=    Set Variable    %{${envName(k)}=\${${robotIdent(k)}}}`;
+  // With a data file (`csv`), the row's column of the variable's name wins, as in a CSV run.
+  const fromEnv = (k) => [`\${${robotIdent(k)}}=    Set Variable    %{${envName(k)}=\${${robotIdent(k)}}}`,
+    ...(csv ? [`\${${robotIdent(k)}}=    Row Value    ${robotText(k)}    \${${robotIdent(k)}}`] : [])].join('\n');
   for (const [k, v] of Object.entries(staticVars)) {
     if (!fresh(k)) continue;
     table.push(`\${${robotIdent(k)}}    ${robotText(v)}`);
@@ -506,10 +509,60 @@ function variableLines({ staticVars, randomSpecs, pickSpecs, written }) {
     table.push(`@{PQA_CHOICES_${robotIdent(k)}}${vals.map((v) => `    ${robotText(v)}`).join('')}`);
     setup.push(`\${${robotIdent(k)}}=    Evaluate    random.choice($PQA_CHOICES_${robotIdent(k)})`, fromEnv(k));
   }
+  if (csv) {
+    // A name only the data file gives: its column, which every row must have; one a step
+    // writes: seeded by its column when the row has one.
+    for (const k of csv.fromColumns) if (fresh(k)) setup.push(`\${${robotIdent(k)}}=    Row Column    ${robotText(k)}`);
+    for (const k of csv.written) if (fresh(k)) setup.push(`\${${robotIdent(k)}}=    Row Value    ${robotText(k)}    \${EMPTY}`);
+  }
   // A name only a step writes: empty until it does, as in a run.
   for (const k of written) if (!declared.has(k)) table.push(`\${${k}}    \${EMPTY}`);
-  return { table, setup };
+  return { table, setup: setup.flatMap((l) => l.split('\n')) };
 }
+
+/** The file DataDriver reads a data file through, downloaded beside the test. */
+export const ROBOT_READER_FILE = 'pqa_csv_reader.py';
+
+/**
+ * pqa_csv_reader.py: a DataDriver reader that reads the data file as the CSV run
+ * does — the _rows() of the pytest export — where DataDriver's own CSV readers
+ * take only columns headed ${name}. A test per row, Row 1, Row 2, …; the row's
+ * columns by name in ${DataDriver_TEST_DATA}[arguments].
+ */
+export function robotReaderPy() {
+  return [
+    '"'.repeat(3),
+    `${ROBOT_READER_FILE} — DataDriver's reader for a Pocket QA Robot test's data file: keep it beside the`,
+    '.robot file. It reads the CSV as the Pocket QA CSV run does: the separator its header uses most (comma,',
+    'semicolon or Tab), quotes, line breaks inside them, a BOM. A test per row: Row 1, Row 2, …',
+    '"'.repeat(3),
+    'import os',
+    '',
+    'from DataDriver.AbstractReaderClass import AbstractReaderClass',
+    'from DataDriver.ReaderConfig import TestCaseData',
+    '',
+    ...csvRowsPy(),
+    '',
+    '',
+    'class pqa_csv_reader(AbstractReaderClass):',
+    '    def get_data_from_source(self):',
+    '        return [TestCaseData(f"Row {k + 1}", row) for k, row in enumerate(_rows(self.file))]',
+    '',
+  ].join('\n');
+}
+
+// With a data file: the test DataDriver makes a test of for each row, and what reads the row.
+const DATA_KEYWORDS = `Row Value
+    [Documentation]    The row's column of that name, else the value given: a column wins over the variable of its name.
+    [Arguments]    \${name}    \${value}
+    \${got}=    Evaluate    $PQA_ROW.get($name, $value)
+    RETURN    \${got}
+
+Row Column
+    [Documentation]    The row's column of that name, for a name only the data file gives: every row must have it.
+    [Arguments]    \${name}
+    IF    $name not in $PQA_ROW    Fail    the data file has no column "\${name}"
+    RETURN    \${PQA_ROW}[\${name}]`;
 
 // Into `warnings`: two names that differ but are one variable to Robot, `user_name` and `UserName`.
 function warnOneToRobot(variables, warnings) {
@@ -533,8 +586,26 @@ function startLines(enabled, startUrl) {
 const HELPERS_OF = [['input', 'SET_INPUT_JS'], ['condition', 'CHECK_COND_JS'], ['child', 'FIND_CHILD_JS'], ['read', 'READ_VAL_JS'],
   ['pick', 'PICK_ITEM_JS'], ['drop', 'DROP_BRIDGE_JS'], ['drop', 'DROP_FILES_JS']];
 
+/**
+ * What a data file changes: the variables the row's columns give (`csv`, for
+ * variableLines), the test (only the template DataDriver copies) and the keywords
+ * that hold the steps and read the row. Without one, the test holds the steps.
+ */
+function dataParts(dataFile, enabled, variables, warnings) {
+  if (!dataFile) return { csv: null, test: (steps) => indent(steps), keywords: () => [] };
+  warnings.add(`Download saves ${ROBOT_READER_FILE} too (the browser may ask you to keep a .py file): keep it beside the .robot file — DataDriver reads ${dataFile} through it`);
+  return {
+    csv: { fromColumns: undefinedVarNames(enabled, variables), written: enabled.flatMap((a) => writtenVarNames(a)) },
+    test: () => ['    [Documentation]    A test per row of the data file, made by DataDriver from Pocket QA Row.'],
+    keywords: (steps) => [['Pocket QA Row',
+      `    [Documentation]    One row of ${robotText(dataFile)}: DataDriver makes a test of it, its columns by name in \${PQA_ROW}.`,
+      '    Set Test Variable    ${PQA_ROW}    ${DataDriver_TEST_DATA}[arguments]',
+      ...indent(steps)].join('\n'), DATA_KEYWORDS],
+  };
+}
+
 // The Settings: how to run the test, what the environment can change, the library, the setup and teardown.
-function settingsLines(name, envVars) {
+function settingsLines(name, envVars, dataFile) {
   return [
     '*** Settings ***',
     `Documentation       ${robotText(`${name} — a Pocket QA scenario.`)}`,
@@ -543,7 +614,11 @@ function settingsLines(name, envVars) {
     "...                 first page's: its steps go there), PQA_BROWSER (Chrome, Edge, Firefox or Safari), PQA_HEADLESS",
     `...                 (1: no browser window) and ${envVars.length ? robotText(`a variable's value: ${envVars.join(', ')}.`) : 'PQA_<name>, the value of a variable.'}`,
     '...                 A failed test keeps a screenshot of the page and names the step that failed.',
+    ...(dataFile ? [
+      `...                 ${robotText(`A test per row of the data file ${dataFile}: pip install robotframework-datadriver, and ${ROBOT_READER_FILE} (downloaded with this file) beside it.`)}`,
+    ] : []),
     'Library             SeleniumLibrary    run_on_failure=Nothing',
+    ...(dataFile ? [`Library             DataDriver    file=${robotText(dataFile)}    reader_class=${ROBOT_READER_FILE}`, 'Test Template       Pocket QA Row'] : []),
     'Suite Setup         Decode Page Helpers',
     'Test Teardown       End Test',
   ];
@@ -558,10 +633,12 @@ function settingsLines(name, envVars) {
  * @param {string}  opts.driverType - Chrome (default), Edge, Firefox or Safari
  * @param {boolean} opts.headless   - no browser window (not Safari)
  * @param {string}  opts.startUrl   - opened first when the scenario does not start with a Navigate
+ * @param {string}  opts.dataFile   - a CSV file: a test per row (DataDriver, through ROBOT_READER_FILE)
  * @returns {{ code: string, stats: { total, supported, skipped }, steps: object[], warnings: string[] }}
  */
 export function generateRobot(scenarioName, actions, variables, opts = {}) {
   const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false } = opts;
+  const dataFile = String(opts.dataFile || '').trim();
   const driverType = DRIVER_TYPES.has(opts.driverType) ? opts.driverType : 'Chrome';
   const all = actions || [];
   const enabled = all.filter((a) => !a.disabled);
@@ -573,18 +650,20 @@ export function generateRobot(scenarioName, actions, variables, opts = {}) {
   const frames = enabled.some(inFrame) ? 'all' : 'none';
   const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set(), frames, driverType };
   const bodyLines = stepLines(ctx);
-  const { table, setup } = variableLines(vars);
+  const data = dataParts(dataFile, enabled, variables, warnings);
+  const { table, setup } = variableLines(vars, data.csv);
 
   const helpers = ['FIND_TEXT_JS', 'QUERY_DEEP_JS', ...HELPERS_OF.filter(([use]) => ctx.uses.has(use)).map(([, h]) => h)];
   // With frames, a Condition's element is looked for in them too, and checked in the one that holds it.
   const stepKeyword = (u) => (u === 'condition' && frames === 'all'
     ? STEP_KEYWORDS[u].replace('${el}=    Locate    @{locators}', '${el}=    Locate In Frames    @{locators}') : STEP_KEYWORDS[u]);
-  const keywords = [BASE_KEYWORDS, findElementKeyword(frames === 'all'), ...(frames === 'all' ? [FRAMES_KEYWORDS] : []),
-    ...Object.keys(STEP_KEYWORDS).filter((u) => ctx.uses.has(u)).map(stepKeyword)];
   const name = String(scenarioName ?? '').trim();
+  const testBody = ['Start Browser', ...[...setup, ...(setup.length ? [''] : []), ...startLines(enabled, startUrl), ...bodyLines]];
+  const keywords = [...data.keywords(testBody), BASE_KEYWORDS, findElementKeyword(frames === 'all'), ...(frames === 'all' ? [FRAMES_KEYWORDS] : []),
+    ...Object.keys(STEP_KEYWORDS).filter((u) => ctx.uses.has(u)).map(stepKeyword)];
 
   const out = [
-    ...settingsLines(name, Object.keys(variables || {}).map(envName)),
+    ...settingsLines(name, Object.keys(variables || {}).map(envName), dataFile),
     '',
     '',
     '*** Variables ***',
@@ -599,14 +678,13 @@ export function generateRobot(scenarioName, actions, variables, opts = {}) {
     '',
     '*** Test Cases ***',
     name ? robotText(name) : 'Scenario',
-    '    Start Browser',
-    ...indent([...setup, ...(setup.length ? [''] : []), ...startLines(enabled, startUrl), ...bodyLines]),
+    ...data.test(testBody),
     '',
     '*** Keywords ***',
     keywords.join('\n\n'),
   ];
 
-  warnUndefinedVars(enabled, variables, warnings);
+  warnUndefinedVars(enabled, variables, warnings, dataFile);
   const skipped = steps.filter((st) => st.status === 'skip').length;
   return {
     code: `${out.join('\n').replace(/\n{3,}(?=\*\*\* Keywords)/, '\n\n\n')}\n`,
@@ -637,10 +715,13 @@ export function initExportRobot() {
       driverType: document.getElementById('exportRfBrowser')?.value || 'Chrome',
       headless: !!document.getElementById('exportRfHeadless')?.checked,
       startUrl: document.getElementById('exportRfStartUrl')?.value.trim() || '',
+      dataFile: document.getElementById('exportRfData')?.value.trim() || '',
     }),
     generate: generateRobot,
     copyText: (code) => code,
     file: (code) => ({ text: code, type: 'text/plain' }),
+    // With a data file, the reader DataDriver needs goes with it.
+    extraFiles: (options) => (options.dataFile ? [{ name: ROBOT_READER_FILE, text: robotReaderPy(), type: 'text/x-python' }] : []),
     startUrl: { field: 'exportRfStartUrl', button: 'exportRfGetUrl', badge: 'exportRfUrlFromTab' },
     headless: { driver: 'exportRfBrowser', box: 'exportRfHeadless', row: 'exportRfHeadlessRow' },
   });

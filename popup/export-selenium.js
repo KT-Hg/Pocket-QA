@@ -443,6 +443,16 @@ function pytestLines(driverLines, testName, body, dataFile) {
  * a column a step needs, which a row must have.
  */
 function _csvHelpersPy() {
+  return [...csvRowsPy(), '', '', ...String.raw`
+def _column(row, name):
+    """The row's value of a column a step needs."""
+    if name not in row:
+        raise Exception(f'the data file has no column "{name}"')
+    return row[name]`.split('\n').slice(1)];
+}
+
+/** The _rows() runtime helper alone (needs `import os`): also the Robot export's DataDriver reader. */
+export function csvRowsPy() {
   return String.raw`
 def _rows(name):
     """The rows of the CSV file of that name beside this file, each {column: value}."""
@@ -501,14 +511,7 @@ def _rows(name):
         end_record()
     if len(records) < 2:
         raise Exception(f"{name}: a header row and at least one row of data are needed")
-    return [{h: (r[k] if k < len(r) else "") for k, h in enumerate(records[0])} for r in records[1:]]
-
-
-def _column(row, name):
-    """The row's value of a column a step needs."""
-    if name not in row:
-        raise Exception(f'the data file has no column "{name}"')
-    return row[name]`.split('\n').slice(1);
+    return [{h: (r[k] if k < len(r) else "") for k, h in enumerate(records[0])} for r in records[1:]]`.split('\n').slice(1);
 }
 
 /**

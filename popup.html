@@ -1838,6 +1838,15 @@
             <input type="number" id="exportRfElTimeout" class="export-bm-setting-input" value="10000" min="500" max="60000" />
             <span class="export-bm-setting-unit">ms</span>
           </div>
+          <div class="export-bm-setting-row export-bm-setting-row-stack">
+            <div class="export-bm-setting-label">
+              Data file (CSV)
+              <small>A test per row (DataDriver); a column wins over the variable of its name. Read beside the test, through pqa_csv_reader.py, which Download saves too.</small>
+            </div>
+            <div class="export-bm-url-field">
+              <input type="text" id="exportRfData" class="export-bm-setting-input" placeholder="data.csv" />
+            </div>
+          </div>
         </div>
         <div data-format="java" hidden>
           <div class="export-bm-setting-row export-bm-setting-row-stack">

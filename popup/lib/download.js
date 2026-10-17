@@ -15,6 +15,19 @@ export function downloadCsvText(text, filename) {
 }
 
 /**
+ * Another file from the same click, through chrome.downloads: a browser holds back
+ * a page's second download (an anchor click) until the user allows "multiple
+ * files", and chrome.downloads is not held back.
+ */
+export function downloadAlso(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  chrome.downloads.download({ url, filename }, () => {
+    void chrome.runtime.lastError;
+    setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
+  });
+}
+
+/**
  * Strip path separators and characters Windows rejects from a user-supplied
  * name before it becomes a download filename. Scenario and folder names are
  * free text, so one containing "/" or ":" produced a silently renamed or

@@ -15,7 +15,7 @@ import { trapFocus } from './ui/focus.js';
 import { isAlwaysSwitch } from '../shared/switch-blocks.js';
 import { normalizeVarName } from '../shared/var-name.js';
 import { activeValue, parseRandomSpec, parsePickSpec, previewRandom } from '../shared/var-spec.js';
-import { downloadBlob, safeFileName } from './lib/download.js';
+import { downloadAlso, downloadBlob, safeFileName } from './lib/download.js';
 import { highlightLines } from './export/highlight.js';
 
 /**
@@ -358,6 +358,8 @@ function download() {
   // Through downloadBlob, which revokes the URL a moment later: revoked right
   // after click() it can go before the browser has read the file.
   downloadBlob(new Blob([text], { type }), fileName());
+  // Files the code needs beside it (Robot's data file reader).
+  for (const f of run.cfg.extraFiles?.(run.options) || []) downloadAlso(new Blob([f.text], { type: f.type }), f.name);
 }
 
 /**
