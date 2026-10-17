@@ -96,6 +96,15 @@ async function _askOnFailure(tabId, info) {
 }
 
 /**
+ * A failure the run goes on past without asking — a false Assert. `facts` adds
+ * to the record: `kind` (shared/verdict.js), what was expected and found.
+ */
+export function recordFailure({ i, action, reason, failedActions, facts = {} }) {
+  notifyActionFailed(i, action, reason);
+  failedActions?.push({ index: i + 1, type: action?.type || 'unknown', label: action?.label || '', reason, ...facts });
+}
+
+/**
  * Every failed action goes through here. Retry leaves nothing behind; skip and
  * stop record the failure, and stop ends the run the way STOP_PLAYBACK does.
  */

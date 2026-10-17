@@ -9,6 +9,7 @@ import { runScript } from './script.js';
 import { runElementScreenshot, runScreenshotToVar, runScreenshot } from './screenshot.js';
 import { runReadDom } from './readdom.js';
 import { runCondition } from './condition.js';
+import { runAssert } from './assert.js';
 import { runSwitch } from './switch.js';
 import { runUploadFile } from './upload.js';
 
@@ -33,6 +34,7 @@ export const STEPS = new Map([
   ['screenshot_full', runScreenshot],
   ['readdom', runReadDom],
   ['condition', runCondition],
+  ['assert', runAssert],
   ['switch', runSwitch],
   ['uploadFile', runUploadFile],
 ]);

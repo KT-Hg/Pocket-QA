@@ -1762,6 +1762,28 @@ function _markTarget(el) {
   return `[${_TARGET_ATTR}="${token}"]`;
 }
 
+// Long enough for a message or a field's value, short enough for a failure line.
+const CHECK_ACTUAL_MAX = 200;
+
+/**
+ * What a false check saw, for an Assert to report (a Condition reads only
+ * `result`): whether its element was found — `el` undefined when the check
+ * needs none — and the text, value, URL, class or attribute it compared. A
+ * password field's value never leaves the page: `secret` says so instead.
+ */
+function _checkedFacts(type, el, expectedValue) {
+  if (type.startsWith('url')) return { actual: window.location.href.slice(0, CHECK_ACTUAL_MAX) };
+  if (el === undefined) return {};
+  if (!el) return { found: false };
+  if (el.type === 'password') return { found: true, secret: true };
+  let actual;
+  if (type.startsWith('text')) actual = el.textContent.trim();
+  else if (type.startsWith('value')) actual = 'value' in el ? String(el.value) : undefined;
+  else if (type === 'hasClass') actual = el.getAttribute('class') || '';
+  else if (type === 'hasAttribute') actual = el.getAttribute(String(expectedValue || '').split('=')[0]) ?? '(none)';
+  return actual === undefined ? { found: true } : { found: true, actual: actual.slice(0, CHECK_ACTUAL_MAX) };
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'MARK_ELEMENT') {
     const timeout = msg.timeout > 0 ? msg.timeout : 5000;
@@ -1830,7 +1852,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     // Conditions evaluate the DOM at the current moment, no waiting, and find
     // the element the way an action does — the chosen selector type first.
-    const getEl = () => locateNow(selectorMap, selector, msg.selectorType);
+    // `looked` keeps what was found (null: nothing) for _checkedFacts.
+    let looked;
+    const getEl = () => (looked = locateNow(selectorMap, selector, msg.selectorType));
 
     let result = false;
     try {
@@ -1917,7 +1941,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       sendResponse({ result: false, error: e?.message || String(e) });
       return;
     }
-    sendResponse({ result });
+    sendResponse(result ? { result } : { result, ..._checkedFacts(conditionType, looked, expectedValue) });
   }
 });
 

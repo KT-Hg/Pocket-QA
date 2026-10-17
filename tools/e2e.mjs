@@ -616,6 +616,48 @@ async function checkConditionUnknown(ctx) {
   check(prompt && clicked.length === 0, 'a Condition of an unknown type stops on the failure prompt instead of passing', { prompt, clicked });
 }
 
+async function checkAssert(ctx) {
+  await reloadTestPage(ctx);
+  const id = await makeScenario(ctx, 'e2e assert', [
+    { type: 'assert', conditionType: 'textEquals', selector: '#asLate', selectors: { css: '#asLate' }, expectedValue: 'Saved' },
+    { type: 'assert', conditionType: 'elementExists', selector: '#asNever', selectors: { css: '#asNever' } },
+    { type: 'assert', conditionType: 'textEquals', selector: '#bg1', selectors: { css: '#bg1' }, expectedValue: 'nope' },
+    { type: 'assert', conditionType: 'valueEquals', selector: '#asPw', selectors: { css: '#asPw' }, expectedValue: 'guess' },
+    { type: 'click', selector: '#bg2', selectors: { css: '#bg2' } },
+  ]);
+  await ctx.web.evaluate(`{ const p = document.createElement('input'); p.type = 'password'; p.id = 'asPw'; p.value = 'hunter2'; document.body.append(p); }`);
+  // The failures the worker reports, as the popup hears them.
+  await ctx.ext.evaluate(`window.__fails = []; window.__failsHooked || chrome.runtime.onMessage.addListener((m) => {
+    if (m.type === 'ACTION_FAILED') __fails.push(m.index + ' ' + m.reason);
+  }); window.__failsHooked = true;`);
+  // What the first Assert checks shows up 2 s after the run starts.
+  await ctx.web.evaluate(`setTimeout(() => {
+    const s = document.createElement('span'); s.id = 'asLate'; s.textContent = 'Saved'; document.body.append(s);
+  }, 2000)`);
+  await ctx.web.bringToFront();
+  const started = Date.now();
+  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: id });
+  let prompt = false;
+  while (Date.now() - started < 30_000) {
+    await sleep(POLL_MS);
+    prompt ||= await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].some((e) => /failed/i.test(e.textContent))`);
+    if (prompt || (Date.now() - started > 1_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing)) break;
+  }
+  const seconds = (Date.now() - started) / 1000;
+  if (prompt) await ctx.send({ type: 'STOP_PLAYBACK' });
+  await sleep(SETTLE_MS);
+  const clicked = await ctx.web.evaluate(`__log.filter((e) => e.startsWith('bg2 '))`);
+  const fails = await ctx.ext.evaluate('__fails');
+  check(!prompt && clicked.length === 1, 'a false Assert does not stop the run: no prompt, and the step after it plays', { prompt, clicked });
+  check(fails[0] === '1 Expected element to exist' && !fails.some((f) => f.startsWith('0 ')),
+    'an Assert that holds after 2 s passes; one that never holds fails', fails);
+  check(fails[1] === '2 Expected text "nope", got "bg1"', 'a false Assert says what the page held', fails);
+  check(fails[2] === '3 Expected the value of a password field to match' && !JSON.stringify(fails).includes('hunter2'),
+    'and never what a password field holds', fails);
+  check(fails.length === 3, 'nothing else failed', fails);
+  check(seconds >= 16 && seconds < 30, 'the run waited for each: about 2 s, then the full 5 s for every false one', { seconds });
+}
+
 async function checkHotkeys(ctx) {
   await reloadTestPage(ctx);
   // Alt+R as the page gets it; `key` is what the keyboard typed ("®" for Option+R on macOS).
@@ -3054,6 +3096,7 @@ const CHECKS = [
   ['schedule', 'A scheduled run on its start URL', checkSchedule],
   ['record-overlay', 'Recording ignores the extension overlays', checkRecordOverlay],
   ['condition-unknown', 'A Condition of an unknown type', checkConditionUnknown],
+  ['assert', 'Assert: waited for, and a false one does not stop the run', checkAssert],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
   ['select-type', 'Child Condition type "select"', checkSelectType],

@@ -22,7 +22,7 @@ import { pickStrings } from '../shared/dropdown-pick.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { isAnyPlaybackActive, runClaimed } from './run-state.js';
 import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
-import { notifyActionFailed, onActionFailed, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
+import { notifyActionFailed, onActionFailed, recordFailure, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
 import { closeOpenSessions } from './cdp/session.js';
 
 /* ── Concurrency Guard ──────────────────────────────────────────────────────── */
@@ -169,6 +169,8 @@ export async function playActionsOnTab(tabId, actions, {
   // stops the run on FAIL_STOP; FAIL_SKIP falls through to the action's usual tail.
   const fail = (i, action, reason, record) =>
     onActionFailed({ tabId, i, actions, action, reason, failedActions, record });
+  // Records a failure the run goes on past without asking (a false Assert).
+  const recordFail = (i, action, reason, facts) => recordFailure({ i, action, reason, failedActions, facts });
 
   // Sticky fallback resolution: if the content script resolved a {fallback:...}
   // variable, persist the winning value into resolvedVars so every subsequent
@@ -183,7 +185,7 @@ export async function playActionsOnTab(tabId, actions, {
   };
 
   Object.assign(ctx, {
-    layout: _layout, fail, stickFallbacks: _stickFallbacks, getSsSettings: _getSsSettings,
+    layout: _layout, fail, recordFail, stickFallbacks: _stickFallbacks, getSsSettings: _getSsSettings,
     // A Switch case played as a run of its own, one level deeper. It shares this
     // run's screenshots (and their names), save options and failure list; its
     // variables are a copy.

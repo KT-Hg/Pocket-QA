@@ -53,9 +53,12 @@ installTabMessages(fake, {
     if (typeof r === 'function') return r(msg);
     return r ?? {};
   },
-  // true / false, or the page's whole reply ({ result, error }).
+  // true / false, the page's whole reply ({ result, error, found, actual }), a
+  // list of replies (one per call, the last one repeats) or a function of the message.
   CHECK_CONDITION: (msg) => {
-    const c = conditions[msg.selector];
+    let c = conditions[msg.selector];
+    if (Array.isArray(c)) c = take(c);
+    if (typeof c === 'function') c = c(msg);
     return c && typeof c === 'object' ? c : { result: !!c };
   },
   ACTION_FAILED_PROMPT: (msg) => {
@@ -802,6 +805,85 @@ test('a resumed run saves screenshots with the save mode set now', () => {
   const saveAs = (step) => _callsOf(step).filter((c) => c.startsWith('downloads.download')).map((c) => /"saveAs":(true|false)/.exec(c)?.[1]);
   assert.deepEqual(saveAs('screenshot settings: a run with Save As'), ['true']);
   assert.deepEqual(saveAs('screenshot settings: resumed after switching to auto save'), ['false']);
+});
+
+// ── assert ──────────────────────────────────────────────────────────────────
+// A false Assert is recorded and the run goes on, with no prompt; it is checked
+// again until it holds, for up to 5 s.
+const assertOf = (selector, conditionType, expectedValue, extra) => ({ type: 'assert', conditionType, selector, expectedValue, ...extra });
+await run('assert', play([
+  assertOf('#yes', 'elementExists'),
+  assertOf('#late', 'textEquals', '${v}'),
+  assertOf('#msg', 'textEquals', 'Saved', { label: 'Toast' }),
+  assertOf('#gone', 'textEquals', 'x'),
+  assertOf('#never', 'elementExists'),
+  assertOf(undefined, 'urlContains', '/done'),
+  assertOf('#pw', 'valueEquals', 'hunter2'),
+  assertOf('#off', 'elementExists', '', { disabled: true }),
+  assertOf('#t', 'textEquals', 'val', { selectors: { css: '#t' }, frameId: 2 }),
+  hover('#after'),
+], { v: 'val' }), {
+  setup: () => {
+    conditions['#yes'] = true;
+    conditions['#late'] = [{ result: false, found: true, actual: '' }, { result: false, found: true, actual: 'Loading' }, { result: true }];
+    conditions['#msg'] = { result: false, found: true, actual: 'Error' };
+    conditions['#gone'] = { result: false, found: false };
+    conditions['#never'] = { result: false, found: false };
+    conditions['#pw'] = { result: false, found: true, secret: true };
+    conditions['#t'] = true;
+  },
+});
+await run('assert: the page cannot evaluate it', play([assertOf('#bogus', 'bogus'), hover('#after')], {}), {
+  setup: () => { conditions['#bogus'] = { result: false, error: 'Unknown condition type "bogus"' }; choices = ['skip']; },
+});
+await run('assert: the page does not answer', play([assertOf('#away', 'elementExists'), hover('#after')], {}), {
+  setup: () => { conditions['#away'] = { failed: true, _noContentScript: true, error: 'tabMsg timeout' }; choices = ['skip']; },
+});
+await run('assert: stopped while it waits', play([assertOf('#stop', 'elementExists'), hover('#after')], {}), {
+  setup: () => { conditions['#stop'] = () => { state.playback.active = false; return { result: false, found: false }; }; },
+});
+
+const _checksOf = (step, selector) => _callsOf(step)
+  .filter((c) => c.includes('"type":"CHECK_CONDITION"') && c.includes(`"selector":${JSON.stringify(selector)}`));
+const _resultOf = (step) => transcript.find((e) => e.step === step)?.result;
+
+test('a false Assert is recorded with no prompt, and the run goes on', () => {
+  const calls = _callsOf('assert');
+  assert.ok(!calls.some((c) => c.includes('ACTION_FAILED_PROMPT')), 'no prompt');
+  assert.ok(calls.some((c) => c.includes('"type":"PLAY_ACTION"') && c.includes('"selector":"#after"')), 'the step after runs');
+  assert.deepEqual(_resultOf('assert').failed, [
+    { index: 3, type: 'assert', label: 'Toast', reason: 'Expected text "Saved", got "Error"', kind: 'assert', expected: 'Saved', actual: 'Error' },
+    { index: 4, type: 'assert', label: '', reason: 'Element not found — could not check', kind: 'broken' },
+    { index: 5, type: 'assert', label: '', reason: 'Expected element to exist', kind: 'assert', expected: '' },
+    { index: 6, type: 'assert', label: '', reason: 'Expected URL containing "/done"', kind: 'assert', expected: '/done' },
+    { index: 7, type: 'assert', label: '', reason: 'Expected the value of a password field to match', kind: 'assert' },
+  ]);
+});
+test('an Assert is checked again until it holds, for up to 5 s', () => {
+  assert.equal(_checksOf('assert', '#yes').length, 1);
+  assert.equal(_checksOf('assert', '#late').length, 3);
+  assert.equal(_checksOf('assert', '#never').length, 21, 'every 250 ms from 0 to 5 s');
+});
+test('an Assert in a frame asks that frame, a disabled one is not checked', () => {
+  assert.ok(_checksOf('assert', '#t').every((c) => c.endsWith(',{"frameId":2}]')));
+  assert.equal(_checksOf('assert', '#off').length, 0);
+});
+test('an Assert never puts a password field\'s value in its failure', () => {
+  assert.doesNotMatch(JSON.stringify(_resultOf('assert')), /hunter2/);
+});
+test('an Assert the page cannot evaluate or does not answer fails with the prompt', () => {
+  for (const step of ['assert: the page cannot evaluate it', 'assert: the page does not answer']) {
+    assert.ok(_callsOf(step).some((c) => c.includes('ACTION_FAILED_PROMPT')), step);
+    assert.ok(_callsOf(step).some((c) => c.includes('"selector":"#after"')), `${step}: skip goes on`);
+  }
+  assert.match(_failedOf('assert: the page cannot evaluate it'), /Unknown condition type/);
+  assert.equal(_checksOf('assert: the page cannot evaluate it', '#bogus').length, 1, 'an error is not waited out');
+  assert.ok(_checksOf('assert: the page does not answer', '#away').length > 1, 'an unreachable page is waited for');
+});
+test('an Assert stops waiting when the run is stopped, and records nothing', () => {
+  assert.equal(_checksOf('assert: stopped while it waits', '#stop').length, 1);
+  assert.deepEqual(_resultOf('assert: stopped while it waits').failed, []);
+  assert.ok(!_callsOf('assert: stopped while it waits').some((c) => c.includes('"selector":"#after"')));
 });
 
 // ── compare ─────────────────────────────────────────────────────────────────
