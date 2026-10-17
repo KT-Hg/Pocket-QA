@@ -847,6 +847,98 @@ function _dropdownItems(trigger, itemSelector) {
   return options.length ? options : within(DROPDOWN_MENUITEM_SEL);
 }
 
+/*
+ * A virtualized list (react-window, MUI and the like) renders only the items in
+ * view, inside a scroller far taller than they are. An item is known by its
+ * offset in the scroller — its place in the list, whichever node is reused to
+ * show it. Rows of one height (nearly every such list) give the place of item #n
+ * straight away: the list is scrolled there, and to its end for the count. Rows
+ * of mixed heights are walked from the top, a page at a time.
+ */
+// Walking a list of mixed rows stops after this long, inside the worker's wait for the page.
+const DROPDOWN_WALK_MAX_MS = 5_000;
+// A random pick that lands on a disabled or empty item tries again, this many times.
+const DROPDOWN_RANDOM_TRIES = 10;
+
+/** The element that scrolls `items`, when it holds far more than they are (a virtualized list); else null. */
+function _virtualScroller(items) {
+  for (let el = items[0]?.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+    const oy = getComputedStyle(el).overflowY;
+    if ((oy !== 'auto' && oy !== 'scroll') || el.scrollHeight <= el.clientHeight + 1) continue;
+    const shown = items.reduce((h, it) => h + it.getBoundingClientRect().height, 0);
+    return el.scrollHeight > shown + el.clientHeight ? el : null;
+  }
+  return null;
+}
+
+/** Where `el` sits in `scroller`'s content. */
+const _offsetIn = (scroller, el) => Math.round(el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop);
+
+/** Scroll to `top` and give the list two frames to render the rows now in view. */
+async function _scrollList(scroller, top) {
+  scroller.scrollTop = top;
+  await new Promise(nextFrame);
+  await new Promise(nextFrame);
+}
+
+/** The items shown now, as { el, offset }, top first. */
+const _rowsShown = (scroller, current) => current().map((el) => ({ el, offset: _offsetIn(scroller, el) }))
+  .sort((x, y) => x.offset - y.offset);
+
+/** The item at `offset`, scrolled into view; null if the list shows none there. */
+async function _virtualItemAt(scroller, current, offset) {
+  await _scrollList(scroller, Math.max(0, offset - scroller.clientHeight / 2));
+  return _rowsShown(scroller, current).find((row) => Math.abs(row.offset - offset) <= 1)?.el || null;
+}
+
+/**
+ * Item `pick.index` of a virtualized list: { item, index, count }, or { error }
+ * with the count of items it has (or, walked, has shown).
+ */
+async function _pickVirtual(scroller, current, pick) {
+  await _scrollList(scroller, 0);
+  const top = _rowsShown(scroller, current);
+  const step = top.length > 1 ? top[1].offset - top[0].offset : 0;
+  const even = step > 0 && top.every((row, k) => k === 0 || Math.abs(row.offset - top[k - 1].offset - step) <= 1);
+  return even ? _pickEvenRows(scroller, current, pick, top[0].offset, step) : _pickWalked(scroller, current, pick);
+}
+
+/** Rows of one height, the first at `first`: item #n is at first + (n - 1) × step. */
+async function _pickEvenRows(scroller, current, pick, first, step) {
+  await _scrollList(scroller, scroller.scrollHeight);
+  const count = Math.round((_rowsShown(scroller, current).pop().offset - first) / step) + 1;
+  const random = parsePickIndex(pick.index).random;
+  for (let attempt = 0; attempt < (random ? DROPDOWN_RANDOM_TRIES : 1); attempt++) {
+    const r = pickItemIndex(pick.index, count);
+    if (r.error) return { error: r.error };
+    const item = await _virtualItemAt(scroller, current, first + r.index * step);
+    if (!item) return { error: `item #${r.index + 1} is not where a list of rows of one height puts it` };
+    if (!random || (!_itemDisabled(item) && item.textContent.trim() !== '')) return { item, index: r.index, count };
+  }
+  return { error: `no item to choose at random (${count} found, ${DROPDOWN_RANDOM_TRIES} tries)` };
+}
+
+/** Rows of mixed heights: walked from the top a page at a time, every item noted by its offset. */
+async function _pickWalked(scroller, current, pick) {
+  const seen = new Map();
+  const deadline = Date.now() + DROPDOWN_WALK_MAX_MS;
+  const n = parsePickIndex(pick.index).n;
+  for (;;) {
+    for (const { el, offset } of _rowsShown(scroller, current)) {
+      if (!seen.has(offset)) seen.set(offset, { offset, text: el.textContent.trim(), disabled: _itemDisabled(el) });
+    }
+    if ((n > 0 && seen.size >= n) || Date.now() >= deadline) break;
+    const before = scroller.scrollTop;
+    await _scrollList(scroller, before + scroller.clientHeight);
+    if (scroller.scrollTop === before) break;
+  }
+  const all = [...seen.values()].sort((x, y) => x.offset - y.offset);
+  const r = pickItemIndex(pick.index, all.length, (k) => !all[k].disabled && all[k].text !== '');
+  if (r.error) return { error: r.error };
+  const item = await _virtualItemAt(scroller, current, all[r.index].offset);
+  return item ? { item, index: r.index, count: all.length } : { error: `item #${r.index + 1} went out of the list while it was scrolled` };
+}
+
 /** The press and click a person makes, so libraries that act on pointerdown or mousedown see it too. */
 function _clickDropdownItem(el) {
   el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -883,13 +975,22 @@ async function pickDropdownItem(action, strict = false) {
     if (!r.error || Date.now() >= deadline) break;
     await new Promise((res) => setTimeout(res, DROPDOWN_ITEM_POLL_MS));
   }
+  // A virtualized list: what is shown is a slice of it, so the number is found
+  // in the whole list (#-1 and random need its end).
+  const scroller = items.length ? _virtualScroller(items) : null;
+  let item = items[r.index];
+  let total = items.length;
+  if (scroller) {
+    const v = await _pickVirtual(scroller, () => _dropdownItems(trigger, pick.itemSelector), pick);
+    r = v.error ? { error: v.error } : { index: v.index };
+    ({ item, count: total = 0 } = v);
+  }
   if (r.error) {
     const where = pick.itemSelector
       ? `"${pick.itemSelector}"`
       : 'role=option / menuitem (set Items to the selector of the items)';
     return { failed: true, error: `Dropdown: ${r.error}; items looked for: ${where}` };
   }
-  const item = items[r.index];
   const text = item.textContent.trim().replace(/\s+/g, ' ').slice(0, 80);
   if (_itemDisabled(item)) return { failed: true, error: `Dropdown: item #${r.index + 1} ("${text}") is disabled` };
   if (strict) {
@@ -898,7 +999,7 @@ async function pickDropdownItem(action, strict = false) {
     if (why) return { failed: true, blocked: true, error: `Dropdown: item #${r.index + 1} ("${text}"): ${why}` };
   }
   _clickDropdownItem(item);
-  return { picked: { index: r.index + 1, text, count: items.length } };
+  return { picked: { index: r.index + 1, text, count: total } };
 }
 
 /* ── "Click through" off ──────────────────────────────────────────────────────

@@ -183,6 +183,8 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
 <body>
 <div id="dd" name="ddtrigger">Choose…</div>
 <ul id="menu" class="menu"><li>One</li><li>Two</li><li>Three</li></ul>
+<div id="vdd">Pick from 1000…</div>
+<div id="vlist" class="menu" role="listbox" style="height:150px;overflow-y:auto"><div id="vinner" style="position:relative"></div></div>
 <select id="sel"><option>a</option><option>b</option><option>c</option></select>
 <div id="2nd:dd">id that needs escaping</div>
 <div class="xp">known only by XPath</div>
@@ -248,6 +250,28 @@ const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</
   menu.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => {
     dd.textContent = li.textContent; menu.classList.remove('open'); __log.push('picked ' + li.textContent);
   }));
+  // A list of 1000 that renders only the rows in view (and a few more), as react-window does;
+  // ?mixed: 120 rows of 30 and 40 px by turns.
+  const vdd = document.getElementById('vdd'), vlist = document.getElementById('vlist'), vinner = document.getElementById('vinner');
+  const mixed = location.search.includes('mixed');
+  const heights = Array.from({ length: mixed ? 120 : 1000 }, (_, i) => (mixed && i % 2 ? 40 : 30));
+  const tops = heights.map((_, i) => heights.slice(0, i).reduce((a, h) => a + h, 0));
+  vinner.style.height = (tops[tops.length - 1] + heights[heights.length - 1]) + 'px';
+  const vrender = () => {
+    let first = 0;
+    while (first < tops.length - 1 && tops[first + 1] <= vlist.scrollTop) first++;
+    const last = Math.min(tops.length - 1, first + 7);
+    vinner.replaceChildren(...Array.from({ length: last - first + 1 }, (_, k) => {
+      const row = document.createElement('div');
+      row.setAttribute('role', 'option');
+      row.textContent = 'Item ' + (first + k + 1);
+      row.style.cssText = 'position:absolute;left:0;right:0;height:' + heights[first + k] + 'px;top:' + tops[first + k] + 'px';
+      row.addEventListener('click', () => { vdd.textContent = row.textContent; vlist.classList.remove('open'); });
+      return row;
+    }));
+  };
+  vlist.addEventListener('scroll', vrender);
+  vdd.addEventListener('click', () => { vlist.classList.add('open'); vlist.scrollTop = 0; vrender(); });
   document.getElementById('2nd:dd').addEventListener('click', () => __log.push('id dropdown clicked'));
   document.querySelector('.xp').addEventListener('click', () => __log.push('xpath dropdown clicked'));
 </script></body></html>`;
@@ -292,7 +316,7 @@ async function play(ctx, scenarioId, { away = null } = {}) {
   if (running) await ctx.send({ type: 'STOP_PLAYBACK' });
   await sleep(SETTLE_MS);
   // `?.`: export-run plays on the export page, which has none of these.
-  return ctx.web.evaluate(`({ log: window.__log, dd: document.getElementById('dd')?.textContent,
+  return ctx.web.evaluate(`({ log: window.__log, dd: document.getElementById('dd')?.textContent, vdd: document.getElementById('vdd')?.textContent,
     sel: document.getElementById('sel')?.value, out: document.getElementById('out')?.value,
     big: document.getElementById('big')?.value, timedOut: ${running} })`);
 }
@@ -335,6 +359,20 @@ async function checkDropdown(ctx) {
   check(r.sel === 'c', 'Choose item #-1 in a <select> picks the last option', r);
   check(r.log.includes('id dropdown clicked'), 'a Dropdown known only by an id that needs escaping opens', r.log);
   check(r.log.includes('xpath dropdown clicked'), 'a Dropdown known only by an XPath opens', r.log);
+  // A virtualized list of 1000: #500 by its Items selector, then the last with none given;
+  // rows of mixed heights, walked: #77 and the last of 120.
+  for (const [index, itemSelector, want, page] of [['500', '#vlist [role="option"]', 'Item 500', 'page'],
+    ['-1', '', 'Item 1000', 'page'], ['77', '', 'Item 77', 'page?mixed'], ['-1', '', 'Item 120', 'page?mixed']]) {
+    await ctx.web.goto(`${ctx.base}/${page}`);
+    await sleep(PAGE_SETTLE_MS);
+    const v = await makeScenario(ctx, `e2e virtual ${index}`, [
+      { type: 'dropdown', selector: '#vdd', selectors: { css: '#vdd' }, pick: { by: 'index', index, itemSelector } },
+    ]);
+    const rv = await play(ctx, v);
+    check(rv.vdd === want && !rv.timedOut, `Choose item #${index} in a virtualized list${page.includes('mixed') ? ' of mixed rows' : ''} picks "${want}"`, rv);
+  }
+  await ctx.web.goto(`${ctx.base}/page`);
+  await sleep(PAGE_SETTLE_MS);
 }
 
 async function checkSwitchAlways(ctx) {
