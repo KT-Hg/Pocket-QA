@@ -4,6 +4,7 @@
 
 import { ignoreLastError } from '../last-error.js';
 import { markSessionClosed, markSessionOpen } from './session.js';
+import { DEEP_RECT_FN, deepFindExpr } from './deep-find.js';
 
 // Resolve after this long anyway, so a crashed renderer cannot hang the run.
 const SAFETY_TIMEOUT_MS = 10_000;
@@ -15,10 +16,13 @@ const FRESH_ATTACH_SETTLE_MS = 700;
 
 // Native <select>: mousePressed only — mouseReleased/detach closes the OS popup before user can interact.
 // Custom dropdowns: full press+release then detach. 10-second safety timeout guards crashed renderers.
+// `selector` is looked for in the page and its same-origin frames (deep-find.js). Resolves to
+// whether the trigger was found and clicked.
 export function openDropdownViaCdp(tabId, selector) {
   return new Promise((resolve) => {
-    const _safetyTimer = setTimeout(resolve, SAFETY_TIMEOUT_MS);
-    const _safeResolve = () => { clearTimeout(_safetyTimer); resolve(); };
+    const _safetyTimer = setTimeout(() => resolve(false), SAFETY_TIMEOUT_MS);
+    let clicked = false;
+    const _safeResolve = () => { clearTimeout(_safetyTimer); resolve(clicked); };
 
     chrome.tabs.get(tabId, (tab) => {
       // Do NOT call chrome.windows.update({ focused: true }) here.
@@ -48,7 +52,7 @@ export function openDropdownViaCdp(tabId, selector) {
           setTimeout(() => {
             try {
               chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', {
-                expression: `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null; el.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' }); const r = el.getBoundingClientRect(); return JSON.stringify({ x: r.left + r.width/2, y: r.top + r.height/2, isSelect: el.tagName === 'SELECT' }); })()`,
+                expression: `(() => { const el = ${deepFindExpr(selector)}; if (!el) return null; el.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' }); const r = (${DEEP_RECT_FN})(el); return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2, isSelect: el.tagName === 'SELECT' }); })()`,
                 returnByValue: true,
               }, (rectRes) => {
                 void chrome.runtime.lastError;
@@ -68,6 +72,7 @@ export function openDropdownViaCdp(tabId, selector) {
                       () => {
                         if (chrome.runtime.lastError) { done(); return; }
                         markSessionOpen(tabId);
+                        clicked = true;
                         _safeResolve();
                         _doneCalled = true;
                       },
@@ -81,7 +86,7 @@ export function openDropdownViaCdp(tabId, selector) {
                         if (chrome.runtime.lastError) { done(); return; }
                         chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent',
                           { type: 'mouseReleased', x, y, button: 'left', clickCount: 1, modifiers: 0 },
-                          () => { void chrome.runtime.lastError; done(); },
+                          () => { void chrome.runtime.lastError; clicked = true; done(); },
                         );
                       },
                     );

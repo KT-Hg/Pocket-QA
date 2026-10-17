@@ -6,8 +6,12 @@
 import { cssEscape } from '../../../shared/css-escape.js';
 import { setFileInputViaCdp, setFileDropZoneViaCdp } from '../../cdp/upload.js';
 import { afterFailure } from './flow.js';
-import { markTarget, unmarkTarget } from './page-target.js';
+import { inFrame, markTarget, unmarkTarget, OTHER_ORIGIN_FRAME } from './page-target.js';
 import { strictFor } from './click-through.js';
+
+// Tagged in its frame, yet not found from the page: a frame of another origin.
+const _cdpError = (e, target, action) => (target.css && inFrame(action) && /not found/.test(e.message)
+  ? `Upload File: ${OTHER_ORIGIN_FRAME}` : e.message);
 
 export async function runUploadFile(ctx, i, action) {
   const { tabId, fail } = ctx;
@@ -27,14 +31,13 @@ export async function runUploadFile(ctx, i, action) {
   } else {
     const sep       = folder.includes('\\') ? '\\' : '/';
     const filePaths = rawNames.map(n => `${folder}${sep}${n}`);
-    // The element the page found (page-target.js); in a frame, or with no page
-    // to ask, the action's own selector as before.
-    const inFrame = action.frameId != null && action.frameId !== 0;
+    // The element the page found (page-target.js), in the action's frame; with
+    // no page to ask, the action's own selector as before.
     // "Click through" off: a drop zone is checked like any element, a file input
     // only for being disabled — pages hide it on purpose.
     const strict  = strictFor(ctx, action);
     const check   = strict.strict && action.uploadMode !== 'dropzone' ? { ...strict, disabledOnly: true } : strict;
-    const target  = inFrame ? { noPage: true } : await markTarget(tabId, action, check);
+    const target  = await markTarget(tabId, action, check);
     let error = target.error || target.blocked || null;
     if (!error) {
       try {
@@ -44,9 +47,9 @@ export async function runUploadFile(ctx, i, action) {
           await setFileInputViaCdp(tabId, target.css || cssSel, filePaths);
         }
       } catch (e) {
-        error = e.message;
+        error = _cdpError(e, target, action);
       } finally {
-        if (target.css) await unmarkTarget(tabId);
+        if (target.css) await unmarkTarget(tabId, action.frameId);
       }
     }
     if (error) {

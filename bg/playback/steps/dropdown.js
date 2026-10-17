@@ -32,46 +32,32 @@ export async function runDropdown(ctx, i, action) {
   return i;
 }
 
-const _inFrame = (action) => action.frameId != null && action.frameId !== 0;
-
 /**
  * Open the dropdown with a trusted CDP click on the trigger the page found
- * (page-target.js). In a frame, or with no page to ask, as before: CDP on the
- * action's own CSS selector, or `pageClick`, the page's own click, where CDP
- * cannot use that selector. A trigger the page looked for and did not find is
- * left alone. Resolves to the reason when "Click through" is off and a user
- * could not reach the trigger (nothing is clicked then), else null.
+ * (page-target.js), in the action's frame — CDP reaches the page and the frames
+ * of its origin. With no page to ask, CDP on the action's own CSS selector. Where
+ * CDP finds nothing (a frame of another origin, a trigger known only by XPath),
+ * `pageClick`: the page's own click. A trigger the page looked for and did not
+ * find is left alone. Resolves to the reason when "Click through" is off and a
+ * user could not reach the trigger (nothing is clicked then), else null.
  */
 async function _open(ctx, action, cssSel, pageClick) {
   const { tabId } = ctx;
-  if (!_inFrame(action)) {
-    const target = await markTarget(tabId, action, strictFor(ctx, action));
-    if (target.blocked) return target.blocked;
-    if (target.css) {
-      try {
-        await openDropdownViaCdp(tabId, target.css);
-      } finally {
-        await unmarkTarget(tabId);
-      }
-      return null;
+  const target = await markTarget(tabId, action, strictFor(ctx, action));
+  if (target.blocked) return target.blocked;
+  if (target.error) return null;
+  const css = target.css || (cssSel && !/^[/(]/.test(cssSel) ? cssSel : null);
+  let opened = false;
+  if (css) {
+    try {
+      opened = await openDropdownViaCdp(tabId, css);
+    } finally {
+      if (target.css) await unmarkTarget(tabId, action.frameId);
     }
-    if (target.error) return null;
   }
-  if (_cdpCanOpen(action, cssSel)) {
-    await openDropdownViaCdp(tabId, cssSel);
-    return null;
-  }
+  if (opened) return null;
   const res = await pageClick();
   return res?.blocked ? res.error : null;
-}
-
-/**
- * CDP evaluates a CSS selector in the top frame only, so a trigger inside a
- * frame, or known only by XPath, is clicked by the page instead.
- */
-function _cdpCanOpen(action, cssSel) {
-  const isXPath = /^[/(]/.test(cssSel);
-  return !!cssSel && !isXPath && !_inFrame(action);
 }
 
 /**

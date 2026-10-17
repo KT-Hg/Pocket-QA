@@ -80,10 +80,17 @@ installDebugger(fake, {
   command(method, params, tabId, n) {
     const expr = params.expression || '';
     if (method === 'Runtime.evaluate') {
+      // Opening a dropdown (cdp/dropdown.js): an element the page tagged is found
+      // (#framed sits in a frame of another origin: not), else #native and #dd only.
       if (expr.includes('isSelect')) {
         if (expr.includes('#native')) return { result: { value: JSON.stringify({ x: 40.4, y: 60.6, isSelect: true }) } };
-        if (expr.includes('#dd')) return { result: { value: JSON.stringify({ x: 10.5, y: 20.2, isSelect: false }) } };
+        if (expr.includes('#framed')) return { result: { value: null } };
+        if (expr.includes('#dd') || expr.includes('data-pqa-target')) return { result: { value: JSON.stringify({ x: 10.5, y: 20.2, isSelect: false }) } };
         return { result: { value: null } };
+      }
+      // The file input of Upload File (cdp/upload.js), looked for as an object; #nofile is not there.
+      if (params.returnByValue === false && expr.includes('function find(doc, sel)')) {
+        return expr.includes('#nofile') ? { result: { type: 'object', subtype: 'null' } } : { result: { type: 'object', objectId: 'node-7' } };
       }
       if (expr.includes("inp.type = 'file'")) return { result: { value: 'ok' } };
       if (expr.includes('throw new Error')) {
@@ -572,7 +579,8 @@ await run('csv: storage fails mid-run', () => startCsvPlayback('sCsv', csvRows, 
 idb.failWrites = null;
 
 // "Choose item #": the page sets a <select> itself; anything else answers
-// needsOpen, is opened (CDP, or the page when in a frame / known by XPath), and
+// needsOpen, is opened (CDP, or the page where CDP finds nothing: #framed, in a
+// frame of another origin, or an XPath with no page to tag it), and
 // the page then clicks the item.
 const picked = (index, text) => ({ picked: { index, text, count: 4 } });
 await run('dropdown: choose item #', play([

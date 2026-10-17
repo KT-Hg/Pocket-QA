@@ -989,6 +989,60 @@ async function checkCdpTargets(ctx) {
     'an element screenshot captures the element of the chosen selector type', { size, bg1, added, timedOut: shot.timedOut });
 }
 
+// The CDP steps — Upload File, a drop zone, opening a Dropdown, an element screenshot —
+// on elements inside a frame of the page's origin; and the error from one of another origin.
+async function checkCdpFrames(ctx) {
+  const here = fileURLToPath(import.meta.url);
+  const files = { folderPath: dirname(here), fileNames: [basename(here)] };
+  const runOn = async (key, actions, xo = false) => {
+    await ctx.web.goto(`${ctx.base}/export?run=${key}${xo ? '&xo=1' : ''}`);
+    await sleep(PAGE_SETTLE_MS * (xo ? 2 : 1));
+    const frameId = await ctx.ext.evaluate(`new Promise((res) => chrome.scripting.executeScript(
+      { target: { tabId: ${ctx.webTabId}, allFrames: true }, func: () => location.href },
+      (r) => res((r || []).find((f) => f.result.includes(${JSON.stringify(xo ? 'localhost' : '/frame')}))?.frameId ?? null)))`);
+    const id = await makeScenario(ctx, `e2e ${key}`, actions.map((a) => ({ ...a, frameId, delay: 0 })));
+    return { played: await play(ctx, id), marks: () => exportStates.get(key)?.state?.marks || [] };
+  };
+
+  const up = await runOn('cdp-frame-upload', [
+    { type: 'uploadFile', selector: '#fFiles', selectors: { css: '#fFiles' }, uploadMode: 'input', ...files },
+    { type: 'uploadFile', selector: '#fZone', selectors: { css: '#fZone' }, uploadMode: 'dropzone', ...files },
+  ]);
+  const name = basename(here);
+  check(up.marks().includes(`frame files ${name}`) && up.marks().includes(`frame zone ${name}`) && !up.played.timedOut,
+    'Upload File into a file input and onto a drop zone inside a frame', up.marks());
+
+  const dd = await runOn('cdp-frame-dropdown', [
+    { type: 'dropdown', selector: '#fDd', selectors: { css: '#fDd' }, pick: { by: 'index', index: '2', itemSelector: '#fMenu li' } },
+  ]);
+  check(dd.marks().includes('frame dd trusted') && dd.marks().includes('frame picked fb') && !dd.played.timedOut,
+    'a Dropdown inside a frame opens with a trusted click, and item #2 is chosen', dd.marks());
+
+  const before = ctx.browser.downloads();
+  const shot = await runOn('cdp-frame-shot', [{ type: 'screenshot_element', selector: '#fShot', selectors: { css: '#fShot' } }]);
+  const added = ctx.browser.downloads().filter((f) => !before.includes(f));
+  const size = added.length === 1 ? pngSize(join(ctx.browser.downloadDir, added[0])) : null;
+  check(!!size && Math.abs(size.width - 57) <= 2 && Math.abs(size.height - 23) <= 2 && !shot.played.timedOut,
+    'an element screenshot inside a frame captures that element', { size, added });
+
+  // Another origin: the frame's content script finds it, CDP cannot reach it — said so.
+  await ctx.web.goto(`${ctx.base}/export?run=cdp-frame-xo&xo=1`);
+  await sleep(PAGE_SETTLE_MS * 2);
+  const frameId = await ctx.ext.evaluate(`new Promise((res) => chrome.scripting.executeScript(
+    { target: { tabId: ${ctx.webTabId}, allFrames: true }, func: () => location.href },
+    (r) => res((r || []).find((f) => f.result.includes('localhost'))?.frameId ?? null)))`);
+  const xo = await makeScenario(ctx, 'e2e cdp-frame-xo', [{ type: 'uploadFile', selector: '#fFiles', selectors: { css: '#fFiles' },
+    uploadMode: 'input', ...files, frameId, delay: 0 }]);
+  await ctx.web.bringToFront();
+  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: xo });
+  const prompt = await pageSoon(ctx, `document.getElementById('__action_failed_prompt')?.textContent || null`, 20_000);
+  await ctx.send({ type: 'STOP_PLAYBACK' });
+  await sleep(SETTLE_MS);
+  check(frameId != null && !!prompt?.includes('another origin'), 'Upload File in a frame of another origin says why it cannot', { frameId, prompt });
+  await ctx.web.goto(`${ctx.base}/page`);
+  await sleep(PAGE_SETTLE_MS);
+}
+
 /** The scenario's own "Click through" flag, written straight into storage. */
 async function setScenarioClickThrough(ctx, id, allowed) {
   await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('scenarios', ({ scenarios }) => {
@@ -1869,7 +1923,7 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
 <select id="pickSel"><option value="">-</option><option value="a">A</option><option value="b">B</option></select>
 <shadow-box id="sbox"></shadow-box>
 <div id="fileZone" style="min-height:30px">drop files here</div>
-<iframe id="frm" src="/frame" style="height:60px"></iframe>
+<iframe id="frm" src="/frame" style="height:160px"></iframe>
 <div id="tall" style="height:3000px"></div>
 <script>
   const run = new URLSearchParams(location.search).get('run');
@@ -1911,6 +1965,12 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   fileZone.addEventListener('drop', (e) => { e.preventDefault(); mark('fileZone ' + [...e.dataTransfer.files].map((f) => f.name).join(',')); });
   // The frame (/frame) reports what is done in it through its parent.
   window.frameMark = (m) => mark(m);
+  // ?xo: the same frame from another origin (localhost, the page being on 127.0.0.1).
+  if (location.search.includes('xo')) {
+    const xo = document.createElement('iframe');
+    xo.src = 'http://localhost:' + location.port + '/frame?xo';
+    document.body.insertBefore(xo, document.getElementById('tall'));
+  }
   // A web component: a button in its open shadow root, and one added there a moment later.
   customElements.define('shadow-box', class extends HTMLElement {
     constructor() {
@@ -1930,11 +1990,27 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   report();
 </script></body></html>`;
 
-/** The page EXPORT_PAGE frames (same origin): a field and a button whose click its parent marks. */
+/**
+ * The page EXPORT_PAGE frames (same origin): a field and a button whose click its
+ * parent marks, and for the CDP steps a file input, a drop zone, a dropdown and a
+ * box of known size to capture.
+ */
 const FRAME_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>frame</title></head>
 <body><input id="fName"><button id="fGo">go</button>
+<input type="file" id="fFiles" multiple><div id="fZone">frame drop</div>
+<div id="fDd">frame choose</div><ul id="fMenu" style="display:none"><li>fa</li><li>fb</li></ul>
+<span id="fShot" style="display:inline-block;width:57px;height:23px;background:#f80"></span>
 <script>
-  document.getElementById('fGo').addEventListener('click', () => parent.frameMark('frame go ' + document.getElementById('fName').value));
+  const frameMark = (m) => { try { parent.frameMark(m); } catch (e) { /* another origin: nothing to tell */ } };
+  document.getElementById('fGo').addEventListener('click', () => frameMark('frame go ' + document.getElementById('fName').value));
+  const fFiles = document.getElementById('fFiles');
+  fFiles.addEventListener('change', () => frameMark('frame files ' + [...fFiles.files].map((f) => f.name).join(',')));
+  const fZone = document.getElementById('fZone');
+  for (const t of ['dragenter', 'dragover']) fZone.addEventListener(t, (e) => e.preventDefault());
+  fZone.addEventListener('drop', (e) => { e.preventDefault(); frameMark('frame zone ' + [...e.dataTransfer.files].map((f) => f.name).join(',')); });
+  const fMenu = document.getElementById('fMenu');
+  document.getElementById('fDd').addEventListener('click', (e) => { fMenu.style.display = 'block'; frameMark('frame dd ' + (e.isTrusted ? 'trusted' : 'untrusted')); });
+  fMenu.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => { fMenu.style.display = 'none'; frameMark('frame picked ' + li.textContent); }));
 </script></body></html>`;
 
 /** The latest state each run of EXPORT_PAGE posted, by its ?run= key. */
@@ -2903,6 +2979,7 @@ const CHECKS = [
   ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
   ['condition-choice', 'Condition and element screenshot use the chosen selector type', checkConditionChoice],
   ['cdp-targets', 'Upload, Dropdown and element screenshot act on the element the page found', checkCdpTargets],
+  ['cdp-frames', 'Upload, Dropdown and element screenshot inside a frame', checkCdpFrames],
   ['click-through', 'Click through: off for the scenario or the action', checkClickThrough],
   ['typed-text', 'A Text selector typed in the form', checkTypedText],
   ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],

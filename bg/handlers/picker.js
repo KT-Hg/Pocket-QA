@@ -69,7 +69,7 @@ export const pickerHandlers = {
             // Use takeElementScreenshot so zoom normalization and coordinate re-query run inside CDP session
             takeElementScreenshot(tabId, {
               selector: request.selector, saveMode, prefix, crop, returnBase64: false,
-              skipDownload: false, selectors: request.selectors,
+              skipDownload: false, selectors: request.selectors, frameId: request.frameId,
             })
               .then((result) => {
                 chrome.runtime.sendMessage({ type: "SCREENSHOT_RESULT", result }).catch(() => {});

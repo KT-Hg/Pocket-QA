@@ -2,9 +2,11 @@
  * cdp/upload.js — Upload File through CDP: DOM.setFileInputFiles on a file input, or
  * on a hidden input whose files are then dropped on a drop zone (the code exports
  * do the same with DROP_BRIDGE_JS and DROP_FILES_JS of popup/export/page-js.js).
+ * The element is looked for in the page and its same-origin frames (deep-find.js).
  */
 
 import { ignoreLastError } from '../last-error.js';
+import { deepFindExpr } from './deep-find.js';
 
 // How long an upload may take before it is given up (and the session detached).
 // The error messages say the same number of seconds.
@@ -83,14 +85,16 @@ export function setFileDropZoneViaCdp(tabId, dropSelector, filePaths) {
                 expression: `(function(){
                   try {
                     const inp = document.querySelector('input[data-cdp-dz-bridge="1"]');
-                    const dz  = document.querySelector(${sel});
+                    const dz  = ${deepFindExpr(dropSelector)};
                     if (!inp)              return 'no bridge input';
                     if (!dz)               return 'dropzone element not found for selector: '+${sel};
                     if (!inp.files.length) return 'no files loaded in bridge';
-                    const dt = new DataTransfer();
+                    // The zone's own window: in a frame, its events come from there.
+                    const win = dz.ownerDocument.defaultView;
+                    const dt = new win.DataTransfer();
                     Array.from(inp.files).forEach(f => dt.items.add(f));
                     ['dragenter','dragover','drop'].forEach(t =>
-                      dz.dispatchEvent(new DragEvent(t,{bubbles:true,cancelable:true,dataTransfer:dt}))
+                      dz.dispatchEvent(new win.DragEvent(t,{bubbles:true,cancelable:true,dataTransfer:dt}))
                     );
                     inp.remove();
                     return 'ok';
@@ -153,20 +157,21 @@ export function setFileInputViaCdp(tabId, selector, filePaths) {
           return;
         }
 
-        // Step 2: find the file input by selector
-        chrome.debugger.sendCommand({ tabId }, 'DOM.querySelector', {
-          nodeId: docResult.root.nodeId,
-          selector,
+        // Step 2: find the file input by selector, in the page or a same-origin frame
+        chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', {
+          expression: deepFindExpr(selector),
+          returnByValue: false,
         }, (queryResult) => {
-          if (chrome.runtime.lastError || !queryResult?.nodeId) {
+          const objectId = queryResult?.result?.objectId;
+          if (chrome.runtime.lastError || !objectId) {
             fail('uploadFile: selector not found — ' + selector);
             return;
           }
 
           // Step 3: set the files — browser fires the change event automatically
           chrome.debugger.sendCommand({ tabId }, 'DOM.setFileInputFiles', {
-            files:  filePaths,
-            nodeId: queryResult.nodeId,
+            files: filePaths,
+            objectId,
           }, () => {
             if (chrome.runtime.lastError) {
               fail('uploadFile: DOM.setFileInputFiles failed — ' + chrome.runtime.lastError.message +

@@ -8,6 +8,7 @@
  */
 
 import { markSessionClosed } from '../cdp/session.js';
+import { DEEP_RECT_FN, deepFindExpr } from '../cdp/deep-find.js';
 import { tabMsg } from '../tabs.js';
 import { attachDebugger, cdpRaf, measureViewport, DETACH_SETTLE_MS, TILE_SETTLE_MS } from './cdp.js';
 import { openCropUI } from './crop.js';
@@ -42,6 +43,7 @@ const UNMARK_TIMEOUT_MS = 2_000;
  * @param {boolean}     options.skipDownload  - Capture without saving.
  * @param {object|null} options.selectors     - The action's locators, as content.js locateNow takes them.
  * @param {string|null} options.selectorType  - The locator type chosen in the form, tried first.
+ * @param {number}      options.frameId       - The frame the element is in (0: the page); one of the page's origin.
  * @param {string|null} options.requestedFilename - Override filename, or null for auto.
  * @returns {Promise<{success?: boolean, filename?: string, base64?: string, error?: string}>}
  */
@@ -53,21 +55,22 @@ export function takeElementScreenshot(tabId, options = {}) {
     try {
       return await _takeElementScreenshot(tabId, options, marked);
     } finally {
-      if (marked.css) await tabMsg(tabId, { type: 'UNMARK_ELEMENT' }, UNMARK_TIMEOUT_MS);
+      if (marked.css) await tabMsg(tabId, { type: 'UNMARK_ELEMENT' }, UNMARK_TIMEOUT_MS, options.frameId);
     }
   });
 }
 
 async function _takeElementScreenshot(tabId, {
   selector, saveMode, prefix, crop = false, returnBase64 = false, skipDownload = false, selectors = null,
-  selectorType = null, requestedFilename = null,
+  selectorType = null, requestedFilename = null, frameId,
 }, marked) {
   const tag = !requestedFilename && (await typeTagEnabled()) ? '_elem' : '';
   const filename = buildScreenshotFilename(prefix, requestedFilename, tag);
 
+  // Found (and tagged) in its own frame; the measurements below are the page's.
   const rect0 = await tabMsg(tabId, {
     type: 'GET_ELEMENT_RECT', selector, selectors, ...(selectorType ? { selectorType } : {}),
-  });
+  }, undefined, frameId);
   if (!rect0 || rect0.error) return { error: rect0?.error || 'Could not get element rect' };
   marked.css = rect0.css || null;
 
@@ -93,7 +96,7 @@ async function _takeElementScreenshot(tabId, {
     await cdpEval(tabId, CDP_HIDE_EXT_OVERLAYS);
     await cdpRaf(tabId);
 
-    const rect = await locateElement(tabId, selector, selectors, rect0, viewportHeight);
+    const rect = await locateElement(tabId, selector, selectors, { ...rect0, frameId }, viewportHeight);
 
     // Effective capture viewport, measured AFTER attach. cssVisualViewport is the true
     // visible box — a tile clip that exceeds it renders as a blank band, because the
@@ -164,18 +167,19 @@ async function _takeElementScreenshot(tabId, {
  */
 function cdpGetRect(tabId, sel, sels, markedCss) {
   return new Promise((resolve) => {
+    // The tag is found in a same-origin frame too, and the box moved by the frame's place.
     const expr = `(function(){
       let el = null;
-      ${markedCss ? `el = document.querySelector(${JSON.stringify(markedCss)});` : ''}
+      ${markedCss ? `el = ${deepFindExpr(markedCss)};` : ''}
       ${sels?.fullXpath ? `if(!el) try{ el = document.evaluate(${JSON.stringify(sels.fullXpath)}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; }catch(e){}` : ''}
       ${sels?.xpath    ? `if(!el) try{ el = document.evaluate(${JSON.stringify(sels.xpath)},     document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; }catch(e){}` : ''}
       ${sels?.id       ? `if(!el) el = document.getElementById(${JSON.stringify(sels.id)});` : ''}
       if(!el) el = document.querySelector(${JSON.stringify(sel || '')});
       if(!el) return null;
-      const r   = el.getBoundingClientRect();
+      const r   = (${DEEP_RECT_FN})(el);
       const sx  = document.documentElement.scrollLeft || document.body.scrollLeft || 0;
       const sy  = document.documentElement.scrollTop  || document.body.scrollTop  || 0;
-      return { x: r.left + sx, y: r.top + sy, width: r.width, height: r.height,
+      return { x: r.x + sx, y: r.y + sy, width: r.width, height: r.height,
                dpr: window.devicePixelRatio || 1,
                vpW: window.innerWidth, vpH: window.innerHeight };
     })()`;
@@ -190,7 +194,10 @@ function cdpGetRect(tabId, sel, sels, markedCss) {
  * once, park, measure again. Falls back to the previous measurement at each step.
  */
 async function locateElement(tabId, selector, selectors, rect0, viewportHeight) {
-  const probe = await cdpGetRect(tabId, selector, selectors, rect0.css) || rect0;
+  // In a frame (rect0.frameId), the frame's own box is no place on the page: CDP must find it.
+  const found = await cdpGetRect(tabId, selector, selectors, rect0.css);
+  if (!found && rect0.frameId) throw new Error('Element screenshot: the element is inside a frame of another origin, which this step cannot reach');
+  const probe = found || rect0;
 
   // Scroll the element into view once before capturing. The tiling below never
   // scrolls, so without this pass an element sitting below the fold would be captured
