@@ -107,7 +107,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 | `click` | Mouse click on target element |
 | `input` | Set value + fire input/change/blur events |
 | `hover` | mouseover/mouseenter/mousemove events |
-| `dropdown` | Trusted click via CDP — for native dropdowns that ignore a synthetic JS click. With **Choose item #** (`pick: { by: "index", index, itemSelector? }`) it also chooses item *i*: counted from 1 as the list shows it (a placeholder line included), `-1` = last, `random` = any enabled item, `${var}` allowed. A `<select>` gets its option set by the page; any other dropdown is opened, then the item is clicked once the list shows it — found through `aria-controls` / `role="option"`, or by the **Items** CSS selector. |
+| `dropdown` | Trusted click via CDP — for native dropdowns that ignore a synthetic JS click. With **Choose item #** (`pick: { by: "index", index, itemSelector? }`) it also chooses item *i*: counted from 1 as the list shows it (a placeholder line included), `-1` = last, `random` = any enabled item, `${var}` allowed. A `<select>` gets its option set by the page; any other dropdown is opened, then the item is clicked once the list shows it — found through `aria-controls` / `role="option"`, or by the **Items** CSS selector. A virtualized list (only the rows in view rendered, as react-window and MUI do) is scrolled to the item: straight to it when its rows are of one height, walked from the top otherwise. |
 | `dragdrop` | HTML5 drag from source selector to target selector |
 
 `click`, `input`, `hover` (and `readdom`) support **Child Condition**: the selector targets a parent container, and a matching child is found by value, text, id, class, or input type.
@@ -183,9 +183,9 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
 | `readdom` | Read **Text content** (textContent, unchanged), **Visible text** (innerText, whitespace collapsed; `<select>` → chosen option, input → value), **Input value** (multi-select → `a, b`; contenteditable → text) or an **Attribute** → store in a variable. The name is saved without `${ }` (older `${abc}` names still work) and used as `${abc}` later. Supports Child Condition; an element picked with 🎯 in an iframe is read in that iframe. A failed read that is skipped leaves the variable empty. |
 | `screenshot` | Capture visible viewport |
 | `screenshot_full` | Full page via CDP |
-| `screenshot_element` | Specific element via CDP clip |
+| `screenshot_element` | Specific element via CDP clip; in a frame of the page's origin too |
 | `screenshot_tovar` | Visible / full page / element → the variable receives the **filename**; the image itself is carried into the CSV export. Optional **Filename** (`value`): the image's name in the CSV run's **ZIP** export only — `${var}` filled in per row, `a/b` makes a subfolder, `.png` added; empty = the variable name |
-| `uploadFile` | Inject local file(s) into `<input type="file">` (CDP) or drag-and-drop zone (DataTransfer bridge); supports multiple files and `${variable}` filenames |
+| `uploadFile` | Inject local file(s) into `<input type="file">` (CDP) or drag-and-drop zone (DataTransfer bridge); supports multiple files and `${variable}` filenames. Works in a frame of the page's origin; in a frame of another origin it fails and says why (CDP reaches the page and its same-origin frames only), and a Dropdown there is opened by the page's own click. |
 
 ---
 
@@ -231,7 +231,7 @@ What the formats share:
 - **The extension's own in-page code** where a plain driver call would do something else: Read DOM (each "Read from" choice), Child Condition, Conditions and *Choose item #* run the functions playback runs, and Input fills date / time / color / range fields through playback's value setter. The bookmarklet also clicks, hovers, fills every field and drags (HTML5 drag events) as playback does; Selenium, Playwright, Robot and Java use their own mouse and keyboard for those.
 - **A Condition of a type the export does not know stops the exported code there**, as a run does — it throws with the type named in a comment — and the window shows a warning. A Switch with a block is skipped *together with its block*, otherwise every case would run. A disabled action is not exported, but the number of steps a Condition skips is still counted against the original list.
 - **`${var}`** in values, selectors and the Read DOM attribute become template literals / f-strings / Robot `${var}` / Java variables; values are baked in at export time — edit the Variables table and export again, or set one from the environment when the code runs (below). A scenario's own text — its name, a label, a value, a dropdown item number, a Script's code — only ever reaches a string or a one-line comment, in every one of the five languages, so a scenario imported from someone else cannot turn its text into code in the file you export (a newline or a quote in it is escaped for the language it lands in).
-- **A step recorded inside an iframe** is looked for in the page, then in its frames (frames in frames too) by Selenium, Playwright, Robot and Java. The bookmarklet reaches only the frames of its own site (⚠ Verify). A Condition recorded in a frame is checked in the top page, as before (⚠ Verify).
+- **A step recorded inside an iframe** is looked for in the page, then in its frames (frames in frames too) by Selenium, Playwright, Robot and Java. The bookmarklet reaches only the frames of its own site (⚠ Verify). A Condition recorded in a frame looks for its element the same way and is checked in the frame that holds it; a URL Condition recorded in a frame is checked on the top page's URL (⚠ Verify), where playback reads the frame's.
 
 **Running the exported code.** Without exporting again, the environment can change a run of the Selenium script or test, the Playwright spec, the Robot test or the Java test (the bookmarklet has no environment):
 
@@ -246,7 +246,7 @@ Headless runs get a 1920 × 1080 window, so a responsive page shows its desktop 
 
 **When a step fails**, the error names it and what it looked for — `Step 3: click — Sign in: no element found by …` — in the bookmarklet's alert, the script's `❌` line, the pytest, Robot and TestNG reports, and the Playwright report, where each step is a `test.step`. The page as the step left it is saved: `<file name>_failure.png` (Selenium script and pytest, beside the file; Robot, in its output folder), `<Class>_failure.png` (Java, where the test runs), a screenshot and a trace in `test-results/` (Playwright).
 
-**A data file (CSV)** — the *Data file* setting of pytest and Playwright — runs the test once per row of a CSV read beside the test file: each column sets the variable of its name (over the Variables tab's value), and a column no variable has is a variable too. The file is read as the extension reads a CSV (delimiter detected, quoted values). Robot and Java have no data file yet.
+**A data file (CSV)** — the *Data file* setting of pytest, Playwright and Java — runs the test once per row of a CSV read beside the test file (Java: in the folder the test runs in, a TestNG `@DataProvider`): each column sets the variable of its name (over the Variables tab's value), and a column no variable has is a variable too. The file is read as the extension reads a CSV (delimiter detected, quoted values). Robot has no data file yet.
 
 ### ⚡ JS Bookmarklet
 
@@ -398,7 +398,7 @@ Login Form
 - A TestNG class for a Maven or Gradle project with `org.seleniumhq.selenium:selenium-java` 4 and `org.testng:testng` 7: put `<Name>Test.java` in `src/test/java` and run `mvn test` (Gradle: `test { useTestNG() }`). The file is UTF-8; with JDK 18 or later that is javac's default, else set the project's source encoding. The class is named after the scenario, as its file is (`Đăng nhập` → `ĐăngNhậpTest`).
 - The steps call the class's own methods, which do what playback does: `find(...)` / `findClickable(...)` try each locator in turn (`css(...)` looks inside open shadow roots too, `text(...)` is the extension's Text search), `input(...)`, `checkCond(...)`, `findChild(...)`, `readVal(...)`, `chooseItem(...)` and `dropFiles(...)` run the extension's in-page code.
 - A failed test's message starts with the step and `<Class>_failure.png` is saved where the test runs. A variable a step uses that nothing defines is its `${name}` text, as a run leaves it.
-- Settings: Starting URL, **WebDriver**, **Headless** (as in Selenium Python), delay between steps (500 ms), element timeout (10 000 ms).
+- Settings: Starting URL, **WebDriver**, **Headless** (as in Selenium Python), delay between steps (500 ms), element timeout (10 000 ms), Data file (CSV).
 
 ```java
 @Test
@@ -803,6 +803,8 @@ All hotkeys are configurable in the **Settings** tab and synced via `chrome.stor
 │  DOM event capture · Selector generation (8 candidates)     │
 │  Action execution · Condition evaluation · Hotkey listener  │
 │  + content-highlight.js: highlights, loaded only while on   │
+│  + content-overlays.js: countdown, failed-action prompt,    │
+│    segment bar — injected by the worker when one is needed  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -987,10 +989,12 @@ Seven capture modes — all support optional watermark overlay and crop/edit:
 dropdown or hover state can be opened before the shot. The **service worker owns
 the timer**, and only delegates the display:
 
-- On an http/https/file tab the countdown pill is drawn by `content.js`, which
-  acks the request and fires the capture itself when the count ends — cancellable
-  with the pill's ✕ or **Esc**. The request is pinned to `frameId: 0`, so a page
-  full of iframes gets one countdown and one shot, not one per frame.
+- On an http/https/file tab the countdown pill is drawn by `content-overlays.js`,
+  which the worker injects into the top frame right before it asks (`content.js`
+  does not carry it). The page acks the request and fires the capture itself when
+  the count ends — cancellable with the pill's ✕ or **Esc**. The request is pinned
+  to `frameId: 0`, so a page full of iframes gets one countdown and one shot, not
+  one per frame. The screenshot hotkey's countdown goes the same way.
 - **On every other tab** — this extension's own pages (`sqlcases.html`,
   `editor.html`), `chrome://`, the Web Store — there is no content script to ask,
   because `content_scripts.matches` does not cover those schemes. The count then
