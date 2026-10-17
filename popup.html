@@ -1885,6 +1885,15 @@
             <input type="number" id="exportJavaElTimeout" class="export-bm-setting-input" value="10000" min="500" max="60000" />
             <span class="export-bm-setting-unit">ms</span>
           </div>
+          <div class="export-bm-setting-row export-bm-setting-row-stack">
+            <div class="export-bm-setting-label">
+              Data file (CSV)
+              <small>A test per row; a column wins over the variable of its name. Read in the folder the test runs in.</small>
+            </div>
+            <div class="export-bm-url-field">
+              <input type="text" id="exportJavaData" class="export-bm-setting-input" placeholder="data.csv" />
+            </div>
+          </div>
         </div>
         <button id="exportReload" class="export-bm-regen-btn" title="Read the saved scenario again; the code already follows these Settings">↻ Reload scenario</button>
       </div>

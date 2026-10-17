@@ -173,6 +173,12 @@ test('Selenium Java keeps poison out of the Java code', () => {
   javaOracle(generateJava('S', ACTIONS_STR, VARIABLES).code, 'selenium java');
 });
 
+test('a data file name stays data in pytest, Playwright and Java', () => {
+  pyOracle(generateSeleniumPy('S', ACTIONS_STR, VARIABLES, { output: 'pytest', dataFile: POISON }).code, 'pytest data file');
+  jsOracle(generatePlaywright('S', ACTIONS_JS, VARIABLES, { dataFile: POISON }).code, 'playwright data file');
+  javaOracle(generateJava('S', ACTIONS_STR, VARIABLES, { dataFile: POISON }).code, 'java data file');
+});
+
 test('Robot keeps poison out of its own line structure', () => {
   robotOracle(generateRobot('S', ACTIONS_STR, VARIABLES).code, 'robot');
 });

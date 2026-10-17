@@ -12,7 +12,7 @@
 import { commentText } from './utils.js';
 import { DRIVER_TYPES, exportFileBase, initExportModal } from './export-modal.js';
 import { getSwitchLayout } from '../shared/switch-blocks.js';
-import { normalizeVarRef } from '../shared/var-name.js';
+import { normalizeVarRef, writtenVarNames } from '../shared/var-name.js';
 import { patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
@@ -554,14 +554,17 @@ const stepLines = (ctx) => walkActions(ctx, {
  * a name a step writes (empty until it does), and one a step uses that nothing
  * defines — its ${name} text, as a run leaves it.
  */
-function variableLines(enabled, variables, { staticVars, randomSpecs, pickSpecs, written }, uses) {
+// With a data file (`csv`), a variable is the row's column of its name first, as a CSV
+// run lets a column win; a name only the file gives is its column, which every row must
+// have; one a step writes is seeded by the row's column when it has one.
+function variableLines(enabled, variables, { staticVars, randomSpecs, pickSpecs, written }, uses, csv = false) {
   const out = [];
   const declared = new Set();
   const declare = (k, expr) => {
     const id = javaIdent(k);
     if (declared.has(id)) return;
     declared.add(id);
-    out.push(`String ${id} = ${expr};`);
+    out.push(`String ${id} = ${csv ? `row.getOrDefault(${javaText(k)}, ${expr})` : expr};`);
   };
   for (const [k, v] of Object.entries(staticVars)) declare(k, `var(${javaText(k)}, ${javaText(v)})`);
   for (const [k, spec] of Object.entries(randomSpecs)) {
@@ -577,6 +580,15 @@ function variableLines(enabled, variables, { staticVars, randomSpecs, pickSpecs,
   for (const [k, vals] of Object.entries(pickSpecs)) {
     uses.add('pickVar');
     declare(k, `var(${javaText(k)}, pick(${vals.map(javaText).join(', ')}))`);
+  }
+  if (csv) {
+    for (const k of undefinedVarNames(enabled, variables)) {
+      const id = javaIdent(k);
+      if (declared.has(id)) continue;
+      declared.add(id);
+      out.push(`String ${id} = column(row, ${javaText(k)});`);
+    }
+    for (const k of enabled.flatMap((a) => writtenVarNames(a))) declare(k, '""');
   }
   // What the steps write, as identifiers already: the names of `written`, and a Read DOM's or a screenshot's
   // without a name of its own.
@@ -599,10 +611,11 @@ function assignedIdents(a) {
 }
 
 // What the file opens with: how to run it, and what the environment can change.
-function runNotes(driverType, headless, varNames) {
+function runNotes(driverType, headless, varNames, dataFile) {
   return [
     '// How to run: in a Maven or Gradle project with org.seleniumhq.selenium:selenium-java 4 and org.testng:testng 7,',
     '// this file in src/test/java, then: mvn test (Gradle: test { useTestNG() }). The file is UTF-8 (javac -encoding UTF-8).',
+    ...(dataFile ? [`// A test per row of the data file ${javaComment(dataFile)}, read in the folder the test runs in (mvn test: the project's).`] : []),
     '// Without exporting again, the environment can set:',
     "//   PQA_BASE_URL  a site to open instead of the first page's (staging, production): its steps go there",
     `//   PQA_BROWSER   Chrome, Edge, Firefox or Safari (exported: ${driverType})`,
@@ -624,6 +637,100 @@ const IMPORTS = ['java.io.IOException', 'java.nio.file.Files', 'java.nio.file.Pa
   'org.openqa.selenium.firefox.HasFullPageScreenshot', 'org.openqa.selenium.interactions.Actions',
   'org.openqa.selenium.safari.SafariDriver', 'org.openqa.selenium.support.ui.Select', 'org.openqa.selenium.support.ui.WebDriverWait',
   'org.testng.ITestResult', 'org.testng.annotations.AfterMethod', 'org.testng.annotations.BeforeMethod', 'org.testng.annotations.Test'];
+// What reading a data file adds.
+const DATA_IMPORTS = ['java.nio.charset.StandardCharsets', 'java.util.ArrayList', 'org.testng.annotations.DataProvider'];
+
+// With a data file: a test per row of it, read as the extension's CSV run reads it.
+const DATA_HELPERS = String.raw`    /** A test per row of the data file. */
+    @DataProvider(name = "rows")
+    public Object[][] rows() throws IOException {
+        List<Map<String, String>> rows = readRows(DATA_FILE);
+        Object[][] out = new Object[rows.size()][];
+        for (int k = 0; k < rows.size(); k++) out[k] = new Object[] { rows.get(k) };
+        return out;
+    }
+
+    /**
+     * The rows of a CSV file, each {column: value}, as the extension's CSV run reads them
+     * (popup/csv/csv-parse.js): the separator its header uses most (comma, semicolon or Tab),
+     * quotes, line breaks inside them, a BOM. Read in the folder the test runs in.
+     */
+    static List<Map<String, String>> readRows(String name) throws IOException {
+        String text = Files.readString(Paths.get(name), StandardCharsets.UTF_8);
+        if (!text.isEmpty() && text.charAt(0) == 0xFEFF) text = text.substring(1);
+        String seps = ",;\t";
+        int[] counts = new int[3];
+        boolean quote = false;
+        for (char ch : text.toCharArray()) {
+            if (ch == '"') quote = !quote;
+            else if (!quote && (ch == '\n' || ch == '\r')) break;
+            else if (!quote && seps.indexOf(ch) >= 0) counts[seps.indexOf(ch)]++;
+        }
+        int best = 0;
+        for (int k = 1; k < 3; k++) if (counts[k] > counts[best]) best = k;
+        char sep = seps.charAt(best);
+        List<List<String>> records = new ArrayList<>();
+        List<String> record = new ArrayList<>();
+        StringBuilder field = new StringBuilder();
+        boolean quoted = false, inQuote = false, dirty = false;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (inQuote) {
+                if (ch == '"' && i + 1 < text.length() && text.charAt(i + 1) == '"') { field.append('"'); i++; }
+                else if (ch == '"') inQuote = false;
+                else field.append(ch);
+            } else if (ch == '"') {
+                inQuote = quoted = dirty = true;
+            } else if (ch == sep) {
+                record.add(quoted ? field.toString() : field.toString().strip());
+                field.setLength(0);
+                quoted = false;
+                dirty = true;
+            } else if (ch == '\r' || ch == '\n') {
+                if (ch == '\r' && i + 1 < text.length() && text.charAt(i + 1) == '\n') i++;
+                record.add(quoted ? field.toString() : field.toString().strip());
+                if (dirty) records.add(record);
+                record = new ArrayList<>();
+                field.setLength(0);
+                quoted = dirty = false;
+            } else {
+                field.append(ch);
+                dirty = true;
+            }
+        }
+        if (dirty) {
+            record.add(quoted ? field.toString() : field.toString().strip());
+            records.add(record);
+        }
+        if (records.size() < 2) throw new IOException(name + ": a header row and at least one row of data are needed");
+        List<String> headers = records.get(0);
+        List<Map<String, String>> rows = new ArrayList<>();
+        for (List<String> vals : records.subList(1, records.size())) {
+            Map<String, String> row = new LinkedHashMap<>();
+            for (int k = 0; k < headers.size(); k++) row.put(headers.get(k), k < vals.size() ? vals.get(k) : "");
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /** The row's value of a column a step needs. */
+    static String column(Map<String, String> row, String name) {
+        if (!row.containsKey(name)) throw new IllegalArgumentException("the data file has no column \"" + name + "\"");
+        return row.get(name);
+    }`;
+
+/** What a data file adds to the class, in its places: none of it without one. */
+function dataParts(dataFile, method) {
+  if (!dataFile) {
+    return { imports: [], field: [], helpers: [], test: ['    @Test', `    public void ${method}() throws Exception {`] };
+  }
+  return {
+    imports: DATA_IMPORTS,
+    field: [`    static final String DATA_FILE = ${javaText(dataFile)};`],
+    helpers: ['', ...DATA_HELPERS.split('\n')],
+    test: ['    @Test(dataProvider = "rows")', `    public void ${method}(Map<String, String> row) throws Exception {`],
+  };
+}
 
 // The page code and helpers a test needs, by what its steps use; with frames, every look goes through them.
 function helperLines(uses, frames) {
@@ -649,10 +756,12 @@ function helperLines(uses, frames) {
  * @param {string}  opts.driverType - Chrome (default), Edge, Firefox or Safari
  * @param {boolean} opts.headless   - no browser window (not Safari)
  * @param {string}  opts.startUrl   - opened first when the scenario does not start with a Navigate
+ * @param {string}  opts.dataFile   - a CSV file: a test per row (TestNG data provider)
  * @returns {{ code: string, stats: { total, supported, skipped }, steps: object[], warnings: string[] }}
  */
 export function generateJava(scenarioName, actions, variables, opts = {}) {
   const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false } = opts;
+  const dataFile = String(opts.dataFile || '').trim();
   const driverType = DRIVER_TYPES.has(opts.driverType) ? opts.driverType : 'Chrome';
   const all = actions || [];
   const enabled = all.filter((a) => !a.disabled);
@@ -663,7 +772,7 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
   const frames = enabled.some(inFrame) ? 'all' : 'none';
   const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set(), frames, driverType };
   const body = stepLines(ctx);
-  const varLines = variableLines(enabled, variables, vars, ctx.uses);
+  const varLines = variableLines(enabled, variables, vars, ctx.uses, !!dataFile);
 
   // The start page, unless the scenario opens one first (waits aside).
   const first = enabled.find((a) => a.type !== 'wait');
@@ -673,17 +782,19 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
   const className = javaClassName(scenarioName);
   // test<Name>: never a keyword, nor a method of the class.
   const method = `test${className.replace(/Test$/, '')}`;
+  const data = dataParts(dataFile, method);
 
   const out = [
-    ...runNotes(driverType, headless, Object.keys(variables || {})),
+    ...runNotes(driverType, headless, Object.keys(variables || {}), dataFile),
     '',
-    ...IMPORTS.map((i) => `import ${i};`),
+    ...[...IMPORTS, ...data.imports].map((i) => `import ${i};`),
     '',
     `/** ${javaComment(scenarioName)} — a Pocket QA scenario. */`,
     `public class ${className} {`,
     `    static final Duration TIMEOUT = Duration.ofMillis(${Math.round(Number(elTimeout)) || 10000});`,
     `    static final String BROWSER = "${driverType}";`,
     `    static final String HEADLESS = "${headless ? 1 : 0}";`,
+    ...data.field,
     '',
     '    WebDriver driver;',
     '    String firstOrigin;',
@@ -691,6 +802,7 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
     '    String at = "";',
     '',
     ...helperLines(ctx.uses, frames === 'all'),
+    ...data.helpers,
     '',
     '    @BeforeMethod',
     '    public void setUp() {',
@@ -711,8 +823,7 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
     '        }',
     '    }',
     '',
-    '    @Test',
-    `    public void ${method}() throws Exception {`,
+    ...data.test,
     ...(varLines.length ? ['        // --- VARIABLES ---', ...varLines.map((l) => `        ${l}`), ''] : []),
     '        try {',
     ...[...start, ...body].join('\n').trimEnd().split('\n').map((l) => (l === '' ? '' : `            ${l}`)),
@@ -723,7 +834,7 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
     '}',
   ];
 
-  warnUndefinedVars(enabled, variables, warnings);
+  warnUndefinedVars(enabled, variables, warnings, dataFile);
   const skipped = steps.filter((st) => st.status === 'skip').length;
   return {
     code: `${out.join('\n').replace(/\n{3,}/g, '\n\n')}\n`,
@@ -755,6 +866,7 @@ export function initExportJava() {
       driverType: document.getElementById('exportJavaDriver')?.value || 'Chrome',
       headless: !!document.getElementById('exportJavaHeadless')?.checked,
       startUrl: document.getElementById('exportJavaStartUrl')?.value.trim() || '',
+      dataFile: document.getElementById('exportJavaData')?.value.trim() || '',
     }),
     generate: generateJava,
     copyText: (code) => code,

@@ -123,3 +123,50 @@ test('java: every synthetic scenario compiles with selenium-java and testng', { 
     assert.equal(res.status, 0, res.stdout + res.stderr);
   });
 });
+
+test('java: a data file gives a test per row, a column first, as the Python and Playwright exports', () => {
+  const steps = [{ type: 'navigate', url: '${page}' }, { type: 'input', selector: '#n', selectors: { css: '#n' }, value: '${who}' },
+    { type: 'readdom', selector: '#t', varName: 'total' }];
+  const { code, warnings } = generateJava('Login CSV', steps, { who: 'Zed' }, { dataFile: 'data.csv' });
+  assert.match(code, /^import org\.testng\.annotations\.DataProvider;$/m);
+  assert.match(code, /^ {4}static final String DATA_FILE = "data\.csv";$/m);
+  assert.match(code, /^ {4}@DataProvider\(name = "rows"\)$/m);
+  assert.match(code, /^ {4}@Test\(dataProvider = "rows"\)\n {4}public void testLoginCsv\(Map<String, String> row\) throws Exception \{$/m);
+  assert.match(code, /^ {8}String who = row\.getOrDefault\("who", var\("who", "Zed"\)\);$/m, 'a column wins, then the environment, then the variable');
+  assert.match(code, /^ {8}String page = column\(row, "page"\);$/m, 'a name only a column gives');
+  assert.match(code, /^ {8}String total = row\.getOrDefault\("total", ""\);$/m, 'a name a step writes, seeded by its column');
+  assert.deepEqual(warnings, ['${page} is not in the Variables tab: it comes from the column "page" of data.csv']);
+  // Without one: no trace of it.
+  assert.doesNotMatch(generateJava('Login CSV', steps, { who: 'Zed' }).code, /DataProvider|DATA_FILE|readRows|row\./);
+});
+
+test('java: readRows reads a CSV file as the CSV run does', { skip: NO_JDK }, async () => {
+  const { parseCSV } = await import('../popup/csv/csv-parse.js');
+  const texts = ['﻿name;note\r\nAnn;"two\nlines"\r\n  Bo  ;" kept "\r\n\r\n', 'a,b,c\n1,"x, ""y""",\n2\n', 'a\tb\n1\t2'];
+  const { code } = generateJava('S', [{ type: 'navigate', url: '${x}' }], {}, { dataFile: 'd.csv' });
+  const readRows = code.slice(code.indexOf('    static List<Map<String, String>> readRows'), code.indexOf("    /** The row's value"));
+  inTemp((dir) => {
+    texts.forEach((t, k) => writeFileSync(join(dir, `d${k}.csv`), t));
+    const b64 = (e) => `java.util.Base64.getEncoder().encodeToString(${e}.getBytes(StandardCharsets.UTF_8))`;
+    writeFileSync(join(dir, 'Probe.java'), ['import java.io.IOException;', 'import java.nio.charset.StandardCharsets;',
+      'import java.nio.file.Files;', 'import java.nio.file.Paths;', 'import java.util.*;', 'public class Probe {', readRows,
+      '    public static void main(String[] args) throws IOException {',
+      '        for (String f : args) {',
+      '            System.out.println("F");',
+      '            for (Map<String, String> row : readRows(f)) {',
+      '                System.out.println("R");',
+      `                for (Map.Entry<String, String> e : row.entrySet()) { System.out.println(${b64('e.getKey()')}); System.out.println(${b64('e.getValue()')}); }`,
+      '            }', '        }', '    }', '}', ''].join('\n'));
+    const res = spawnSync(bin('java'), ['-Dfile.encoding=UTF-8', join(dir, 'Probe.java'), ...texts.map((_, k) => join(dir, `d${k}.csv`))], { encoding: 'utf-8' });
+    assert.equal(res.status, 0, res.stderr);
+    const files = [];
+    let entry = null;
+    for (const line of res.stdout.split(/\r?\n/).filter(Boolean)) {
+      if (line === 'F') files.push([]);
+      else if (line === 'R') files.at(-1).push({});
+      else if (entry === null) entry = Buffer.from(line, 'base64').toString('utf-8');
+      else { files.at(-1).at(-1)[entry] = Buffer.from(line, 'base64').toString('utf-8'); entry = null; }
+    }
+    assert.deepEqual(files, texts.map((t) => parseCSV(t).rows));
+  });
+});
