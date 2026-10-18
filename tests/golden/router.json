@@ -2434,6 +2434,25 @@
   }
  },
  {
+  "step": "clear the run verdict",
+  "type": "CLEAR_RUN_VERDICT",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›"
+  ],
+  "responses": [
+   {"ok":true}
+  ],
+  "calls": [
+   "action.setBadgeText [{\"text\":\"\"}]"
+  ],
+  "console": []
+ },
+ {
   "step": "csv status",
   "type": "GET_CSV_STATUS",
   "returned": [
