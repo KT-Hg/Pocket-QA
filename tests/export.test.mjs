@@ -599,6 +599,35 @@ test('a bookmarklet goes on across the pages of its site, a click per page, redi
   assert.doesNotMatch(generateBookmarklet('one', steps.slice(0, 2), {}).code, /_resumeKey|_from/);
 });
 
+test('Selenium: an Assert is checked until it holds, for up to 5 s; a false one fails the run at its end, not there', () => {
+  const steps = [
+    { type: 'assert', conditionType: 'textEquals', selector: '#toast', selectors: { css: '#toast' }, expectedValue: '${msg}', label: 'Toast' },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'assert', conditionType: 'urlContains', expectedValue: '/done' },
+    { type: 'assert', selector: '#plain', selectors: { css: '#plain' } },
+    { type: 'assert', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' } },
+  ];
+  for (const output of ['script', 'pytest']) {
+    const { code, steps: status, warnings } = generateSeleniumPy('asserts', steps, { msg: 'Hi "you"' }, { output, stepDelay: 0 });
+    const pad = output === 'pytest' ? ' '.repeat(8) : ' '.repeat(4);
+    assert.equal(compilePy(code), null, output);
+    // The extension's wait: the check made again every 0.25 s for up to 5 s; one still false
+    // is told at once and noted, and the run goes on.
+    assert.match(code, /^def _soft_assert\(failures, message, cond_type, locators, expected\):\n(?: {4}.*\n)*? {4}end = time\.time\(\) \+ 5\n {4}while not _check_cond\(cond_type, locators, expected\):\n {8}if time\.time\(\) >= end:\n {12}failures\.append\(message\)\n {12}print\(f"❌ \{message\}"\)\n {12}return\n {8}time\.sleep\(0\.25\)$/m);
+    // The list is the test's own (pytest: each row its own).
+    assert.match(code, new RegExp(`^${pad}_failures = \\[\\]\\n\\n${pad}# Step 1: assert — textEquals — Toast\\n${pad}_at = "Step 1: assert — textEquals — Toast"\\n${pad}_soft_assert\\(_failures, _at \\+ ": " \\+ f"expected text \\\\"\\{msg\\}\\\\"", "textEquals", \\[\\(By\\.CSS_SELECTOR, "#toast"\\)\\], f"\\{msg\\}"\\)\\n\\n${pad}# Step 2: click$`, 'm'), output);
+    assert.match(code, new RegExp(`^${pad}_soft_assert\\(_failures, _at \\+ ": " \\+ "expected URL containing \\\\"/done\\\\"", "urlContains", None, "/done"\\)$`, 'm'));
+    assert.match(code, new RegExp(`^${pad}_soft_assert\\(_failures, _at \\+ ": " \\+ "expected element to exist", "elementExists", \\[\\(By\\.CSS_SELECTOR, "#plain"\\)\\], ""\\)$`, 'm'));
+    assert.match(code, new RegExp(`^${pad}raise Exception\\("Assert step 5: unknown condition type, named in the comment above"\\)$`, 'm'));
+    // After the last step: the run fails if one was false, naming each.
+    assert.match(code, new RegExp(`^${pad}# A false Assert did not stop the run: it fails here, with each one\\.\\n${pad}if _failures:\\n${pad} {4}_at = f"\\{len\\(_failures\\)\\} Assert\\(s\\) failed"\\n${pad} {4}raise AssertionError\\("; "\\.join\\(_failures\\)\\)$`, 'm'));
+    assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'verify']);
+    assert.ok(warnings.some((w) => /Assert step 5: type "isChecked" is unknown/.test(w)), warnings.join());
+  }
+  // No Assert: no list, no helper.
+  assert.doesNotMatch(generateSeleniumPy('t', [steps[1]], {}).code, /_failures|_soft_assert/);
+});
+
 test('Selenium Headless: each driver its own way, and none for Safari', () => {
   const steps = [{ type: 'click', selector: '#a', selectors: { css: '#a' } }];
   const head = (driverType) => generateSeleniumPy('h', steps, {}, { driverType, headless: true });

@@ -5,7 +5,10 @@ import { normalizeVarName, normalizeVarRef, writtenVarNames } from '../shared/va
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars } from './export/walk.js';
+import {
+  ASSERT_POLL_MS, ASSERT_WAIT_MS, assertExpected, assertType, exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames,
+  uploadPaths, walkActions, warnUndefinedVars,
+} from './export/walk.js';
 import {
   FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, SET_INPUT_JS, FIND_TEXT_JS, QUERY_DEEP_JS,
   DROP_BRIDGE_JS, DROP_FILES_JS,
@@ -174,6 +177,7 @@ function valueToPy(val) {
 // fail to parse, `re` or `open` hide what a helper calls, so those get a `_v` suffix.
 const _RESERVED_PY = new Set([
   'driver', 'time', 'random', 'string', 'datetime', 'By', 'EC', 'WebDriverWait', '_pick_item', '_pick_index', '_check_cond', '_CHECK_COND_JS',
+  '_soft_assert', '_failures',
   '_SCRIPT_INPUT_TYPES', '_SET_INPUT_JS', '_locate', '_find', '_FIND_TEXT_JS', '_QUERY_DEEP_JS', '_locate_in_frames', '_DROP_BRIDGE_JS', '_DROP_FILES_JS',
   'InvalidSelectorException', 'StaleElementReferenceException', '_save_full_page', 'base64', '_options',
   '_js', '_read_val', '_find_child', '_READ_VAL_JS', '_FIND_CHILD_JS',
@@ -304,6 +308,23 @@ function _checkCondHelperPy(frames) {
     ...(frames ? ['    driver.switch_to.default_content()'] : []),
     `    el = ${frames ? '_locate_in_frames' : '_locate'}(locators) if locators else None`,
     '    return driver.execute_script(_CHECK_COND_JS, cond_type, el, expected)',
+  ];
+}
+
+// The _soft_assert() runtime helper: an Assert, waited for as playback waits for it.
+function _softAssertHelperPy() {
+  return [
+    'def _soft_assert(failures, message, cond_type, locators, expected):',
+    '    """An Assert as the extension makes it (bg/playback/steps/assert.js): its check made again',
+    `    every ${ASSERT_POLL_MS / 1000} s until it holds, for up to ${ASSERT_WAIT_MS / 1000} s. One still false is told and noted in`,
+    '    failures, and the run goes on."""',
+    `    end = time.time() + ${ASSERT_WAIT_MS / 1000}`,
+    '    while not _check_cond(cond_type, locators, expected):',
+    '        if time.time() >= end:',
+    '            failures.append(message)',
+    '            print(f"❌ {message}")',
+    '            return',
+    `        time.sleep(${ASSERT_POLL_MS / 1000})`,
   ];
 }
 
@@ -878,6 +899,21 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       break;
     }
 
+    case 'assert': {
+      // A false one is noted and the run goes on (_failures); it fails after the last step.
+      out.push(`# Step ${stepNum}: assert — ${commentText(action.conditionType || 'elementExists')}${lbl}`);
+      const type = assertType(action, step, ctx.warnings);
+      if (!type) {
+        out.push(`raise Exception(${JSON.stringify(`Assert step ${stepNum}: unknown condition type, named in the comment above`)})`);
+        break;
+      }
+      ctx.uses.add('assert');
+      const locator = type.startsWith('url') ? 'None' : locsPy(locs);
+      out.push(`_soft_assert(_failures, _at + ": " + ${valueToPy(assertExpected(type, action))}, ${JSON.stringify(type)}, ${locator}, ${valueToPy(action.expectedValue)})`);
+      if (delay > 0) out.push(`time.sleep(${delay})`);
+      break;
+    }
+
     default:
       out.push(`# Step ${stepNum}: ${commentText(action.type)}${lbl} — [unsupported, skipped]`);
       mark(step, 'skip', 'not an action type this version knows');
@@ -975,7 +1011,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   const needsRandom       = Object.keys(randomSpecs).length > 0 || Object.keys(pickSpecs).length > 0;
   const needsDatetime     = Object.values(randomSpecs).some(s => s.type === 'datetime');
   const needsActionChains = enabled.some(a => ['hover', 'dragdrop'].includes(a.type));
-  const needsCondition    = enabled.some(a => a.type === 'condition');
+  const needsCondition    = enabled.some(a => a.type === 'condition' || a.type === 'assert');
   const needsChildCond    = enabled.some(a => a.conditions && typeof a.conditions === 'object');
   const needsExtract      = enabled.some(a => a.type === 'readdom' && patternVarNames(a.pattern).length);
   const needsJsEscape     = enabled.some(a => a.type === 'script' && scriptUsesVars(a));
@@ -990,6 +1026,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   // that happens to name it.
   const ctx = { all, layout, warnings, steps, driverType, frames, uses: new Set() };
   const bodyLines   = stepLines(stepDelay, elTimeout, ctx);
+  if (ctx.uses.has('assert')) {
+    bodyLines.unshift('_failures = []', '');
+    bodyLines.push('# A false Assert did not stop the run: it fails here, with each one.', 'if _failures:',
+      '    _at = f"{len(_failures)} Assert(s) failed"', '    raise AssertionError("; ".join(_failures))', '');
+  }
   const needsLocate = needsCondition || ctx.uses.has('locate');
   const needsFullPage = ctx.uses.has('full');
 
@@ -1051,6 +1092,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
   if (needsCondition) {
     out.push(..._checkCondHelperPy(frames === 'all'));
+    out.push('');
+    out.push('');
+  }
+  if (ctx.uses.has('assert')) {
+    out.push(..._softAssertHelperPy());
     out.push('');
     out.push('');
   }
