@@ -12,12 +12,13 @@ A Chrome Manifest V3 extension that records browser interactions and replays the
 |---|---|
 | **Recording** | `click` and `input` events (input debounced to one action per field). All other action types are added manually. |
 | **Playback** | Single scenario, sequence, loop N×, scheduled (one-off or daily), CSV data-driven; runs inside iframes and resumes after a mid-playback page reload |
-| **Actions** | 16 action types including upload file, conditions, switch branching, readDOM, JS script |
+| **Actions** | 17 action types including upload file, conditions, assertions, switch branching, readDOM, JS script |
+| **Run result** | Every run ends with a verdict — ✓ Passed / ✗ Failed / ⚠ Test broken / ⏹ Stopped — in its notification, on the badge and on the popup's **Last run** card, with a **bug report** (Markdown + screenshot) to paste into an issue |
 | **Variables** | 4 types: Static, Random (alpha/numeric/alphanumeric/datetime), Pick, Fallback — `${varName}` substitution across selectors, values, URLs, and scripts |
 | **Upload File** | Inject local files into `<input type="file">` or drag-and-drop zones; supports multiple files and `${variable}` filenames |
 | **Screenshot** | Visible, full page, scroll (V/H), segment, element, whole OS window — with crop editor, standalone image editor, image diff, and watermark |
 | **Highlight** | Select text on any page to highlight it in 5 colours with notes; auto-restored on revisit, scoped by URL patterns |
-| **CSV Run** | Run a scenario once per row; export results to XLSX / HTML / ZIP with screenshots |
+| **CSV Run** | Run a scenario once per row; export results to XLSX / HTML / ZIP with screenshots and a **Run Result** per row |
 | **SQL Test Cases** | Vietnamese/English. Parse a SELECT/INSERT/UPDATE/DELETE statement and derive a test case list — EP + BVA, decision table / MC-DC, NULL & 3-valued logic, JOIN cardinality, grouping and paging — with one panel for editing the sample values every case draws on, exported as CSV or JSON |
 | **DB Test Session** | Records every row changed through **Adminer** — edit form, grid edits, bulk delete, `INSERT`, and hand-written SQL — and rolls a whole test run back, with a preview of the exact SQL and a drift check per row. (Whole-table snapshots, backup tables and rollback after Playback are built but temporarily hidden.) |
 | **Export** | Scenario JSON, folder JSON, full backup/restore, JS Bookmarklet, Selenium Python (script or pytest), Playwright Test, Robot Framework, Selenium Java (TestNG) |
@@ -58,7 +59,8 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 ### Record & Play
 - Start/stop recording; undo/redo on the action list (up to 50 steps, cleared by **New** or loading another scenario)
   - Only the tab the recording started on is recorded; clicks and input events the page's own scripts dispatch are left out, and text typed just before a click is recorded before it
-- Add manual actions (all 16 types)
+- **Last run** card at the top: how the last Play or Resume came out, its failures, its bug report — see [Run result](#run-result--bug-report)
+- Add manual actions (all 17 types)
 - **Click through** on each action (checkbox under Label) and on each scenario (⊘ on its toolbar) — see [Click through](#click-through)
 - Save and manage scenarios (rename, duplicate, move to folder, delete)
 - Playback controls: loop count, loop delay
@@ -137,6 +139,7 @@ with its own setting. A Switch into another scenario takes that scenario's setti
 | Type | Description |
 |---|---|
 | `condition` | 12-type DOM/URL check → skip next N actions if false |
+| `assert` | The same 12 checks, which must **hold**: checked again until they do, for up to 5 s; a false one is recorded and the run **goes on** — see [Run result](#run-result--bug-report) |
 | `switch` | Variable value → run a matching scenario, jump within this one, or run only the matching case's **block** of actions. **Always** mode: no variable — the chosen scenario (optionally a `#`–`#` range of it) plays every time, then this scenario carries on; stored as `switchVar: ""` with one `__default__` case (`isAlwaysSwitch`), so playback and older versions need nothing new |
 
 **Condition types:** `elementExists`, `elementNotExists`, `elementVisible`, `elementHidden`, `textContains`, `textEquals`, `valueEquals`, `valueContains`, `urlContains`, `urlEquals`, `hasClass`, `hasAttribute`
@@ -189,6 +192,70 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
 
 ---
 
+## Run Result & Bug Report
+
+### Assert
+
+**Assert (Expect)** in the Add Action form has a Condition's fields — the check ("Expect" for "If"), its element, its
+value — and no "Then run": it guards nothing, it must hold. Stored as `{ type: 'assert', conditionType, selector,
+selectors, expectedValue }`.
+
+- **Waited for:** the page is asked every 250 ms until the check holds, for up to **5 s** — the time an action gives
+  its element, so a page still loading is not a failure. A page that cannot evaluate the check (an unknown type) or
+  never answers fails with the usual Retry / Skip / Stop prompt.
+- **Soft:** a check still false is recorded and the run **goes on**, with no prompt — a CSV or scheduled run never
+  waits for a click. The failure says what was expected and what the page held: `Expected text "Saved", got "Error"`.
+- **What failed:** an Assert that is false is `kind: 'assert'` — the page was wrong. A text / value / class /
+  attribute check whose element **is not there** is `kind: 'broken'` ("Element not found — could not check"): the test
+  could not look. Every other failure (element not found for a click, a script error, a broken block) is broken too.
+  A password field's value never leaves the page: its Assert says only that it did not match.
+
+### The verdict
+
+`shared/verdict.js`: the **first failure decides**, being most often the cause of the rest — a click that broke makes
+the Assert after it fail too, and that is a broken test, not a failing app.
+
+| Verdict | When |
+|---|---|
+| ✓ Passed | no failure, and the run reached its end |
+| ✗ Failed | its first failure is a false Assert |
+| ⚠ Test broken | its first failure is anything else |
+| ⏹ Stopped | no failure, but the run did not reach its end (Stop, its tab closed) — never Passed |
+
+- **Notification:** `✗ Failed — "Checkout"` / `"Checkout" finished (3 loops) — 1 check failed · 1 step broken`. A
+  Sequence has one verdict, from every scenario's failures in order.
+- **Badge:** ✗ (red), ! (amber) or ■ (grey) once a run ends that did not pass, until the next run or until the popup
+  opens.
+- **CSV:** each row's verdict is its **Run Result** — see [CSV Data-Driven Runs](#csv-data-driven-runs).
+
+### Last run card
+
+The last Play or Resume (`lastRun`) shows at the top of Record & Play: its verdict, scenario, loops, how long ago it
+ended, and one line per failure (`✗ #2 Toast — Expected text "Saved", got "Error"`). A failure selects its scenario and
+marks its action in the list. × hides the card until the next run. A Sequence or a CSV run leaves no card.
+
+### Bug report
+
+On the card of a run that failed or broke, **📋 Bug report** opens the report to paste into an issue tracker
+(`shared/bug-report.js`), as Markdown:
+
+- the first failure, the page's URL, when (and in which loop), the run's result, the browser, OS and Pocket QA version;
+- **Steps to reproduce** — the steps run up to the failure, in order, as sentences (`Click "Sign in" (#login)`,
+  `Type ••• into #coupon`, `✗ Check that the text of #toast is "Saved"`): a step a Condition skipped is not listed, a
+  Switch case of the same scenario is, a failure inside another scenario is told on the Switch that ran it;
+- the other failures, the variables those steps use, and the screenshot to attach.
+
+**Values stay hidden** (•••) — what was typed, uploaded, scripted, or compared in a value check, and the variables'
+values — until **Include typed values** is ticked; it is never remembered. Variable names always show (`${password}`).
+The run keeps no variable values: the report takes the saved ones, and says they may differ.
+
+**Copy** puts the Markdown on the clipboard; **Download screenshot** saves the page as the first failure left it —
+taken before the failure prompt can cover it, a JPEG kept as `lastRunShot` — as
+`pocketqa-bug-<scenario>-<stamp>.jpg`, the file the report names. No screenshot when the run's tab was not the one its
+window showed (a background run) or the capture failed.
+
+---
+
 ## Export Code
 
 From the **Data** tab → **Export Code** card, select any saved scenario (the card starts on the one selected in Manage Scenarios; the list is grouped by folder) and pick one of five formats — the buttons wait for a scenario. All five open the same window, with four tabs:
@@ -224,11 +291,15 @@ The file name keeps letters of any language (`đăng_nhập_selenium.py`).
 | Step recorded inside an iframe | frames of the same site ⚠ | ✓ page, then its frames | ✓ page, then its frames | ✓ page, then its frames | ✓ page, then its frames |
 | Switch block on a variable (its cases ranges of this scenario) | ✓ `if / else if` | ✓ `if / elif` | ✓ `if / else if` | ✓ `IF / ELSE IF` | ✓ `if / else if` |
 | Switch to another scenario, to action #N, Always | — | — | — | — | — |
+| Assert (waited for up to 5 s; a false one fails the run at its end, not at once) | ✓ one alert at the end | ✓ `AssertionError` at the end | ✓ `expect.soft` + `poll` | ✓ `Run Keyword And Continue On Failure` | ✓ TestNG `SoftAssert` |
 
 What the formats share:
 
 - **Locators with fallbacks**, tried in playback's order: the selector type chosen in the form first, then full XPath → id → XPath → CSS → `data-testid` → `data-id` → `name` → text (the exact trimmed text of the innermost element, in the recorded tag). The first that finds an element wins (`getEl([...])`, `_find([...])`, `Find Element`, `find(...)`); a locator the page cannot parse is passed over. A CSS locator the page has no match for is looked for inside open shadow roots too.
 - **The extension's own in-page code** where a plain driver call would do something else: Read DOM (each "Read from" choice), Child Condition, Conditions and *Choose item #* run the functions playback runs, and Input fills date / time / color / range fields through playback's value setter. The bookmarklet also clicks, hovers, fills every field and drags (HTML5 drag events) as playback does; Selenium, Playwright, Robot and Java use their own mouse and keyboard for those.
+- **An Assert is waited for and soft, as in playback:** its check is made every 250 ms until it holds, for up to 5 s; one
+  still false is reported (the step, what it expected) and the code goes on, then fails after the last step with each
+  false Assert listed.
 - **A Condition of a type the export does not know stops the exported code there**, as a run does — it throws with the type named in a comment — and the window shows a warning. A Switch with a block is skipped *together with its block*, otherwise every case would run. A disabled action is not exported, but the number of steps a Condition skips is still counted against the original list.
 - **`${var}`** in values, selectors and the Read DOM attribute become template literals / f-strings / Robot `${var}` / Java variables; values are baked in at export time — edit the Variables table and export again, or set one from the environment when the code runs (below). A scenario's own text — its name, a label, a value, a dropdown item number, a Script's code — only ever reaches a string or a one-line comment, in every one of the five languages, so a scenario imported from someone else cannot turn its text into code in the file you export (a newline or a quote in it is escaped for the language it lands in).
 - **A step recorded inside an iframe** is looked for in the page, then in its frames (frames in frames too) by Selenium, Playwright, Robot and Java. The bookmarklet reaches only the frames of its own site (⚠ Verify). A Condition recorded in a frame looks for its element the same way and is checked in the frame that holds it; a URL Condition recorded in a frame is checked on the top page's URL (⚠ Verify), where playback reads the frame's.
@@ -934,6 +1005,9 @@ IndexedDB — FastRecorder_DbtoolsSnapshots (disk, no hard quota)
 | `popupTheme` | `"light"\|"dark"` | UI theme |
 | `manualFormDraft` | `object` | Persisted Add Action form state |
 | `playbackCheckpoint` | `object` | Resume point after mid-playback tab reload (60 s TTL) |
+| `lastRun` | `object` | The last Play or Resume: verdict, failures (the first with `url`, `at`, `loop`, `trace`), loops, `completed`, and its actions as saved |
+| `lastRunShot` | `string` | That run's first-failure screenshot, a JPEG data URL; absent when it had none |
+| `lastRunDismissed` | `number` | The `endedAt` of the run whose Last run card × hid |
 | `hl_v1` | `Record<url, Highlight[]>` | Saved highlights, keyed by the *normalized* URL (a matching pattern, else the page URL minus any `#anchor`). Each entry keeps `srcUrl` — the page it was made on — so the whole store can be re-grouped when patterns change |
 | `hl_patterns_v1` | `string[]` | URL patterns grouping pages under one shared highlight set |
 | `updateStatus` | `object` | Result of the daily Web Store version check |
@@ -1094,6 +1168,10 @@ as well an editor, a terminal or a design tool.
 3. The scenario runs once per row; each row's columns override `${varName}` tokens
 4. Live progress shown in the Now Playing mini panel
 5. Results exported as **XLSX** (images in cells), **HTML** (embedded images), or **ZIP** (screenshot files + CSV). Changing the format after a run clears the accumulated results.
+   Every format ends with two columns: **Run Result** — the row's [verdict](#the-verdict) — then **Action Failed**,
+   each failure with its reason (`[7] assert "Check toast": Expected text "Saved", got "Error"`). They are told apart by
+   position, so a CSV column of the same name keeps its own values. A finished run counts its rows the same way:
+   `12 passed · 2 failed · 1 broken`.
 6. `screenshot_tovar` actions save screenshots per row into the export
 
 **ZIP layout.** `results.csv`, then one folder per row holding that row's screenshots: `row_01/shot.png`, `row_02/shot.png` … The ZIP's **Advanced** section (under Export format, shown only while ZIP is chosen) names them:

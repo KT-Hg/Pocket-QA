@@ -8,12 +8,32 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 
 ## Còn lại sau đợt sửa review (2026-10)
 
-- **`content.js` có 2.141 dòng** (`wc -l`; từ 3.343). Đợt plan 9 chuyển countdown, prompt khi action lỗi và thanh
+- **`content.js` có 2.167 dòng** (`wc -l`; từ 3.343). Đợt plan 9 chuyển countdown, prompt khi action lỗi và thanh
   segment sang `content-overlays.js`, worker chỉ nạp khi cần (2.278 → 2.040), rồi thêm khoảng 100 dòng cho
-  "Choose item #" trong danh sách ảo hoá. Xuống dưới 2.000 phải chuyển cả Element picker: popup gửi `START_PICK_MODE`
+  "Choose item #" trong danh sách ảo hoá, rồi khoảng 25 dòng cho Assert (plan 10: `CHECK_CONDITION` trả thêm `found` /
+  `actual`). Xuống dưới 2.000 phải chuyển cả Element picker: popup gửi `START_PICK_MODE`
   thẳng vào tab ở ba chỗ, và recorder dùng chung `pickerMode` / `_extIsOurChrome` với nó.
 
+- **`verify --eslint` đếm cả worktree lồng trong repo.** Session chạy trong `.claude/worktrees/…` để lại một bản code
+  ngay trong thư mục repo, và `tools/eslint.config.mjs` không bỏ qua `.claude/`, nên số cảnh báo nhân lên (97 → 229).
+  Tạm thời so baseline bằng `npx eslint@9.39.5 -c tools/eslint.config.mjs --ignore-pattern ".claude/**" .`; sửa hẳn là
+  thêm `.claude/**` vào `ignores` của file cấu hình.
+
 ## Giới hạn của tính năng
+
+- **Assert `elementExists` / `elementVisible` với selector đã hỏng ra ✗ Failed, không ra ⚠ Test broken.** Với loại kiểm
+  sự có mặt, "không thấy phần tử" chính là câu trả lời, nên không phân biệt được app không hiện phần tử với selector
+  hết khớp. Loại kiểm chữ / giá trị / class / thuộc tính thì phân biệt được: không thấy phần tử → ⚠.
+- **Assert chờ cố định 5 s** (bằng thời gian chờ phần tử của action), chưa chỉnh được cho từng Assert; trang chậm hơn thì
+  đặt một Wait trước nó.
+- **Bug report chỉ có cho Play và Resume.** Sequence và CSV run có kết luận (thông báo, cột Run Result) nhưng không có
+  `lastRun`, thẻ Last run hay bug report.
+- **Ảnh lúc lỗi chỉ chụp được khi tab chạy là tab đang hiện trong cửa sổ của nó** (`captureVisibleTab` chỉ chụp tab
+  đó). Run ở tab nền thì báo cáo ghi "No screenshot".
+- **Bug report lấy giá trị biến đã lưu, không phải giá trị lúc chạy** — `lastRun` không giữ chúng (biến Random, CSV,
+  Read DOM có thể khác); báo cáo ghi rõ điều này.
+- **Lỗi nằm trong scenario khác (Switch chạy vào):** bấm dòng lỗi trên thẻ Last run nhảy theo số bước trong scenario
+  gốc, có thể trỏ nhầm hàng; trace và bug report thì kể lỗi trên bước Switch đó.
 
 - **Recorder chỉ ghi tab bắt đầu ghi.** Link mở sang tab mới thì thao tác ở tab đó không được ghi. Trước đây ghi được
   nhưng phát lại chạy trên tab ban đầu, tức là sai tab.
