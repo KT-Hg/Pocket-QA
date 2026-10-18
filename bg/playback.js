@@ -723,6 +723,8 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
           failedActions, strict: scenario.clickThrough === false,
         },
       );
+      // Still active: the row ran to its end — not stopped, its tab not closed.
+      const rowCompleted = state.playback.active;
       state.playback.active = false;
 
       completedRows++;
@@ -749,6 +751,9 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
       // one is recorded exactly as before.
       const rowResult = { rowIndex: i, vars: filteredVars, failures: failedActions };
       if (Object.keys(screenshotNames).length) rowResult.ssNames = screenshotNames;
+      // Only a row cut short says so: a whole row is recorded as before, and reads as
+      // completed (popup/csv/result-export.js).
+      if (!rowCompleted) rowResult.completed = false;
       await csvResultWrite(i, rowResult);
 
       for (const [vn, b64] of Object.entries(screenshotsResult)) {

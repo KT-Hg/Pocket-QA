@@ -939,6 +939,23 @@ await run('verdict: csv', () => startCsvPlayback('vFail', [{}], 0, 'csv'), {
   teardown: endOf('verdict: csv'),
 });
 
+// A CSV row stopped before its end is recorded as such (`completed: false`); a
+// row that ran to its end is recorded as before, without the field.
+let csvRowsSeen = [];
+await run('verdict: csv row stopped', () => startCsvPlayback('vStop', [{}, {}], 0, 'csv'), {
+  setup: () => {
+    let n = 0;
+    page['#vStop'] = () => {
+      if (++n === 2) { state.playback.active = false; state.csvPlayback.active = false; }
+      return {};
+    };
+  },
+  teardown: () => { csvRowsSeen = [...idb.stores.results.values()].map((r) => ({ rowIndex: r.rowIndex, completed: r.completed })); },
+});
+test('a CSV row stopped before its end is recorded as not completed', () => {
+  assert.deepEqual(csvRowsSeen, [{ rowIndex: 0, completed: undefined }, { rowIndex: 1, completed: false }]);
+});
+
 test('a run\'s verdict is in its notification title, and the counts in its text', () => {
   const t = (step) => titlesOf(step).map((n) => `${n.title} | ${n.message}`);
   assert.deepEqual(t('verdict: passed'), ['✓ Passed — "VPass" | "VPass" finished']);

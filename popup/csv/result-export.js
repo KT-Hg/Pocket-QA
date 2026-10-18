@@ -8,6 +8,7 @@
  */
 
 import { applyVars } from '../../bg/interpolate.js';
+import { runVerdict, verdictLabel } from '../../shared/verdict.js';
 import { buildScreenshotFilename, safeName } from '../../bg/screenshot/filename.js';
 import { ZipWriter } from '../lib/zip-writer.js';
 
@@ -23,8 +24,23 @@ function _formatBug(failures) {
   if (!failures || failures.length === 0) return "";
   return failures.map(f => {
     const label = f.label ? ` "${f.label}"` : "";
-    return `[${f.index}] ${f.type}${label}`;
+    // A failure recorded before reasons were kept reads as it did.
+    return `[${f.index}] ${f.type}${label}${f.reason ? `: ${f.reason}` : ""}`;
   }).join("; ");
+}
+
+// The columns every result file ends with. Told apart by position, not by name:
+// a column of the CSV itself may have the same name, and keeps its own values.
+const RESULT_COLS = ["Run Result", "Action Failed"];
+
+/** A row's verdict (shared/verdict.js) — a row recorded before `completed` ran to its end. */
+function _verdictOf(r) {
+  return runVerdict(r.failures, { completed: r.completed !== false }).status;
+}
+
+/** The cells of RESULT_COLS for a row. */
+function _resultCells(r) {
+  return [verdictLabel(_verdictOf(r)), _formatBug(r.failures)];
 }
 
 // Build and download result CSV after a CSV run
@@ -37,18 +53,15 @@ export function generateResultCsv(originalHeaders, originalRows, results) {
       if (!headerSet.has(k)) { extraCols.push(k); headerSet.add(k); }
     });
   });
-  const allHeaders = [...originalHeaders, ...extraCols, "Action Failed"];
+  const dataHeaders = [...originalHeaders, ...extraCols];
 
   const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const lines = [allHeaders.map(escape).join(",")];
+  const lines = [[...dataHeaders, ...RESULT_COLS].map(escape).join(",")];
 
   results.forEach((r) => {
     const origRow = originalRows[r.rowIndex] || {};
-    const line = allHeaders.map(h => {
-      if (h === "Action Failed") return escape(_formatBug(r.failures));
-      return escape(r.vars?.[h] ?? origRow[h] ?? "");
-    });
-    lines.push(line.join(","));
+    const cells = [...dataHeaders.map(h => r.vars?.[h] ?? origRow[h] ?? ""), ..._resultCells(r)];
+    lines.push(cells.map(escape).join(","));
   });
   return lines.join("\r\n");
 }
@@ -90,8 +103,11 @@ function _buildAllHeaders(originalHeaders, results, screenshots, ssVarOrder) {
     if (!ssHeaderSet.has(vn)) { ssHeaders.push(vn); ssHeaderSet.add(vn); }
   });
 
-  return [...baseHeaders, ...extra, ...ssHeaders, "Action Failed"];
+  return [...baseHeaders, ...extra, ...ssHeaders];
 }
+
+// Colour of a Run Result cell in the HTML file.
+const VERDICT_COLOR = { passed: '#16a34a', failed: '#dc2626', broken: '#d97706', stopped: '#6b7280' };
 
 // HTML export — images as base64 <img> tags
 export function generateResultHtml(originalHeaders, originalRows, results, screenshots, ssVarOrder) {
@@ -103,7 +119,7 @@ export function generateResultHtml(originalHeaders, originalRows, results, scree
     if (ci >= 0) imgCols.add(ci);
   });
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const hRow = allHeaders.map((h, i) => `<th${imgCols.has(i) ? ' style="min-width:200px"' : ''}>${esc(h)}</th>`).join('');
+  const hRow = [...allHeaders, ...RESULT_COLS].map((h, i) => `<th${imgCols.has(i) ? ' style="min-width:200px"' : ''}>${esc(h)}</th>`).join('');
   const rows = results.map(r => {
     const orig = originalRows[r.rowIndex] || {};
     const cells = allHeaders.map((h, ci) => {
@@ -111,14 +127,12 @@ export function generateResultHtml(originalHeaders, originalRows, results, scree
         const b64 = (screenshots || {})[`${r.rowIndex}:${h}`];
         return b64 ? `<td><img src="data:image/png;base64,${b64}" style="max-width:200px;max-height:130px;display:block;border-radius:3px;"/></td>` : '<td></td>';
       }
-      if (h === 'Action Failed') {
-        const bugVal = _formatBug(r.failures);
-        const style = bugVal ? ' style="color:#dc2626;font-weight:600;"' : '';
-        return `<td${style}>${esc(bugVal)}</td>`;
-      }
       return `<td>${esc(r.vars?.[h] ?? orig[h] ?? '')}</td>`;
     }).join('');
-    return `<tr>${cells}</tr>`;
+    const [verdict, bugVal] = _resultCells(r);
+    const bugStyle = bugVal ? ' style="color:#dc2626;font-weight:600;"' : '';
+    return `<tr>${cells}<td style="color:${VERDICT_COLOR[_verdictOf(r)]};font-weight:600;white-space:nowrap;">${esc(verdict)}</td>`
+      + `<td${bugStyle}>${esc(bugVal)}</td></tr>`;
   }).join('\n');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CSV Result</title>
 <style>body{font-family:sans-serif;font-size:13px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px 8px;vertical-align:top}th{background:#f3f4f6;font-weight:bold}tr:nth-child(even){background:#f9fafb}</style>
@@ -160,7 +174,7 @@ export function generateResultXlsx(originalHeaders, originalRows, results, scree
   // Rows XML
   const rowsXml = [];
   // Header row
-  const hCells = allHeaders.map((h, ci) => `<c r="${colRef(ci)}1" t="s"><v>${addStr(h)}</v></c>`).join('');
+  const hCells = [...allHeaders, ...RESULT_COLS].map((h, ci) => `<c r="${colRef(ci)}1" t="s"><v>${addStr(h)}</v></c>`).join('');
   rowsXml.push(`<row r="1">${hCells}</row>`);
 
   // Data rows
@@ -168,9 +182,9 @@ export function generateResultXlsx(originalHeaders, originalRows, results, scree
     const rowNum = di + 2;
     const orig = originalRows[r.rowIndex] || {};
     const hasImg = Object.keys(ss).some(k => parseInt(k.split(':')[0],10) === r.rowIndex);
-    const cells = allHeaders.map((h, ci) => {
+    const values = [...allHeaders.map((h) => String(r.vars?.[h] ?? orig[h] ?? '')), ..._resultCells(r)];
+    const cells = values.map((val, ci) => {
       if (imgColIdx.has(ci)) return ''; // leave empty — image goes in drawing
-      const val = h === 'Action Failed' ? _formatBug(r.failures) : String(r.vars?.[h] ?? orig[h] ?? '');
       const si = addStr(val);
       return `<c r="${colRef(ci)}${rowNum}" t="s"><v>${si}</v></c>`;
     }).join('');
