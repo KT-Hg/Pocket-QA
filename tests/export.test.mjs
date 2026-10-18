@@ -724,14 +724,26 @@ async function runSpec(code, { kind = 'text', checks = {}, text = 'read' } = {})
       return checks[arg[0]] ?? true;
     },
     screenshot: async (o) => calls.push(`shot page ${fmt(o)}`),
+    // A step recorded in a frame looks in each frame: here, the page alone.
+    frames: () => [page],
   };
   let body = null;
   // Not enumerable: a deepEqual of the calls leaves it out.
   Object.defineProperty(calls, 'steps', { value: [] });
+  // The message of each soft expectation that did not hold, and the options of each poll.
+  Object.defineProperty(calls, 'soft', { value: [] });
+  Object.defineProperty(calls, 'polls', { value: [] });
   const step = async (title, fn) => { calls.steps.push(title); return fn(); };
   const test = Object.assign((name, fn) => { body = fn; }, { use() {}, setTimeout() {}, step });
-  const js = code.replace(/^import \{ test \} from '@playwright\/test';$/m, '');
-  new Function('test', js)(test);
+  // expect.configure({ soft }).poll(fn, opts).toBe(v): fn asked once; a soft miss is noted, a hard one throws.
+  const expect = { configure: ({ soft }) => ({ poll: (fn, opts) => ({ toBe: async (want) => {
+    calls.polls.push(opts);
+    if ((await fn()) === want) return;
+    if (!soft) throw new Error(opts.message);
+    calls.soft.push(opts.message);
+  } }) }) };
+  const js = code.replace(/^import \{ test(, expect)? \} from '@playwright\/test';$/m, '');
+  new Function('test', 'expect', js)(test, expect);
   await body({ page });
   return calls;
 }
@@ -805,6 +817,47 @@ test('Playwright: Conditions decide with the in-page check, and guard their step
     'check textContains #greet "Bob"', 'check urlContains null "cart"', 'click #b', 'click #d',
   ], 'the guarded step runs only when its check holds');
   assert.deepEqual(calls.steps, ['Step 1: condition — textContains', 'Step 3: condition — urlContains', 'Step 4: click', 'Step 6: click']);
+});
+
+test('Playwright: an Assert is checked until it holds, for up to 5 s; a false one fails the test at its end, not there', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const steps = [
+    { type: 'assert', conditionType: 'textEquals', selector: '#toast', selectors: { css: '#toast' }, expectedValue: '${msg}', label: 'Toast' },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'assert', conditionType: 'urlContains', expectedValue: '/done' },
+    // Recorded in a frame: checked in the frame that holds it, as a Condition is.
+    { type: 'assert', conditionType: 'elementVisible', selector: '#f', selectors: { css: '#f' }, frameId: 3 },
+    // No check type: playback checks that the element exists.
+    { type: 'assert', selector: '#plain', selectors: { css: '#plain' } },
+    { type: 'assert', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' } },
+    { type: 'click', selector: '#d', selectors: { css: '#d' } },
+  ];
+  const { code, steps: status, warnings } = generatePlaywright('asserts', steps, { msg: 'Hi "you"' }, { stepDelay: 0 });
+  assert.match(code, /^import \{ test, expect \} from '@playwright\/test';$/m);
+  assert.equal(checkModule(code), null);
+  // A step of its own, not a block: the step after it runs whatever it found.
+  assert.match(code, /^ {2}\/\/ Step 1: assert — textEquals — Toast\n {2}await test\.step\("Step 1: assert — textEquals — Toast", async \(\) => \{\n {4}await _assert\(async \(\) => page\.evaluate\(_checkCond, \["textEquals", await _first\(page, \["#toast"\]\), `\$\{msg\}`\]\), "Step 1: assert — textEquals — Toast", `expected text "\$\{msg\}"`\);\n {2}\}\);\n\n {2}\/\/ Step 2: click$/m);
+  assert.match(code, /_assert\(async \(\) => page\.evaluate\(_checkCond, \["urlContains", null, "\/done"\]\), "Step 3: assert — urlContains", "expected URL containing \\"\/done\\""\);/);
+  assert.match(code, /_assert\(async \(\) => _checkInFrames\(page, \["#f"\], "elementVisible", ""\), "Step 4: assert — elementVisible", "expected element to be visible"\);/);
+  assert.match(code, /_assert\(async \(\) => page\.evaluate\(_checkCond, \["elementExists", await _first\(page, \["#plain"\]\), ""\]\), "Step 5: assert — elementExists", "expected element to exist"\);/);
+  // An unknown check stops the run there, as playback does; its name stays in the comment.
+  assert.match(code, /^ {4}throw new Error\("Assert step 6: unknown condition type, named in the comment above"\);$/m);
+  assert.ok(warnings.some((w) => /Assert step 6: type "isChecked" is unknown — the exported code stops there/.test(w)), warnings.join());
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'ok', 'verify', 'ok']);
+
+  const calls = await runSpec(code.replace(/^ {4}throw new Error\("Assert step 6.*$/m, ''), { checks: { textEquals: false, elementVisible: false } });
+  assert.deepEqual(calls.filter((c) => !c.startsWith('goto')), [
+    'check textEquals #toast "Hi \\"you\\""', 'click #a', 'check urlContains null "/done"', 'check elementVisible #f ""', 'check elementExists #plain ""', 'click #d',
+  ], 'a false Assert does not stop the steps after it');
+  assert.deepEqual(calls.soft, ['Step 1: assert — textEquals — Toast: expected text "Hi "you""', 'Step 4: assert — elementVisible: expected element to be visible']);
+  assert.deepEqual(calls.polls[0], { message: 'Step 1: assert — textEquals — Toast: expected text "Hi "you""', timeout: 5000, intervals: [250] },
+    'the wait of a run: checked every 250 ms for up to 5 s');
+  // A spec with no Assert imports only test, as before.
+  assert.match(generatePlaywright('t', [steps[1]], {}).code, /^import \{ test \} from '@playwright\/test';$/m);
+  // A URL recorded in a frame is the frame's to playback, the top page's to the export, as for a Condition.
+  const [framedUrl] = generatePlaywright('u', [{ type: 'assert', conditionType: 'urlEquals', expectedValue: 'x', frameId: 2 }], {}).steps;
+  assert.equal(framedUrl.status, 'verify');
+  assert.match(framedUrl.reason, /checks the top page's URL/);
 });
 
 test('Playwright: Child Condition, Read DOM, Choose item #, drag and Upload File, as the other exports do them', async () => {
@@ -984,13 +1037,15 @@ test('the export modal\'s Actions tab: a badge for every action type the exports
     const [step] = gen('t', [{ type, selector: '#a', selectors: { css: '#a' } }], {}).steps;
     return step && step.reason !== unknown;
   }));
-  assert.ok(known.includes('uploadFile') && known.includes('click') && !known.includes('xpath'), known.join());
+  assert.ok(known.includes('uploadFile') && known.includes('click') && known.includes('assert') && !known.includes('xpath'), known.join());
   assert.deepEqual(known.filter((type) => !ACT_TYPE_INFO[type]), [], 'types the exports know with no badge in the Actions tab');
 
   assert.equal(actionDesc({ type: 'screenshot_full' }), 'full page');
   assert.equal(actionDesc({ type: 'screenshot' }), 'viewport');
   assert.equal(actionDesc({ type: 'condition', conditionType: 'elementExists', selectors: { css: '.welcome' } }), 'elementExists · .welcome');
   assert.equal(actionDesc({ type: 'condition', conditionType: 'urlContains', expectedValue: '/home' }), 'urlContains · /home');
+  assert.equal(actionDesc({ type: 'assert', conditionType: 'textEquals', selectors: { css: '#toast' } }), 'textEquals · #toast');
+  assert.equal(actionDesc({ type: 'assert', conditionType: 'urlEquals', expectedValue: 'https://a.test/' }), 'urlEquals · https://a.test/');
 });
 
 test('the export code colours: joined, the pieces are the code of every golden export, line for line', async () => {

@@ -16,7 +16,10 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames, walkActions, warnUndefinedVars } from './export/walk.js';
+import {
+  ASSERT_POLL_MS, ASSERT_WAIT_MS, assertExpected, assertType, exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames,
+  walkActions, warnUndefinedVars,
+} from './export/walk.js';
 import { parseCSV, _delimiterOf } from './csv/csv-parse.js';
 import {
   SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS, DROP_BRIDGE_JS, DROP_FILES_JS,
@@ -24,8 +27,8 @@ import {
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
 
 // What the generated spec declares for itself, beside the JS reserved words.
-const RESERVED = new Set(['test', 'page', 'TIMEOUT', '_find', '_first', '_input', '_setInput', '_js', '_SCRIPT_INPUT_TYPES',
-  '_checkCond', '_checkInFrames', '_findChild', '_readVal', '_pick', '_dropBridge', '_dropFiles', '_inFrames', '_var', '_url', '_firstOrigin', 'process', '_row', '_rows', '_column',
+const RESERVED = new Set(['test', 'expect', 'page', 'TIMEOUT', '_find', '_first', '_input', '_setInput', '_js', '_SCRIPT_INPUT_TYPES',
+  '_checkCond', '_checkInFrames', '_assert', '_findChild', '_readVal', '_pick', '_dropBridge', '_dropFiles', '_inFrames', '_var', '_url', '_firstOrigin', 'process', '_row', '_rows', '_column',
   'readFileSync', 'join', '_delimiterOf', 'parseCSV', ...JS_RESERVED]);
 // The steps' elements (el3, el3_t) share the test function with the variables.
 const ident = jsIdentifier(RESERVED, /^el\d+(_|$)/);
@@ -172,6 +175,12 @@ async function _checkInFrames(page, selectors, type, expected) {
   return page.evaluate(_checkCond, [type, null, expected]);
 }`;
 
+const ASSERT_HELPER = `// An Assert as the extension makes it (bg/playback/steps/assert.js): its check made again
+// every ${ASSERT_POLL_MS} ms until it holds, for up to ${ASSERT_WAIT_MS / 1000} s. One still false is a soft failure: the test
+// goes on, and fails at its end with each one.
+const _assert = (check, title, want) => expect.configure({ soft: true })
+  .poll(check, { message: title + ': ' + want, timeout: ${ASSERT_WAIT_MS}, intervals: [${ASSERT_POLL_MS}] }).toBe(true);`;
+
 const FIRST_HELPER = String.raw`// The element a Condition checks: the first selector that finds one now, without waiting.
 async function _first(page, selectors) {
   for (const s of selectors) {
@@ -315,7 +324,30 @@ const STEP_LINES = {
   dragdrop: (a, s) => [`// Step ${s.n}: drag & drop${s.lbl}`, findPW(locatorsFor(a), `${s.el}_s`, inFrame(a)),
     findPW(locatorsFor(a, true), `${s.el}_t`, inFrame(a)), `await ${s.el}_s.dragTo(${s.el}_t);`],
   uploadFile: uploadLines,
+  assert: assertLines,
 };
+
+/**
+ * An Assert: its check (as a Condition's, on the element found at each try) through
+ * _assert. A type this version does not know stops the run there, as playback does.
+ */
+function assertLines(a, s) {
+  const type = assertType(a, s.step, s.ctx.warnings);
+  const head = `// Step ${s.n}: assert — ${commentText(a.conditionType || 'elementExists')}${s.lbl}`;
+  if (!type) return [head, `throw new Error(${JSON.stringify(`Assert step ${s.n}: unknown condition type, named in the comment above`)});`];
+  s.ctx.uses.add('check').add('assert');
+  const sels = selectorsPW(locatorsFor(a)).join(', ');
+  const expected = valueJS(a.expectedValue || '');
+  let check = `page.evaluate(_checkCond, [${JSON.stringify(type)}, null, ${expected}])`;
+  if (inFrame(a) && !type.startsWith('url')) {
+    s.ctx.uses.add('checkFrames');
+    check = `_checkInFrames(page, [${sels}], ${JSON.stringify(type)}, ${expected})`;
+  } else if (!type.startsWith('url')) {
+    s.ctx.uses.add('first');
+    check = `page.evaluate(_checkCond, [${JSON.stringify(type)}, await _first(page, [${sels}]), ${expected}])`;
+  }
+  return [head, `await _assert(async () => ${check}, ${JSON.stringify(head.slice('// '.length))}, ${valueJS(assertExpected(type, a))});`];
+}
 
 // Lines for one step that is not a Condition; marks `step` when it is not exported as is.
 function actionLines(action, step, ctx) {
@@ -441,6 +473,7 @@ function helperLines(body, uses, dataFile) {
     [uses.has('first'), FIRST_HELPER],
     [uses.has('checkFrames'), CHECK_FRAMES_HELPER],
     ...['check', 'child', 'read', 'pick', 'drop'].map((name) => [uses.has(name), PAGE_HELPERS[name]]),
+    [uses.has('assert'), ASSERT_HELPER],
     [uses.has('input'), INPUT_HELPER],
     [uses.has('js'), JS_HELPER],
   ];
@@ -490,7 +523,8 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
       : ['// ⚠ TODO: Set the starting URL (go to Settings tab to configure)', 'await page.goto(_url("https://your-url-here.com"));', ''];
   }
 
-  const out = [`// SCENARIO: ${commentText(scenarioName)}`, ...runNotes(Object.keys(variables || {})), "import { test } from '@playwright/test';"];
+  const out = [`// SCENARIO: ${commentText(scenarioName)}`, ...runNotes(Object.keys(variables || {})),
+    `import { test${ctx.uses.has('assert') ? ', expect' : ''} } from '@playwright/test';`];
   if (dataFile) out.push("import { readFileSync } from 'node:fs';", "import { join } from 'node:path';");
   out.push('');
   // A failed test keeps a screenshot and a trace of the page (test-results/).

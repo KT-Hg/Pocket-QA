@@ -14,7 +14,8 @@ import { normalizeVarName, writtenVarNames } from '../../shared/var-name.js';
 import { patternVarNames } from '../../shared/text-pattern.js';
 import { activeValue, parseRandomSpec, parsePickSpec } from '../../shared/var-spec.js';
 import { commentText, getUsedVarNames } from '../utils.js';
-import { blockSteps, newStep } from './steps.js';
+import { blockSteps, mark, newStep } from './steps.js';
+import { CONDITION_TYPES } from './page-js.js';
 
 /**
  * The item a Dropdown step chose, for the "dropdown → item #…" comment every
@@ -113,6 +114,47 @@ export function warnUndefinedVars(enabled, variables, warnings, dataFile = '') {
       : `\${${name}} is used by a step but not defined in the Variables tab`);
   }
 }
+
+// An Assert's check is made again every ASSERT_POLL_MS until it holds, for up to
+// ASSERT_WAIT_MS: playback's wait (bg/playback/steps/assert.js), in every export.
+export const ASSERT_WAIT_MS = 5000;
+export const ASSERT_POLL_MS = 250;
+
+/**
+ * The check an Assert makes: its condition type, elementExists when it has none, as
+ * playback reads it. null for a type this version does not know — `step` marked and
+ * a warning added: the export stops there, as a run does.
+ */
+export function assertType(action, step, warnings) {
+  const type = action.conditionType || 'elementExists';
+  if (CONDITION_TYPES.has(type)) return type;
+  mark(step, 'verify', 'unknown condition type — the exported code stops there, as a run does');
+  warnings.add(`Assert step ${step.n}: type "${type}" is unknown — the exported code stops there, as a run does`);
+  return null;
+}
+
+// What an Assert of each type expects, as playback words a false one (EXPECTED in
+// bg/playback/steps/assert.js).
+const EXPECTED = {
+  elementExists:    () => 'element to exist',
+  elementNotExists: () => 'element not to exist',
+  elementVisible:   () => 'element to be visible',
+  elementHidden:    () => 'element to be hidden',
+  textContains:     (v) => `text containing "${v}"`,
+  textEquals:       (v) => `text "${v}"`,
+  valueContains:    (v) => `value containing "${v}"`,
+  valueEquals:      (v) => `value "${v}"`,
+  urlContains:      (v) => `URL containing "${v}"`,
+  urlEquals:        (v) => `URL "${v}"`,
+  hasClass:         (v) => `class "${v}"`,
+  hasAttribute:     (v) => `attribute ${v}`,
+};
+
+/**
+ * What a false Assert of a known `type` says after its step: 'expected text "Saved"'.
+ * Raw, its value's ${name}s kept: each export fills them in as it fills in a value.
+ */
+export const assertExpected = (type, action) => `expected ${EXPECTED[type](action.expectedValue || '')}`;
 
 /** Whether `action` was recorded inside a frame: its frameId (the recording's) is not the page's, 0. */
 export const inFrame = (action) => action.frameId != null && action.frameId !== 0;
