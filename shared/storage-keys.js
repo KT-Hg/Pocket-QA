@@ -19,3 +19,6 @@ export const HIGHLIGHTS_KEY = 'hl_v1';
 
 /** URL patterns that group pages under one highlight key (popup Highlight tab). */
 export const HIGHLIGHT_PATTERNS_KEY = 'hl_patterns_v1';
+
+/** The last Play or Resume: its verdict, failures and actions (bg/playback.js; the popup's Last run card). */
+export const LAST_RUN_KEY = 'lastRun';

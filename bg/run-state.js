@@ -34,6 +34,7 @@ export function isBusy() {
 export async function runClaimed(start) {
   if (isAnyPlaybackActive()) return false;
   _claimed = true;
+  state.runVerdict = null; // the badge stops telling the last run's verdict
   try {
     await start();
   } finally {

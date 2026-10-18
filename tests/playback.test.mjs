@@ -186,6 +186,7 @@ function idle() {
   state.sequencePlayback = { active: false };
   state.csvPlayback = { active: false };
   state.recording = false;
+  state.runVerdict = null; // an earlier case's verdict would show on this one's badge
 }
 
 /** Run one case to completion (or until the virtual-time budget runs out). */
@@ -884,6 +885,96 @@ test('an Assert stops waiting when the run is stopped, and records nothing', () 
   assert.equal(_checksOf('assert: stopped while it waits', '#stop').length, 1);
   assert.deepEqual(_resultOf('assert: stopped while it waits').failed, []);
   assert.ok(!_callsOf('assert: stopped while it waits').some((c) => c.includes('"selector":"#after"')));
+});
+
+// ── verdict ─────────────────────────────────────────────────────────────────
+// A run ends with its verdict (shared/verdict.js): in the notification title, on
+// the badge while nothing else runs, and — for Play and Resume — in `lastRun`.
+Object.assign(fake.data.local.scenarios, {
+  vPass:   { name: 'VPass', actions: [hover('#v1')] },
+  vFail:   { name: 'VFail', actions: [hover('#v1'), assertOf('#vNo', 'elementExists'), hover('#v2')] },
+  vBroken: { name: 'VBroken', actions: [{ type: 'click', selector: '#vGone' }, assertOf('#vNo', 'elementExists')] },
+  vStop:   { name: 'VStop', actions: [hover('#vStop'), hover('#v2')] },
+  vLoop:   { name: 'VLoop', actions: [hover('#vTick'), assertOf('#vLoop', 'elementExists')] },
+});
+const ended = {};
+// What the run left behind: lastRun, and the badge text it set last.
+const endOf = (step) => () => {
+  const badges = fake.log.slice(logMark).filter((c) => c.startsWith('action.setBadgeText'));
+  ended[step] = {
+    lastRun: JSON.parse(JSON.stringify(fake.data.local.lastRun ?? null)),
+    badge: JSON.parse(badges.at(-1)?.slice('action.setBadgeText '.length) ?? '[{}]')[0].text,
+  };
+};
+const titlesOf = (step) => _callsOf(step).filter((c) => c.startsWith('notifications.create'))
+  .map((c) => JSON.parse(c.slice('notifications.create '.length))[1]).filter((n) => !/^⚠ Action/.test(n.title));
+const SENTINEL = { scenarioId: 'earlier' };
+
+await run('verdict: failed', () => startPlayback('vFail'), { teardown: endOf('verdict: failed') });
+await run('verdict: passed', () => startPlayback('vPass'), { teardown: endOf('verdict: passed') });
+await run('verdict: broken', () => startPlayback('vBroken'), {
+  setup: () => { page['#vGone'] = { failed: true, error: 'Element not found' }; choices = ['skip']; },
+  teardown: endOf('verdict: broken'),
+});
+await run('verdict: stopped', () => startPlayback('vStop'), {
+  setup: () => { page['#vStop'] = () => { state.playback.active = false; return {}; }; },
+  teardown: endOf('verdict: stopped'),
+});
+let tick = 0;
+await run('verdict: three loops, the second fails', () => startPlayback('vLoop', 3), {
+  setup: () => {
+    tick = 0;
+    page['#vTick'] = () => { tick++; return {}; };
+    conditions['#vLoop'] = () => (tick === 2 ? { result: false, found: false } : { result: true });
+  },
+  teardown: endOf('verdict: three loops, the second fails'),
+});
+await run('verdict: resumed', () => startPlaybackFromCheckpoint('vFail', 1, 1), { teardown: endOf('verdict: resumed') });
+await run('verdict: sequence', () => startSequence([{ id: 'vPass', delay: 0 }, { id: 'vFail', delay: 0 }]), {
+  setup: () => { fake.data.local.lastRun = SENTINEL; },
+  teardown: endOf('verdict: sequence'),
+});
+await run('verdict: csv', () => startCsvPlayback('vFail', [{}], 0, 'csv'), {
+  setup: () => { fake.data.local.lastRun = SENTINEL; },
+  teardown: endOf('verdict: csv'),
+});
+
+test('a run\'s verdict is in its notification title, and the counts in its text', () => {
+  const t = (step) => titlesOf(step).map((n) => `${n.title} | ${n.message}`);
+  assert.deepEqual(t('verdict: passed'), ['✓ Passed — "VPass" | "VPass" finished']);
+  assert.deepEqual(t('verdict: failed'), ['✗ Failed — "VFail" | "VFail" finished — 1 check failed']);
+  assert.deepEqual(t('verdict: broken'), ['⚠ Test broken — "VBroken" | "VBroken" finished — 1 check failed · 1 step broken']);
+  assert.deepEqual(t('verdict: stopped'), ['⏹ Stopped — "VStop" | "VStop" stopped before its end']);
+  assert.deepEqual(t('verdict: three loops, the second fails'), ['✗ Failed — "VLoop" | "VLoop" finished (3 loops) — 1 check failed']);
+  assert.deepEqual(t('verdict: resumed'), ['✗ Failed — "VFail" | "VFail" resumed & finished — 1 check failed']);
+  assert.deepEqual(t('verdict: sequence'), ['✗ Failed — sequence of 2 | 2 scenario(s) done — 1 check failed']);
+});
+test('a run that did not reach its end is never Passed', () => {
+  assert.equal(ended['verdict: stopped'].lastRun.verdict.status, 'stopped');
+  assert.equal(ended['verdict: stopped'].lastRun.completed, false);
+});
+test('the badge shows a failed, broken or stopped run until the next one; a passed run leaves none', () => {
+  assert.equal(ended['verdict: failed'].badge, '✗');
+  assert.equal(ended['verdict: passed'].badge, '');
+  assert.equal(ended['verdict: broken'].badge, '!');
+  assert.equal(ended['verdict: stopped'].badge, '■');
+  assert.equal(ended['verdict: sequence'].badge, '✗');
+});
+test('Play and Resume keep their last run; a Sequence or a CSV run does not', () => {
+  const lr = ended['verdict: failed'].lastRun;
+  assert.deepEqual(Object.keys(lr).sort(), ['actions', 'completed', 'endedAt', 'failures', 'loops', 'scenarioId', 'scenarioName', 'startedAt', 'verdict']);
+  assert.deepEqual({ ...lr, startedAt: 0, endedAt: 0 }, {
+    scenarioId: 'vFail', scenarioName: 'VFail', startedAt: 0, endedAt: 0, loops: 1, completed: true,
+    verdict: { status: 'failed', asserts: 1, broken: 0 },
+    failures: [{ index: 2, type: 'assert', label: '', reason: 'Expected element to exist', kind: 'assert', expected: '' }],
+    actions: JSON.parse(JSON.stringify(fake.data.local.scenarios.vFail.actions)), // as storage keeps them
+  });
+  assert.ok(lr.endedAt >= lr.startedAt);
+  const loop = ended['verdict: three loops, the second fails'].lastRun;
+  assert.deepEqual([loop.loops, loop.failures.length, loop.verdict.status], [3, 1, 'failed']);
+  assert.equal(ended['verdict: resumed'].lastRun.resumed, true);
+  assert.deepEqual(ended['verdict: sequence'].lastRun, SENTINEL);
+  assert.deepEqual(ended['verdict: csv'].lastRun, SENTINEL);
 });
 
 // ── compare ─────────────────────────────────────────────────────────────────

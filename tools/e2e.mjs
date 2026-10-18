@@ -656,6 +656,10 @@ async function checkAssert(ctx) {
     'and never what a password field holds', fails);
   check(fails.length === 3, 'nothing else failed', fails);
   check(seconds >= 16 && seconds < 30, 'the run waited for each: about 2 s, then the full 5 s for every false one', { seconds });
+  const ended = await ctx.ext.evaluate(`new Promise((r) => chrome.action.getBadgeText({}, (badge) =>
+    chrome.storage.local.get('lastRun', (x) => r({ badge, status: x.lastRun?.verdict?.status, failures: x.lastRun?.failures?.length }))))`);
+  check(ended.badge === '✗' && ended.status === 'failed' && ended.failures === 3,
+    'the run ends Failed: ✗ on the badge, and the run kept as the last one', ended);
 }
 
 async function checkHotkeys(ctx) {

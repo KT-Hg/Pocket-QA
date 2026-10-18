@@ -1,6 +1,6 @@
 /**
  * badge.js — the toolbar badge: what the worker is doing (REC, PICK, playback
- * progress, CSV row, sequence item, a paused failed action).
+ * progress, CSV row, sequence item, a paused failed action), then the last run's verdict.
  */
 
 import { state } from './state.js';
@@ -40,8 +40,15 @@ function badgeState() {
     const total = state.playback.totalActions ?? 0;
     return { text: total > 0 ? _badgeProgress(idx + 1, total) : '▶', color: '#22c55e' };
   }
-  return { text: '', color: '#6b7280' };
+  return VERDICT_BADGE[state.runVerdict] || { text: '', color: '#6b7280' };
 }
+
+// A run that did not pass, told until the next one starts (state.runVerdict).
+const VERDICT_BADGE = {
+  failed:  { text: '✗', color: '#ef4444' },
+  broken:  { text: '!', color: '#f59e0b' },
+  stopped: { text: '■', color: '#6b7280' },
+};
 
 export function updateBadge() {
   const { text, color } = badgeState();

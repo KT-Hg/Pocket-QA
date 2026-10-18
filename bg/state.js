@@ -55,6 +55,11 @@ export const state = {
     stopAfterRow: false,
   },
   segmentCapture: idleSegmentCapture(),
+
+  // The verdict of the last run that did not pass ('failed' | 'broken' |
+  // 'stopped'), shown on the badge while nothing else is going; null otherwise.
+  // A new run clears it (runClaimed).
+  runVerdict: null,
 };
 
 /* === CSV Playback State Persistence ===

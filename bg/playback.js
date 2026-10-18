@@ -20,6 +20,8 @@ import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, continueIndex, resumeSe
 import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
 import { pickStrings } from '../shared/dropdown-pick.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
+import { runVerdict, verdictLabel } from '../shared/verdict.js';
+import { LAST_RUN_KEY } from '../shared/storage-keys.js';
 import { isAnyPlaybackActive, runClaimed } from './run-state.js';
 import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
 import { notifyActionFailed, onActionFailed, recordFailure, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
@@ -80,10 +82,27 @@ export function refuseRecordingIfPlaying() {
   return true;
 }
 
-/** " — n action(s) failed", or nothing at all for a clean run. */
-function _failSuffix(failedActions) {
-  const n = failedActions?.length || 0;
-  return n ? ` — ${n} action${n === 1 ? '' : 's'} failed` : '';
+/** " — 2 checks failed · 1 step broken", or nothing at all for a clean run. */
+function _failCounts({ asserts, broken }) {
+  const parts = [];
+  if (asserts) parts.push(`${asserts} check${asserts === 1 ? '' : 's'} failed`);
+  if (broken) parts.push(`${broken} step${broken === 1 ? '' : 's'} broken`);
+  return parts.length ? ` — ${parts.join(' · ')}` : '';
+}
+
+/**
+ * How a run came out (shared/verdict.js), kept for the badge until the next run
+ * (state.runVerdict); the caller's updateBadge shows it.
+ */
+function _endVerdict(failures, completed) {
+  const verdict = runVerdict(failures, { completed });
+  state.runVerdict = verdict.status === 'passed' ? null : verdict.status;
+  return verdict;
+}
+
+/** The verdict as the completion notification: in the title, and the counts after `done`. */
+function _notifyVerdict(name, verdict, done) {
+  return sendCompletionNotification(`${verdictLabel(verdict.status)} — ${name}`, `${done}${_failCounts(verdict)}`);
 }
 
 /* ── Screenshot settings cache ──────────────────────────────────────────────── */
@@ -314,6 +333,8 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
   // counts; single and resumed runs claimed success no matter how many actions
   // had failed along the way — playback does not stop at the first one.
   const failedActions = [];
+  const startedAt = Date.now();
+  let completed = false;
   try {
     // Resuming inside a Switch block case: finish that case, then go on at the
     // block's continueAt (and each enclosing block's) rather than running the
@@ -333,19 +354,32 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
         strict: scenario.clickThrough === false,
       });
     }
+    // Still active: not stopped, the tab not closed.
+    completed = state.playback.active;
   } finally {
     await stopKeepalive();
     await closeOpenSessions();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.playback.active = false;
+    const verdict = _endVerdict(failedActions, completed);
     updateBadge();
     chrome.storage.local.remove('playbackCheckpoint');
-    await sendCompletionNotification(
-      'Playback complete',
-      `"${scenario.name}" resumed & finished${_failSuffix(failedActions)}`,
-    );
+    _saveLastRun(scenarioId, scenario, { startedAt, loops: 1, completed, verdict, failures: failedActions, resumed: true });
+    await _notifyVerdict(`"${scenario.name}"`, verdict,
+      `"${scenario.name}" ${completed ? 'resumed & finished' : 'resumed, stopped before its end'}`);
     await endDbGuard(dbGuard);
   }
+}
+
+/** The run Play or Resume just ended, for the popup's Last run card and its bug report. */
+function _saveLastRun(scenarioId, scenario, run) {
+  chrome.storage.local.set({ [LAST_RUN_KEY]: {
+    scenarioId, scenarioName: scenario.name || scenarioId, startedAt: run.startedAt, endedAt: Date.now(),
+    loops: run.loops, completed: run.completed, verdict: run.verdict, failures: run.failures,
+    ...(run.resumed ? { resumed: true } : {}),
+    // As saved, before variables: the report tells the steps, the scenario may change after.
+    actions: scenario.actions || [],
+  } });
 }
 
 /** `tabId`: play on that tab (a scheduled run's own); otherwise on the active tab. */
@@ -385,6 +419,8 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
 
   // Accumulates across every loop iteration, so a 10-loop run reports the total.
   const failedActions = [];
+  const startedAt = Date.now();
+  let completed = false;
   try {
     // Pass resolved vars from one loop to the next so readdom variables
     // accumulate across loop iterations.
@@ -400,17 +436,20 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
       });
       if (loop < loops - 1 && loopDelay > 0) await new Promise(r => setTimeout(r, loopDelay));
     }
+    // Still active: not stopped, the tab not closed.
+    completed = state.playback.active;
   } finally {
     await stopKeepalive();
     await closeOpenSessions();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.playback.active = false;
+    const verdict = _endVerdict(failedActions, completed);
     updateBadge();
     chrome.storage.local.remove('playbackCheckpoint');
-    await sendCompletionNotification(
-      'Playback complete',
-      `"${scenario.name}" finished${loops > 1 ? ` (${loops} loops)` : ''}${_failSuffix(failedActions)}`,
-    );
+    _saveLastRun(scenarioId, scenario, { startedAt, loops, completed, verdict, failures: failedActions });
+    await _notifyVerdict(`"${scenario.name}"`, verdict, completed
+      ? `"${scenario.name}" finished${loops > 1 ? ` (${loops} loops)` : ''}`
+      : `"${scenario.name}" stopped before its end`);
     await endDbGuard(dbGuard);
   }
 }
@@ -453,7 +492,9 @@ async function _playSequence(runList) {
   chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
   await startKeepalive();
 
-  let _seqCompleted = 0, _seqFailed = 0;
+  let _seqCompleted = 0;
+  // Every item's failures in run order: one verdict for the whole sequence.
+  const _seqFailures = [];
 
   try {
     for (let i = 0; i < runList.length; i++) {
@@ -480,20 +521,20 @@ async function _playSequence(runList) {
       });
       state.playback.active = false;
       _seqCompleted++;
-      if (_seqItemFailed.length > 0) _seqFailed++;
+      _seqFailures.push(..._seqItemFailed);
 
       if (i < runList.length - 1 && item.delay > 0) {
         await new Promise((resolve) => setTimeout(resolve, item.delay));
       }
     }
+    const completed = state.sequencePlayback.active && !_seqTabClosed;
+    const verdict = _endVerdict(_seqFailures, completed);
     if (_seqTabClosed) {
       chrome.runtime.sendMessage({ type: 'PLAYBACK_TAB_CLOSED', tabId }).catch(() => {});
       sendAlertNotification('⚠ Sequence Stopped', 'Tab was closed — sequence playback stopped', 'tab_closed');
     } else {
-      const _seqMsg = _seqFailed > 0
-        ? `${_seqCompleted - _seqFailed} ✓ · ${_seqFailed} ✗ of ${_seqCompleted} scenarios`
-        : `${_seqCompleted} scenario(s) done`;
-      await sendCompletionNotification('Sequence complete', _seqMsg);
+      await _notifyVerdict(`sequence of ${runList.length}`, verdict,
+        completed ? `${_seqCompleted} scenario(s) done` : `stopped after ${_seqCompleted} scenario(s)`);
     }
   } catch (err) {
     console.error('[SEQUENCE] Error during sequence playback:', err);
