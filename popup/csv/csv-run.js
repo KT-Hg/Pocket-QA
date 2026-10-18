@@ -13,6 +13,7 @@ import { ui } from '../ui-state.js';
 import { getReadVarNames, showToast } from '../utils.js';
 import { parseCSV } from './csv-parse.js';
 import { generateResultCsv, generateResultHtml, generateResultXlsx, generateResultZip } from './result-export.js';
+import { tallyText } from '../../shared/verdict.js';
 
 /* === CSV DATA-DRIVEN RUN === */
 
@@ -67,7 +68,17 @@ export function renderCsvScenarioSelect() {
 let _csvCountdownInterval = null;
 const COUNTDOWN_TICK_MS = 1000;
 
-export function updateCsvBadges(row, total, failRows, done) {
+/**
+ * A finished run: its rows that did not pass and its summary — by verdict when
+ * `tally` (shared/verdict.js tallyVerdicts) is known, else by whether a row had a failure.
+ */
+function _finished(total, failRows, tally) {
+  if (!tally) return { failRows, summary: `${total - failRows} passed · ${failRows} failed` };
+  return { failRows: total - tally.passed, summary: tallyText(tally) };
+}
+
+/** The run's progress and, once `done`, its result (see _finished). */
+export function updateCsvBadges(row, total, failRows, done, tally = null) {
   const progText  = document.getElementById("pbPanelCsvProgText");
   const badgeOk   = document.getElementById("pbPanelCsvBadgeOk");
   const badgeFail = document.getElementById("pbPanelCsvBadgeFail");
@@ -79,10 +90,13 @@ export function updateCsvBadges(row, total, failRows, done) {
   const pct = total > 0 ? (v) => Math.round(v / total * 100) + "%" : () => "0%";
 
   if (done) {
-    if (progText) progText.textContent = `${total - failRows} passed · ${failRows} failed`;
+    const fin = _finished(total, failRows, tally);
+    failRows = fin.failRows;
+    const summary = fin.summary;
+    if (progText) progText.textContent = summary;
     if (barOk)    barOk.style.width    = pct(total - failRows);
     if (barFail)  barFail.style.width  = pct(failRows);
-    if (statusEl) statusEl.textContent = `✓ ${total - failRows} passed · ✗ ${failRows} failed`;
+    if (statusEl) statusEl.textContent = summary;
   } else if (!row) {
     if (progText) progText.textContent = total > 0 ? `Row Done 0 / ${total}` : "";
     if (barOk)    barOk.style.width    = "0%";

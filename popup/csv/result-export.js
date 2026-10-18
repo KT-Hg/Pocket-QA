@@ -8,7 +8,7 @@
  */
 
 import { applyVars } from '../../bg/interpolate.js';
-import { runVerdict, verdictLabel } from '../../shared/verdict.js';
+import { rowVerdict, verdictLabel } from '../../shared/verdict.js';
 import { buildScreenshotFilename, safeName } from '../../bg/screenshot/filename.js';
 import { ZipWriter } from '../lib/zip-writer.js';
 
@@ -33,14 +33,9 @@ function _formatBug(failures) {
 // a column of the CSV itself may have the same name, and keeps its own values.
 const RESULT_COLS = ["Run Result", "Action Failed"];
 
-/** A row's verdict (shared/verdict.js) — a row recorded before `completed` ran to its end. */
-function _verdictOf(r) {
-  return runVerdict(r.failures, { completed: r.completed !== false }).status;
-}
-
 /** The cells of RESULT_COLS for a row. */
 function _resultCells(r) {
-  return [verdictLabel(_verdictOf(r)), _formatBug(r.failures)];
+  return [verdictLabel(rowVerdict(r)), _formatBug(r.failures)];
 }
 
 // Build and download result CSV after a CSV run
@@ -131,7 +126,7 @@ export function generateResultHtml(originalHeaders, originalRows, results, scree
     }).join('');
     const [verdict, bugVal] = _resultCells(r);
     const bugStyle = bugVal ? ' style="color:#dc2626;font-weight:600;"' : '';
-    return `<tr>${cells}<td style="color:${VERDICT_COLOR[_verdictOf(r)]};font-weight:600;white-space:nowrap;">${esc(verdict)}</td>`
+    return `<tr>${cells}<td style="color:${VERDICT_COLOR[rowVerdict(r)]};font-weight:600;white-space:nowrap;">${esc(verdict)}</td>`
       + `<td${bugStyle}>${esc(bugVal)}</td></tr>`;
   }).join('\n');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CSV Result</title>

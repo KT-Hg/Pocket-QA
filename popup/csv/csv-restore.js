@@ -3,6 +3,7 @@
  * and a CSV session that is still running or finished.
  */
 
+import { tallyVerdicts } from '../../shared/verdict.js';
 import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { updateCsvBadges } from './csv-run.js';
@@ -60,8 +61,7 @@ export function initCsvRestore() {
             setCsvState('running');
             startCsvPoll(status);
           } else if (hasResults) {
-            const failRows = idbResults.filter(r => r.failures?.length > 0).length;
-            updateCsvBadges(idbResults.length, idbResults.length, failRows, true);
+            updateCsvBadges(idbResults.length, idbResults.length, 0, true, tallyVerdicts(idbResults));
             if (status) status.textContent = "";
             setCsvState('done');
           }

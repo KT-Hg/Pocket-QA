@@ -32,3 +32,21 @@ export function runVerdict(failures, { completed = false } = {}) {
 export function verdictLabel(status) {
   return LABELS[status] || '';
 }
+
+/** A CSV run's row record — one written before rows kept `completed` ran to its end. */
+export function rowVerdict(row) {
+  return runVerdict(row.failures, { completed: row.completed !== false }).status;
+}
+
+/** CSV rows counted by verdict. */
+export function tallyVerdicts(rows) {
+  const tally = { passed: 0, failed: 0, broken: 0, stopped: 0 };
+  for (const row of rows) tally[rowVerdict(row)]++;
+  return tally;
+}
+
+/** "12 passed · 2 failed · 1 broken": passed always, the others when there are some. */
+export function tallyText({ passed, failed, broken, stopped }) {
+  return [`${passed} passed`, failed && `${failed} failed`, broken && `${broken} broken`, stopped && `${stopped} stopped`]
+    .filter(Boolean).join(' · ');
+}

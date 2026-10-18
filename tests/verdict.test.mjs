@@ -43,3 +43,22 @@ test('verdictLabel', () => {
   assert.equal(verdictLabel('broken'), '⚠ Test broken');
   assert.equal(verdictLabel('stopped'), '⏹ Stopped');
 });
+
+const { tallyVerdicts, tallyText } = await import('../shared/verdict.js');
+
+test('tallyVerdicts: CSV rows by verdict; a row recorded before `completed` ran to its end', () => {
+  assert.deepEqual(tallyVerdicts([
+    { failures: [] },
+    { failures: [assertFail] },
+    { failures: [broken, assertFail] },
+    { failures: [], completed: false },
+    { failures: null },
+  ]), { passed: 2, failed: 1, broken: 1, stopped: 1 });
+  assert.deepEqual(tallyVerdicts([]), { passed: 0, failed: 0, broken: 0, stopped: 0 });
+});
+
+test('tallyText: passed always, the others when there are some', () => {
+  assert.equal(tallyText({ passed: 12, failed: 2, broken: 1, stopped: 0 }), '12 passed · 2 failed · 1 broken');
+  assert.equal(tallyText({ passed: 3, failed: 0, broken: 0, stopped: 1 }), '3 passed · 1 stopped');
+  assert.equal(tallyText({ passed: 0, failed: 0, broken: 0, stopped: 0 }), '0 passed');
+});

@@ -20,7 +20,7 @@ import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, continueIndex, resumeSe
 import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
 import { pickStrings } from '../shared/dropdown-pick.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
-import { runVerdict, verdictLabel } from '../shared/verdict.js';
+import { runVerdict, tallyText, verdictLabel } from '../shared/verdict.js';
 import { LAST_RUN_KEY } from '../shared/storage-keys.js';
 import { isAnyPlaybackActive, runClaimed } from './run-state.js';
 import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
@@ -619,6 +619,8 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
   let scenario      = null;
   let completedRows = 0;
   let failedRows    = 0;
+  // The rows by verdict, as the result file's Run Result column tells them.
+  const tally = { passed: 0, failed: 0, broken: 0, stopped: 0 };
   let runError      = null;
   let keepaliveOn   = false;
   let dbGuard       = null;
@@ -729,6 +731,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
 
       completedRows++;
       if (failedActions.length > 0) failedRows++;
+      tally[runVerdict(failedActions, { completed: rowCompleted }).status]++;
 
       // Only store variables that are actually referenced by the scenario to
       // keep IDB records lean.
@@ -800,7 +803,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
     const msg = runError?.message || String(runError);
     sendAlertNotification('⚠ CSV Run Failed', `Stopped after ${completedRows} row(s): ${msg}`, 'csv_error');
     chrome.runtime.sendMessage({
-      type: 'CSV_RUN_ERROR', error: msg, total: completedRows, failRows: failedRows,
+      type: 'CSV_RUN_ERROR', error: msg, total: completedRows, failRows: failedRows, tally,
     }).catch(() => {});
     return;
   }
@@ -808,14 +811,12 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
   // Nothing ran: missing scenario or no eligible tab, both already reported above.
   if (!scenario || tabId == null) return;
 
-  const _csvMsg = failedRows > 0
-    ? `${completedRows - failedRows} ✓ · ${failedRows} ✗ of ${completedRows} rows — "${scenario.name}"`
-    : `${completedRows} rows done — "${scenario.name}"`;
-  await sendCompletionNotification('CSV Run complete', _csvMsg);
+  await sendCompletionNotification('CSV Run complete', `${tallyText(tally)} of ${completedRows} row(s) — "${scenario.name}"`);
   chrome.runtime.sendMessage({
     type: 'CSV_RUN_DONE',
     total: completedRows,
     failRows: failedRows,
+    tally,
     scenarioName: scenario.name || scenarioId,
   }).catch(() => {});
 }

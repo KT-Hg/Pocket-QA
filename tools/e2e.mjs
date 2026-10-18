@@ -3140,14 +3140,18 @@ function zipNames(file) {
 
 async function checkCsvZipRun(ctx) {
   await reloadTestPage(ctx);
-  const rows = [{ name: 'john' }, { name: 'kate' }, { name: 'john' }];
+  // kate's row expects a text #bg1 does not have: her Assert fails. The second john's
+  // checks an element that is not there: the test is broken. The first john passes.
+  const rows = [{ name: 'john', expect: 'bg1', sel: '#bg1' }, { name: 'kate', expect: 'nope', sel: '#bg1' },
+    { name: 'john', expect: 'bg1', sel: '#gone' }];
   // Two Screenshot → Variable: one with a Filename, which only the ZIP uses.
   const id = await makeScenario(ctx, 'e2e csv zip', [
     { type: 'screenshot_tovar', target: 'page', varName: 'after', value: '${name}_after', delay: 0 },
     { type: 'screenshot_tovar', target: 'page', varName: 'shot', delay: 0 },
+    { type: 'assert', conditionType: 'textEquals', selector: '${sel}', selectors: { css: '${sel}' }, expectedValue: '${expect}', delay: 0 },
   ]);
   await ctx.ext.evaluate(`chrome.storage.local.set(${JSON.stringify({
-    csvSessionData: { headers: ['name'], rows }, csvExportFormat: 'zip', csvZipFolderName: 'abc ${name}', csvZipRowNumber: false })})`);
+    csvSessionData: { headers: ['name', 'expect', 'sel'], rows }, csvExportFormat: 'zip', csvZipFolderName: 'abc ${name}', csvZipRowNumber: false })})`);
   await ctx.web.bringToFront();
   await ctx.send({ type: 'START_CSV_PLAYBACK', scenarioId: id, rows, delayBetween: 100, exportFormat: 'zip' });
   await sleep(SETTLE_MS);
@@ -3168,7 +3172,16 @@ async function checkCsvZipRun(ctx) {
   };
   const entries = (folders) => ['results.csv', ...folders.flatMap((f, i) => [`${f}/${rows[i].name}_after.png`, `${f}/shot.png`])];
   try {
-    const named = zipNames(await download('zip'));
+    const progress = await popup.evaluate(`document.getElementById('pbPanelCsvProgText')?.textContent`);
+    check(progress === '1 passed · 1 failed · 1 broken', 'the finished run counts its rows by verdict', progress);
+    const zipPath = await download('zip');
+    const resultsCsv = readFileSync(zipPath, 'utf8');
+    check(resultsCsv.includes('"name","expect","sel","after","shot","Run Result","Action Failed"')
+      && resultsCsv.includes('"✗ Failed","[3] assert: Expected text ""nope"", got ""bg1"""')
+      && resultsCsv.includes('"⚠ Test broken","[3] assert: Element not found — could not check"')
+      && (resultsCsv.match(/"✓ Passed",""/g) || []).length === 1,
+    'results.csv: a Run Result per row, and the failed Assert with its reason', resultsCsv.split('results.csv')[1]?.slice(0, 400));
+    const named = zipNames(zipPath);
     check(JSON.stringify(named) === JSON.stringify(entries(['abc john', 'abc kate', 'abc john_2'])),
       'ZIP named "abc ${name}": abc john, abc kate, abc john_2; the Filename ${name}_after names its image', named);
     await popup.evaluate(`document.getElementById('csvZipRowNumber').click()`);

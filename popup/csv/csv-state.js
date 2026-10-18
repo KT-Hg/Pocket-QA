@@ -3,6 +3,7 @@
  * stopping a run, polling its progress.
  */
 
+import { tallyText, tallyVerdicts } from '../../shared/verdict.js';
 import { clearCsvDoneBar, openPbPanel, setCsvDoneBar } from '../connection.js';
 import { ui } from '../ui-state.js';
 import { showConfirm, showToast } from '../utils.js';
@@ -68,8 +69,7 @@ export function startCsvPoll(statusEl) {
       } else {
         chrome.runtime.sendMessage({ type: "GET_CSV_RUN_RESULTS" }, (idbData) => {
           const results  = idbData?.results || [];
-          const failRows = results.filter(r => r.failures?.length > 0).length;
-          updateCsvBadges(results.length, results.length, failRows, true);
+          updateCsvBadges(results.length, results.length, 0, true, tallyVerdicts(results));
         });
         setCsvState('done');
         clearInterval(poll);
@@ -85,18 +85,12 @@ function _handleCsvStop(label) {
     chrome.runtime.sendMessage({ type: "GET_CSV_RUN_RESULTS" }, (idbData) => {
       const results = idbData?.results || [];
       if (results.length > 0) {
-        const failRows = results.filter(r => r.failures?.length > 0).length;
-        updateCsvBadges(results.length, results.length, failRows, true);
+        const tally = tallyVerdicts(results);
+        updateCsvBadges(results.length, results.length, 0, true, tally);
         setCsvState('done');
         const statusEl = document.getElementById("csvStatus");
-        const cardSummary = failRows > 0
-          ? `Stopped · ✓ ${results.length - failRows} passed · ✗ ${failRows} failed`
-          : `Stopped · ✓ ${results.length} passed`;
-        if (statusEl) statusEl.textContent = cardSummary;
-        const barSummary = failRows > 0
-          ? `Stopped · ✓ ${results.length - failRows} · ✗ ${failRows} of ${results.length}`
-          : `Stopped · ✓ ${results.length} rows`;
-        setCsvDoneBar(ui._csvRunScenarioName || "CSV Run", barSummary);
+        if (statusEl) statusEl.textContent = `Stopped · ${tallyText(tally)}`;
+        setCsvDoneBar(ui._csvRunScenarioName || "CSV Run", `Stopped · ${tallyText(tally)} of ${results.length}`);
       } else {
         setCsvState('idle');
       }

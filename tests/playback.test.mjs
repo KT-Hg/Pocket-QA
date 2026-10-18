@@ -952,6 +952,13 @@ await run('verdict: csv row stopped', () => startCsvPlayback('vStop', [{}, {}], 
   },
   teardown: () => { csvRowsSeen = [...idb.stores.results.values()].map((r) => ({ rowIndex: r.rowIndex, completed: r.completed })); },
 });
+test('a CSV run ends with its rows counted by verdict, in the notification and for the popup', () => {
+  assert.deepEqual(titlesOf('verdict: csv').map((n) => `${n.title} | ${n.message}`), ['CSV Run complete | 0 passed · 1 failed of 1 row(s) — "VFail"']);
+  const done = _callsOf('verdict: csv').find((c) => c.includes('"CSV_RUN_DONE"'));
+  assert.match(done, /"tally":\{"passed":0,"failed":1,"broken":0,"stopped":0\}/);
+  const stopped = _callsOf('verdict: csv row stopped').find((c) => c.includes('"CSV_RUN_DONE"'));
+  assert.match(stopped, /"tally":\{"passed":1,"failed":0,"broken":0,"stopped":1\}/);
+});
 test('a CSV row stopped before its end is recorded as not completed', () => {
   assert.deepEqual(csvRowsSeen, [{ rowIndex: 0, completed: undefined }, { rowIndex: 1, completed: false }]);
 });
