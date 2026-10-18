@@ -2490,18 +2490,6 @@ async function pythonMissing() {
   return error.code === 'ENOENT' ? 'no python on PATH' : `no selenium for python (${String(stderr).trim().split('\n').pop()})`;
 }
 
-/**
- * A case whose Asserts are false (c.failedAsserts, their steps' titles): a run of it fails at its
- * end (`failed`) and what it said (`said`) names each of them — and no other Assert: one that
- * held, if only after a while, is no failure.
- */
-function checkFailedAsserts(c, runner, failed, said) {
-  // A failure's message is "<title>: expected …"; a title elsewhere (pytest's code listing, a report's heading) is none.
-  const named = [...new Set([...said.matchAll(/Step \d+: assert[^:\n"]*(?=: expected )/g)].map((m) => m[0]))];
-  check(failed && c.failedAsserts.every((t) => named.includes(t)) && named.every((t) => c.failedAsserts.includes(t)),
-    `${c.name}: the ${runner} run fails at its end, naming the false Assert(s) and no other`, { failed: !!failed, named });
-}
-
 /** The files a case expects (c.files) that a run saved into `folder`, checked on the PNG's size. */
 function checkFiles(c, runner, folder) {
   for (const [name, ok] of Object.entries(c.files || {})) {
@@ -2765,6 +2753,15 @@ async function checkExportRun(ctx) {
   const dir = mkdtempSync(join(tmpdir(), 'pqa-export-'));
   let headlessChecked = false;
   const pageUrl = (key) => `${ctx.base}/export?run=${encodeURIComponent(key)}`;
+  // A case whose Asserts are false (c.failedAsserts, their steps' titles): a run of it fails at its
+  // end (`failed`) and what it said (`said`) names each of them — and no other Assert: one that
+  // held, if only after a while, is no failure. A failure's message is "<title>: expected …"; a
+  // title elsewhere (pytest's code listing, a report's heading) is none.
+  const checkFailedAsserts = (c, runner, failed, said) => {
+    const named = [...new Set([...said.matchAll(/Step \d+: assert[^:\n"]*(?=: expected )/g)].map((m) => m[0]))];
+    check(failed && c.failedAsserts.every((t) => named.includes(t)) && named.every((t) => c.failedAsserts.includes(t)),
+      `${c.name}: the ${runner} run fails at its end, naming the false Assert(s) and no other`, { failed: !!failed, named });
+  };
   try {
     for (const c of EXPORT_CASES.filter((x) => !CASES || CASES.includes(x.name))) {
       // The URL of each run's own page, in the variable named by `pageVar`.
