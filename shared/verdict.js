@@ -33,6 +33,14 @@ export function verdictLabel(status) {
   return LABELS[status] || '';
 }
 
+/** "2 checks failed · 1 step broken" — a run's failures by kind; "" for none. */
+export function failCountsText({ asserts, broken }) {
+  const parts = [];
+  if (asserts) parts.push(`${asserts} check${asserts === 1 ? '' : 's'} failed`);
+  if (broken) parts.push(`${broken} step${broken === 1 ? '' : 's'} broken`);
+  return parts.join(' · ');
+}
+
 /** A CSV run's row record — one written before rows kept `completed` ran to its end. */
 export function rowVerdict(row) {
   return runVerdict(row.failures, { completed: row.completed !== false }).status;

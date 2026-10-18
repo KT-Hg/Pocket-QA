@@ -20,7 +20,7 @@ import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, continueIndex, resumeSe
 import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
 import { pickStrings } from '../shared/dropdown-pick.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
-import { runVerdict, tallyText, verdictLabel } from '../shared/verdict.js';
+import { failCountsText, runVerdict, tallyText, verdictLabel } from '../shared/verdict.js';
 import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY } from '../shared/storage-keys.js';
 import { captureFailureShot } from './screenshot/capture-tab.js';
 import { isAnyPlaybackActive, runClaimed } from './run-state.js';
@@ -84,11 +84,9 @@ export function refuseRecordingIfPlaying() {
 }
 
 /** " — 2 checks failed · 1 step broken", or nothing at all for a clean run. */
-function _failCounts({ asserts, broken }) {
-  const parts = [];
-  if (asserts) parts.push(`${asserts} check${asserts === 1 ? '' : 's'} failed`);
-  if (broken) parts.push(`${broken} step${broken === 1 ? '' : 's'} broken`);
-  return parts.length ? ` — ${parts.join(' · ')}` : '';
+function _failCounts(verdict) {
+  const counts = failCountsText(verdict);
+  return counts ? ` — ${counts}` : '';
 }
 
 /**
