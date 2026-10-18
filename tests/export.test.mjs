@@ -599,6 +599,112 @@ test('a bookmarklet goes on across the pages of its site, a click per page, redi
   assert.doesNotMatch(generateBookmarklet('one', steps.slice(0, 2), {}).code, /_resumeKey|_from/);
 });
 
+test('bookmarklet: an Assert is checked until it holds, for up to 5 s; a false one is told at the end, its list kept across pages', async () => {
+  const steps = [
+    { type: 'assert', conditionType: 'textEquals', selector: '#msg', selectors: { css: '#msg' }, expectedValue: 'Saved', label: 'Late' },
+    { type: 'assert', conditionType: 'textEquals', selector: '#msg', selectors: { css: '#msg' }, expectedValue: 'Nope', label: 'Never' },
+    { type: 'script', code: 'globalThis.__seen.push("p1")' },
+    { type: 'navigate', url: 'https://shop.test/b' },
+    { type: 'assert', conditionType: 'urlContains', expectedValue: '/nowhere' },
+    { type: 'script', code: 'globalThis.__seen.push("p2")' },
+    { type: 'assert', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' } },
+  ];
+  const { code, steps: status, warnings } = generateBookmarklet('asserts', steps, {}, { stepDelay: 0 });
+  assert.match(code, /^ {6}await _assert\(_at \+ ': ' \+ "expected text \\"Saved\\"", \(\) => _checkCond\("textEquals", _first\("#msg"\), "Saved"\)\);$/m);
+  assert.match(code, /^ {6}await _assert\(_at \+ ': ' \+ "expected URL containing \\"\/nowhere\\"", \(\) => _checkCond\("urlContains", null, "\/nowhere"\)\);$/m);
+  assert.match(code, /^ {6}throw new Error\("Assert step 7: unknown condition type, named in the comment above"\);$/m);
+  assert.ok(warnings.some((w) => /Assert step 7: type "isChecked" is unknown/.test(w)), warnings.join());
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'verify', 'verify', 'ok', 'verify', 'verify']);
+  assert.doesNotMatch(generateBookmarklet('t', [steps[2]], {}).code, /_assert|_failures/);
+
+  // Run on a fake page and clock: #msg says "Saved" from its fourth read on; the clock moves as the run sleeps.
+  const storage = new Map();
+  const realNow = Date.now, realTimeout = globalThis.setTimeout;
+  let now = 0;
+  const click = async (href) => {
+    let reads = 0;
+    const msg = { get textContent() { reads++; return reads > 3 ? 'Saved' : 'Loading'; } };
+    const seen = { alerts: [], errors: [], location: { href, origin: new URL(href).origin } };
+    Object.assign(globalThis, {
+      location: seen.location, window: { location: seen.location }, alert: (m) => seen.alerts.push(m),
+      document: { querySelector: (s) => (s === '#msg' ? msg : null), querySelectorAll: () => [] },
+      sessionStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, String(v)), removeItem: (k) => storage.delete(k) },
+    });
+    const error = console.error;
+    console.error = (m) => seen.errors.push(m);
+    Date.now = () => now;
+    globalThis.setTimeout = (fn, ms) => { now += ms || 0; return realTimeout(fn, 0); };
+    try {
+      await new Function(`return ${code.slice('javascript:'.length).replace('throw new Error("Assert step 7', '// throw new Error("Assert step 7')}`)();
+    } finally {
+      console.error = error;
+      Date.now = realNow;
+      globalThis.setTimeout = realTimeout;
+      for (const k of ['location', 'window', 'alert', 'document', 'sessionStorage']) delete globalThis[k];
+    }
+    return seen;
+  };
+  try {
+    globalThis.__seen = [];
+    const first = await click('https://shop.test/a');
+    assert.deepEqual(first.errors, ['❌ Step 2: assert — textEquals — Never: expected text "Nope"'], 'the late text passes, the false one is told at once');
+    assert.ok(now >= 5000, `the false one waited 5 s (${now} ms)`);
+    assert.deepEqual(first.alerts, ['Opening https://shop.test/b. Run the bookmark again once it has loaded.'], 'no summary yet: the run goes on there');
+    const second = await click('https://shop.test/b');
+    assert.deepEqual(globalThis.__seen, ['p1', 'p2'], 'the steps after each false Assert ran');
+    assert.deepEqual(second.alerts, ['2 Assert(s) failed:\nStep 2: assert — textEquals — Never: expected text "Nope"\nStep 5: assert — urlContains: expected URL containing "/nowhere"'],
+      'one alert at the end, with the first page\'s failures too');
+  } finally {
+    delete globalThis.__seen;
+  }
+});
+
+test('an Assert recorded in a frame is checked in the frame that holds its element, as a Condition is', async () => {
+  const { generateRobot } = await import('../popup/export-robot.js');
+  const { generateJava } = await import('../popup/export-java.js');
+  const steps = [{ type: 'assert', conditionType: 'elementVisible', selector: '#f', selectors: { css: '#f' }, frameId: 3 }];
+  const bm = generateBookmarklet('f', steps, {}, { stepDelay: 0 });
+  assert.match(bm.code, /_checkCond\("elementVisible", _inFrames\("#f"\), ''\)/);
+  assert.match(bm.steps[0].reason, /a bookmarklet reaches only the frames of its own site/);
+  const py = generateSeleniumPy('f', steps, {}, { stepDelay: 0 });
+  assert.match(py.code, /^def _check_cond\(cond_type, locators, expected\):\n {4}driver\.switch_to\.default_content\(\)\n {4}el = _locate_in_frames\(locators\) if locators else None$/m);
+  const rf = generateRobot('f', steps, {}, { stepDelay: 0 });
+  assert.match(rf.code, /^ {4}Unselect Frame\n {4}Run Keyword And Continue On Failure {4}Wait Until Keyword Succeeds/m);
+  assert.match(rf.code, /^Check Condition\n(?: {4}.*\n)*? {8}\$\{el\}= {4}Locate In Frames {4}@\{locators\}$/m);
+  const java = generateJava('f', steps, {}, { stepDelay: 0 });
+  assert.match(java.code, /boolean checkCond\(String type, String expected, By\.\.\. locators\) \{\n {8}driver\.switchTo\(\)\.defaultContent\(\);\n {8}WebElement el = locators\.length > 0 \? locateInFrames\(locators\) : null;/);
+  for (const r of [py, rf, java]) assert.equal(r.steps[0].status, 'ok');
+});
+
+test('Selenium: an Assert is checked until it holds, for up to 5 s; a false one fails the run at its end, not there', () => {
+  const steps = [
+    { type: 'assert', conditionType: 'textEquals', selector: '#toast', selectors: { css: '#toast' }, expectedValue: '${msg}', label: 'Toast' },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'assert', conditionType: 'urlContains', expectedValue: '/done' },
+    { type: 'assert', selector: '#plain', selectors: { css: '#plain' } },
+    { type: 'assert', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' } },
+  ];
+  for (const output of ['script', 'pytest']) {
+    const { code, steps: status, warnings } = generateSeleniumPy('asserts', steps, { msg: 'Hi "you"' }, { output, stepDelay: 0 });
+    const pad = output === 'pytest' ? ' '.repeat(8) : ' '.repeat(4);
+    assert.equal(compilePy(code), null, output);
+    // The extension's wait: the check made again every 0.25 s for up to 5 s; one still false
+    // is told at once and noted, and the run goes on.
+    assert.match(code, /^def _soft_assert\(failures, message, cond_type, locators, expected\):\n(?: {4}.*\n)*? {4}end = time\.time\(\) \+ 5\n {4}while not _check_cond\(cond_type, locators, expected\):\n {8}if time\.time\(\) >= end:\n {12}failures\.append\(message\)\n {12}print\(f"❌ \{message\}"\)\n {12}return\n {8}time\.sleep\(0\.25\)$/m);
+    // The list is the test's own (pytest: each row its own).
+    assert.match(code, new RegExp(`^${pad}_failures = \\[\\]\\n\\n${pad}# Step 1: assert — textEquals — Toast\\n${pad}_at = "Step 1: assert — textEquals — Toast"\\n${pad}_soft_assert\\(_failures, _at \\+ ": " \\+ f"expected text \\\\"\\{msg\\}\\\\"", "textEquals", \\[\\(By\\.CSS_SELECTOR, "#toast"\\)\\], f"\\{msg\\}"\\)\\n\\n${pad}# Step 2: click$`, 'm'), output);
+    assert.match(code, new RegExp(`^${pad}_soft_assert\\(_failures, _at \\+ ": " \\+ "expected URL containing \\\\"/done\\\\"", "urlContains", None, "/done"\\)$`, 'm'));
+    assert.match(code, new RegExp(`^${pad}_soft_assert\\(_failures, _at \\+ ": " \\+ "expected element to exist", "elementExists", \\[\\(By\\.CSS_SELECTOR, "#plain"\\)\\], ""\\)$`, 'm'));
+    assert.match(code, new RegExp(`^${pad}raise Exception\\("Assert step 5: unknown condition type, named in the comment above"\\)$`, 'm'));
+    // After the last step: the run fails if one was false, naming each.
+    assert.match(code, new RegExp(`^${pad}# A false Assert did not stop the run: it fails here, with each one\\.\\n${pad}if _failures:\\n${pad} {4}_at = f"\\{len\\(_failures\\)\\} Assert\\(s\\) failed"\\n${pad} {4}raise AssertionError\\("; "\\.join\\(_failures\\)\\)$`, 'm'));
+    assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'verify']);
+    assert.ok(warnings.some((w) => /Assert step 5: type "isChecked" is unknown/.test(w)), warnings.join());
+  }
+  // No Assert: no list, no helper.
+  assert.doesNotMatch(generateSeleniumPy('t', [steps[1]], {}).code, /_failures|_soft_assert/);
+});
+
 test('Selenium Headless: each driver its own way, and none for Safari', () => {
   const steps = [{ type: 'click', selector: '#a', selectors: { css: '#a' } }];
   const head = (driverType) => generateSeleniumPy('h', steps, {}, { driverType, headless: true });
@@ -724,14 +830,26 @@ async function runSpec(code, { kind = 'text', checks = {}, text = 'read' } = {})
       return checks[arg[0]] ?? true;
     },
     screenshot: async (o) => calls.push(`shot page ${fmt(o)}`),
+    // A step recorded in a frame looks in each frame: here, the page alone.
+    frames: () => [page],
   };
   let body = null;
   // Not enumerable: a deepEqual of the calls leaves it out.
   Object.defineProperty(calls, 'steps', { value: [] });
+  // The message of each soft expectation that did not hold, and the options of each poll.
+  Object.defineProperty(calls, 'soft', { value: [] });
+  Object.defineProperty(calls, 'polls', { value: [] });
   const step = async (title, fn) => { calls.steps.push(title); return fn(); };
   const test = Object.assign((name, fn) => { body = fn; }, { use() {}, setTimeout() {}, step });
-  const js = code.replace(/^import \{ test \} from '@playwright\/test';$/m, '');
-  new Function('test', js)(test);
+  // expect.configure({ soft }).poll(fn, opts).toBe(v): fn asked once; a soft miss is noted, a hard one throws.
+  const expect = { configure: ({ soft }) => ({ poll: (fn, opts) => ({ toBe: async (want) => {
+    calls.polls.push(opts);
+    if ((await fn()) === want) return;
+    if (!soft) throw new Error(opts.message);
+    calls.soft.push(opts.message);
+  } }) }) };
+  const js = code.replace(/^import \{ test(, expect)? \} from '@playwright\/test';$/m, '');
+  new Function('test', 'expect', js)(test, expect);
   await body({ page });
   return calls;
 }
@@ -805,6 +923,47 @@ test('Playwright: Conditions decide with the in-page check, and guard their step
     'check textContains #greet "Bob"', 'check urlContains null "cart"', 'click #b', 'click #d',
   ], 'the guarded step runs only when its check holds');
   assert.deepEqual(calls.steps, ['Step 1: condition — textContains', 'Step 3: condition — urlContains', 'Step 4: click', 'Step 6: click']);
+});
+
+test('Playwright: an Assert is checked until it holds, for up to 5 s; a false one fails the test at its end, not there', async () => {
+  const { generatePlaywright } = await import('../popup/export-playwright.js');
+  const steps = [
+    { type: 'assert', conditionType: 'textEquals', selector: '#toast', selectors: { css: '#toast' }, expectedValue: '${msg}', label: 'Toast' },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'assert', conditionType: 'urlContains', expectedValue: '/done' },
+    // Recorded in a frame: checked in the frame that holds it, as a Condition is.
+    { type: 'assert', conditionType: 'elementVisible', selector: '#f', selectors: { css: '#f' }, frameId: 3 },
+    // No check type: playback checks that the element exists.
+    { type: 'assert', selector: '#plain', selectors: { css: '#plain' } },
+    { type: 'assert', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' } },
+    { type: 'click', selector: '#d', selectors: { css: '#d' } },
+  ];
+  const { code, steps: status, warnings } = generatePlaywright('asserts', steps, { msg: 'Hi "you"' }, { stepDelay: 0 });
+  assert.match(code, /^import \{ test, expect \} from '@playwright\/test';$/m);
+  assert.equal(checkModule(code), null);
+  // A step of its own, not a block: the step after it runs whatever it found.
+  assert.match(code, /^ {2}\/\/ Step 1: assert — textEquals — Toast\n {2}await test\.step\("Step 1: assert — textEquals — Toast", async \(\) => \{\n {4}await _assert\(async \(\) => page\.evaluate\(_checkCond, \["textEquals", await _first\(page, \["#toast"\]\), `\$\{msg\}`\]\), "Step 1: assert — textEquals — Toast", `expected text "\$\{msg\}"`\);\n {2}\}\);\n\n {2}\/\/ Step 2: click$/m);
+  assert.match(code, /_assert\(async \(\) => page\.evaluate\(_checkCond, \["urlContains", null, "\/done"\]\), "Step 3: assert — urlContains", "expected URL containing \\"\/done\\""\);/);
+  assert.match(code, /_assert\(async \(\) => _checkInFrames\(page, \["#f"\], "elementVisible", ""\), "Step 4: assert — elementVisible", "expected element to be visible"\);/);
+  assert.match(code, /_assert\(async \(\) => page\.evaluate\(_checkCond, \["elementExists", await _first\(page, \["#plain"\]\), ""\]\), "Step 5: assert — elementExists", "expected element to exist"\);/);
+  // An unknown check stops the run there, as playback does; its name stays in the comment.
+  assert.match(code, /^ {4}throw new Error\("Assert step 6: unknown condition type, named in the comment above"\);$/m);
+  assert.ok(warnings.some((w) => /Assert step 6: type "isChecked" is unknown — the exported code stops there/.test(w)), warnings.join());
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'ok', 'verify', 'ok']);
+
+  const calls = await runSpec(code.replace(/^ {4}throw new Error\("Assert step 6.*$/m, ''), { checks: { textEquals: false, elementVisible: false } });
+  assert.deepEqual(calls.filter((c) => !c.startsWith('goto')), [
+    'check textEquals #toast "Hi \\"you\\""', 'click #a', 'check urlContains null "/done"', 'check elementVisible #f ""', 'check elementExists #plain ""', 'click #d',
+  ], 'a false Assert does not stop the steps after it');
+  assert.deepEqual(calls.soft, ['Step 1: assert — textEquals — Toast: expected text "Hi "you""', 'Step 4: assert — elementVisible: expected element to be visible']);
+  assert.deepEqual(calls.polls[0], { message: 'Step 1: assert — textEquals — Toast: expected text "Hi "you""', timeout: 5000, intervals: [250] },
+    'the wait of a run: checked every 250 ms for up to 5 s');
+  // A spec with no Assert imports only test, as before.
+  assert.match(generatePlaywright('t', [steps[1]], {}).code, /^import \{ test \} from '@playwright\/test';$/m);
+  // A URL recorded in a frame is the frame's to playback, the top page's to the export, as for a Condition.
+  const [framedUrl] = generatePlaywright('u', [{ type: 'assert', conditionType: 'urlEquals', expectedValue: 'x', frameId: 2 }], {}).steps;
+  assert.equal(framedUrl.status, 'verify');
+  assert.match(framedUrl.reason, /checks the top page's URL/);
 });
 
 test('Playwright: Child Condition, Read DOM, Choose item #, drag and Upload File, as the other exports do them', async () => {
@@ -984,13 +1143,15 @@ test('the export modal\'s Actions tab: a badge for every action type the exports
     const [step] = gen('t', [{ type, selector: '#a', selectors: { css: '#a' } }], {}).steps;
     return step && step.reason !== unknown;
   }));
-  assert.ok(known.includes('uploadFile') && known.includes('click') && !known.includes('xpath'), known.join());
+  assert.ok(known.includes('uploadFile') && known.includes('click') && known.includes('assert') && !known.includes('xpath'), known.join());
   assert.deepEqual(known.filter((type) => !ACT_TYPE_INFO[type]), [], 'types the exports know with no badge in the Actions tab');
 
   assert.equal(actionDesc({ type: 'screenshot_full' }), 'full page');
   assert.equal(actionDesc({ type: 'screenshot' }), 'viewport');
   assert.equal(actionDesc({ type: 'condition', conditionType: 'elementExists', selectors: { css: '.welcome' } }), 'elementExists · .welcome');
   assert.equal(actionDesc({ type: 'condition', conditionType: 'urlContains', expectedValue: '/home' }), 'urlContains · /home');
+  assert.equal(actionDesc({ type: 'assert', conditionType: 'textEquals', selectors: { css: '#toast' } }), 'textEquals · #toast');
+  assert.equal(actionDesc({ type: 'assert', conditionType: 'urlEquals', expectedValue: 'https://a.test/' }), 'urlEquals · https://a.test/');
 });
 
 test('the export code colours: joined, the pieces are the code of every golden export, line for line', async () => {

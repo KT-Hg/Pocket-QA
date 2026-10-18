@@ -2261,8 +2261,9 @@ function saveExportState(req, reply) {
  * name, each with a check on the PNG's { width, height }. With `pageVar`, each run
  * starts on another page and that variable holds the URL of its own; with
  * `bookmarkletClicks: 2` the bookmark is clicked once there, then again on the
- * page it opened. Add a case per
- * behaviour an export has to share with playback.
+ * page it opened. With `failedAsserts` (the titles of the steps of its false Asserts),
+ * every export run must fail at its end naming them, and no other step (checkFailedAsserts).
+ * Add a case per behaviour an export has to share with playback.
  */
 // The folder of this harness: Upload File cases upload its own files.
 const TOOLS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -2487,6 +2488,49 @@ const EXPORT_CASES = [
       { type: 'input', selector: '#echo', selectors: { css: '#echo' }, value: '${code} ok' },
     ],
     expect: { fields: { echo: 'ORD-42 ok' } },
+  },
+  {
+    // An Assert is checked until it holds, as playback checks it: the text a script puts on the
+    // page 2 s later passes; one that never holds fails the run at its end — the click after it
+    // still runs — naming that step alone (`failedAsserts`), in every export as in playback.
+    name: 'assert',
+    runners: ['bookmarklet', 'selenium', 'pytest', 'playwright'],
+    failedAsserts: ['Step 4: assert — textEquals — Never'],
+    actions: [
+      { type: 'script', code: "setTimeout(() => { document.getElementById('code').textContent = 'Saved'; }, 2000)" },
+      { type: 'assert', conditionType: 'textEquals', selector: '#code', selectors: { css: '#code' }, expectedValue: 'Saved', label: 'Late' },
+      { type: 'click', selector: '#submit', selectors: { css: '#submit' } },
+      { type: 'assert', conditionType: 'textEquals', selector: '#code', selectors: { css: '#code' }, expectedValue: 'Nope', label: 'Never' },
+      { type: 'click', selector: '#after', selectors: { css: '#after' } },
+    ],
+    expect: { clicks: ['submit', 'after'] },
+  },
+  {
+    // Every Assert holds — one only after 2 s: every export passes, the bookmarklet with no alert.
+    name: 'assert-held',
+    runners: ['bookmarklet', 'selenium', 'pytest', 'playwright'],
+    actions: [
+      { type: 'script', code: "setTimeout(() => { document.getElementById('code').textContent = 'Saved'; }, 2000)" },
+      { type: 'assert', conditionType: 'textEquals', selector: '#code', selectors: { css: '#code' }, expectedValue: 'Saved' },
+      { type: 'assert', conditionType: 'urlContains', expectedValue: '/export' },
+      { type: 'click', selector: '#after', selectors: { css: '#after' } },
+    ],
+    expect: { clicks: ['after'] },
+  },
+  {
+    // A false Assert before a Navigate to a page of the site, one after it: the run fails at its
+    // end naming both — the bookmarklet, going on there at its second click, kept the first.
+    name: 'assert-pages',
+    pageVar: 'next',
+    bookmarkletClicks: 2,
+    failedAsserts: ['Step 1: assert — textEquals — Before', 'Step 4: assert — urlContains — After'],
+    actions: [
+      { type: 'assert', conditionType: 'textEquals', selector: '#code', selectors: { css: '#code' }, expectedValue: 'Nope', label: 'Before' },
+      { type: 'navigate', url: '${next}' },
+      { type: 'click', selector: '#after', selectors: { css: '#after' } },
+      { type: 'assert', conditionType: 'urlContains', expectedValue: '/nowhere', label: 'After' },
+    ],
+    expect: { clicks: ['after'] },
   },
   {
     // A one-line Script that ends in a quote: the Selenium literal closed early on it.
@@ -2851,6 +2895,15 @@ async function checkExportRun(ctx) {
   const dir = mkdtempSync(join(tmpdir(), 'pqa-export-'));
   let headlessChecked = false;
   const pageUrl = (key) => `${ctx.base}/export?run=${encodeURIComponent(key)}`;
+  // A case whose Asserts are false (c.failedAsserts, their steps' titles): a run of it fails at its
+  // end (`failed`) and what it said (`said`) names each of them — and no other Assert: one that
+  // held, if only after a while, is no failure. A failure's message is "<title>: expected …"; a
+  // title elsewhere (pytest's code listing, a report's heading) is none.
+  const checkFailedAsserts = (c, runner, failed, said) => {
+    const named = [...new Set([...said.matchAll(/Step \d+: assert[^:\n"]*(?=: expected )/g)].map((m) => m[0]))];
+    check(failed && c.failedAsserts.every((t) => named.includes(t)) && named.every((t) => c.failedAsserts.includes(t)),
+      `${c.name}: the ${runner} run fails at its end, naming the false Assert(s) and no other`, { failed: !!failed, named });
+  };
   try {
     for (const c of EXPORT_CASES.filter((x) => !CASES || CASES.includes(x.name))) {
       // The URL of each run's own page, in the variable named by `pageVar`.
@@ -2878,16 +2931,26 @@ async function checkExportRun(ctx) {
       states.playback = exportStates.get(`${c.name}:playback`)?.state;
 
       if (runners.includes('bookmarklet')) {
-        await ctx.web.goto(startUrl('bookmarklet'));
+        // With false Asserts, a tab of its own: the errors the bookmarklet logs for them are meant, not the test page's.
+        const tab = c.failedAsserts ? await ctx.browser.openPage(startUrl('bookmarklet')) : ctx.web;
+        if (c.failedAsserts) await sleep(PAGE_SETTLE_MS);
+        else await ctx.web.goto(startUrl('bookmarklet'));
         const url = toBookmarkletUrl(generateBookmarklet(c.name, actions, { ...variables, ...pageVars('bookmarklet') }).code);
         for (let click = 1; click <= (c.bookmarkletClicks || 1); click++) {
-          if (click > 1) await untilOn(ctx.web, pageUrl(`${c.name}:bookmarklet`));
+          if (click > 1) await untilOn(tab, pageUrl(`${c.name}:bookmarklet`));
           // What a click on the bookmark runs: the URL, percent-decoded.
-          await ctx.web.evaluate(decodeURIComponent(url.slice('javascript:'.length)), BOOKMARKLET_RUN_TIMEOUT_MS)
+          await tab.evaluate(decodeURIComponent(url.slice('javascript:'.length)), BOOKMARKLET_RUN_TIMEOUT_MS)
             .catch((e) => fail(`${c.name}: the bookmarklet threw on click ${click}: ${e.message}`));
         }
         await sleep(SETTLE_MS);
+        if (c.failedAsserts) await tab.close();
         states.bookmarklet = exportStates.get(`${c.name}:bookmarklet`)?.state;
+        // Its alert that lists the false Asserts is one playback does not show: checked, then left out.
+        if (c.failedAsserts && states.bookmarklet) {
+          const summary = states.bookmarklet.alerts.filter((a) => /Assert\(s\) failed/.test(a));
+          checkFailedAsserts(c, 'bookmarklet', summary.length === 1, summary.join('\n'));
+          states.bookmarklet = { ...states.bookmarklet, alerts: states.bookmarklet.alerts.filter((a) => !summary.includes(a)) };
+        }
       }
 
       if (!noPython && runners.includes('selenium')) {
@@ -2896,7 +2959,8 @@ async function checkExportRun(ctx) {
           { driverType: 'Edge', startUrl: startUrl('selenium'), headless: !HEADED }).code);
         // In the temporary folder: what the script saves (screenshots) lands there.
         const r = await runFile('python', [file], { cwd: dir, timeout: PYTHON_RUN_TIMEOUT_MS });
-        if (r.error) fail(`${c.name}: the Selenium script failed: ${String(r.stderr || r.error.message).trim().split('\n').slice(-3).join(' | ')}`);
+        if (c.failedAsserts) checkFailedAsserts(c, 'Selenium', r.error, String(r.stdout));
+        else if (r.error) fail(`${c.name}: the Selenium script failed: ${String(r.stderr || r.error.message).trim().split('\n').slice(-3).join(' | ')}`);
         await sleep(SETTLE_MS);
         states.selenium = exportStates.get(`${c.name}:selenium`)?.state;
         if (!headlessChecked && states.selenium) {
@@ -2916,7 +2980,8 @@ async function checkExportRun(ctx) {
         // The file by its name: Playwright reads the argument as a pattern, and a Windows path's \ escapes.
         const r = await runFile(process.execPath, [pwCli, 'test', spec, '--config', 'playwright.config.mjs'],
           { cwd: pwRun, timeout: PYTHON_RUN_TIMEOUT_MS });
-        if (r.error) fail(`${c.name}: the Playwright test failed: ${String(r.stdout).trim().split('\n').slice(-4).join(' | ')}`);
+        if (c.failedAsserts) checkFailedAsserts(c, 'Playwright', r.error, String(r.stdout));
+        else if (r.error) fail(`${c.name}: the Playwright test failed: ${String(r.stdout).trim().split('\n').slice(-4).join(' | ')}`);
         await sleep(SETTLE_MS);
         states.playwright = exportStates.get(`${c.name}:playwright`)?.state;
         checkFiles(c, 'Playwright', pwRun);
@@ -2927,7 +2992,8 @@ async function checkExportRun(ctx) {
         writeFileSync(file, generateSeleniumPy(c.name, actions, { ...variables, ...pageVars('pytest') },
           { driverType: 'Edge', startUrl: startUrl('pytest'), headless: !HEADED, output: 'pytest' }).code);
         const r = await runPytest(file, dir);
-        if (r.error) fail(`${c.name}: the pytest test failed: ${String(r.stdout).trim().split('\n').slice(-3).join(' | ')}`);
+        if (c.failedAsserts) checkFailedAsserts(c, 'pytest', r.error, String(r.stdout));
+        else if (r.error) fail(`${c.name}: the pytest test failed: ${String(r.stdout).trim().split('\n').slice(-3).join(' | ')}`);
         await sleep(SETTLE_MS);
         states.pytest = exportStates.get(`${c.name}:pytest`)?.state;
       }
@@ -2939,7 +3005,8 @@ async function checkExportRun(ctx) {
         writeFileSync(file, generateRobot(c.name, actions, { ...variables, ...pageVars('robot') },
           { driverType: 'Edge', startUrl: startUrl('robot'), headless: !HEADED }).code);
         const r = await runRobot(file, out);
-        if (r.error) fail(`${c.name}: the Robot test failed: ${String(r.stdout).trim().split('\n').filter((l) => !/^(Output|Log|Report):/.test(l)).slice(-6).join(' | ')}`);
+        if (c.failedAsserts) checkFailedAsserts(c, 'Robot', r.error, String(r.stdout));
+        else if (r.error) fail(`${c.name}: the Robot test failed: ${String(r.stdout).trim().split('\n').filter((l) => !/^(Output|Log|Report):/.test(l)).slice(-6).join(' | ')}`);
         await sleep(SETTLE_MS);
         states.robot = exportStates.get(`${c.name}:robot`)?.state;
         checkFiles(c, 'Robot', out);
@@ -2952,7 +3019,8 @@ async function checkExportRun(ctx) {
         writeFileSync(join(out, `${cls}.java`), generateJava(c.name, actions, { ...variables, ...pageVars('java') },
           { driverType: 'Edge', startUrl: startUrl('java'), headless: !HEADED }).code);
         const r = await runJava(join(out, `${cls}.java`), cls, out);
-        if (r.error) fail(`${c.name}: the Java test failed: ${String(r.stdout + r.stderr).trim().split('\n').filter((l) => !/^\s+at /.test(l)).slice(-6).join(' | ')}`);
+        if (c.failedAsserts) checkFailedAsserts(c, 'Java', r.error, String(r.stdout));
+        else if (r.error) fail(`${c.name}: the Java test failed: ${String(r.stdout + r.stderr).trim().split('\n').filter((l) => !/^\s+at /.test(l)).slice(-6).join(' | ')}`);
         await sleep(SETTLE_MS);
         states.java = exportStates.get(`${c.name}:java`)?.state;
         checkFiles(c, 'Java', out);

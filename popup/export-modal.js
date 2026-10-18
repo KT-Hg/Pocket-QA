@@ -599,6 +599,7 @@ export const ACT_TYPE_INFO = {
   wait:               { icon: '⏱',  label: 'wait',       cls: 'wait' },
   script:             { icon: '📜', label: 'script',     cls: 'script' },
   condition:          { icon: '🔀', label: 'condition',  cls: 'condition' },
+  assert:             { icon: '✔',  label: 'assert',     cls: 'condition' },
   screenshot:         { icon: '📷', label: 'screenshot', cls: 'screenshot' },
   screenshot_full:    { icon: '📷', label: 'scr-full',   cls: 'screenshot' },
   screenshot_element: { icon: '📷', label: 'scr-elem',   cls: 'screenshot' },
@@ -618,7 +619,8 @@ export function actionDesc(a) {
     case 'navigate':  return (a.value || a.url || '').slice(0, 50);
     case 'wait':      return `${a.delay ?? a.value ?? 1000} ms`;
     case 'script':    return 'custom JS code';
-    case 'condition': {
+    case 'condition':
+    case 'assert': {
       // A URL check has no element: what it compares the URL with instead.
       const what = String(a.conditionType || '').startsWith('url') ? String(a.expectedValue ?? '').slice(0, 40) : sel;
       return [a.conditionType || 'condition', what].filter(Boolean).join(' · ');

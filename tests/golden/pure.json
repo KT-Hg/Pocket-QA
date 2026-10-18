@@ -584,6 +584,57 @@
    "#ma",
    "#ma",
    "//*[@id=\"ma\"]"
+  ],
+  [
+   "#toast",
+   "#toast",
+   "//*[@id=\"toast\"]"
+  ],
+  [
+   "#next",
+   "#next",
+   "//*[@id=\"next\"]"
+  ],
+  [],
+  [
+   "#shown",
+   "#shown",
+   "//*[@id=\"shown\"]"
+  ],
+  [
+   "#x",
+   "#x",
+   "//*[@id=\"x\"]"
+  ],
+  [
+   "#plain",
+   "#plain",
+   "//*[@id=\"plain\"]"
+  ],
+  [
+   "#c",
+   "#c",
+   "//*[@id=\"c\"]"
+  ],
+  [
+   "#gone",
+   "#gone",
+   "//*[@id=\"gone\"]"
+  ],
+  [
+   "#panel",
+   "#panel",
+   "//*[@id=\"panel\"]"
+  ],
+  [
+   "#qty",
+   "#qty",
+   "//*[@id=\"qty\"]"
+  ],
+  [
+   "#end",
+   "#end",
+   "//*[@id=\"end\"]"
   ]
  ],
  "writtenVarNames": [
@@ -759,7 +810,18 @@
    "mã",
    "a",
    "b"
-  ]
+  ],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  []
  ],
  "listEntries": [
   [],
@@ -4304,7 +4366,18 @@
     {"type":"click","selector":"#end","selectors":{"css":"#end","xpath":"//*[@id=\"end\"]"}},
     {"type":"input","selector":"#ten","selectors":{"css":"#ten","xpath":"//*[@id=\"ten\"]"},"value":"${tên} — ${họ_tên}"},
     {"type":"script","value":"document.title = \"${tên}\";"},
-    {"type":"readdom","selector":"#ma","selectors":{"css":"#ma","xpath":"//*[@id=\"ma\"]"},"varName":"mã","pattern":"${a} - ${b}"}
+    {"type":"readdom","selector":"#ma","selectors":{"css":"#ma","xpath":"//*[@id=\"ma\"]"},"varName":"mã","pattern":"${a} - ${b}"},
+    {"type":"assert","conditionType":"textEquals","selector":"#toast","selectors":{"css":"#toast","xpath":"//*[@id=\"toast\"]"},"expectedValue":"Saved ${user}","label":"Saved toast"},
+    {"type":"click","selector":"#next","selectors":{"css":"#next","xpath":"//*[@id=\"next\"]"}},
+    {"type":"assert","conditionType":"urlContains","expectedValue":"/done","delay":500},
+    {"type":"assert","conditionType":"elementVisible","selector":"#shown","selectors":{"css":"#shown","xpath":"//*[@id=\"shown\"]"}},
+    {"type":"assert","conditionType":"hasAttribute","selector":"#x","selectors":{"css":"#x","xpath":"//*[@id=\"x\"]"},"expectedValue":"data-x=\"1\""},
+    {"type":"assert","selector":"#plain","selectors":{"css":"#plain","xpath":"//*[@id=\"plain\"]"}},
+    {"type":"assert","conditionType":"isChecked","selector":"#c","selectors":{"css":"#c","xpath":"//*[@id=\"c\"]"}},
+    {"type":"assert","conditionType":"elementExists","selector":"#gone","selectors":{"css":"#gone","xpath":"//*[@id=\"gone\"]"},"disabled":true},
+    {"type":"condition","conditionType":"elementExists","selector":"#panel","selectors":{"css":"#panel","xpath":"//*[@id=\"panel\"]"},"skipCount":1},
+    {"type":"assert","conditionType":"valueEquals","selector":"#qty","selectors":{"css":"#qty","xpath":"//*[@id=\"qty\"]"},"expectedValue":"3"},
+    {"type":"click","selector":"#end","selectors":{"css":"#end","xpath":"//*[@id=\"end\"]"}}
    ]
   ],
   [
@@ -4454,7 +4527,18 @@
     {"type":"click","selector":"#end","selectors":{"css":"#end","xpath":"//*[@id=\"end\"]"}},
     {"type":"input","selector":"#ten","selectors":{"css":"#ten","xpath":"//*[@id=\"ten\"]"},"value":"Đức — Nguyễn Văn A"},
     {"type":"script","value":"document.title = \"Đức\";"},
-    {"type":"readdom","selector":"#ma","selectors":{"css":"#ma","xpath":"//*[@id=\"ma\"]"},"varName":"mã","pattern":"${a} - ${b}"}
+    {"type":"readdom","selector":"#ma","selectors":{"css":"#ma","xpath":"//*[@id=\"ma\"]"},"varName":"mã","pattern":"${a} - ${b}"},
+    {"type":"assert","conditionType":"textEquals","selector":"#toast","selectors":{"css":"#toast","xpath":"//*[@id=\"toast\"]"},"expectedValue":"Saved alice","label":"Saved toast"},
+    {"type":"click","selector":"#next","selectors":{"css":"#next","xpath":"//*[@id=\"next\"]"}},
+    {"type":"assert","conditionType":"urlContains","expectedValue":"/done","delay":500},
+    {"type":"assert","conditionType":"elementVisible","selector":"#shown","selectors":{"css":"#shown","xpath":"//*[@id=\"shown\"]"}},
+    {"type":"assert","conditionType":"hasAttribute","selector":"#x","selectors":{"css":"#x","xpath":"//*[@id=\"x\"]"},"expectedValue":"data-x=\"1\""},
+    {"type":"assert","selector":"#plain","selectors":{"css":"#plain","xpath":"//*[@id=\"plain\"]"}},
+    {"type":"assert","conditionType":"isChecked","selector":"#c","selectors":{"css":"#c","xpath":"//*[@id=\"c\"]"}},
+    {"type":"assert","conditionType":"elementExists","selector":"#gone","selectors":{"css":"#gone","xpath":"//*[@id=\"gone\"]"},"disabled":true},
+    {"type":"condition","conditionType":"elementExists","selector":"#panel","selectors":{"css":"#panel","xpath":"//*[@id=\"panel\"]"},"skipCount":1},
+    {"type":"assert","conditionType":"valueEquals","selector":"#qty","selectors":{"css":"#qty","xpath":"//*[@id=\"qty\"]"},"expectedValue":"3"},
+    {"type":"click","selector":"#end","selectors":{"css":"#end","xpath":"//*[@id=\"end\"]"}}
    ]
   ],
   [
@@ -4604,7 +4688,18 @@
     {"type":"click","selector":"#end","selectors":{"css":"#end","xpath":"//*[@id=\"end\"]"}},
     {"type":"input","selector":"#ten","selectors":{"css":"#ten","xpath":"//*[@id=\"ten\"]"},"value":"${user} — ${họ_tên}"},
     {"type":"script","value":"document.title = \"${user}\";"},
-    {"type":"readdom","selector":"#ma","selectors":{"css":"#ma","xpath":"//*[@id=\"ma\"]"},"varName":"mã","pattern":"${a} - ${b}"}
+    {"type":"readdom","selector":"#ma","selectors":{"css":"#ma","xpath":"//*[@id=\"ma\"]"},"varName":"mã","pattern":"${a} - ${b}"},
+    {"type":"assert","conditionType":"textEquals","selector":"#toast","selectors":{"css":"#toast","xpath":"//*[@id=\"toast\"]"},"expectedValue":"Saved $&","label":"Saved toast"},
+    {"type":"click","selector":"#next","selectors":{"css":"#next","xpath":"//*[@id=\"next\"]"}},
+    {"type":"assert","conditionType":"urlContains","expectedValue":"/done","delay":500},
+    {"type":"assert","conditionType":"elementVisible","selector":"#shown","selectors":{"css":"#shown","xpath":"//*[@id=\"shown\"]"}},
+    {"type":"assert","conditionType":"hasAttribute","selector":"#x","selectors":{"css":"#x","xpath":"//*[@id=\"x\"]"},"expectedValue":"data-x=\"1\""},
+    {"type":"assert","selector":"#plain","selectors":{"css":"#plain","xpath":"//*[@id=\"plain\"]"}},
+    {"type":"assert","conditionType":"isChecked","selector":"#c","selectors":{"css":"#c","xpath":"//*[@id=\"c\"]"}},
+    {"type":"assert","conditionType":"elementExists","selector":"#gone","selectors":{"css":"#gone","xpath":"//*[@id=\"gone\"]"},"disabled":true},
+    {"type":"condition","conditionType":"elementExists","selector":"#panel","selectors":{"css":"#panel","xpath":"//*[@id=\"panel\"]"},"skipCount":1},
+    {"type":"assert","conditionType":"valueEquals","selector":"#qty","selectors":{"css":"#qty","xpath":"//*[@id=\"qty\"]"},"expectedValue":"3"},
+    {"type":"click","selector":"#end","selectors":{"css":"#end","xpath":"//*[@id=\"end\"]"}}
    ]
   ]
  ],

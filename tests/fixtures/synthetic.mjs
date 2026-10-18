@@ -1,7 +1,7 @@
 // Hand-built scenarios for the golden tests: every action type, Switch blocks
 // (nested, empty case, default, jump to another scenario), Conditions with
-// skipCount, disabled actions, child conditions, Read DOM patterns, uploads and
-// variables of every kind, including non-ASCII names.
+// skipCount, Asserts, disabled actions, child conditions, Read DOM patterns,
+// uploads and variables of every kind, including non-ASCII names.
 
 const sel = (css, extra = {}) => ({ selector: css, selectors: { css, xpath: `//*[@id="${css.replace(/^#/, '')}"]`, ...extra } });
 const blk = (value, startAt, endAt, extra = {}) => ({ value, scenarioId: '__self__', startAt, endAt, ...extra });
@@ -76,6 +76,25 @@ export const SYNTHETIC_SCENARIOS = [
       { type: 'input', ...sel('#ten'), value: '${tên} — ${họ_tên}' },
       { type: 'script', value: 'document.title = "${tên}";' },
       { type: 'readdom', ...sel('#ma'), varName: 'mã', pattern: '${a} - ${b}' },
+    ],
+  },
+  {
+    // Asserts: with a variable and quotes in what they expect, a URL, no check type
+    // (elementExists), an unknown one, disabled, inside a Condition's block. None in a
+    // frame: Robot's dry run stops on the recursive frame search of any frame step.
+    name: 'Asserts',
+    actions: [
+      { type: 'assert', conditionType: 'textEquals', ...sel('#toast'), expectedValue: 'Saved ${user}', label: 'Saved toast' },
+      { type: 'click', ...sel('#next') },
+      { type: 'assert', conditionType: 'urlContains', expectedValue: '/done', delay: 500 },
+      { type: 'assert', conditionType: 'elementVisible', ...sel('#shown') },
+      { type: 'assert', conditionType: 'hasAttribute', ...sel('#x'), expectedValue: 'data-x="1"' },
+      { type: 'assert', ...sel('#plain') },
+      { type: 'assert', conditionType: 'isChecked', ...sel('#c') },
+      { type: 'assert', conditionType: 'elementExists', ...sel('#gone'), disabled: true },
+      { type: 'condition', conditionType: 'elementExists', ...sel('#panel'), skipCount: 1 },
+      { type: 'assert', conditionType: 'valueEquals', ...sel('#qty'), expectedValue: '3' },
+      { type: 'click', ...sel('#end') },
     ],
   },
 ];

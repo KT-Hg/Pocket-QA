@@ -6,7 +6,10 @@ import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, pickLabel, topLevelIndices, walkActions, warnUndefinedVars } from './export/walk.js';
+import {
+  ASSERT_POLL_MS, ASSERT_WAIT_MS, assertExpected, assertType, exportVariables, inFrame, locatorsFor, pickLabel, topLevelIndices,
+  walkActions, warnUndefinedVars,
+} from './export/walk.js';
 import {
   CLICK_JS, HOVER_JS, SET_INPUT_JS, DRAG_DROP_JS, FIND_CHILD_JS, READ_VAL_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_TEXT_JS,
   PICK_ITEM_JS, QUERY_DEEP_JS,
@@ -22,11 +25,26 @@ const SKIPPED_TYPES = new Set([
 const _RESERVED_JS = new Set([
   'sleep', 'getEl', '_qsel', '_deep', '_first', '_inFrames', '_findText', '_click', '_hover', '_setInput', '_dragDrop', '_findChild', '_readVal', '_checkCond', '_pickIdx', '_pickItem', 'err', 'res', 'rej', 'obs',
   'domVar', '_at', 'setInterval', 'clearInterval', 'clearTimeout', 'sessionStorage', '_resumeKey', '_saved', '_from', '_vars',
+  '_assert', '_failures',
   ...JS_RESERVED,
 ]);
 
 // How often getEl looks again while it waits: DEEP_SCAN_INTERVAL_MS of content.js.
 const SHADOW_POLL_MS = 250;
+
+// An Assert as the extension makes it (bg/playback/steps/assert.js), declared when a step has one.
+const ASSERT_HELPER = [
+  `  // An Assert's check made again every ${ASSERT_POLL_MS} ms until it holds, for up to ${ASSERT_WAIT_MS / 1000} s. One still false is`,
+  '  // told and noted in _failures, and the run goes on: they are told again at its end.',
+  '  const _failures = [];',
+  '  const _assert = async (message, check) => {',
+  `    const end = Date.now() + ${ASSERT_WAIT_MS};`,
+  '    while (!check()) {',
+  "      if (Date.now() >= end) { console.error('❌ ' + message); _failures.push(message); return; }",
+  `      await sleep(${ASSERT_POLL_MS});`,
+  '    }',
+  '  };',
+];
 
 // The names of the steps' own values (_el3, _el3_t, _nav1, _at1) and of the Random generators.
 const _sanitizeVarName = jsIdentifier(_RESERVED_JS, /^_(el|nav|at)\d+(_|$)|^_gen_/);
@@ -124,10 +142,12 @@ function condHeader(action, stepNum, step, ctx) {
  * the new page — wherever it was redirected — reads and goes on from. Another
  * site's storage is not this one's: there the bookmarklet stops.
  */
-function resumeNavigateLines(nav, stepNum) {
+function resumeNavigateLines(nav, stepNum, ctx) {
+  // With an Assert, its failures so far go on too: the run tells them all at its end.
+  const failures = ctx.asserts ? ', failures: _failures' : '';
   return [
     `if (new URL(${nav}, location.href).origin === location.origin) {`,
-    `  sessionStorage.setItem(_resumeKey, JSON.stringify({ next: ${stepNum + 1}, vars: _vars() }));`,
+    `  sessionStorage.setItem(_resumeKey, JSON.stringify({ next: ${stepNum + 1}, vars: _vars()${failures} }));`,
     `  alert('Opening ' + ${nav} + '. Run the bookmark again once it has loaded.');`,
     '} else {',
     `  alert('Opening ' + ${nav} + ': another site, where this bookmarklet cannot go on.');`,
@@ -237,7 +257,7 @@ function actionLines(action, step, ctx, top = false) {
         out.push(`if (_at${stepNum}(_nav${stepNum}) !== _at${stepNum}(location.href)) {`);
         if (ctx.resume) {
           // Saved too: redirected (to a login page), the next click still goes on.
-          out.push(...resumeNavigateLines(`_nav${stepNum}`, stepNum).map((l) => `  ${l}`));
+          out.push(...resumeNavigateLines(`_nav${stepNum}`, stepNum, ctx).map((l) => `  ${l}`));
         } else {
           out.push(`  alert('Opening ' + _nav${stepNum} + '. Run the bookmark again once it has loaded.');`);
           out.push(`  location.href = _nav${stepNum};`);
@@ -249,7 +269,7 @@ function actionLines(action, step, ctx, top = false) {
       if (ctx.resume && top) {
         mark(step, 'verify', 'opens the page and stops: run the bookmark again on it to play on (a page of the same site only)');
         out.push(`const _nav${stepNum} = ${url};`);
-        out.push(...resumeNavigateLines(`_nav${stepNum}`, stepNum));
+        out.push(...resumeNavigateLines(`_nav${stepNum}`, stepNum, ctx));
         break;
       }
       out.push(`// ⚠ Page will reload — steps after this will not execute unless injected on next load`);
@@ -316,6 +336,20 @@ function actionLines(action, step, ctx, top = false) {
         out.push(`if (!${v}_m) throw new Error(${JSON.stringify(`Read DOM (step ${stepNum}): text does not match ${String(action.pattern).trim()}: `)} + ${v}_t);`);
         slots.forEach((n, k) => out.push(`${_sanitizeVarName(n)} = ${v}_m[${k + 1}].trim();`));
       }
+      if (delay > 0) out.push(`await sleep(${delay});`);
+      break;
+    }
+
+    case 'assert': {
+      out.push(`// Step ${stepNum}: assert — ${commentText(action.conditionType || 'elementExists')}${lbl}`);
+      const type = assertType(action, step, ctx.warnings);
+      if (!type) {
+        out.push(`throw new Error(${JSON.stringify(`Assert step ${stepNum}: unknown condition type, named in the comment above`)});`);
+        break;
+      }
+      // Recorded in a frame: its element in the same-origin frames too, as a Condition's.
+      const el = type.startsWith('url') ? 'null' : `${inFrame(action) ? '_inFrames' : '_first'}(${sel})`;
+      out.push(`await _assert(_at + ': ' + ${valueToJS(assertExpected(type, action))}, () => _checkCond(${JSON.stringify(type)}, ${el}, ${valueToJS(action.expectedValue)}));`);
       if (delay > 0) out.push(`await sleep(${delay});`);
       break;
     }
@@ -393,7 +427,8 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   const firstNavigate = first?.type === 'navigate' ? all.indexOf(first) + 1 : 0;
   // A Navigate of the top level after the first step: the bookmarklet goes on across pages.
   const resume = topLevelIndices(all, layout).some((i) => all[i].type === 'navigate' && !all[i].disabled && i + 1 !== firstNavigate);
-  const ctx = { staticVars, warnings, all, layout, steps, firstNavigate, frames: 'same-origin', resume, stepDelay, elTimeout };
+  const asserts = enabled.some((a) => a.type === 'assert');
+  const ctx = { staticVars, warnings, all, layout, steps, firstNavigate, frames: 'same-origin', resume, stepDelay, elTimeout, asserts };
   // The steps first: the helpers declared below depend on what they use.
   const bodyLines = stepLines(ctx);
 
@@ -482,9 +517,13 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   // Only for a step with a Child Condition: it is the longest helper, and the
   // bookmark's URL grows with it.
   if (bodyLines.some((l) => l.includes('_findChild('))) out.push(...declarePageJs('_findChild', FIND_CHILD_JS));
-  if (enabled.some(a => a.type === 'condition')) {
+  if (enabled.some(a => a.type === 'condition' || a.type === 'assert')) {
     blank();
     out.push(...declarePageJs('_checkCond', CHECK_COND_JS));
+  }
+  if (asserts) {
+    blank();
+    out.push(...ASSERT_HELPER);
   }
   if (enabled.some(a => a.type === 'readdom')) {
     blank();
@@ -559,6 +598,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     const names = [...declared];
     out.push(`  const _vars = () => ({ ${names.join(', ')} });`);
     if (names.length) out.push(`  if (_saved) ({ ${names.join(', ')} } = _saved.vars);`);
+    if (asserts) out.push('  if (_saved) _failures.push(...(_saved.failures || []));');
   }
 
   blank();
@@ -571,7 +611,13 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     out.push(line === '' ? '' : '    ' + line);
   }
 
-  out.push("    console.log('✅ Bookmarklet completed successfully.');");
+  if (asserts) {
+    out.push('    // A false Assert did not stop the run: told here, with each one.');
+    out.push("    if (_failures.length) alert(_failures.length + ' Assert(s) failed:\\n' + _failures.join('\\n'));");
+    out.push("    else console.log('✅ Bookmarklet completed successfully.');");
+  } else {
+    out.push("    console.log('✅ Bookmarklet completed successfully.');");
+  }
   out.push('');
   out.push('  } catch (err) {');
   out.push("    console.error('❌ Bookmarklet error' + (_at ? ' at ' + _at : '') + ':', err);");

@@ -26,12 +26,12 @@ export function mark(step, status, reason) {
  * frame (action.frameId, a number of the recording, of no use to the export):
  * 'all' (the page and its frames: Selenium, Playwright), 'same-origin' (the page
  * and the frames a script of it may read: the bookmarklet), or 'none' (the page
- * only). A Condition's element is looked for the same way; a URL Condition is
- * checked on the top page's URL, where playback checks its frame's.
+ * only). A Condition's or an Assert's element is looked for the same way; a URL one
+ * is checked on the top page's URL, where playback checks its frame's.
  */
 export function newStep(action, n, frames = 'none') {
   const step = { n, type: action.type, status: 'ok', reason: '' };
-  const urlCondition = action.type === 'condition' && String(action.conditionType || '').startsWith('url');
+  const urlCondition = (action.type === 'condition' || action.type === 'assert') && String(action.conditionType || '').startsWith('url');
   if (action.frameId == null || action.frameId === 0 || (frames === 'all' && !urlCondition)) return step;
   let why = 'recorded inside an iframe — the export looks in the top page';
   if (urlCondition) why = "recorded inside an iframe — the export checks the top page's URL, not the frame's";
