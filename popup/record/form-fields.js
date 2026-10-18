@@ -9,6 +9,10 @@ import { normalizeVarName } from '../../shared/var-name.js';
 import { conditionExpectedValue, conditionExpectedValueWrapper, conditionType, manualActionType, pickedSelectorsInfo, pickedSelectorsWrap } from '../dom.js';
 import { ui } from '../ui-state.js';
 
+// Action types with a Condition's check fields: an Assert is a check that must
+// hold, with no "Then run" (it guards nothing).
+export const CONDITION_FORM_TYPES = new Set(["condition", "assert"]);
+
 // Condition types that don't need selector or expected value
 export const CONDITION_NO_SELECTOR = ["urlContains", "urlEquals"];
 
@@ -119,14 +123,20 @@ export function updateStepLabels() {
 export function updateConditionFieldsVisibility() {
   const ct = conditionType ? conditionType.value : "";
   const selectorSection = document.getElementById("selectorSection");
+  const type = manualActionType.value;
 
   // Hide selector section for URL-based conditions
-  if (selectorSection && manualActionType.value === "condition") {
+  if (selectorSection && CONDITION_FORM_TYPES.has(type)) {
     selectorSection.style.display = CONDITION_NO_SELECTOR.includes(ct) ? "none" : "block";
   }
-  if (pickedSelectorsInfo && manualActionType.value === "condition" && CONDITION_NO_SELECTOR.includes(ct)) {
+  if (pickedSelectorsInfo && CONDITION_FORM_TYPES.has(type) && CONDITION_NO_SELECTOR.includes(ct)) {
     pickedSelectorsWrap.style.display = "none";
   }
+  const assert = type === "assert";
+  const stepLabel = document.getElementById("conditionStepLabel");
+  if (stepLabel) stepLabel.textContent = assert ? "Assert" : "Condition";
+  const typeLabel = document.querySelector('label[for="conditionType"]');
+  if (typeLabel) typeLabel.textContent = assert ? "Expect" : "If";
 
   // Hide expected value for existence/visibility conditions; "" keeps the
   // wrapper's display: contents, which lays its label and field out in the grid.

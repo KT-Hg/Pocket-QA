@@ -802,6 +802,9 @@ const roundtripFixtures = (otherId) => [
   { type: 'uploadFile', selector: '#file', selectors: { css: '#file' }, uploadMode: 'input', folderPath: 'C:\\data', fileNames: ['a.pdf', '${f}'], delay: 500 },
   { type: 'condition', conditionType: 'textContains', selector: '#title', selectors: { css: '#title' }, expectedValue: 'Hi', skipCount: 2, delay: 500 },
   { type: 'condition', conditionType: 'urlContains', expectedValue: '/login', skipCount: 1, delay: 500 },
+  { type: 'assert', selector: '#title', selectors: { css: '#title' }, conditionType: 'textEquals', expectedValue: 'Hi ${who}', delay: 500, label: 'Title' },
+  { type: 'assert', conditionType: 'urlContains', expectedValue: '/done', delay: 500 },
+  { type: 'assert', selector: '#go', selectors: ROUNDTRIP_LOCATORS, conditionType: 'elementVisible', expectedValue: '', delay: 500 },
   { type: 'switch', switchVar: '${role}', cases: [{ value: 'admin', scenarioId: otherId, scenarioName: 'e2e rt other' }, { value: '__default__', scenarioId: otherId, scenarioName: 'e2e rt other' }], delay: 500 },
   // "Click through" off, on each type that has it.
   { type: 'click', selector: '#go', selectors: ROUNDTRIP_LOCATORS, delay: 500, clickThrough: false },
@@ -828,11 +831,17 @@ async function checkFormRoundtrip(ctx) {
   await sleep(SETTLE_MS);
   const actionAt = (i) => popup.evaluate(`new Promise((r) => chrome.storage.local.get(['scenarios'], (x) => r(x.scenarios[${JSON.stringify(id)}].actions[${i}])))`);
   // Edit → Save the action at i through the form; its saved copy.
+  // A type the form does not offer leaves its select empty and Save does nothing,
+  // so the stored copy would come back unchanged without the form ever holding it.
+  const formTypes = [];
   const editSave = async (i) => {
     const before = await actionAt(i);
-    await popup.evaluate(`(async () => {
+    formTypes[i] = await popup.evaluate(`(async () => {
       const { startEdit } = await import('./popup/record/action-form.js');
       startEdit(${i}, ${JSON.stringify(before)});
+      return document.getElementById('manualActionType').value;
+    })()`);
+    await popup.evaluate(`(async () => {
       await new Promise((r) => setTimeout(r, 100));
       // Saved once the form leaves edit mode (storage.onChanged does not fire for
       // a value written back unchanged, which is the point here).
@@ -847,7 +856,8 @@ async function checkFormRoundtrip(ctx) {
   for (let i = 0; i < fixtures.length; i++) {
     const a1 = await editSave(i);
     const a2 = await editSave(i);
-    if (canonical(a1) !== canonical(fixtures[i])) bad.push({ i, type: fixtures[i].type, saved: a1 });
+    if (formTypes[i] !== fixtures[i].type) bad.push({ i, type: fixtures[i].type, formType: formTypes[i] });
+    else if (canonical(a1) !== canonical(fixtures[i])) bad.push({ i, type: fixtures[i].type, saved: a1 });
     else if (JSON.stringify(a2) !== JSON.stringify(a1)) bad.push({ i, type: fixtures[i].type, secondSave: a2 });
   }
   check(!bad.length, `every action type (${fixtures.length} fixtures) comes back from Edit → Save as it was`, bad);
@@ -875,6 +885,40 @@ async function checkFormRoundtrip(ctx) {
   check(!form.onNavigate && form.onHover.shown && !form.onHover.checked && form.draft === false && form.cleared
     && form.restored.shown && !form.restored.checked,
   'the Click through checkbox shows only where it applies, and a draft keeps it', form);
+
+  // Assert has a Condition's fields without "Then run"; switching the type keeps
+  // what was filled in, and so does a draft.
+  const condIndex = fixtures.findIndex((a) => a.type === 'condition');
+  const asAssert = await popup.evaluate(`(async () => {
+    const { startEdit, clearEditState } = await import('./popup/record/action-form.js');
+    const { collectManualFormState, applyManualFormState } = await import('./popup/record/form-state.js');
+    const shown = (id) => getComputedStyle(document.getElementById(id)).display !== 'none';
+    const read = () => ({
+      type: document.getElementById('manualActionType').value,
+      check: document.getElementById('conditionType').value,
+      value: document.getElementById('conditionExpectedValue').value,
+      selector: document.getElementById('manualSelector').value,
+      ifShown: shown('conditionIfWrapper'), runShown: shown('conditionRunWrapper'),
+      word: document.querySelector('label[for="conditionType"]').textContent,
+    });
+    startEdit(${condIndex}, ${JSON.stringify(fixtures.find((a) => a.type === 'condition'))});
+    const asCondition = read();
+    const typeSel = document.getElementById('manualActionType');
+    typeSel.value = 'assert';
+    typeSel.dispatchEvent(new Event('change'));
+    const switched = read();
+    const draft = collectManualFormState();
+    clearEditState();
+    applyManualFormState(draft);
+    const restored = read();
+    clearEditState();
+    return { asCondition, switched, restored };
+  })()`);
+  const { asCondition: ac, switched: sw, restored: rs } = asAssert;
+  check(ac.runShown && ac.word === 'If' && sw.type === 'assert' && sw.ifShown && !sw.runShown && sw.word === 'Expect'
+    && sw.check === ac.check && sw.value === ac.value && sw.selector === ac.selector,
+  'Condition → Assert keeps the check, its value and the selector, and leaves out "Then run"', asAssert);
+  check(JSON.stringify(rs) === JSON.stringify(sw), 'a draft brings an Assert back as it was', asAssert);
   if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   await popup.close();
 }

@@ -6,7 +6,7 @@
 import { addManualAction, cancelEdit, manualActionType, manualSelector, manualValue } from '../dom.js';
 import { ui } from '../ui-state.js';
 import { hasChildCondData, setChildCondExpanded, updateChildCondBadge, setManualDelayUI } from './form-widgets.js';
-import { DEFAULT_DELAY_MS, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
+import { CONDITION_FORM_TYPES, DEFAULT_DELAY_MS, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { CHILD_COND_FIELDS, TYPE_FIELDS, applyDraftValue, clickThroughAllowed, draftFields, setClickThrough } from './form-table.js';
 import { updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 import { renderConditionRunTo } from './preview.js';
@@ -144,7 +144,7 @@ export function applyManualFormState(state) {
   if (attrEl) attrEl.style.display = (state.readdomReadFrom === "attr") ? "block" : "none";
   updateReaddomForm();
   updateDropdownForm();
-  if (type === "condition") updateConditionFieldsVisibility?.();
+  if (CONDITION_FORM_TYPES.has(type)) updateConditionFieldsVisibility?.();
   if (type === "switch") { populateSwitchScenarioSelect?.(); refreshSwitchContext(() => refreshSwitchForm()); }
   if (type === "condition") refreshSwitchContext(() => renderConditionRunTo());
   setChildCondExpanded(state.childCondExpanded ?? hasChildCondData());

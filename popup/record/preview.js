@@ -23,6 +23,11 @@ export function getActionDisplayValue(a) {
   if (a.type === "condition") {
     return `${a.conditionType || 'elementExists'}: ${a.selector || a.expectedValue || ''} [skip ${conditionSkip(a)}]`;
   }
+  if (a.type === "assert") {
+    // "textEquals: #msg = "Saved"", "urlContains: /done", "elementVisible: #go"
+    const target = a.selector && a.expectedValue ? `${a.selector} = "${a.expectedValue}"` : a.selector || a.expectedValue || "";
+    return `${a.conditionType || 'elementExists'}: ${target}`;
+  }
   if (a.type === "dragdrop") {
     return `${a.selector || "(no source)"} → ${a.targetSelector || "(no target)"}`;
   }

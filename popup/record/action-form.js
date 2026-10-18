@@ -12,7 +12,7 @@ import { ui } from '../ui-state.js';
 import { debounce, isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
 import { addVariableRow, newVariableConfig } from '../variables.js';
 import { saveDraft } from './draft.js';
-import { DEFAULT_DELAY_MS, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
+import { CONDITION_FORM_TYPES, DEFAULT_DELAY_MS, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, clickThroughOff, fillField, setClickThrough, showClickThroughFor } from './form-table.js';
 import { clearPickedSelectorsPanel, selectorIsPicked, showFieldError, updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
@@ -216,9 +216,14 @@ function _buildUploadFile(action) {
     .split("\n").map(s => s.trim()).filter(Boolean);
 }
 
-function _buildCondition(action) {
+/** The check a Condition branches on, and all an Assert is. */
+function _buildCheck(action) {
   action.conditionType = conditionType?.value || "elementExists";
   action.expectedValue = conditionExpectedValue?.value?.trim() || "";
+}
+
+function _buildCondition(action) {
+  _buildCheck(action);
   // "0" = guards nothing: stored as `empty` since older code reads a skipCount of 0 as 1.
   const skip = parseInt(conditionSkipCount?.value, 10);
   action.skipCount     = skip || 1;
@@ -258,6 +263,7 @@ const TYPE_BUILDERS = new Map([
   ["dropdown",         _buildDropdown],
   ["uploadFile",       _buildUploadFile],
   ["condition",        _buildCondition],
+  ["assert",           _buildCheck],
   ["switch",           _buildSwitch],
 ]);
 
@@ -332,6 +338,8 @@ export function startEdit(index, action) {
     if (wrap) wrap.style.display = "block";
     for (const f of section.fields) fillField(f, action);
   }
+  // A Condition's or an Assert's fields follow the check it was saved with.
+  if (CONDITION_FORM_TYPES.has(action.type)) updateConditionFieldsVisibility();
   _afterFieldsFilled(action, selectorSection);
 
   // Tie the textarea contents to this action's type so a later type switch
@@ -503,7 +511,6 @@ function _afterFieldsFilled(action, selectorSection) {
       break;
     }
     case "condition":
-      updateConditionFieldsVisibility();
       refreshSwitchContext(() => renderConditionRunTo());
       break;
     case "dropdown":

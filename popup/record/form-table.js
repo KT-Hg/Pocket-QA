@@ -70,6 +70,14 @@ export const TYPE_FIELDS = new Map([
       { id: "conditionSkipCount",     empty: "1", fromAction: conditionSkip },
     ],
   }],
+  // The same check fields; the section's "Then run" is hidden by CSS (02-action-list.css).
+  ["assert", {
+    wrapper: "conditionWrapper",
+    fields: [
+      { id: "conditionType",          prop: "conditionType", empty: "elementExists", draftEmpty: "" },
+      { id: "conditionExpectedValue", prop: "expectedValue", trim: true },
+    ],
+  }],
   ["dragdrop", {
     wrapper: "dragdropWrapper",
     fields: [

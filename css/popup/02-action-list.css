@@ -219,6 +219,12 @@
 }
 .action-condition .type { color: #fb923c; }
 
+.action-assert {
+  border-left: 4px solid #84cc16;
+  background: linear-gradient(90deg, rgba(132, 204, 22, 0.08) 0%, transparent 100%);
+}
+.action-assert .type { color: #a3e635; }
+
 .action-switch {
   border-left: 4px solid #e879f9;
   background: linear-gradient(90deg, rgba(232, 121, 249, 0.08) 0%, transparent 100%);
@@ -424,6 +430,7 @@
 #useTabUrl { display: none; padding: 3px 10px; font-size: 12px; }
 #addManualActionCard:has(#manualActionType option[value="navigate"]:checked) #useTabUrl { display: inline-block; }
 #addManualActionCard:has(#manualActionType option[value="condition"]:checked) #conditionIfWrapper,
+#addManualActionCard:has(#manualActionType option[value="assert"]:checked) #conditionIfWrapper,
 #addManualActionCard:has(#manualActionType option[value="screenshot_tovar"]:checked) #ssTovarTargetWrapper { display: block; }
 #addManualActionCard:has(#manualActionType option[value=""]:checked) #manualActionButtons { display: none; }
 .form-inline { display: flex; gap: 6px; }
@@ -453,8 +460,11 @@
 .form-inline .card-help-btn { align-self: center; }
 
 /* Condition: the expected-value label and field are grid cells of their own,
-   hidden together by hiding this wrapper. */
-#conditionExpectedValueWrapper { display: contents; }
+   hidden together by hiding this wrapper; so are "Then run" and its list, which
+   an Assert does not have (it guards nothing). */
+#conditionExpectedValueWrapper,
+#conditionRunWrapper { display: contents; }
+#addManualActionCard:has(#manualActionType option[value="assert"]:checked) #conditionRunWrapper { display: none; }
 
 /* Condition: the actions "Then run" guards, edged like the guarded rows in
    the action list. */

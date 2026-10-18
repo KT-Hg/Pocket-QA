@@ -4,7 +4,7 @@
  */
 
 import { conditionType, conditionWrapper, manualActionType, manualValue, pickedSelectorsInfo, pickedSelectorsWrap } from '../dom.js';
-import { CONDITION_NO_SELECTOR, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, updateDropdownForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
+import { CONDITION_FORM_TYPES, CONDITION_NO_SELECTOR, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, updateDropdownForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { VALUE_BOX, showClickThroughFor } from './form-table.js';
 import { renderConditionRunTo } from './preview.js';
 import { refreshSwitchContext, refreshSwitchForm, populateSwitchScenarioSelect } from './switch-case-builder.js';
@@ -73,7 +73,7 @@ export function initValueMemory() {
     // --- Selector section ---
     // screenshot_tovar shows selector only when target = element
     const ssTovarTarget = document.getElementById("screenshotTovarTarget");
-    const isConditionUrlType = type === "condition" && CONDITION_NO_SELECTOR.includes(conditionType ? conditionType.value : "");
+    const isConditionUrlType = CONDITION_FORM_TYPES.has(type) && CONDITION_NO_SELECTOR.includes(conditionType ? conditionType.value : "");
     const showSelector = !TYPES_NO_SELECTOR.has(type) &&
       type !== "" &&
       !(type === "screenshot_tovar" && ssTovarTarget?.value !== "element") &&
@@ -83,11 +83,9 @@ export function initValueMemory() {
 
     // --- Special wrappers ---
     if (conditionWrapper) {
-      conditionWrapper.style.display = type === "condition" ? "block" : "none";
-      if (type === "condition") {
-        updateConditionFieldsVisibility();
-        refreshSwitchContext(() => renderConditionRunTo());
-      }
+      conditionWrapper.style.display = CONDITION_FORM_TYPES.has(type) ? "block" : "none";
+      if (CONDITION_FORM_TYPES.has(type)) updateConditionFieldsVisibility();
+      if (type === "condition") refreshSwitchContext(() => renderConditionRunTo());
     }
 
     const readdomWrapper = document.getElementById("readdomWrapper");
@@ -136,6 +134,6 @@ export function initValueMemory() {
     if (manualLabelWrapper) manualLabelWrapper.style.display = type ? "block" : "none";
     showClickThroughFor(type);
 
-    if (type !== "condition") updateStepLabels();
+    if (!CONDITION_FORM_TYPES.has(type)) updateStepLabels();
   };
 }

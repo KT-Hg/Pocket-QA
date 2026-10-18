@@ -175,6 +175,7 @@
         </optgroup>
         <optgroup label="Logic">
           <option value="condition">Condition (If)</option>
+          <option value="assert">Assert (Expect)</option>
           <option value="switch">Switch (branch)</option>
           <option value="readdom">Read DOM → Variable</option>
         </optgroup>
@@ -191,8 +192,9 @@
 
       <!-- CONDITION "If" — ahead of the selector, which a URL condition hides, so
            choosing the type never moves the field just used. Shown for the
-           condition type by CSS (02-action-list.css); the rest of the Condition
-           is #conditionWrapper, after the selector. -->
+           condition and assert types by CSS (02-action-list.css); the rest of the
+           Condition is #conditionWrapper, after the selector. An Assert has the
+           same fields ("Expect" for "If") without "Then run". -->
       <div class="hidden-by-default" id="conditionIfWrapper">
         <div class="step-label" id="conditionStepLabel">Condition</div>
         <div class="form-grid">
@@ -460,11 +462,14 @@
             <input id="conditionExpectedValue" placeholder="value to compare" spellcheck="false" autocomplete="off" />
           </div>
 
-          <label class="form-label" for="conditionRunTo">Then run</label>
-          <div>
-            <select id="conditionRunTo"></select>
-            <ol id="conditionGuarded" class="cond-guarded" aria-label="Actions this Condition guards"></ol>
-            <span class="form-hint" id="conditionRunHint">If the condition is false, these are skipped.</span>
+          <!-- display: contents, as above; hidden for an Assert -->
+          <div id="conditionRunWrapper">
+            <label class="form-label" for="conditionRunTo">Then run</label>
+            <div>
+              <select id="conditionRunTo"></select>
+              <ol id="conditionGuarded" class="cond-guarded" aria-label="Actions this Condition guards"></ol>
+              <span class="form-hint" id="conditionRunHint">If the condition is false, these are skipped.</span>
+            </div>
           </div>
         </div>
         <!-- skipCount is still what is saved; "Then run" picks it by unit -->
