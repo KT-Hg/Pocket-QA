@@ -164,6 +164,29 @@ test('robot: each step exported, skipped or to check as in the Selenium export',
   }
 });
 
+test('robot: an Assert waits as a run does, and a false one fails the test at its end, not there', () => {
+  const { code, steps, warnings } = generateRobot('a', [
+    { type: 'assert', conditionType: 'textEquals', selector: '#toast', selectors: { css: '#toast' }, expectedValue: '${msg}', label: 'Toast' },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'assert', conditionType: 'urlContains', expectedValue: '/done' },
+    { type: 'assert', selector: '#plain', selectors: { css: '#plain' } },
+    { type: 'assert', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' } },
+  ], { msg: 'Hi' }, { stepDelay: 0 });
+  // Checked again every 250 ms for up to 5 s; still false, a failure the test goes on past.
+  assert.match(code, /^ {4}# Step 1: assert — textEquals — Toast\n {4}Set Test Variable {4}\\\$\{PQA_AT\} {4}Step 1: assert — textEquals — Toast\n {4}Run Keyword And Continue On Failure {4}Wait Until Keyword Succeeds {4}5s {4}250ms {4}Assert Holds {4}textEquals {4}\$\{msg\} {4}expected text "\$\{msg\}" {4}css:#toast\n\n {4}# Step 2: click$/m);
+  assert.match(code, /^ {4}Run Keyword And Continue On Failure {4}Wait Until Keyword Succeeds {4}5s {4}250ms {4}Assert Holds {4}urlContains {4}\/done {4}expected URL containing "\/done"$/m);
+  assert.match(code, /^ {4}Run Keyword And Continue On Failure {4}Wait Until Keyword Succeeds {4}5s {4}250ms {4}Assert Holds {4}elementExists {4}\$\{EMPTY\} {4}expected element to exist {4}css:#plain$/m);
+  assert.match(code, /^ {4}Fail {4}Assert step 5: unknown condition type, named in the comment above$/m);
+  assert.ok(warnings.some((w) => /Assert step 5: type "isChecked" is unknown/.test(w)), warnings.join());
+  // The keyword fails naming the step and what it expected.
+  assert.match(code, /^Assert Holds\n {4}\[Documentation\] .*\n {4}\[Arguments\] {4}\$\{type\} {4}\$\{expected\} {4}\$\{want\} {4}@\{locators\}\n {4}\$\{ok\}= {4}Check Condition {4}\$\{type\} {4}\$\{expected\} {4}@\{locators\}\n {4}IF {4}not \$ok {4}Fail {4}\$\{PQA_AT\}: \$\{want\}$/m);
+  assert.match(code, /^Check Condition$/m);
+  // At the end the failures are the Asserts', not the last step's.
+  assert.match(code, /^ {4}# A false Assert did not stop the test: it fails at its end, with each one\.\n {4}Set Test Variable {4}\\\$\{PQA_AT\} {4}\$\{EMPTY\}\n/m);
+  assert.deepEqual(steps.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'verify']);
+  assert.doesNotMatch(generateRobot('t', [{ type: 'click', selector: '#a', selectors: { css: '#a' } }], {}).code, /Assert Holds/);
+});
+
 test('robot: every synthetic scenario passes a dry run', { skip: NO_ROBOT }, () => {
   const files = {};
   SYNTHETIC_SCENARIOS.forEach((s, k) => Object.entries(VARIABLE_SETS).forEach(([setName, vars]) => {

@@ -19,7 +19,10 @@ import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, pickLabel, readTargets, undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars } from './export/walk.js';
+import {
+  ASSERT_POLL_MS, ASSERT_WAIT_MS, assertExpected, assertType, exportVariables, inFrame, locatorsFor, pickLabel, readTargets,
+  undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars,
+} from './export/walk.js';
 import { CONDITION_TYPES, PAGE_CALLS } from './export/page-js.js';
 import { csvRowsPy } from './export-selenium.js';
 
@@ -219,6 +222,11 @@ const STEP_KEYWORDS = {
     END
     \${ok}=    Execute Javascript    \${PQA_CHECK_COND_JS}    ARGUMENTS    \${type}    \${el}    \${expected}
     RETURN    \${ok}`,
+  assert: `Assert Holds
+    [Documentation]    An Assert's check (Check Condition), failing with the step and what it expected when it does not hold. A step runs it as the extension does (bg/playback/steps/assert.js): again until it holds, for up to ${ASSERT_WAIT_MS / 1000} s; one still false lets the test go on, and fails it at its end.
+    [Arguments]    \${type}    \${expected}    \${want}    @{locators}
+    \${ok}=    Check Condition    \${type}    \${expected}    @{locators}
+    IF    not $ok    Fail    \${PQA_AT}: \${want}`,
   child: `Find Child
     [Documentation]    The child a Child Condition picks in its parent (content.js findElementByCondition); none: the step fails.
     [Arguments]    \${parent}    \${cond}    \${step}
@@ -367,6 +375,14 @@ const STEP_LINES = {
     mark(s.step, 'skip', 'a Switch needs the extension to choose what plays');
     return null;
   },
+  assert: (a, s) => {
+    const type = assertType(a, s.step, s.ctx.warnings);
+    if (!type) return [`Fail    Assert step ${s.n}: unknown condition type, named in the comment above`];
+    s.ctx.uses.add('condition').add('assert');
+    const locs = type.startsWith('url') ? '' : `    ${locsRobot(locatorsFor(a))}`;
+    return [...(s.ctx.frames === 'all' ? ['Unselect Frame'] : []),
+      `Run Keyword And Continue On Failure    Wait Until Keyword Succeeds    ${ASSERT_WAIT_MS / 1000}s    ${ASSERT_POLL_MS}ms    Assert Holds    ${type}    ${valueRobot(a.expectedValue)}    ${valueRobot(assertExpected(type, a))}${locs}`];
+  },
   uploadFile: (a, s) => {
     const files = uploadFiles(a);
     if (!files) {
@@ -387,6 +403,7 @@ function stepWhat(a) {
     case 'dropdown': return a.pick ? `dropdown → item #${pickLabel(a)}` : 'open dropdown (freeze)';
     case 'dragdrop': return 'drag & drop';
     case 'script': return 'execute script';
+    case 'assert': return `assert — ${a.conditionType || 'elementExists'}`;
     case 'screenshot': return 'screenshot (visible)';
     case 'screenshot_full': return 'screenshot (full page)';
     case 'screenshot_element': return 'screenshot element';
@@ -650,6 +667,10 @@ export function generateRobot(scenarioName, actions, variables, opts = {}) {
   const frames = enabled.some(inFrame) ? 'all' : 'none';
   const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set(), frames, driverType };
   const bodyLines = stepLines(ctx);
+  // The step a failure names is the last one to run: once they all ran, a failure is an Assert's, which names its own.
+  if (ctx.uses.has('assert')) {
+    bodyLines.push('# A false Assert did not stop the test: it fails at its end, with each one.', 'Set Test Variable    \\${PQA_AT}    ${EMPTY}', '');
+  }
   const data = dataParts(dataFile, enabled, variables, warnings);
   const { table, setup } = variableLines(vars, data.csv);
 
