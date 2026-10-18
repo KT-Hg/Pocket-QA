@@ -11,6 +11,9 @@ const RATE_LIMIT_RETRY_MS = 1100;
 const RATE_LIMIT_ERROR = /MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND|rate/i;
 // Between the discarded first frame and the one kept (see captureTabDouble).
 const DOUBLE_CAPTURE_GAP_MS = 80;
+const PNG = { format: 'png' };
+// A failed action's screenshot, kept in storage with the run: a fraction of a PNG's size.
+const FAILURE_SHOT = { format: 'jpeg', quality: 70 };
 
 /* ── Tab Capture ────────────────────────────────────────────────────────────── */
 
@@ -24,13 +27,13 @@ const DOUBLE_CAPTURE_GAP_MS = 80;
  * export full of screenshots of an unrelated page, watermarked with the target
  * page's URL because the watermark reads it from the real tabId.
  */
-function captureTab(windowId = null, _retried = false) {
+function captureTab(windowId = null, options = PNG, _retried = false) {
   return new Promise((resolve) => {
-    chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
+    chrome.tabs.captureVisibleTab(windowId, options, (dataUrl) => {
       if (chrome.runtime.lastError) {
         const msg = chrome.runtime.lastError.message || '';
         if (!_retried && RATE_LIMIT_ERROR.test(msg)) {
-          setTimeout(() => resolve(captureTab(windowId, true)), RATE_LIMIT_RETRY_MS);
+          setTimeout(() => resolve(captureTab(windowId, options, true)), RATE_LIMIT_RETRY_MS);
         } else {
           resolve(null);
         }
@@ -54,6 +57,16 @@ export async function captureTabDouble(windowId = null) {
   await captureTab(windowId);
   await new Promise(r => setTimeout(r, DOUBLE_CAPTURE_GAP_MS));
   return captureTab(windowId);
+}
+
+/**
+ * The tab as a failed action left it, for the run's bug report: a JPEG data URL,
+ * or null when it cannot be taken — the tab is not the one its window shows, or
+ * the capture failed. A single frame: a torn one still shows what failed.
+ */
+export async function captureFailureShot(tabId) {
+  const target = await resolveCaptureTarget(tabId);
+  return target?.isActive ? captureTab(target.windowId, FAILURE_SHOT) : null;
 }
 
 /**

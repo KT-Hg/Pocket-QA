@@ -108,7 +108,7 @@ export function recordFailure({ i, action, reason, failedActions, facts = {} }) 
  * Every failed action goes through here. Retry leaves nothing behind; skip and
  * stop record the failure, and stop ends the run the way STOP_PLAYBACK does.
  */
-export async function onActionFailed({ tabId, i, actions, action, reason, failedActions, record = reason }) {
+export async function onActionFailed({ tabId, i, actions, action, reason, failedActions, record = reason, facts = {} }) {
   const r = reason || 'element not found';
   chrome.runtime.sendMessage({ type: 'ACTION_FAILED', index: i, action, reason: r }).catch(() => {});
 
@@ -124,7 +124,7 @@ export async function onActionFailed({ tabId, i, actions, action, reason, failed
   if (choice === FAIL_RETRY) return FAIL_RETRY;
   if (!choice) notifyActionFailed(i, action, r, { toPopup: false });
   if (failedActions) {
-    failedActions.push({ index: i + 1, type: action?.type || 'unknown', label: action?.label || '', reason: record || r });
+    failedActions.push({ index: i + 1, type: action?.type || 'unknown', label: action?.label || '', reason: record || r, ...facts });
   }
   if (choice === FAIL_STOP) {
     state.playback.active         = false;

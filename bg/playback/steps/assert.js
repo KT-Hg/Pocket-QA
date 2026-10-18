@@ -73,7 +73,7 @@ export async function runAssert(ctx, i, action) {
     const back = afterFailure(await ctx.fail(i, action, reason), i);
     if (back !== null) return back;
   } else if (!res.result) {
-    ctx.recordFail(i, action, ..._falseCheck(type, msg.expectedValue, res));
+    await ctx.recordFail(i, action, ..._falseCheck(type, msg.expectedValue, res));
   }
   if (action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
   return i;

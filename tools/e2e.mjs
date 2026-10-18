@@ -677,6 +677,13 @@ async function checkLastRun(ctx) {
     if (Date.now() - started > 1_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing) break;
   }
   await sleep(SETTLE_MS);
+  // The first failure's evidence: the page's URL, the steps run, the tab as it failed.
+  const evidence = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get(['lastRun', 'lastRunShot'], (x) => r({
+    url: x.lastRun?.failures?.[0]?.url, trace: x.lastRun?.failures?.[0]?.trace,
+    shot: (x.lastRunShot || '').slice(0, 23), shotLength: (x.lastRunShot || '').length })))`);
+  check(evidence.url === `${ctx.base}/page` && JSON.stringify(evidence.trace) === '[0,1]'
+    && evidence.shot === 'data:image/jpeg;base64,' && evidence.shotLength > 1000,
+  'the first failure keeps the URL, the steps run, and a JPEG of the tab', evidence);
   const badgeText = () => ctx.ext.evaluate('new Promise((r) => chrome.action.getBadgeText({}, r))');
   const before = await badgeText();
 

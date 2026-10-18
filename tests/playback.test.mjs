@@ -952,6 +952,96 @@ await run('verdict: csv row stopped', () => startCsvPlayback('vStop', [{}, {}], 
   },
   teardown: () => { csvRowsSeen = [...idb.stores.results.values()].map((r) => ({ rowIndex: r.rowIndex, completed: r.completed })); },
 });
+// ── evidence ────────────────────────────────────────────────────────────────
+// The first failure of a Play or Resume keeps what a bug report needs: the
+// tab's URL, when, which loop, the steps run so far (`trace`), and a screenshot
+// (lastRunShot) taken before any prompt shows.
+const evid = {};
+const evidOf = (step) => () => {
+  evid[step] = {
+    lastRun: JSON.parse(JSON.stringify(fake.data.local.lastRun ?? null)),
+    shot: fake.data.local.lastRunShot,
+    calls: fake.log.slice(logMark).map(showLogLine),
+  };
+};
+Object.assign(fake.data.local.scenarios, {
+  eTrace: { name: 'ETrace', actions: [
+    hover('#e0'),
+    { type: 'condition', conditionType: 'elementExists', selector: '#eNo', skipCount: 1 },
+    hover('#eSkipped'),
+    { type: 'switch', switchVar: '${a}', cases: [blk('1', 5, 5)] },
+    hover('#eInCase'),
+    assertOf('#eFail', 'elementExists'),
+    { type: 'click', selector: '#eGone' },
+  ] },
+  ePrompt: { name: 'EPrompt', actions: [hover('#p0'), { type: 'click', selector: '#pGone' }] },
+  eRetry:  { name: 'ERetry', actions: [{ type: 'click', selector: '#rFlaky' }, assertOf('#rNo', 'elementExists')] },
+});
+await run('evidence: trace and the first failure', () => startPlayback('eTrace'), {
+  setup: () => { page['#eGone'] = { failed: true, error: 'Element not found' }; choices = ['skip']; },
+  teardown: evidOf('evidence: trace and the first failure'),
+});
+await run('evidence: screenshot before the prompt', () => startPlayback('ePrompt'), {
+  setup: () => { page['#pGone'] = { failed: true, error: 'Element not found' }; choices = ['skip']; },
+  teardown: evidOf('evidence: screenshot before the prompt'),
+});
+await run('evidence: a retried step is in the trace once', () => startPlayback('eRetry'), {
+  setup: () => { page['#rFlaky'] = [{ failed: true, error: 'Element not found' }, {}]; choices = ['retry']; },
+  teardown: evidOf('evidence: a retried step is in the trace once'),
+});
+await run('evidence: the loop it failed in', () => startPlayback('vLoop', 2), {
+  setup: () => {
+    tick = 0;
+    page['#vTick'] = () => { tick++; return {}; };
+    conditions['#vLoop'] = () => (tick === 2 ? { result: false, found: false } : { result: true });
+  },
+  teardown: evidOf('evidence: the loop it failed in'),
+});
+await run('evidence: a run in a background tab has no screenshot', () => startPlayback('vFail', 1, 0, 2), {
+  teardown: evidOf('evidence: a run in a background tab has no screenshot'),
+});
+await run('evidence: a passed run leaves no screenshot', () => startPlayback('vPass'), {
+  teardown: evidOf('evidence: a passed run leaves no screenshot'),
+});
+
+const _shots = (step) => evid[step].calls.filter((c) => c.startsWith('tabs.captureVisibleTab'));
+test('the first failure keeps the URL, the time, the loop and the steps run so far; later ones do not', () => {
+  const [first, second] = evid['evidence: trace and the first failure'].lastRun.failures;
+  assert.deepEqual({ ...first, at: 0 }, {
+    index: 6, type: 'assert', label: '', reason: 'Expected element to exist', kind: 'assert', expected: '',
+    url: 'https://example.com/start', at: 0, loop: 1, trace: [0, 1, 3, 4, 5],
+  });
+  assert.ok(first.at > 0);
+  assert.deepEqual(Object.keys(second).sort(), ['index', 'label', 'reason', 'type']);
+});
+test('a step a Condition skips is not in the trace; a step of a Switch case of the same scenario is', () => {
+  const { trace } = evid['evidence: trace and the first failure'].lastRun.failures[0];
+  assert.ok(!trace.includes(2) && trace.includes(4));
+});
+test('a retried step is in the trace once; the trace is the loop the failure is in', () => {
+  assert.deepEqual(evid['evidence: a retried step is in the trace once'].lastRun.failures[0].trace, [0, 1]);
+  const loop = evid['evidence: the loop it failed in'].lastRun.failures[0];
+  assert.deepEqual([loop.loop, loop.trace], [2, [0, 1]]);
+});
+test('the screenshot: one JPEG of the run\'s tab, taken before the prompt, kept as lastRunShot', () => {
+  const e = evid['evidence: screenshot before the prompt'];
+  const calls = e.calls;
+  const shot = calls.findIndex((c) => c.startsWith('tabs.captureVisibleTab'));
+  const prompt = calls.findIndex((c) => c.includes('ACTION_FAILED_PROMPT'));
+  assert.ok(shot >= 0 && prompt > shot, 'captured, then the prompt');
+  assert.match(calls[shot], /\[1,\{"format":"jpeg","quality":70\}\]/);
+  assert.equal(typeof e.shot, 'string');
+  assert.equal(_shots('evidence: trace and the first failure').length, 1, 'only the first failure is photographed');
+});
+test('no screenshot for a tab in the background, a passed run, a Sequence or a CSV run', () => {
+  assert.equal(_shots('evidence: a run in a background tab has no screenshot').length, 0);
+  assert.equal(evid['evidence: a run in a background tab has no screenshot'].shot, undefined);
+  assert.equal(evid['evidence: a passed run leaves no screenshot'].shot, undefined);
+  for (const step of ['verdict: sequence', 'verdict: csv']) {
+    assert.ok(!_callsOf(step).some((c) => c.startsWith('tabs.captureVisibleTab')), step);
+  }
+});
+
 test('a CSV run ends with its rows counted by verdict, in the notification and for the popup', () => {
   assert.deepEqual(titlesOf('verdict: csv').map((n) => `${n.title} | ${n.message}`), ['CSV Run complete | 0 passed · 1 failed of 1 row(s) — "VFail"']);
   const done = _callsOf('verdict: csv').find((c) => c.includes('"CSV_RUN_DONE"'));
@@ -987,10 +1077,11 @@ test('the badge shows a failed, broken or stopped run until the next one; a pass
 test('Play and Resume keep their last run; a Sequence or a CSV run does not', () => {
   const lr = ended['verdict: failed'].lastRun;
   assert.deepEqual(Object.keys(lr).sort(), ['actions', 'completed', 'endedAt', 'failures', 'loops', 'scenarioId', 'scenarioName', 'startedAt', 'verdict']);
-  assert.deepEqual({ ...lr, startedAt: 0, endedAt: 0 }, {
+  assert.deepEqual({ ...lr, startedAt: 0, endedAt: 0, failures: lr.failures.map((f) => ({ ...f, at: 0 })) }, {
     scenarioId: 'vFail', scenarioName: 'VFail', startedAt: 0, endedAt: 0, loops: 1, completed: true,
     verdict: { status: 'failed', asserts: 1, broken: 0 },
-    failures: [{ index: 2, type: 'assert', label: '', reason: 'Expected element to exist', kind: 'assert', expected: '' }],
+    failures: [{ index: 2, type: 'assert', label: '', reason: 'Expected element to exist', kind: 'assert', expected: '',
+      url: 'https://example.com/start', at: 0, loop: 1, trace: [0, 1] }],
     actions: JSON.parse(JSON.stringify(fake.data.local.scenarios.vFail.actions)), // as storage keeps them
   });
   assert.ok(lr.endedAt >= lr.startedAt);

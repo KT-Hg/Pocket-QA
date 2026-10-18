@@ -22,3 +22,6 @@ export const HIGHLIGHT_PATTERNS_KEY = 'hl_patterns_v1';
 
 /** The last Play or Resume: its verdict, failures and actions (bg/playback.js; the popup's Last run card). */
 export const LAST_RUN_KEY = 'lastRun';
+
+/** The first failure's screenshot of that run, a JPEG data URL; absent when it had none. */
+export const LAST_RUN_SHOT_KEY = 'lastRunShot';
