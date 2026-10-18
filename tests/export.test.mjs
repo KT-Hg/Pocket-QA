@@ -659,6 +659,23 @@ test('bookmarklet: an Assert is checked until it holds, for up to 5 s; a false o
   }
 });
 
+test('an Assert recorded in a frame is checked in the frame that holds its element, as a Condition is', async () => {
+  const { generateRobot } = await import('../popup/export-robot.js');
+  const { generateJava } = await import('../popup/export-java.js');
+  const steps = [{ type: 'assert', conditionType: 'elementVisible', selector: '#f', selectors: { css: '#f' }, frameId: 3 }];
+  const bm = generateBookmarklet('f', steps, {}, { stepDelay: 0 });
+  assert.match(bm.code, /_checkCond\("elementVisible", _inFrames\("#f"\), ''\)/);
+  assert.match(bm.steps[0].reason, /a bookmarklet reaches only the frames of its own site/);
+  const py = generateSeleniumPy('f', steps, {}, { stepDelay: 0 });
+  assert.match(py.code, /^def _check_cond\(cond_type, locators, expected\):\n {4}driver\.switch_to\.default_content\(\)\n {4}el = _locate_in_frames\(locators\) if locators else None$/m);
+  const rf = generateRobot('f', steps, {}, { stepDelay: 0 });
+  assert.match(rf.code, /^ {4}Unselect Frame\n {4}Run Keyword And Continue On Failure {4}Wait Until Keyword Succeeds/m);
+  assert.match(rf.code, /^Check Condition\n(?: {4}.*\n)*? {8}\$\{el\}= {4}Locate In Frames {4}@\{locators\}$/m);
+  const java = generateJava('f', steps, {}, { stepDelay: 0 });
+  assert.match(java.code, /boolean checkCond\(String type, String expected, By\.\.\. locators\) \{\n {8}driver\.switchTo\(\)\.defaultContent\(\);\n {8}WebElement el = locators\.length > 0 \? locateInFrames\(locators\) : null;/);
+  for (const r of [py, rf, java]) assert.equal(r.steps[0].status, 'ok');
+});
+
 test('Selenium: an Assert is checked until it holds, for up to 5 s; a false one fails the run at its end, not there', () => {
   const steps = [
     { type: 'assert', conditionType: 'textEquals', selector: '#toast', selectors: { css: '#toast' }, expectedValue: '${msg}', label: 'Toast' },
