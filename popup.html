@@ -134,6 +134,17 @@
   <div class="tab-panel active" id="tabRecord">
     <div class="main-content" id="mainContent" role="main">
 
+    <!-- LAST RUN — how the last Play or Resume came out (popup/run/last-run.js) -->
+    <div class="card last-run" id="lastRunCard" hidden>
+      <div class="lr-head">
+        <span class="lr-verdict"></span>
+        <span class="lr-name"></span>
+        <span class="lr-when"></span>
+        <button type="button" id="lastRunDismiss" class="lr-dismiss" title="Hide until the next run" aria-label="Hide the last run until the next one">✕</button>
+      </div>
+      <ul class="lr-failures" aria-label="Failures of the last run"></ul>
+    </div>
+
     <!-- RECORD -->
     <div class="card">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">

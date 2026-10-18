@@ -483,3 +483,29 @@ body.update-locked .cap-edit-btn:hover { transform: none; }
   animation: tabPanelIn 0.18s ease-out;
 }
 
+
+/* === Last run card (popup/run/last-run.js) === */
+.last-run { border-left: 4px solid var(--lr-color, var(--muted)); padding: 8px 10px; }
+.last-run[data-status="passed"]  { --lr-color: var(--success); }
+.last-run[data-status="failed"]  { --lr-color: var(--danger); }
+.last-run[data-status="broken"]  { --lr-color: var(--warning); }
+.last-run[data-status="stopped"] { --lr-color: var(--muted); }
+.lr-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 13px; }
+.lr-verdict { font-weight: 700; color: var(--lr-color); white-space: nowrap; }
+.lr-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-when { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.lr-dismiss {
+  width: auto; margin: 0; padding: 0 4px;
+  background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px;
+}
+.lr-dismiss:hover { color: var(--text); background: none; transform: none; }
+.lr-failures { list-style: none; margin: 4px 0 0; padding: 0; max-height: 128px; overflow-y: auto; }
+.lr-failures:empty { display: none; }
+.lr-failure {
+  display: block; width: 100%; margin: 0; padding: 3px 6px; text-align: left;
+  background: none; border: none; border-radius: 4px; color: var(--text); font-size: 12px; font-weight: 400;
+  cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lr-failure:hover, .lr-failure:focus-visible { background: var(--secondary-bg); transform: none; }
+/* The action a failure of the Last run card led to. */
+#actions li.lr-target { outline: 2px solid var(--warning); outline-offset: -2px; }

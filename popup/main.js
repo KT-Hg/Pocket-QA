@@ -13,6 +13,7 @@ import { initCollapsible } from './ui/collapsible.js';
 import { initNotices } from './notices.js';
 import { initCsvListeners } from './csv/csv-listeners.js';
 import { initResumeBanners } from './run/resume-banners.js';
+import { initLastRun } from './run/last-run.js';
 import { initPickedSelectors } from './record/picked-selectors.js';
 import { initSelectorTypeMenus } from './record/selector-type-menu.js';
 import { initPicker } from './record/picker.js';
@@ -53,6 +54,7 @@ export function initMain() {
   initNotices();
   initCsvListeners();
   initResumeBanners();
+  initLastRun();
   initPickedSelectors();
   initSelectorTypeMenus();
   initPicker();

@@ -214,6 +214,7 @@ await send('stop playback', { type: 'STOP_PLAYBACK' });
 await send('play sequence', { type: 'START_SEQUENCE_PLAYBACK', runList: [{ id: 'r1', delay: 0 }] });
 await send('stop sequence', { type: 'STOP_SEQUENCE_PLAYBACK' });
 await send('resume playback', { type: 'RESUME_PLAYBACK', scenarioId: 'r1', actionIndex: 0, tabId: 1 });
+await send('clear the run verdict', { type: 'CLEAR_RUN_VERDICT' });
 await send('csv status', { type: 'GET_CSV_STATUS' });
 await send('csv start', { type: 'START_CSV_PLAYBACK', scenarioId: 'r1', rows: [{ user: 'a' }], delayBetween: 0 });
 await send('csv stop after row (idle)', { type: 'STOP_CSV_AFTER_ROW' });

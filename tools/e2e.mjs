@@ -662,6 +662,65 @@ async function checkAssert(ctx) {
     'the run ends Failed: ✗ on the badge, and the run kept as the last one', ended);
 }
 
+async function checkLastRun(ctx) {
+  await reloadTestPage(ctx);
+  const id = await makeScenario(ctx, 'e2e last run', [
+    { type: 'click', selector: '#bg1', selectors: { css: '#bg1' }, label: 'Press bg1' },
+    { type: 'assert', conditionType: 'textEquals', selector: '#bg2', selectors: { css: '#bg2' }, expectedValue: 'nope', label: 'bg2 says nope' },
+    { type: 'click', selector: '#bg2', selectors: { css: '#bg2' } },
+  ]);
+  await ctx.web.bringToFront();
+  const started = Date.now();
+  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: id });
+  while (Date.now() - started < 20_000) {
+    await sleep(POLL_MS);
+    if (Date.now() - started > 1_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing) break;
+  }
+  await sleep(SETTLE_MS);
+  const badgeText = () => ctx.ext.evaluate('new Promise((r) => chrome.action.getBadgeText({}, r))');
+  const before = await badgeText();
+
+  const popup = await openPopup(ctx);
+  const card = () => popup.evaluate(`(() => {
+    const c = document.getElementById('lastRunCard');
+    return { shown: !!c && !c.hidden, verdict: c?.querySelector('.lr-verdict')?.textContent,
+      name: c?.querySelector('.lr-name')?.textContent, when: c?.querySelector('.lr-when')?.textContent,
+      failures: [...(c?.querySelectorAll('.lr-failure') || [])].map((b) => b.textContent.replace(/\\s+/g, ' ').trim()) };
+  })()`);
+  const shown = await card();
+  check(shown.shown && shown.verdict === '✗ Failed' && shown.name === 'e2e last run' && shown.failures.length === 1
+    && shown.failures[0].includes('#2 bg2 says nope') && shown.failures[0].includes('Expected text "nope", got "bg2"'),
+  'the popup shows the last run: Failed, its scenario and its failed check', shown);
+  check(/ago|just now/.test(shown.when || ''), 'and how long ago it ended', shown.when);
+  check(before === '✗' && (await badgeText()) === '', 'opening the popup takes the verdict off the badge', { before, after: await badgeText() });
+
+  // A failure leads to its action in the list.
+  await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabRecord"]').click();
+    document.querySelector('#lastRunCard .lr-failure').click();`);
+  await sleep(SETTLE_MS * 2);
+  const jumped = await popup.evaluate(`({ selected: document.getElementById('scenarioList').value,
+    row: document.querySelector('#actions li.action.lr-target')?.dataset.index })`);
+  check(jumped.selected === id && jumped.row === '1', 'a failure selects its scenario and marks its action in the list', jumped);
+
+  // Its scenario deleted: the card still shows, and a failure says the scenario is gone.
+  await ctx.send({ type: 'DELETE_SCENARIO', scenarioId: id });
+  await popup.reload();
+  await sleep(POPUP_SETTLE_MS);
+  const orphan = await card();
+  await popup.evaluate(`document.querySelector('#lastRunCard .lr-failure')?.click()`);
+  await sleep(SETTLE_MS);
+  const toast = await popup.evaluate(`document.getElementById('toast').textContent`);
+  check(orphan.shown && /no longer exists/.test(toast), 'with its scenario deleted the card still shows, and a failure says so', { orphan, toast });
+
+  // × hides it until the next run.
+  await popup.evaluate(`document.getElementById('lastRunDismiss').click()`);
+  await popup.reload();
+  await sleep(POPUP_SETTLE_MS);
+  check(!(await card()).shown, '× hides the card, and it stays hidden when the popup opens again', await card());
+  if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  await popup.close();
+}
+
 async function checkHotkeys(ctx) {
   await reloadTestPage(ctx);
   // Alt+R as the page gets it; `key` is what the keyboard typed ("®" for Option+R on macOS).
@@ -3145,6 +3204,7 @@ const CHECKS = [
   ['record-overlay', 'Recording ignores the extension overlays', checkRecordOverlay],
   ['condition-unknown', 'A Condition of an unknown type', checkConditionUnknown],
   ['assert', 'Assert: waited for, and a false one does not stop the run', checkAssert],
+  ['last-run', 'The Last run card in the popup', checkLastRun],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
   ['select-type', 'Child Condition type "select"', checkSelectType],

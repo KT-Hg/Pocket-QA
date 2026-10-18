@@ -11,6 +11,15 @@ import { updateBadge } from '../badge.js';
 import { startPlayback, startPlaybackFromCheckpoint, startSequence } from '../playback.js';
 
 export const playbackHandlers = {
+  // The popup was opened: the last run's verdict is on its Last run card now,
+  // so the badge stops telling it (state.runVerdict, bg/badge.js).
+  CLEAR_RUN_VERDICT(request, sender, sendResponse) {
+    state.runVerdict = null;
+    updateBadge();
+    sendResponse({ ok: true });
+    return;
+  },
+
   RESUME_PLAYBACK(request, sender, sendResponse) {
     const { scenarioId, actionIndex, tabId, nested } = request;
     chrome.storage.local.remove("playbackCheckpoint");
