@@ -599,6 +599,66 @@ test('a bookmarklet goes on across the pages of its site, a click per page, redi
   assert.doesNotMatch(generateBookmarklet('one', steps.slice(0, 2), {}).code, /_resumeKey|_from/);
 });
 
+test('bookmarklet: an Assert is checked until it holds, for up to 5 s; a false one is told at the end, its list kept across pages', async () => {
+  const steps = [
+    { type: 'assert', conditionType: 'textEquals', selector: '#msg', selectors: { css: '#msg' }, expectedValue: 'Saved', label: 'Late' },
+    { type: 'assert', conditionType: 'textEquals', selector: '#msg', selectors: { css: '#msg' }, expectedValue: 'Nope', label: 'Never' },
+    { type: 'script', code: 'globalThis.__seen.push("p1")' },
+    { type: 'navigate', url: 'https://shop.test/b' },
+    { type: 'assert', conditionType: 'urlContains', expectedValue: '/nowhere' },
+    { type: 'script', code: 'globalThis.__seen.push("p2")' },
+    { type: 'assert', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' } },
+  ];
+  const { code, steps: status, warnings } = generateBookmarklet('asserts', steps, {}, { stepDelay: 0 });
+  assert.match(code, /^ {6}await _assert\(_at \+ ': ' \+ "expected text \\"Saved\\"", \(\) => _checkCond\("textEquals", _first\("#msg"\), "Saved"\)\);$/m);
+  assert.match(code, /^ {6}await _assert\(_at \+ ': ' \+ "expected URL containing \\"\/nowhere\\"", \(\) => _checkCond\("urlContains", null, "\/nowhere"\)\);$/m);
+  assert.match(code, /^ {6}throw new Error\("Assert step 7: unknown condition type, named in the comment above"\);$/m);
+  assert.ok(warnings.some((w) => /Assert step 7: type "isChecked" is unknown/.test(w)), warnings.join());
+  assert.deepEqual(status.map((s) => s.status), ['ok', 'ok', 'verify', 'verify', 'ok', 'verify', 'verify']);
+  assert.doesNotMatch(generateBookmarklet('t', [steps[2]], {}).code, /_assert|_failures/);
+
+  // Run on a fake page and clock: #msg says "Saved" from its fourth read on; the clock moves as the run sleeps.
+  const storage = new Map();
+  const realNow = Date.now, realTimeout = globalThis.setTimeout;
+  let now = 0;
+  const click = async (href) => {
+    let reads = 0;
+    const msg = { get textContent() { reads++; return reads > 3 ? 'Saved' : 'Loading'; } };
+    const seen = { alerts: [], errors: [], location: { href, origin: new URL(href).origin } };
+    Object.assign(globalThis, {
+      location: seen.location, window: { location: seen.location }, alert: (m) => seen.alerts.push(m),
+      document: { querySelector: (s) => (s === '#msg' ? msg : null), querySelectorAll: () => [] },
+      sessionStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, String(v)), removeItem: (k) => storage.delete(k) },
+    });
+    const error = console.error;
+    console.error = (m) => seen.errors.push(m);
+    Date.now = () => now;
+    globalThis.setTimeout = (fn, ms) => { now += ms || 0; return realTimeout(fn, 0); };
+    try {
+      await new Function(`return ${code.slice('javascript:'.length).replace('throw new Error("Assert step 7', '// throw new Error("Assert step 7')}`)();
+    } finally {
+      console.error = error;
+      Date.now = realNow;
+      globalThis.setTimeout = realTimeout;
+      for (const k of ['location', 'window', 'alert', 'document', 'sessionStorage']) delete globalThis[k];
+    }
+    return seen;
+  };
+  try {
+    globalThis.__seen = [];
+    const first = await click('https://shop.test/a');
+    assert.deepEqual(first.errors, ['❌ Step 2: assert — textEquals — Never: expected text "Nope"'], 'the late text passes, the false one is told at once');
+    assert.ok(now >= 5000, `the false one waited 5 s (${now} ms)`);
+    assert.deepEqual(first.alerts, ['Opening https://shop.test/b. Run the bookmark again once it has loaded.'], 'no summary yet: the run goes on there');
+    const second = await click('https://shop.test/b');
+    assert.deepEqual(globalThis.__seen, ['p1', 'p2'], 'the steps after each false Assert ran');
+    assert.deepEqual(second.alerts, ['2 Assert(s) failed:\nStep 2: assert — textEquals — Never: expected text "Nope"\nStep 5: assert — urlContains: expected URL containing "/nowhere"'],
+      'one alert at the end, with the first page\'s failures too');
+  } finally {
+    delete globalThis.__seen;
+  }
+});
+
 test('Selenium: an Assert is checked until it holds, for up to 5 s; a false one fails the run at its end, not there', () => {
   const steps = [
     { type: 'assert', conditionType: 'textEquals', selector: '#toast', selectors: { css: '#toast' }, expectedValue: '${msg}', label: 'Toast' },
