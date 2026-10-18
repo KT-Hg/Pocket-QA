@@ -18,7 +18,10 @@ import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
-import { exportVariables, inFrame, locatorsFor, pickLabel, readTargets, undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars } from './export/walk.js';
+import {
+  ASSERT_POLL_MS, ASSERT_WAIT_MS, assertExpected, assertType, exportVariables, inFrame, locatorsFor, pickLabel, readTargets,
+  undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars,
+} from './export/walk.js';
 import { CONDITION_TYPES, PAGE_CALLS } from './export/page-js.js';
 
 /**
@@ -44,7 +47,7 @@ const RESERVED = new Set(['abstract', 'assert', 'boolean', 'break', 'byte', 'cas
   'public', 'return', 'short', 'static', 'strictfp', 'super', 'switch', 'synchronized', 'this', 'throw', 'throws',
   'transient', 'try', 'void', 'volatile', 'while', 'true', 'false', 'null', 'var', 'record', 'yield', 'sealed', 'permits',
   '_', 'e', 'driver', 'at', 'firstOrigin', 'TIMEOUT', 'LETTERS', 'DIGITS', 'By', 'Actions', 'Pattern', 'Matcher',
-  'OutputType', 'WebElement', 'String', 'Thread', 'Object', 'System', 'Math', 'Exception', 'AssertionError']);
+  'OutputType', 'WebElement', 'String', 'Thread', 'Object', 'System', 'Math', 'Exception', 'AssertionError', 'SoftAssert', 'softly']);
 
 /**
  * (name) → the Java variable for a Pocket QA variable: letters, digits and _, a
@@ -278,6 +281,17 @@ const STEP_HELPERS = {
         WebElement el = locators.length > 0 ? LOCATE(locators) : null;
         return Boolean.TRUE.equals(exec(CHECK_COND_JS, type, el, expected));
     }`],
+  assert: [[], `    /**
+     * An Assert as the extension makes it (bg/playback/steps/assert.js): its check made again every ${ASSERT_POLL_MS} ms
+     * until it holds, for up to ${ASSERT_WAIT_MS / 1000} s. One still false is told and noted in softly, and the test goes on.
+     */
+    void softAssert(SoftAssert softly, String message, String type, String expected, By... locators) throws InterruptedException {
+        long end = System.currentTimeMillis() + ${ASSERT_WAIT_MS};
+        boolean held;
+        while (!(held = checkCond(type, expected, locators)) && System.currentTimeMillis() < end) Thread.sleep(${ASSERT_POLL_MS});
+        if (!held) System.out.println("Assert failed: " + message);
+        softly.assertTrue(held, message);
+    }`],
   child: [['FIND_CHILD_JS'], String.raw`    /** The child a Child Condition picks in its parent (content.js findElementByCondition): criteria as name, value pairs. */
     WebElement findChild(WebElement parent, int step, String... criteria) {
         Map<String, String> cond = new LinkedHashMap<>();
@@ -423,6 +437,16 @@ const STEP_LINES = {
     return [...(s.ctx.frames === 'all' ? ['driver.switchTo().defaultContent();'] : []), ...scriptLines(code, s.ctx)];
   },
   readdom: readdomLines,
+  assert: (a, s) => {
+    const type = assertType(a, s.step, s.ctx.warnings);
+    if (!type) {
+      s.ctx.uses.add('stop');
+      return [`stop("Assert step ${s.n}: unknown condition type, named in the comment above");`];
+    }
+    s.ctx.uses.add('condition').add('assert');
+    const locs = type.startsWith('url') ? '' : `, ${locsJava(locatorsFor(a))}`;
+    return [`softAssert(softly, at + ": " + ${valueJava(assertExpected(type, a))}, "${type}", ${valueJava(a.expectedValue)}${locs});`];
+  },
   screenshot: (a, s) => [`save("screenshot_step${s.n}.png", pageShot());`],
   screenshot_full: (a, s) => {
     s.ctx.uses.add('full');
@@ -465,6 +489,7 @@ function stepWhat(a) {
     case 'dropdown': return a.pick ? `dropdown → item #${pickLabel(a)}` : 'open dropdown (freeze)';
     case 'dragdrop': return 'drag & drop';
     case 'script': return 'execute script';
+    case 'assert': return `assert — ${a.conditionType || 'elementExists'}`;
     case 'screenshot': return 'screenshot (visible)';
     case 'screenshot_full': return 'screenshot (full page)';
     case 'screenshot_element': return 'screenshot element';
@@ -639,6 +664,26 @@ const IMPORTS = ['java.io.IOException', 'java.nio.file.Files', 'java.nio.file.Pa
   'org.testng.ITestResult', 'org.testng.annotations.AfterMethod', 'org.testng.annotations.BeforeMethod', 'org.testng.annotations.Test'];
 // What reading a data file adds.
 const DATA_IMPORTS = ['java.nio.charset.StandardCharsets', 'java.util.ArrayList', 'org.testng.annotations.DataProvider'];
+// What an Assert adds.
+const assertImports = (uses) => (uses.has('assert') ? ['org.testng.asserts.SoftAssert'] : []);
+
+/**
+ * The test's steps, in a try whose catch names the step a failure comes from. With an
+ * Assert: the SoftAssert the steps note a false one in, and its failures after them —
+ * outside the try, so that the message keeps each one.
+ */
+function tryLines(lines, uses) {
+  const soft = uses.has('assert');
+  return [
+    ...(soft ? ['        SoftAssert softly = new SoftAssert();'] : []),
+    '        try {',
+    ...lines.join('\n').trimEnd().split('\n').map((l) => (l === '' ? '' : `            ${l}`)),
+    '        } catch (Exception | AssertionError e) {',
+    '            throw new AssertionError((at.isEmpty() ? "Error" : at) + ": " + String.valueOf(e.getMessage()).lines().findFirst().orElse(""), e);',
+    '        }',
+    ...(soft ? ['        // A false Assert did not stop the test: it fails here, with each one.', '        softly.assertAll();'] : []),
+  ];
+}
 
 // With a data file: a test per row of it, read as the extension's CSV run reads it.
 const DATA_HELPERS = String.raw`    /** A test per row of the data file. */
@@ -787,7 +832,7 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
   const out = [
     ...runNotes(driverType, headless, Object.keys(variables || {}), dataFile),
     '',
-    ...[...IMPORTS, ...data.imports].map((i) => `import ${i};`),
+    ...[...IMPORTS, ...data.imports, ...assertImports(ctx.uses)].map((i) => `import ${i};`),
     '',
     `/** ${javaComment(scenarioName)} — a Pocket QA scenario. */`,
     `public class ${className} {`,
@@ -825,11 +870,7 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
     '',
     ...data.test,
     ...(varLines.length ? ['        // --- VARIABLES ---', ...varLines.map((l) => `        ${l}`), ''] : []),
-    '        try {',
-    ...[...start, ...body].join('\n').trimEnd().split('\n').map((l) => (l === '' ? '' : `            ${l}`)),
-    '        } catch (Exception | AssertionError e) {',
-    '            throw new AssertionError((at.isEmpty() ? "Error" : at) + ": " + String.valueOf(e.getMessage()).lines().findFirst().orElse(""), e);',
-    '        }',
+    ...tryLines([...start, ...body], ctx.uses),
     '    }',
     '}',
   ];

@@ -103,6 +103,29 @@ const NASTY = [
   { type: 'click', selector: '#d', selectors: { css: '#d' } },
 ];
 
+test('java: an Assert waits as a run does (SoftAssert), and a false one fails the test at its end, not there', () => {
+  const { code, steps, warnings } = generateJava('a', [
+    { type: 'assert', conditionType: 'textEquals', selector: '#toast', selectors: { css: '#toast' }, expectedValue: '${msg}', label: 'Toast' },
+    { type: 'click', selector: '#a', selectors: { css: '#a' } },
+    { type: 'assert', conditionType: 'urlContains', expectedValue: '/done' },
+    { type: 'assert', selector: '#plain', selectors: { css: '#plain' } },
+    { type: 'assert', conditionType: 'isChecked', selector: '#c', selectors: { css: '#c' } },
+  ], { msg: 'Hi' }, { stepDelay: 0 });
+  assert.match(code, /^import org\.testng\.asserts\.SoftAssert;$/m);
+  // Checked again every 250 ms for up to 5 s; still false, told and noted, and the test goes on.
+  assert.match(code, /^ {4}void softAssert\(SoftAssert softly, String message, String type, String expected, By\.\.\. locators\) throws InterruptedException \{\n {8}long end = System\.currentTimeMillis\(\) \+ 5000;\n {8}boolean held;\n {8}while \(!\(held = checkCond\(type, expected, locators\)\) && System\.currentTimeMillis\(\) < end\) Thread\.sleep\(250\);\n {8}if \(!held\) System\.out\.println\("Assert failed: " \+ message\);\n {8}softly\.assertTrue\(held, message\);\n {4}\}$/m);
+  assert.match(code, /^ {8}SoftAssert softly = new SoftAssert\(\);\n {8}try \{$/m);
+  assert.match(code, /^ {12}\/\/ Step 1: assert — textEquals — Toast\n {12}at = "Step 1: assert — textEquals — Toast";\n {12}softAssert\(softly, at \+ ": " \+ "expected text \\"" \+ msg \+ "\\"", "textEquals", msg, css\("#toast"\)\);\n\n {12}\/\/ Step 2: click$/m);
+  assert.match(code, /^ {12}softAssert\(softly, at \+ ": " \+ "expected URL containing \\"\/done\\"", "urlContains", "\/done"\);$/m);
+  assert.match(code, /^ {12}softAssert\(softly, at \+ ": " \+ "expected element to exist", "elementExists", "", css\("#plain"\)\);$/m);
+  assert.match(code, /^ {12}stop\("Assert step 5: unknown condition type, named in the comment above"\);$/m);
+  assert.ok(warnings.some((w) => /Assert step 5: type "isChecked" is unknown/.test(w)), warnings.join());
+  // After the steps, outside the catch that names the last step: each false Assert.
+  assert.match(code, /^ {8}\}\n {8}\/\/ A false Assert did not stop the test: it fails here, with each one\.\n {8}softly\.assertAll\(\);\n {4}\}\n\}$/m);
+  assert.deepEqual(steps.map((s) => s.status), ['ok', 'ok', 'ok', 'ok', 'verify']);
+  assert.doesNotMatch(generateJava('t', [{ type: 'click', selector: '#a', selectors: { css: '#a' } }], {}).code, /SoftAssert/);
+});
+
 test('java: every synthetic scenario compiles with selenium-java and testng', { skip: NO_LIBS }, () => {
   inTemp((dir) => {
     const files = [];
