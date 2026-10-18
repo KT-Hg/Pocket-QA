@@ -143,6 +143,7 @@
         <button type="button" id="lastRunDismiss" class="lr-dismiss" title="Hide until the next run" aria-label="Hide the last run until the next one">✕</button>
       </div>
       <ul class="lr-failures" aria-label="Failures of the last run"></ul>
+      <button type="button" id="lastRunBugReport" class="secondary lr-report" hidden>📋 Bug report</button>
     </div>
 
     <!-- RECORD -->
@@ -1600,6 +1601,20 @@
     <span id="csvResumeBannerMsg" class="resume-banner-msg"></span>
     <button id="csvResumeBtn" class="resume-banner-btn">▶ Resume run</button>
     <button id="csvResumeDismissBtn" class="resume-banner-dismiss" aria-label="Dismiss CSV resume banner">✕</button>
+  </div>
+
+  <!-- BUG REPORT — the last run's report in Markdown, to copy into an issue (popup/run/last-run.js) -->
+  <div id="bugReportModal" class="random-modal" aria-labelledby="bugReportTitle" aria-hidden="true">
+    <div class="random-modal-content bug-report-content">
+      <h4 id="bugReportTitle" style="margin:0 0 8px;"><span aria-hidden="true">📋</span> Bug report</h4>
+      <textarea id="bugReportText" class="bug-report-text" readonly spellcheck="false" aria-label="Bug report in Markdown"></textarea>
+      <label class="bug-report-values"><input type="checkbox" id="bugReportShowValues"> Include typed values</label>
+      <div class="bug-report-buttons">
+        <button type="button" id="bugReportCopy" class="success">Copy</button>
+        <button type="button" id="bugReportShot" class="secondary">Download screenshot</button>
+        <button type="button" id="bugReportClose" class="secondary bug-report-close" aria-label="Close the bug report">✕</button>
+      </div>
+    </div>
   </div>
 
   <!-- DIFF MODAL -->

@@ -509,3 +509,20 @@ body.update-locked .cap-edit-btn:hover { transform: none; }
 .lr-failure:hover, .lr-failure:focus-visible { background: var(--secondary-bg); transform: none; }
 /* The action a failure of the Last run card led to. */
 #actions li.lr-target { outline: 2px solid var(--warning); outline-offset: -2px; }
+
+.lr-report { display: block; width: auto; margin: 6px 0 0; padding: 4px 10px; font-size: 12px; }
+.lr-report[hidden] { display: none; }
+
+/* === Bug report window (popup/run/last-run.js) === */
+.bug-report-content { width: min(440px, 94vw); }
+.bug-report-text {
+  display: block; width: 100%; height: 260px; margin: 0; padding: 8px; box-sizing: border-box; resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; line-height: 1.45;
+  white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; color: var(--code-text); background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.bug-report-values { display: flex; align-items: center; gap: 6px; margin: 8px 0; font-size: 12px; cursor: pointer; }
+.bug-report-values input { width: auto; margin: 0; }
+.bug-report-buttons { display: flex; gap: 6px; }
+.bug-report-buttons button { flex: 1; margin: 0; }
+.bug-report-buttons .bug-report-close { flex: 0 0 auto; width: auto; padding: 5px 12px; }

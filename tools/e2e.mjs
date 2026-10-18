@@ -665,6 +665,8 @@ async function checkAssert(ctx) {
 async function checkLastRun(ctx) {
   await reloadTestPage(ctx);
   const id = await makeScenario(ctx, 'e2e last run', [
+    // Typed text the bug report hides until asked.
+    { type: 'input', selector: '#out', selectors: { css: '#out' }, value: 'S3CRET' },
     { type: 'click', selector: '#bg1', selectors: { css: '#bg1' }, label: 'Press bg1' },
     { type: 'assert', conditionType: 'textEquals', selector: '#bg2', selectors: { css: '#bg2' }, expectedValue: 'nope', label: 'bg2 says nope' },
     { type: 'click', selector: '#bg2', selectors: { css: '#bg2' } },
@@ -681,7 +683,7 @@ async function checkLastRun(ctx) {
   const evidence = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get(['lastRun', 'lastRunShot'], (x) => r({
     url: x.lastRun?.failures?.[0]?.url, trace: x.lastRun?.failures?.[0]?.trace,
     shot: (x.lastRunShot || '').slice(0, 23), shotLength: (x.lastRunShot || '').length })))`);
-  check(evidence.url === `${ctx.base}/page` && JSON.stringify(evidence.trace) === '[0,1]'
+  check(evidence.url === `${ctx.base}/page` && JSON.stringify(evidence.trace) === '[0,1,2]'
     && evidence.shot === 'data:image/jpeg;base64,' && evidence.shotLength > 1000,
   'the first failure keeps the URL, the steps run, and a JPEG of the tab', evidence);
   const badgeText = () => ctx.ext.evaluate('new Promise((r) => chrome.action.getBadgeText({}, r))');
@@ -696,7 +698,7 @@ async function checkLastRun(ctx) {
   })()`);
   const shown = await card();
   check(shown.shown && shown.verdict === '✗ Failed' && shown.name === 'e2e last run' && shown.failures.length === 1
-    && shown.failures[0].includes('#2 bg2 says nope') && shown.failures[0].includes('Expected text "nope", got "bg2"'),
+    && shown.failures[0].includes('#3 bg2 says nope') && shown.failures[0].includes('Expected text "nope", got "bg2"'),
   'the popup shows the last run: Failed, its scenario and its failed check', shown);
   check(/ago|just now/.test(shown.when || ''), 'and how long ago it ended', shown.when);
   check(before === '✗' && (await badgeText()) === '', 'opening the popup takes the verdict off the badge', { before, after: await badgeText() });
@@ -707,7 +709,33 @@ async function checkLastRun(ctx) {
   await sleep(SETTLE_MS * 2);
   const jumped = await popup.evaluate(`({ selected: document.getElementById('scenarioList').value,
     row: document.querySelector('#actions li.action.lr-target')?.dataset.index })`);
-  check(jumped.selected === id && jumped.row === '1', 'a failure selects its scenario and marks its action in the list', jumped);
+  check(jumped.selected === id && jumped.row === '2', 'a failure selects its scenario and marks its action in the list', jumped);
+
+  // The bug report: Markdown in a preview, typed values hidden until asked, Copy, the screenshot.
+  const report = () => popup.evaluate(`({ open: document.getElementById('bugReportModal').classList.contains('show'),
+    text: document.getElementById('bugReportText').value,
+    shotButton: getComputedStyle(document.getElementById('bugReportShot')).display !== 'none' })`);
+  await popup.evaluate(`document.getElementById('lastRunBugReport').click()`);
+  await sleep(SETTLE_MS);
+  const hidden = await report();
+  check(hidden.open && hidden.text.startsWith('## ✗ Failed — e2e last run, step #3')
+    && hidden.text.includes('3. ✗ Check that the text of `#bg2` is "nope" — bg2 says nope')
+    && hidden.text.includes('1. Type ••• into `#out`') && !hidden.text.includes('S3CRET')
+    && /Attached: `pocketqa-bug-e2e last run-[\d_-]+\.jpg`/.test(hidden.text) && hidden.shotButton,
+  'Bug report: the report with typed values hidden, and its screenshot to download', hidden);
+  await popup.evaluate(`document.getElementById('bugReportShowValues').click()`);
+  await sleep(SETTLE_MS);
+  check((await report()).text.includes('1. Type "S3CRET" into `#out`'), 'Include typed values shows them', (await report()).text.slice(0, 300));
+  await popup.evaluate(`document.getElementById('bugReportCopy').click()`);
+  await sleep(SETTLE_MS);
+  const copied = await popup.evaluate(`document.getElementById('toast').textContent`);
+  check(/copied/i.test(copied), 'Copy puts the report on the clipboard', copied);
+  const jpgs = () => readdirSync(ctx.browser.downloadDir).filter((f) => f.startsWith('pocketqa-bug-') && f.endsWith('.jpg'));
+  const jpgsBefore = jpgs().length;
+  await popup.evaluate(`document.getElementById('bugReportShot').click()`);
+  for (let waited = 0; jpgs().length === jpgsBefore && waited < 5_000; waited += POLL_MS) await sleep(POLL_MS);
+  check(jpgs().length === jpgsBefore + 1, 'Download screenshot saves the JPEG', jpgs());
+  await popup.evaluate(`document.getElementById('bugReportClose').click()`);
 
   // Its scenario deleted: the card still shows, and a failure says the scenario is gone.
   await ctx.send({ type: 'DELETE_SCENARIO', scenarioId: id });
