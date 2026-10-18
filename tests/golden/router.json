@@ -2409,6 +2409,7 @@
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.local.remove [\"playbackCheckpoint\"]",
    "storage.local.set [{\"lastRun\":{\"scenarioId\":\"r1\",\"scenarioName\":\"Restored\",\"startedAt\":1768467607500,\"endedAt\":1768467607500,\"loops\":1,\"completed\":true,\"verdict\":{\"status\":\"passed\",\"asserts\":0,\"broken\":0},\"failures\":[],\"resumed\":true,\"actions\":[]}}]",
+   "storage.local.remove [\"lastRunShot\"]",
    "storage.sync.get [[\"notifyOnComplete\"]]"
   ],
   "console": [],
