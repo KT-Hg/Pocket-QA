@@ -2849,6 +2849,309 @@
    "${họ_tên} is used by a step but not defined in the Variables tab"
   ]
  },
+ "Asserts | none": {
+  "code": "javascript:(async () => {\n  // ============================\n  // BOOKMARKLET: Asserts\n  // ============================\n\n  // --- HELPER FUNCTIONS ---\n  const sleep = ms => new Promise(r => setTimeout(r, ms));\n\n  const _qsel = sel => (typeof sel === 'object' ? _findText(sel.text, sel.tag || '')\n    : (sel.startsWith('/') || sel.startsWith('('))\n      ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue\n      : document.querySelector(sel) || _deep(sel));\n\n  const _deep = (selector) => {\n    const deep = (root) => {\n      const el = root.querySelector(selector);\n      if (el) return el;\n      for (const host of root.querySelectorAll('*')) {\n        if (host.shadowRoot) {\n          const found = deep(host.shadowRoot);\n          if (found) return found;\n        }\n      }\n      return null;\n    };\n    try { return deep(document); } catch (e) { return null; }\n  };\n\n  const _first = sels => {\n    for (const sel of [].concat(sels)) {\n      try { const el = _qsel(sel); if (el) return el; } catch (e) { /* a selector this page cannot parse */ }\n    }\n    return null;\n  };\n\n  const getEl = (sels, timeout = 5000) => new Promise((res, rej) => {\n    const el = _first(sels);\n    if (el) return res(el);\n    const look = () => { const found = _first(sels); if (found) { stop(); res(found); } };\n    const obs = new MutationObserver(look);\n    const poll = setInterval(look, 250);\n    const stop = () => { obs.disconnect(); clearInterval(poll); clearTimeout(timer); };\n    obs.observe(document.body, { childList: true, subtree: true });\n    const timer = setTimeout(() => { stop(); rej(new Error(`No element found by ${JSON.stringify(sels)}`)); }, timeout);\n  });\n\n  const _click = (el) => {\n    el.scrollIntoView({ behavior: 'auto', block: 'center' });\n    el.focus();\n    const r = el.getBoundingClientRect();\n    const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };\n    el.dispatchEvent(new MouseEvent('mousedown', opts));\n    el.dispatchEvent(new MouseEvent('mouseup', opts));\n    el.click();\n  };\n\n  const _checkCond = (type, el, expected) => {\n    const shown = (e) => {\n      const style = getComputedStyle(e), rect = e.getBoundingClientRect();\n      return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;\n    };\n    switch (type) {\n      case 'elementExists':    return !!el;\n      case 'elementNotExists': return !el;\n      case 'elementVisible':   return !!el && shown(el);\n      case 'elementHidden':    return !el || !shown(el);\n      case 'textContains':     return !!el && el.textContent.includes(expected);\n      case 'textEquals':       return !!el && el.textContent.trim() === (expected || '').trim();\n      case 'valueEquals':      return !!el && 'value' in el && el.value === expected;\n      case 'valueContains':    return !!el && 'value' in el && el.value.includes(expected);\n      case 'urlContains':      return window.location.href.includes(expected);\n      case 'urlEquals':        return window.location.href === expected;\n      case 'hasClass':         return !!el && el.classList.contains(expected);\n      case 'hasAttribute': {\n        if (!el) return false;\n        const eq = (expected || '').indexOf('=');\n        if (eq < 0) return el.hasAttribute(expected);\n        const name = expected.slice(0, eq);\n        return el.hasAttribute(name) && el.getAttribute(name) === expected.slice(eq + 1);\n      }\n      default: throw new Error('Unknown condition type \"' + type + '\"');\n    }\n  };\n\n  // --- MAIN FLOW ---\n  let _at = '';\n  try {\n\n    // Step 1: assert — Saved toast — [unsupported type, skipped]\n\n    // Step 2: click\n    _at = \"Step 2: click\";\n    const _el2 = await getEl([\"//*[@id=\\\"next\\\"]\", \"#next\"], 5000);\n    _click(_el2);\n    await sleep(300);\n\n    // Step 3: assert — [unsupported type, skipped]\n\n    // Step 4: assert — [unsupported type, skipped]\n\n    // Step 5: assert — [unsupported type, skipped]\n\n    // Step 6: assert — [unsupported type, skipped]\n\n    // Step 7: assert — [unsupported type, skipped]\n\n    // Step 9: condition — elementExists\n    _at = \"Step 9: condition — elementExists\";\n    if (_checkCond(\"elementExists\", _first([\"//*[@id=\\\"panel\\\"]\", \"#panel\"]), '')) {\n      // Step 10: assert — [unsupported type, skipped]\n\n    }\n\n    // Step 11: click\n    _at = \"Step 11: click\";\n    const _el11 = await getEl([\"//*[@id=\\\"end\\\"]\", \"#end\"], 5000);\n    _click(_el11);\n    await sleep(300);\n\n    console.log('✅ Bookmarklet completed successfully.');\n\n  } catch (err) {\n    console.error('❌ Bookmarklet error' + (_at ? ' at ' + _at : '') + ':', err);\n    alert('Error' + (_at ? ' at ' + _at : '') + ': ' + err.message);\n  }\n\n})();",
+  "stats": {
+   "total": 10,
+   "supported": 3,
+   "skipped": 7,
+   "staticVarCount": 0,
+   "randomVarCount": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 4,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 5,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 6,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 7,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "${user} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Asserts | strings": {
+  "code": "javascript:(async () => {\n  // ============================\n  // BOOKMARKLET: Asserts\n  // ============================\n\n  // --- HELPER FUNCTIONS ---\n  const sleep = ms => new Promise(r => setTimeout(r, ms));\n\n  const _qsel = sel => (typeof sel === 'object' ? _findText(sel.text, sel.tag || '')\n    : (sel.startsWith('/') || sel.startsWith('('))\n      ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue\n      : document.querySelector(sel) || _deep(sel));\n\n  const _deep = (selector) => {\n    const deep = (root) => {\n      const el = root.querySelector(selector);\n      if (el) return el;\n      for (const host of root.querySelectorAll('*')) {\n        if (host.shadowRoot) {\n          const found = deep(host.shadowRoot);\n          if (found) return found;\n        }\n      }\n      return null;\n    };\n    try { return deep(document); } catch (e) { return null; }\n  };\n\n  const _first = sels => {\n    for (const sel of [].concat(sels)) {\n      try { const el = _qsel(sel); if (el) return el; } catch (e) { /* a selector this page cannot parse */ }\n    }\n    return null;\n  };\n\n  const getEl = (sels, timeout = 5000) => new Promise((res, rej) => {\n    const el = _first(sels);\n    if (el) return res(el);\n    const look = () => { const found = _first(sels); if (found) { stop(); res(found); } };\n    const obs = new MutationObserver(look);\n    const poll = setInterval(look, 250);\n    const stop = () => { obs.disconnect(); clearInterval(poll); clearTimeout(timer); };\n    obs.observe(document.body, { childList: true, subtree: true });\n    const timer = setTimeout(() => { stop(); rej(new Error(`No element found by ${JSON.stringify(sels)}`)); }, timeout);\n  });\n\n  const _click = (el) => {\n    el.scrollIntoView({ behavior: 'auto', block: 'center' });\n    el.focus();\n    const r = el.getBoundingClientRect();\n    const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };\n    el.dispatchEvent(new MouseEvent('mousedown', opts));\n    el.dispatchEvent(new MouseEvent('mouseup', opts));\n    el.click();\n  };\n\n  const _checkCond = (type, el, expected) => {\n    const shown = (e) => {\n      const style = getComputedStyle(e), rect = e.getBoundingClientRect();\n      return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;\n    };\n    switch (type) {\n      case 'elementExists':    return !!el;\n      case 'elementNotExists': return !el;\n      case 'elementVisible':   return !!el && shown(el);\n      case 'elementHidden':    return !el || !shown(el);\n      case 'textContains':     return !!el && el.textContent.includes(expected);\n      case 'textEquals':       return !!el && el.textContent.trim() === (expected || '').trim();\n      case 'valueEquals':      return !!el && 'value' in el && el.value === expected;\n      case 'valueContains':    return !!el && 'value' in el && el.value.includes(expected);\n      case 'urlContains':      return window.location.href.includes(expected);\n      case 'urlEquals':        return window.location.href === expected;\n      case 'hasClass':         return !!el && el.classList.contains(expected);\n      case 'hasAttribute': {\n        if (!el) return false;\n        const eq = (expected || '').indexOf('=');\n        if (eq < 0) return el.hasAttribute(expected);\n        const name = expected.slice(0, eq);\n        return el.hasAttribute(name) && el.getAttribute(name) === expected.slice(eq + 1);\n      }\n      default: throw new Error('Unknown condition type \"' + type + '\"');\n    }\n  };\n\n  // --- VARIABLES ---\n  const user = \"alice\";\n  const page = \"/home\";\n  const t_n = \"Đức\";\n  const h__t_n = \"Nguyễn Văn A\";\n  const expected = \"Ready\";\n  const role = \"admin\";\n  const lang = \"vi\";\n  const attr = \"href\";\n  const fileName = \"x.png\";\n\n  // --- MAIN FLOW ---\n  let _at = '';\n  try {\n\n    // Step 1: assert — Saved toast — [unsupported type, skipped]\n\n    // Step 2: click\n    _at = \"Step 2: click\";\n    const _el2 = await getEl([\"//*[@id=\\\"next\\\"]\", \"#next\"], 5000);\n    _click(_el2);\n    await sleep(300);\n\n    // Step 3: assert — [unsupported type, skipped]\n\n    // Step 4: assert — [unsupported type, skipped]\n\n    // Step 5: assert — [unsupported type, skipped]\n\n    // Step 6: assert — [unsupported type, skipped]\n\n    // Step 7: assert — [unsupported type, skipped]\n\n    // Step 9: condition — elementExists\n    _at = \"Step 9: condition — elementExists\";\n    if (_checkCond(\"elementExists\", _first([\"//*[@id=\\\"panel\\\"]\", \"#panel\"]), '')) {\n      // Step 10: assert — [unsupported type, skipped]\n\n    }\n\n    // Step 11: click\n    _at = \"Step 11: click\";\n    const _el11 = await getEl([\"//*[@id=\\\"end\\\"]\", \"#end\"], 5000);\n    _click(_el11);\n    await sleep(300);\n\n    console.log('✅ Bookmarklet completed successfully.');\n\n  } catch (err) {\n    console.error('❌ Bookmarklet error' + (_at ? ' at ' + _at : '') + ':', err);\n    alert('Error' + (_at ? ' at ' + _at : '') + ': ' + err.message);\n  }\n\n})();",
+  "stats": {
+   "total": 10,
+   "supported": 3,
+   "skipped": 7,
+   "staticVarCount": 9,
+   "randomVarCount": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 4,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 5,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 6,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 7,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "\"tên\" is not a valid JS identifier — exported as `t_n`",
+   "\"họ_tên\" is not a valid JS identifier — exported as `h__t_n`"
+  ]
+ },
+ "Asserts | configs": {
+  "code": "javascript:(async () => {\n  // ============================\n  // BOOKMARKLET: Asserts\n  // ============================\n\n  // --- HELPER FUNCTIONS ---\n  const sleep = ms => new Promise(r => setTimeout(r, ms));\n\n  const _qsel = sel => (typeof sel === 'object' ? _findText(sel.text, sel.tag || '')\n    : (sel.startsWith('/') || sel.startsWith('('))\n      ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue\n      : document.querySelector(sel) || _deep(sel));\n\n  const _deep = (selector) => {\n    const deep = (root) => {\n      const el = root.querySelector(selector);\n      if (el) return el;\n      for (const host of root.querySelectorAll('*')) {\n        if (host.shadowRoot) {\n          const found = deep(host.shadowRoot);\n          if (found) return found;\n        }\n      }\n      return null;\n    };\n    try { return deep(document); } catch (e) { return null; }\n  };\n\n  const _first = sels => {\n    for (const sel of [].concat(sels)) {\n      try { const el = _qsel(sel); if (el) return el; } catch (e) { /* a selector this page cannot parse */ }\n    }\n    return null;\n  };\n\n  const getEl = (sels, timeout = 5000) => new Promise((res, rej) => {\n    const el = _first(sels);\n    if (el) return res(el);\n    const look = () => { const found = _first(sels); if (found) { stop(); res(found); } };\n    const obs = new MutationObserver(look);\n    const poll = setInterval(look, 250);\n    const stop = () => { obs.disconnect(); clearInterval(poll); clearTimeout(timer); };\n    obs.observe(document.body, { childList: true, subtree: true });\n    const timer = setTimeout(() => { stop(); rej(new Error(`No element found by ${JSON.stringify(sels)}`)); }, timeout);\n  });\n\n  const _click = (el) => {\n    el.scrollIntoView({ behavior: 'auto', block: 'center' });\n    el.focus();\n    const r = el.getBoundingClientRect();\n    const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };\n    el.dispatchEvent(new MouseEvent('mousedown', opts));\n    el.dispatchEvent(new MouseEvent('mouseup', opts));\n    el.click();\n  };\n\n  const _checkCond = (type, el, expected) => {\n    const shown = (e) => {\n      const style = getComputedStyle(e), rect = e.getBoundingClientRect();\n      return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;\n    };\n    switch (type) {\n      case 'elementExists':    return !!el;\n      case 'elementNotExists': return !el;\n      case 'elementVisible':   return !!el && shown(el);\n      case 'elementHidden':    return !el || !shown(el);\n      case 'textContains':     return !!el && el.textContent.includes(expected);\n      case 'textEquals':       return !!el && el.textContent.trim() === (expected || '').trim();\n      case 'valueEquals':      return !!el && 'value' in el && el.value === expected;\n      case 'valueContains':    return !!el && 'value' in el && el.value.includes(expected);\n      case 'urlContains':      return window.location.href.includes(expected);\n      case 'urlEquals':        return window.location.href === expected;\n      case 'hasClass':         return !!el && el.classList.contains(expected);\n      case 'hasAttribute': {\n        if (!el) return false;\n        const eq = (expected || '').indexOf('=');\n        if (eq < 0) return el.hasAttribute(expected);\n        const name = expected.slice(0, eq);\n        return el.hasAttribute(name) && el.getAttribute(name) === expected.slice(eq + 1);\n      }\n      default: throw new Error('Unknown condition type \"' + type + '\"');\n    }\n  };\n\n  // --- RANDOM VARIABLE GENERATORS ---\n  const _gen_token = () => Array.from({length:12},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join('');\n  const _gen_pin = () => Array.from({length:4},()=>String(Math.floor(Math.random()*10))).join('');\n  const _gen_stamp = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); };\n  const _gen_word = () => Array.from({length:5},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join('');\n\n  // --- VARIABLES ---\n  const user = \"bob\";\n  const lang = \"{fallback:vi|en}\";\n  const t_n = \"Đức \\\"the\\\" \\\\ `bold`\";\n  const empty = \"\";\n  const token = _gen_token();\n  const pin = _gen_pin();\n  const stamp = _gen_stamp();\n  const word = _gen_word();\n  const role = [\"admin\", \"user\", \"\"][Math.floor(Math.random() * 3)];\n\n  // --- MAIN FLOW ---\n  let _at = '';\n  try {\n\n    // Step 1: assert — Saved toast — [unsupported type, skipped]\n\n    // Step 2: click\n    _at = \"Step 2: click\";\n    const _el2 = await getEl([\"//*[@id=\\\"next\\\"]\", \"#next\"], 5000);\n    _click(_el2);\n    await sleep(300);\n\n    // Step 3: assert — [unsupported type, skipped]\n\n    // Step 4: assert — [unsupported type, skipped]\n\n    // Step 5: assert — [unsupported type, skipped]\n\n    // Step 6: assert — [unsupported type, skipped]\n\n    // Step 7: assert — [unsupported type, skipped]\n\n    // Step 9: condition — elementExists\n    _at = \"Step 9: condition — elementExists\";\n    if (_checkCond(\"elementExists\", _first([\"//*[@id=\\\"panel\\\"]\", \"#panel\"]), '')) {\n      // Step 10: assert — [unsupported type, skipped]\n\n    }\n\n    // Step 11: click\n    _at = \"Step 11: click\";\n    const _el11 = await getEl([\"//*[@id=\\\"end\\\"]\", \"#end\"], 5000);\n    _click(_el11);\n    await sleep(300);\n\n    console.log('✅ Bookmarklet completed successfully.');\n\n  } catch (err) {\n    console.error('❌ Bookmarklet error' + (_at ? ' at ' + _at : '') + ':', err);\n    alert('Error' + (_at ? ' at ' + _at : '') + ': ' + err.message);\n  }\n\n})();",
+  "stats": {
+   "total": 10,
+   "supported": 3,
+   "skipped": 7,
+   "staticVarCount": 4,
+   "randomVarCount": 4
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 4,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 5,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 6,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 7,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "\"tên\" is not a valid JS identifier — exported as `t_n`",
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else"
+  ]
+ },
+ "Asserts | legacy": {
+  "code": "javascript:(async () => {\n  // ============================\n  // BOOKMARKLET: Asserts\n  // ============================\n\n  // --- HELPER FUNCTIONS ---\n  const sleep = ms => new Promise(r => setTimeout(r, ms));\n\n  const _qsel = sel => (typeof sel === 'object' ? _findText(sel.text, sel.tag || '')\n    : (sel.startsWith('/') || sel.startsWith('('))\n      ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue\n      : document.querySelector(sel) || _deep(sel));\n\n  const _deep = (selector) => {\n    const deep = (root) => {\n      const el = root.querySelector(selector);\n      if (el) return el;\n      for (const host of root.querySelectorAll('*')) {\n        if (host.shadowRoot) {\n          const found = deep(host.shadowRoot);\n          if (found) return found;\n        }\n      }\n      return null;\n    };\n    try { return deep(document); } catch (e) { return null; }\n  };\n\n  const _first = sels => {\n    for (const sel of [].concat(sels)) {\n      try { const el = _qsel(sel); if (el) return el; } catch (e) { /* a selector this page cannot parse */ }\n    }\n    return null;\n  };\n\n  const getEl = (sels, timeout = 5000) => new Promise((res, rej) => {\n    const el = _first(sels);\n    if (el) return res(el);\n    const look = () => { const found = _first(sels); if (found) { stop(); res(found); } };\n    const obs = new MutationObserver(look);\n    const poll = setInterval(look, 250);\n    const stop = () => { obs.disconnect(); clearInterval(poll); clearTimeout(timer); };\n    obs.observe(document.body, { childList: true, subtree: true });\n    const timer = setTimeout(() => { stop(); rej(new Error(`No element found by ${JSON.stringify(sels)}`)); }, timeout);\n  });\n\n  const _click = (el) => {\n    el.scrollIntoView({ behavior: 'auto', block: 'center' });\n    el.focus();\n    const r = el.getBoundingClientRect();\n    const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };\n    el.dispatchEvent(new MouseEvent('mousedown', opts));\n    el.dispatchEvent(new MouseEvent('mouseup', opts));\n    el.click();\n  };\n\n  const _checkCond = (type, el, expected) => {\n    const shown = (e) => {\n      const style = getComputedStyle(e), rect = e.getBoundingClientRect();\n      return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;\n    };\n    switch (type) {\n      case 'elementExists':    return !!el;\n      case 'elementNotExists': return !el;\n      case 'elementVisible':   return !!el && shown(el);\n      case 'elementHidden':    return !el || !shown(el);\n      case 'textContains':     return !!el && el.textContent.includes(expected);\n      case 'textEquals':       return !!el && el.textContent.trim() === (expected || '').trim();\n      case 'valueEquals':      return !!el && 'value' in el && el.value === expected;\n      case 'valueContains':    return !!el && 'value' in el && el.value.includes(expected);\n      case 'urlContains':      return window.location.href.includes(expected);\n      case 'urlEquals':        return window.location.href === expected;\n      case 'hasClass':         return !!el && el.classList.contains(expected);\n      case 'hasAttribute': {\n        if (!el) return false;\n        const eq = (expected || '').indexOf('=');\n        if (eq < 0) return el.hasAttribute(expected);\n        const name = expected.slice(0, eq);\n        return el.hasAttribute(name) && el.getAttribute(name) === expected.slice(eq + 1);\n      }\n      default: throw new Error('Unknown condition type \"' + type + '\"');\n    }\n  };\n\n  // --- RANDOM VARIABLE GENERATORS ---\n  const _gen_token = () => Array.from({length:8},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join('');\n\n  // --- VARIABLES ---\n  const lang = \"{fallback:vi|en}\";\n  const n = \"\";\n  const z = \"\";\n  const token = _gen_token();\n  const role = [\"admin\", \"user\", \"\"][Math.floor(Math.random() * 3)];\n\n  // --- MAIN FLOW ---\n  let _at = '';\n  try {\n\n    // Step 1: assert — Saved toast — [unsupported type, skipped]\n\n    // Step 2: click\n    _at = \"Step 2: click\";\n    const _el2 = await getEl([\"//*[@id=\\\"next\\\"]\", \"#next\"], 5000);\n    _click(_el2);\n    await sleep(300);\n\n    // Step 3: assert — [unsupported type, skipped]\n\n    // Step 4: assert — [unsupported type, skipped]\n\n    // Step 5: assert — [unsupported type, skipped]\n\n    // Step 6: assert — [unsupported type, skipped]\n\n    // Step 7: assert — [unsupported type, skipped]\n\n    // Step 9: condition — elementExists\n    _at = \"Step 9: condition — elementExists\";\n    if (_checkCond(\"elementExists\", _first([\"//*[@id=\\\"panel\\\"]\", \"#panel\"]), '')) {\n      // Step 10: assert — [unsupported type, skipped]\n\n    }\n\n    // Step 11: click\n    _at = \"Step 11: click\";\n    const _el11 = await getEl([\"//*[@id=\\\"end\\\"]\", \"#end\"], 5000);\n    _click(_el11);\n    await sleep(300);\n\n    console.log('✅ Bookmarklet completed successfully.');\n\n  } catch (err) {\n    console.error('❌ Bookmarklet error' + (_at ? ' at ' + _at : '') + ':', err);\n    alert('Error' + (_at ? ' at ' + _at : '') + ': ' + err.message);\n  }\n\n})();",
+  "stats": {
+   "total": 10,
+   "supported": 3,
+   "skipped": 7,
+   "staticVarCount": 3,
+   "randomVarCount": 1
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 4,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 5,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 6,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 7,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "assert",
+    "status": "skip",
+    "reason": "not an action type this version knows"
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
+   "${user} is used by a step but not defined in the Variables tab"
+  ]
+ },
  "Every action type | opts": {
   "code": "javascript:(async () => {\n  // ============================\n  // BOOKMARKLET: Every action type\n  // ============================\n\n  // --- HELPER FUNCTIONS ---\n  const sleep = ms => new Promise(r => setTimeout(r, ms));\n\n  const _qsel = sel => (typeof sel === 'object' ? _findText(sel.text, sel.tag || '')\n    : (sel.startsWith('/') || sel.startsWith('('))\n      ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue\n      : document.querySelector(sel) || _deep(sel));\n\n  const _deep = (selector) => {\n    const deep = (root) => {\n      const el = root.querySelector(selector);\n      if (el) return el;\n      for (const host of root.querySelectorAll('*')) {\n        if (host.shadowRoot) {\n          const found = deep(host.shadowRoot);\n          if (found) return found;\n        }\n      }\n      return null;\n    };\n    try { return deep(document); } catch (e) { return null; }\n  };\n\n  const _first = sels => {\n    for (const sel of [].concat(sels)) {\n      try { const el = _qsel(sel); if (el) return el; } catch (e) { /* a selector this page cannot parse */ }\n    }\n    return null;\n  };\n\n  const getEl = (sels, timeout = 1234) => new Promise((res, rej) => {\n    const el = _first(sels);\n    if (el) return res(el);\n    const look = () => { const found = _first(sels); if (found) { stop(); res(found); } };\n    const obs = new MutationObserver(look);\n    const poll = setInterval(look, 250);\n    const stop = () => { obs.disconnect(); clearInterval(poll); clearTimeout(timer); };\n    obs.observe(document.body, { childList: true, subtree: true });\n    const timer = setTimeout(() => { stop(); rej(new Error(`No element found by ${JSON.stringify(sels)}`)); }, timeout);\n  });\n\n  const _click = (el) => {\n    el.scrollIntoView({ behavior: 'auto', block: 'center' });\n    el.focus();\n    const r = el.getBoundingClientRect();\n    const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0 };\n    el.dispatchEvent(new MouseEvent('mousedown', opts));\n    el.dispatchEvent(new MouseEvent('mouseup', opts));\n    el.click();\n  };\n\n  const _hover = (el) => {\n    el.scrollIntoView({ behavior: 'auto', block: 'center' });\n    el.focus();\n    const r = el.getBoundingClientRect();\n    const opts = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };\n    el.dispatchEvent(new MouseEvent('mouseover', opts));\n    el.dispatchEvent(new MouseEvent('mouseenter', { ...opts, bubbles: false }));\n    el.dispatchEvent(new MouseEvent('mousemove', opts));\n  };\n\n  const _setInput = (el, value) => {\n    el.scrollIntoView({ behavior: 'auto', block: 'center' });\n    el.focus();\n    const v = value ?? '';\n    if (el.isContentEditable) {\n      document.execCommand('selectAll', false, null);\n      document.execCommand('insertText', false, v);\n      el.dispatchEvent(new Event('input', { bubbles: true }));\n      el.dispatchEvent(new Event('change', { bubbles: true }));\n      return;\n    }\n    if (el.tagName === 'SELECT') {\n      const want = String(v);\n      const options = Array.from(el.options);\n      const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n      if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n      el.value = option.value;\n      el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n      el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n      el.dispatchEvent(new Event('blur', { bubbles: true }));\n      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n      return;\n    }\n    let setter = null;\n    for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n      const d = Object.getOwnPropertyDescriptor(p, 'value');\n      if (d?.set) { setter = d.set; break; }\n    }\n    if (setter) setter.call(el, v); else el.value = v;\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n  };\n\n  const _dragDrop = (src, dst) => {\n    src.scrollIntoView({ behavior: 'auto', block: 'center' });\n    src.focus();\n    const s = src.getBoundingClientRect(), d = dst.getBoundingClientRect();\n    const sx = s.left + s.width / 2, sy = s.top + s.height / 2, dx = d.left + d.width / 2, dy = d.top + d.height / 2;\n    const dt = new DataTransfer();\n    const fireM = (el, t, x, y, extra = {}) => el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, clientX: x, clientY: y, ...extra }));\n    const fireD = (el, t, x, y) => el.dispatchEvent(new DragEvent(t, { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));\n    fireM(src, 'mousedown', sx, sy, { button: 0 });\n    fireD(src, 'dragstart', sx, sy);\n    fireD(dst, 'dragenter', dx, dy);\n    fireD(dst, 'dragover', dx, dy);\n    fireD(dst, 'drop', dx, dy);\n    fireD(src, 'dragend', dx, dy);\n    fireM(src, 'mouseup', dx, dy);\n  };\n\n  const _findChild = (parent, cond) => {\n    const _fbRe = /^\\{fallback:(.+)\\}$/;\n    const _fbField = ['valueEquals','textContains','idContains','classContains','typeEquals'].find(f => cond[f] != null && _fbRe.test(String(cond[f])));\n    const _fbVals  = _fbField ? String(cond[_fbField]).match(_fbRe)[1].split('|').map(s=>s.trim()) : null;\n    const _tryFind = (c, blankField) => {\n      const mode = c.matchMode || 'any';\n      const norm = s => (s == null ? '' : String(s).trim().toLowerCase());\n      const checks = [];\n      if (c.valueEquals   != null && c.valueEquals   !== '') checks.push(el => el.value !== undefined && String(el.value) === String(c.valueEquals));\n      if (c.textContains  != null && c.textContains  !== '') {\n        // The element's own text (its text nodes, not its children's) or all of it, as playback matches.\n        const n = norm(c.textContains);\n        const own = el => [...el.childNodes].filter(x => x.nodeType === 3).map(x => x.textContent).join('');\n        checks.push(el => norm(own(el)).includes(n) || norm(el.textContent).includes(n));\n      }\n      if (c.idContains    != null && c.idContains    !== '') { const n = norm(c.idContains);    checks.push(el => norm(el.id).includes(n)); }\n      if (c.classContains != null && c.classContains !== '') { const n = norm(c.classContains); checks.push(el => norm(el.className).includes(n)); }\n      if (c.typeEquals    != null && c.typeEquals    !== '') checks.push(el => (c.typeEquals === 'select' ? el.tagName === 'SELECT' : el.type === c.typeEquals));\n      if (blankField) checks.push(el => {\n        if (blankField === 'valueEquals')   return el.value !== undefined && String(el.value) === '';\n        if (blankField === 'textContains')  return norm(el.textContent) === '';\n        if (blankField === 'idContains')    return !el.id;\n        if (blankField === 'classContains') return norm(el.getAttribute('class')) === '';\n        return !el.getAttribute('type');\n      });\n      if (!checks.length) return null;\n      const test = mode === 'all' ? el => checks.every(fn => fn(el)) : el => checks.some(fn => fn(el));\n      const first = (root) => {\n        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);\n        for (let node = walker.nextNode(); node; node = walker.nextNode()) { if (test(node)) return node; }\n        return null;\n      };\n      let hit = first(parent);\n      if (hit && c.textContains != null && c.textContains !== '') { for (let inner = first(hit); inner; inner = first(hit)) hit = inner; }\n      return hit;\n    };\n    if (_fbField && _fbVals) {\n      for (const _fv of _fbVals) { const el = _tryFind({...cond, [_fbField]: _fv}, _fv === '' ? _fbField : null); if (el) return el; }\n      return null;\n    }\n    return _tryFind(cond);\n  };\n\n  const _readVal = (el, from, attr) => {\n    const tag = String(el.tagName || '').toUpperCase(), fld = tag === 'INPUT' || tag === 'TEXTAREA';\n    const txt = () => (typeof el.innerText === 'string' ? el.innerText : (el.textContent || ''));\n    const ws = (s) => String(s == null ? '' : s).replace(/\\s+/g, ' ').trim();\n    if (from === 'attr') return el.getAttribute(attr) ?? '';\n    if (from === 'value') {\n      if (tag === 'SELECT' && el.multiple) return Array.from(el.selectedOptions).map(o => o.value).join(', ');\n      if (fld || tag === 'SELECT') return el.value ?? '';\n      if (el.isContentEditable) return txt().trim();\n      if (typeof el.value === 'string' && el.value !== '') return el.value;\n      if (typeof el.value === 'number' && tag !== 'LI') return String(el.value);\n      return txt().trim();\n    }\n    if (from === 'visible') {\n      if (tag === 'SELECT') return Array.from(el.selectedOptions).map(o => ws(o.text)).join(', ');\n      if (fld) return el.value ?? '';\n      return ws(txt());\n    }\n    return (el.textContent || '').trim();\n  };\n\n  // --- RANDOM VARIABLE GENERATORS ---\n  const _gen_token = () => Array.from({length:12},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join('');\n  const _gen_pin = () => Array.from({length:4},()=>String(Math.floor(Math.random()*10))).join('');\n  const _gen_stamp = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); };\n  const _gen_word = () => Array.from({length:5},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join('');\n\n  // --- VARIABLES ---\n  const user = \"bob\";\n  const lang = \"{fallback:vi|en}\";\n  const t_n = \"Đức \\\"the\\\" \\\\ `bold`\";\n  const empty = \"\";\n  const token = _gen_token();\n  const pin = _gen_pin();\n  const stamp = _gen_stamp();\n  const word = _gen_word();\n  const role = [\"admin\", \"user\", \"\"][Math.floor(Math.random() * 3)];\n  let greeting = '';\n  let order = '';\n  let orderId = '';\n  let customer = '';\n  let href = '';\n  let shot = '';\n\n  // --- MAIN FLOW ---\n  let _at = '';\n  try {\n\n    // Step 1: navigate — Open login\n    _at = \"Step 1: navigate — Open login\";\n    const _nav1 = `https://example.com/login?next=${page}`;\n    const _at1 = (u) => { const x = new URL(u, location.href); return x.origin + x.pathname.replace(/\\/+$/, '') + x.search; };\n    if (_at1(_nav1) !== _at1(location.href)) {\n      alert('Opening ' + _nav1 + '. Run the bookmark again once it has loaded.');\n      location.href = _nav1;\n      return;\n    }\n\n    // Step 2: wait — Settle\n    _at = \"Step 2: wait — Settle\";\n    await sleep(250);\n\n    // Step 3: click — Start\n    _at = \"Step 3: click — Start\";\n    const _el3 = await getEl([\"//*[@id=\\\"start\\\"]\", \"#start\"], 1234);\n    _click(_el3);\n\n    // Step 4: input — User\n    _at = \"Step 4: input — User\";\n    const _el4 = await getEl([\"//*[@id=\\\"user\\\"]\", \"#user\"], 1234);\n    _setInput(_el4, `${user}`);\n\n    // Step 5: input\n    _at = \"Step 5: input\";\n    const _el5 = await getEl([\"//*[@id=\\\"pass\\\"]\", \"#pass\"], 1234);\n    _setInput(_el5, \"p@ss \\\"quoted\\\" \\\\ back`tick`\");\n\n    // Step 6: hover\n    _at = \"Step 6: hover\";\n    const _el6 = await getEl([\"//*[@id=\\\"menu\\\"]\", \"#menu\"], 1234);\n    _hover(_el6);\n\n    // Step 7: open dropdown (freeze)\n    _at = \"Step 7: open dropdown (freeze)\";\n    const _el7 = await getEl([\"//*[@id=\\\"country\\\"]\", \"#country\"], 1234);\n    _el7.click();\n\n    // Step 8: dragdrop\n    _at = \"Step 8: dragdrop\";\n    const _el8_s = await getEl([\"//*[@id=\\\"card-1\\\"]\", \"#card-1\"], 1234);\n    const _el8_t = await getEl(\"#lane-2\", 1234);\n    _dragDrop(_el8_s, _el8_t);\n\n    // Step 9: script — Inline script\n    _at = \"Step 9: script — Inline script\";\n    await (async () => {\n      // [USER SCRIPT BEGIN]\n      const n = 'bob';\n      console.log(n, Đức \\\"the\\\" \\\\ \\`bold\\`);\n      return 1;\n      // [USER SCRIPT END]\n    })();\n\n    // Step 10: readdom → \"greeting\"\n    _at = \"Step 10: readdom → \\\"greeting\\\"\";\n    const _el10 = await getEl([\"//*[@id=\\\"greeting\\\"]\", \"#greeting\"], 1234);\n    greeting = _readVal(_el10, \"visible\", \"\");\n\n    // Step 11: readdom → \"order\", \"orderId\", \"customer\"\n    _at = \"Step 11: readdom → \\\"order\\\", \\\"orderId\\\", \\\"customer\\\"\";\n    const _el11 = await getEl([\"//*[@id=\\\"order\\\"]\", \"#order\"], 1234);\n    const _el11_t = _readVal(_el11, \"text\", \"\");\n    order = _el11_t;\n    const _el11_m = new RegExp(\"Order\\\\s+#([\\\\s\\\\S]*?)\\\\s+for\\\\s+([\\\\s\\\\S]*)$\", \"\").exec(_el11_t);\n    if (!_el11_m) throw new Error(\"Read DOM (step 11): text does not match Order #${orderId} for ${customer}: \" + _el11_t);\n    orderId = _el11_m[1].trim();\n    customer = _el11_m[2].trim();\n\n    // Step 12: readdom → \"href\"\n    _at = \"Step 12: readdom → \\\"href\\\"\";\n    const _el12 = await getEl([\"//*[@id=\\\"link\\\"]\", \"#link\"], 1234);\n    href = _readVal(_el12, \"attr\", `data-${attr}`);\n\n    // Step 13: [SKIPPED] screenshot — requires Chrome Extension API\n\n    // Step 14: [SKIPPED] screenshot_full — requires Chrome Extension API\n\n    // Step 15: [SKIPPED] screenshot_element — requires Chrome Extension API\n\n    // Step 16: [SKIPPED] screenshot_tovar — requires Chrome Extension API\n\n    // Step 17: uploadFile — [unsupported type, skipped]\n\n    // Step 18: click\n    _at = \"Step 18: click\";\n    const _el18_p = await getEl([\"//*[@id=\\\"row\\\"]\", \"#row\"], 1234);\n    const _el18 = _findChild(_el18_p, {matchMode: \"any\", textContains: `${t_n}`, classContains: \"{fallback:a|b}\"});\n    if (!_el18) throw new Error('Child condition not matched (step 18)');\n    _click(_el18);\n\n    console.log('✅ Bookmarklet completed successfully.');\n\n  } catch (err) {\n    console.error('❌ Bookmarklet error' + (_at ? ' at ' + _at : '') + ':', err);\n    alert('Error' + (_at ? ' at ' + _at : '') + ': ' + err.message);\n  }\n\n})();",
   "stats": {

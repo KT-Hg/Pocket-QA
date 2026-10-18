@@ -2791,6 +2791,306 @@
    "${họ_tên} is used by a step but not defined in the Variables tab"
   ]
  },
+ "Asserts | none": {
+  "code": "// SCENARIO: Asserts\n// How to run: npm install -D @playwright/test, then: npx playwright test <this file>\n// Without exporting again, the environment can set:\n//   PQA_BASE_URL  a site to open instead of the first page's (staging, production): its steps go there\nimport { test, expect } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });\n\n// A variable's value: PQA_<name> from the environment when it is set, else the exported one.\nconst _var = (name, value) => process.env['PQA_' + name] ?? value;\n\n// u — or, with PQA_BASE_URL set and u on the site of the first page opened, the same page there.\nlet _firstOrigin = null;\nfunction _url(u) {\n  const x = new URL(u);\n  _firstOrigin ??= x.origin;\n  const base = process.env.PQA_BASE_URL;\n  return base && x.origin === _firstOrigin ? base.replace(/\\/+$/, '') + x.pathname + x.search + x.hash : u;\n}\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// The element a Condition checks: the first selector that finds one now, without waiting.\nasync function _first(page, selectors) {\n  for (const s of selectors) {\n    const el = page.locator(s).first();\n    if (await el.count().catch(() => 0)) return el.elementHandle();\n  }\n  return null;\n}\n\n// A Condition recorded inside a frame: its element looked for now in the page and each of\n// its frames, and checked in the frame that holds it (none found: checked with none).\nasync function _checkInFrames(page, selectors, type, expected) {\n  for (const frame of page.frames()) {\n    for (const s of selectors) {\n      const el = frame.locator(s).first();\n      if (await el.count().catch(() => 0)) return frame.evaluate(_checkCond, [type, await el.elementHandle(), expected]);\n    }\n  }\n  return page.evaluate(_checkCond, [type, null, expected]);\n}\n\n// A Condition as the extension checks it (content.js CHECK_CONDITION); page.evaluate\n// hands it one argument, [type, element, expected].\nconst _checkCond = ([type, el, expected]) => ((type, el, expected) => {\n  const shown = (e) => {\n    const style = getComputedStyle(e), rect = e.getBoundingClientRect();\n    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;\n  };\n  switch (type) {\n    case 'elementExists':    return !!el;\n    case 'elementNotExists': return !el;\n    case 'elementVisible':   return !!el && shown(el);\n    case 'elementHidden':    return !el || !shown(el);\n    case 'textContains':     return !!el && el.textContent.includes(expected);\n    case 'textEquals':       return !!el && el.textContent.trim() === (expected || '').trim();\n    case 'valueEquals':      return !!el && 'value' in el && el.value === expected;\n    case 'valueContains':    return !!el && 'value' in el && el.value.includes(expected);\n    case 'urlContains':      return window.location.href.includes(expected);\n    case 'urlEquals':        return window.location.href === expected;\n    case 'hasClass':         return !!el && el.classList.contains(expected);\n    case 'hasAttribute': {\n      if (!el) return false;\n      const eq = (expected || '').indexOf('=');\n      if (eq < 0) return el.hasAttribute(expected);\n      const name = expected.slice(0, eq);\n      return el.hasAttribute(name) && el.getAttribute(name) === expected.slice(eq + 1);\n    }\n    default: throw new Error('Unknown condition type \"' + type + '\"');\n  }\n})(type, el, expected);\n\n// An Assert as the extension makes it (bg/playback/steps/assert.js): its check made again\n// every 250 ms until it holds, for up to 5 s. One still false is a soft failure: the test\n// goes on, and fails at its end with each one.\nconst _assert = (check, title, want) => expect.configure({ soft: true })\n  .poll(check, { message: title + ': ' + want, timeout: 5000, intervals: [250] }).toBe(true);\n\ntest(\"Asserts\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(_url(\"https://your-url-here.com\"));\n\n  // Step 1: assert — textEquals — Saved toast\n  await test.step(\"Step 1: assert — textEquals — Saved toast\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"textEquals\", await _first(page, [\"xpath=//*[@id=\\\"toast\\\"]\", \"#toast\"]), `Saved ${user}`]), \"Step 1: assert — textEquals — Saved toast\", `expected text \"Saved ${user}\"`);\n    await page.waitForTimeout(300);\n  });\n\n  // Step 2: click\n  await test.step(\"Step 2: click\", async () => {\n    const el2 = await _find(page, [\"xpath=//*[@id=\\\"next\\\"]\", \"#next\"]);\n    await el2.click();\n    await page.waitForTimeout(300);\n  });\n\n  // Step 3: assert — urlContains\n  await test.step(\"Step 3: assert — urlContains\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"urlContains\", null, \"/done\"]), \"Step 3: assert — urlContains\", \"expected URL containing \\\"/done\\\"\");\n    await page.waitForTimeout(500);\n  });\n\n  // Step 4: assert — elementVisible\n  await test.step(\"Step 4: assert — elementVisible\", async () => {\n    await _assert(async () => _checkInFrames(page, [\"xpath=//*[@id=\\\"in-frame\\\"]\", \"#in-frame\"], \"elementVisible\", \"\"), \"Step 4: assert — elementVisible\", \"expected element to be visible\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 5: assert — hasAttribute\n  await test.step(\"Step 5: assert — hasAttribute\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"hasAttribute\", await _first(page, [\"xpath=//*[@id=\\\"x\\\"]\", \"#x\"]), \"data-x=\\\"1\\\"\"]), \"Step 5: assert — hasAttribute\", \"expected attribute data-x=\\\"1\\\"\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 6: assert — elementExists\n  await test.step(\"Step 6: assert — elementExists\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"elementExists\", await _first(page, [\"xpath=//*[@id=\\\"plain\\\"]\", \"#plain\"]), \"\"]), \"Step 6: assert — elementExists\", \"expected element to exist\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 7: assert — isChecked\n  await test.step(\"Step 7: assert — isChecked\", async () => {\n    throw new Error(\"Assert step 7: unknown condition type, named in the comment above\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 9: condition — elementExists\n  if (await test.step(\"Step 9: condition — elementExists\", async () => page.evaluate(_checkCond, [\"elementExists\", await _first(page, [\"xpath=//*[@id=\\\"panel\\\"]\", \"#panel\"]), '']))) {\n    // Step 10: assert — valueEquals\n    await test.step(\"Step 10: assert — valueEquals\", async () => {\n      await _assert(async () => page.evaluate(_checkCond, [\"valueEquals\", await _first(page, [\"xpath=//*[@id=\\\"qty\\\"]\", \"#qty\"]), \"3\"]), \"Step 10: assert — valueEquals\", \"expected value \\\"3\\\"\");\n      await page.waitForTimeout(300);\n    });\n\n  }\n\n  // Step 11: click\n  await test.step(\"Step 11: click\", async () => {\n    const el11 = await _find(page, [\"xpath=//*[@id=\\\"end\\\"]\", \"#end\"]);\n    await el11.click();\n    await page.waitForTimeout(300);\n  });\n\n});",
+  "stats": {
+   "total": 10,
+   "supported": 10,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "assert",
+    "status": "verify",
+    "reason": "unknown condition type — the exported code stops there, as a run does"
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "Assert step 7: type \"isChecked\" is unknown — the exported code stops there, as a run does",
+   "${user} is used by a step but not defined in the Variables tab"
+  ]
+ },
+ "Asserts | strings": {
+  "code": "// SCENARIO: Asserts\n// How to run: npm install -D @playwright/test, then: npx playwright test <this file>\n// Without exporting again, the environment can set:\n//   PQA_BASE_URL  a site to open instead of the first page's (staging, production): its steps go there\n//   PQA_<name>    a variable's value: PQA_user, PQA_page, PQA_tên, PQA_họ_tên, PQA_expected, PQA_role, PQA_lang, PQA_attr, PQA_fileName\nimport { test, expect } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });\n\n// A variable's value: PQA_<name> from the environment when it is set, else the exported one.\nconst _var = (name, value) => process.env['PQA_' + name] ?? value;\n\n// u — or, with PQA_BASE_URL set and u on the site of the first page opened, the same page there.\nlet _firstOrigin = null;\nfunction _url(u) {\n  const x = new URL(u);\n  _firstOrigin ??= x.origin;\n  const base = process.env.PQA_BASE_URL;\n  return base && x.origin === _firstOrigin ? base.replace(/\\/+$/, '') + x.pathname + x.search + x.hash : u;\n}\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// The element a Condition checks: the first selector that finds one now, without waiting.\nasync function _first(page, selectors) {\n  for (const s of selectors) {\n    const el = page.locator(s).first();\n    if (await el.count().catch(() => 0)) return el.elementHandle();\n  }\n  return null;\n}\n\n// A Condition recorded inside a frame: its element looked for now in the page and each of\n// its frames, and checked in the frame that holds it (none found: checked with none).\nasync function _checkInFrames(page, selectors, type, expected) {\n  for (const frame of page.frames()) {\n    for (const s of selectors) {\n      const el = frame.locator(s).first();\n      if (await el.count().catch(() => 0)) return frame.evaluate(_checkCond, [type, await el.elementHandle(), expected]);\n    }\n  }\n  return page.evaluate(_checkCond, [type, null, expected]);\n}\n\n// A Condition as the extension checks it (content.js CHECK_CONDITION); page.evaluate\n// hands it one argument, [type, element, expected].\nconst _checkCond = ([type, el, expected]) => ((type, el, expected) => {\n  const shown = (e) => {\n    const style = getComputedStyle(e), rect = e.getBoundingClientRect();\n    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;\n  };\n  switch (type) {\n    case 'elementExists':    return !!el;\n    case 'elementNotExists': return !el;\n    case 'elementVisible':   return !!el && shown(el);\n    case 'elementHidden':    return !el || !shown(el);\n    case 'textContains':     return !!el && el.textContent.includes(expected);\n    case 'textEquals':       return !!el && el.textContent.trim() === (expected || '').trim();\n    case 'valueEquals':      return !!el && 'value' in el && el.value === expected;\n    case 'valueContains':    return !!el && 'value' in el && el.value.includes(expected);\n    case 'urlContains':      return window.location.href.includes(expected);\n    case 'urlEquals':        return window.location.href === expected;\n    case 'hasClass':         return !!el && el.classList.contains(expected);\n    case 'hasAttribute': {\n      if (!el) return false;\n      const eq = (expected || '').indexOf('=');\n      if (eq < 0) return el.hasAttribute(expected);\n      const name = expected.slice(0, eq);\n      return el.hasAttribute(name) && el.getAttribute(name) === expected.slice(eq + 1);\n    }\n    default: throw new Error('Unknown condition type \"' + type + '\"');\n  }\n})(type, el, expected);\n\n// An Assert as the extension makes it (bg/playback/steps/assert.js): its check made again\n// every 250 ms until it holds, for up to 5 s. One still false is a soft failure: the test\n// goes on, and fails at its end with each one.\nconst _assert = (check, title, want) => expect.configure({ soft: true })\n  .poll(check, { message: title + ': ' + want, timeout: 5000, intervals: [250] }).toBe(true);\n\ntest(\"Asserts\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = _var(\"user\", \"alice\");\n  const page_v = _var(\"page\", \"/home\");\n  const t_n = _var(\"tên\", \"Đức\");\n  const h__t_n = _var(\"họ_tên\", \"Nguyễn Văn A\");\n  const expected = _var(\"expected\", \"Ready\");\n  const role = _var(\"role\", \"admin\");\n  const lang = _var(\"lang\", \"vi\");\n  const attr = _var(\"attr\", \"href\");\n  const fileName = _var(\"fileName\", \"x.png\");\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(_url(\"https://your-url-here.com\"));\n\n  // Step 1: assert — textEquals — Saved toast\n  await test.step(\"Step 1: assert — textEquals — Saved toast\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"textEquals\", await _first(page, [\"xpath=//*[@id=\\\"toast\\\"]\", \"#toast\"]), `Saved ${user}`]), \"Step 1: assert — textEquals — Saved toast\", `expected text \"Saved ${user}\"`);\n    await page.waitForTimeout(300);\n  });\n\n  // Step 2: click\n  await test.step(\"Step 2: click\", async () => {\n    const el2 = await _find(page, [\"xpath=//*[@id=\\\"next\\\"]\", \"#next\"]);\n    await el2.click();\n    await page.waitForTimeout(300);\n  });\n\n  // Step 3: assert — urlContains\n  await test.step(\"Step 3: assert — urlContains\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"urlContains\", null, \"/done\"]), \"Step 3: assert — urlContains\", \"expected URL containing \\\"/done\\\"\");\n    await page.waitForTimeout(500);\n  });\n\n  // Step 4: assert — elementVisible\n  await test.step(\"Step 4: assert — elementVisible\", async () => {\n    await _assert(async () => _checkInFrames(page, [\"xpath=//*[@id=\\\"in-frame\\\"]\", \"#in-frame\"], \"elementVisible\", \"\"), \"Step 4: assert — elementVisible\", \"expected element to be visible\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 5: assert — hasAttribute\n  await test.step(\"Step 5: assert — hasAttribute\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"hasAttribute\", await _first(page, [\"xpath=//*[@id=\\\"x\\\"]\", \"#x\"]), \"data-x=\\\"1\\\"\"]), \"Step 5: assert — hasAttribute\", \"expected attribute data-x=\\\"1\\\"\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 6: assert — elementExists\n  await test.step(\"Step 6: assert — elementExists\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"elementExists\", await _first(page, [\"xpath=//*[@id=\\\"plain\\\"]\", \"#plain\"]), \"\"]), \"Step 6: assert — elementExists\", \"expected element to exist\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 7: assert — isChecked\n  await test.step(\"Step 7: assert — isChecked\", async () => {\n    throw new Error(\"Assert step 7: unknown condition type, named in the comment above\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 9: condition — elementExists\n  if (await test.step(\"Step 9: condition — elementExists\", async () => page.evaluate(_checkCond, [\"elementExists\", await _first(page, [\"xpath=//*[@id=\\\"panel\\\"]\", \"#panel\"]), '']))) {\n    // Step 10: assert — valueEquals\n    await test.step(\"Step 10: assert — valueEquals\", async () => {\n      await _assert(async () => page.evaluate(_checkCond, [\"valueEquals\", await _first(page, [\"xpath=//*[@id=\\\"qty\\\"]\", \"#qty\"]), \"3\"]), \"Step 10: assert — valueEquals\", \"expected value \\\"3\\\"\");\n      await page.waitForTimeout(300);\n    });\n\n  }\n\n  // Step 11: click\n  await test.step(\"Step 11: click\", async () => {\n    const el11 = await _find(page, [\"xpath=//*[@id=\\\"end\\\"]\", \"#end\"]);\n    await el11.click();\n    await page.waitForTimeout(300);\n  });\n\n});",
+  "stats": {
+   "total": 10,
+   "supported": 10,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "assert",
+    "status": "verify",
+    "reason": "unknown condition type — the exported code stops there, as a run does"
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "\"page\" is not a valid JS identifier — exported as `page_v`",
+   "\"tên\" is not a valid JS identifier — exported as `t_n`",
+   "\"họ_tên\" is not a valid JS identifier — exported as `h__t_n`",
+   "Assert step 7: type \"isChecked\" is unknown — the exported code stops there, as a run does"
+  ]
+ },
+ "Asserts | configs": {
+  "code": "// SCENARIO: Asserts\n// How to run: npm install -D @playwright/test, then: npx playwright test <this file>\n// Without exporting again, the environment can set:\n//   PQA_BASE_URL  a site to open instead of the first page's (staging, production): its steps go there\n//   PQA_<name>    a variable's value: PQA_user, PQA_token, PQA_pin, PQA_stamp, PQA_word, PQA_role, PQA_lang, PQA_tên, PQA_empty\nimport { test, expect } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });\n\n// A variable's value: PQA_<name> from the environment when it is set, else the exported one.\nconst _var = (name, value) => process.env['PQA_' + name] ?? value;\n\n// u — or, with PQA_BASE_URL set and u on the site of the first page opened, the same page there.\nlet _firstOrigin = null;\nfunction _url(u) {\n  const x = new URL(u);\n  _firstOrigin ??= x.origin;\n  const base = process.env.PQA_BASE_URL;\n  return base && x.origin === _firstOrigin ? base.replace(/\\/+$/, '') + x.pathname + x.search + x.hash : u;\n}\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// The element a Condition checks: the first selector that finds one now, without waiting.\nasync function _first(page, selectors) {\n  for (const s of selectors) {\n    const el = page.locator(s).first();\n    if (await el.count().catch(() => 0)) return el.elementHandle();\n  }\n  return null;\n}\n\n// A Condition recorded inside a frame: its element looked for now in the page and each of\n// its frames, and checked in the frame that holds it (none found: checked with none).\nasync function _checkInFrames(page, selectors, type, expected) {\n  for (const frame of page.frames()) {\n    for (const s of selectors) {\n      const el = frame.locator(s).first();\n      if (await el.count().catch(() => 0)) return frame.evaluate(_checkCond, [type, await el.elementHandle(), expected]);\n    }\n  }\n  return page.evaluate(_checkCond, [type, null, expected]);\n}\n\n// A Condition as the extension checks it (content.js CHECK_CONDITION); page.evaluate\n// hands it one argument, [type, element, expected].\nconst _checkCond = ([type, el, expected]) => ((type, el, expected) => {\n  const shown = (e) => {\n    const style = getComputedStyle(e), rect = e.getBoundingClientRect();\n    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;\n  };\n  switch (type) {\n    case 'elementExists':    return !!el;\n    case 'elementNotExists': return !el;\n    case 'elementVisible':   return !!el && shown(el);\n    case 'elementHidden':    return !el || !shown(el);\n    case 'textContains':     return !!el && el.textContent.includes(expected);\n    case 'textEquals':       return !!el && el.textContent.trim() === (expected || '').trim();\n    case 'valueEquals':      return !!el && 'value' in el && el.value === expected;\n    case 'valueContains':    return !!el && 'value' in el && el.value.includes(expected);\n    case 'urlContains':      return window.location.href.includes(expected);\n    case 'urlEquals':        return window.location.href === expected;\n    case 'hasClass':         return !!el && el.classList.contains(expected);\n    case 'hasAttribute': {\n      if (!el) return false;\n      const eq = (expected || '').indexOf('=');\n      if (eq < 0) return el.hasAttribute(expected);\n      const name = expected.slice(0, eq);\n      return el.hasAttribute(name) && el.getAttribute(name) === expected.slice(eq + 1);\n    }\n    default: throw new Error('Unknown condition type \"' + type + '\"');\n  }\n})(type, el, expected);\n\n// An Assert as the extension makes it (bg/playback/steps/assert.js): its check made again\n// every 250 ms until it holds, for up to 5 s. One still false is a soft failure: the test\n// goes on, and fails at its end with each one.\nconst _assert = (check, title, want) => expect.configure({ soft: true })\n  .poll(check, { message: title + ': ' + want, timeout: 5000, intervals: [250] }).toBe(true);\n\ntest(\"Asserts\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const user = _var(\"user\", \"bob\");\n  const token = _var(\"token\", (() => Array.from({length:12},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join(''))());\n  const pin = _var(\"pin\", (() => Array.from({length:4},()=>String(Math.floor(Math.random()*10))).join(''))());\n  const stamp = _var(\"stamp\", (() => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); })());\n  const word = _var(\"word\", (() => Array.from({length:5},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))());\n  const role = _var(\"role\", [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)]);\n  const lang = _var(\"lang\", \"{fallback:vi|en}\");\n  const t_n = _var(\"tên\", \"Đức \\\"the\\\" \\\\ `bold`\");\n  const empty = _var(\"empty\", \"\");\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(_url(\"https://your-url-here.com\"));\n\n  // Step 1: assert — textEquals — Saved toast\n  await test.step(\"Step 1: assert — textEquals — Saved toast\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"textEquals\", await _first(page, [\"xpath=//*[@id=\\\"toast\\\"]\", \"#toast\"]), `Saved ${user}`]), \"Step 1: assert — textEquals — Saved toast\", `expected text \"Saved ${user}\"`);\n    await page.waitForTimeout(300);\n  });\n\n  // Step 2: click\n  await test.step(\"Step 2: click\", async () => {\n    const el2 = await _find(page, [\"xpath=//*[@id=\\\"next\\\"]\", \"#next\"]);\n    await el2.click();\n    await page.waitForTimeout(300);\n  });\n\n  // Step 3: assert — urlContains\n  await test.step(\"Step 3: assert — urlContains\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"urlContains\", null, \"/done\"]), \"Step 3: assert — urlContains\", \"expected URL containing \\\"/done\\\"\");\n    await page.waitForTimeout(500);\n  });\n\n  // Step 4: assert — elementVisible\n  await test.step(\"Step 4: assert — elementVisible\", async () => {\n    await _assert(async () => _checkInFrames(page, [\"xpath=//*[@id=\\\"in-frame\\\"]\", \"#in-frame\"], \"elementVisible\", \"\"), \"Step 4: assert — elementVisible\", \"expected element to be visible\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 5: assert — hasAttribute\n  await test.step(\"Step 5: assert — hasAttribute\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"hasAttribute\", await _first(page, [\"xpath=//*[@id=\\\"x\\\"]\", \"#x\"]), \"data-x=\\\"1\\\"\"]), \"Step 5: assert — hasAttribute\", \"expected attribute data-x=\\\"1\\\"\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 6: assert — elementExists\n  await test.step(\"Step 6: assert — elementExists\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"elementExists\", await _first(page, [\"xpath=//*[@id=\\\"plain\\\"]\", \"#plain\"]), \"\"]), \"Step 6: assert — elementExists\", \"expected element to exist\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 7: assert — isChecked\n  await test.step(\"Step 7: assert — isChecked\", async () => {\n    throw new Error(\"Assert step 7: unknown condition type, named in the comment above\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 9: condition — elementExists\n  if (await test.step(\"Step 9: condition — elementExists\", async () => page.evaluate(_checkCond, [\"elementExists\", await _first(page, [\"xpath=//*[@id=\\\"panel\\\"]\", \"#panel\"]), '']))) {\n    // Step 10: assert — valueEquals\n    await test.step(\"Step 10: assert — valueEquals\", async () => {\n      await _assert(async () => page.evaluate(_checkCond, [\"valueEquals\", await _first(page, [\"xpath=//*[@id=\\\"qty\\\"]\", \"#qty\"]), \"3\"]), \"Step 10: assert — valueEquals\", \"expected value \\\"3\\\"\");\n      await page.waitForTimeout(300);\n    });\n\n  }\n\n  // Step 11: click\n  await test.step(\"Step 11: click\", async () => {\n    const el11 = await _find(page, [\"xpath=//*[@id=\\\"end\\\"]\", \"#end\"]);\n    await el11.click();\n    await page.waitForTimeout(300);\n  });\n\n});",
+  "stats": {
+   "total": 10,
+   "supported": 10,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "assert",
+    "status": "verify",
+    "reason": "unknown condition type — the exported code stops there, as a run does"
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "\"tên\" is not a valid JS identifier — exported as `t_n`",
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
+   "Assert step 7: type \"isChecked\" is unknown — the exported code stops there, as a run does"
+  ]
+ },
+ "Asserts | legacy": {
+  "code": "// SCENARIO: Asserts\n// How to run: npm install -D @playwright/test, then: npx playwright test <this file>\n// Without exporting again, the environment can set:\n//   PQA_BASE_URL  a site to open instead of the first page's (staging, production): its steps go there\n//   PQA_<name>    a variable's value: PQA_token, PQA_role, PQA_lang, PQA_n, PQA_z\nimport { test, expect } from '@playwright/test';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });\n\n// A variable's value: PQA_<name> from the environment when it is set, else the exported one.\nconst _var = (name, value) => process.env['PQA_' + name] ?? value;\n\n// u — or, with PQA_BASE_URL set and u on the site of the first page opened, the same page there.\nlet _firstOrigin = null;\nfunction _url(u) {\n  const x = new URL(u);\n  _firstOrigin ??= x.origin;\n  const base = process.env.PQA_BASE_URL;\n  return base && x.origin === _firstOrigin ? base.replace(/\\/+$/, '') + x.pathname + x.search + x.hash : u;\n}\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// The element a Condition checks: the first selector that finds one now, without waiting.\nasync function _first(page, selectors) {\n  for (const s of selectors) {\n    const el = page.locator(s).first();\n    if (await el.count().catch(() => 0)) return el.elementHandle();\n  }\n  return null;\n}\n\n// A Condition recorded inside a frame: its element looked for now in the page and each of\n// its frames, and checked in the frame that holds it (none found: checked with none).\nasync function _checkInFrames(page, selectors, type, expected) {\n  for (const frame of page.frames()) {\n    for (const s of selectors) {\n      const el = frame.locator(s).first();\n      if (await el.count().catch(() => 0)) return frame.evaluate(_checkCond, [type, await el.elementHandle(), expected]);\n    }\n  }\n  return page.evaluate(_checkCond, [type, null, expected]);\n}\n\n// A Condition as the extension checks it (content.js CHECK_CONDITION); page.evaluate\n// hands it one argument, [type, element, expected].\nconst _checkCond = ([type, el, expected]) => ((type, el, expected) => {\n  const shown = (e) => {\n    const style = getComputedStyle(e), rect = e.getBoundingClientRect();\n    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && rect.width > 0 && rect.height > 0;\n  };\n  switch (type) {\n    case 'elementExists':    return !!el;\n    case 'elementNotExists': return !el;\n    case 'elementVisible':   return !!el && shown(el);\n    case 'elementHidden':    return !el || !shown(el);\n    case 'textContains':     return !!el && el.textContent.includes(expected);\n    case 'textEquals':       return !!el && el.textContent.trim() === (expected || '').trim();\n    case 'valueEquals':      return !!el && 'value' in el && el.value === expected;\n    case 'valueContains':    return !!el && 'value' in el && el.value.includes(expected);\n    case 'urlContains':      return window.location.href.includes(expected);\n    case 'urlEquals':        return window.location.href === expected;\n    case 'hasClass':         return !!el && el.classList.contains(expected);\n    case 'hasAttribute': {\n      if (!el) return false;\n      const eq = (expected || '').indexOf('=');\n      if (eq < 0) return el.hasAttribute(expected);\n      const name = expected.slice(0, eq);\n      return el.hasAttribute(name) && el.getAttribute(name) === expected.slice(eq + 1);\n    }\n    default: throw new Error('Unknown condition type \"' + type + '\"');\n  }\n})(type, el, expected);\n\n// An Assert as the extension makes it (bg/playback/steps/assert.js): its check made again\n// every 250 ms until it holds, for up to 5 s. One still false is a soft failure: the test\n// goes on, and fails at its end with each one.\nconst _assert = (check, title, want) => expect.configure({ soft: true })\n  .poll(check, { message: title + ': ' + want, timeout: 5000, intervals: [250] }).toBe(true);\n\ntest(\"Asserts\", async ({ page }) => {\n  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n  test.setTimeout(0);\n  // --- VARIABLES ---\n  const token = _var(\"token\", (() => Array.from({length:8},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))());\n  const role = _var(\"role\", [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)]);\n  const lang = _var(\"lang\", \"{fallback:vi|en}\");\n  const n = _var(\"n\", \"\");\n  const z = _var(\"z\", \"\");\n\n  // ⚠ TODO: Set the starting URL (go to Settings tab to configure)\n  await page.goto(_url(\"https://your-url-here.com\"));\n\n  // Step 1: assert — textEquals — Saved toast\n  await test.step(\"Step 1: assert — textEquals — Saved toast\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"textEquals\", await _first(page, [\"xpath=//*[@id=\\\"toast\\\"]\", \"#toast\"]), `Saved ${user}`]), \"Step 1: assert — textEquals — Saved toast\", `expected text \"Saved ${user}\"`);\n    await page.waitForTimeout(300);\n  });\n\n  // Step 2: click\n  await test.step(\"Step 2: click\", async () => {\n    const el2 = await _find(page, [\"xpath=//*[@id=\\\"next\\\"]\", \"#next\"]);\n    await el2.click();\n    await page.waitForTimeout(300);\n  });\n\n  // Step 3: assert — urlContains\n  await test.step(\"Step 3: assert — urlContains\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"urlContains\", null, \"/done\"]), \"Step 3: assert — urlContains\", \"expected URL containing \\\"/done\\\"\");\n    await page.waitForTimeout(500);\n  });\n\n  // Step 4: assert — elementVisible\n  await test.step(\"Step 4: assert — elementVisible\", async () => {\n    await _assert(async () => _checkInFrames(page, [\"xpath=//*[@id=\\\"in-frame\\\"]\", \"#in-frame\"], \"elementVisible\", \"\"), \"Step 4: assert — elementVisible\", \"expected element to be visible\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 5: assert — hasAttribute\n  await test.step(\"Step 5: assert — hasAttribute\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"hasAttribute\", await _first(page, [\"xpath=//*[@id=\\\"x\\\"]\", \"#x\"]), \"data-x=\\\"1\\\"\"]), \"Step 5: assert — hasAttribute\", \"expected attribute data-x=\\\"1\\\"\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 6: assert — elementExists\n  await test.step(\"Step 6: assert — elementExists\", async () => {\n    await _assert(async () => page.evaluate(_checkCond, [\"elementExists\", await _first(page, [\"xpath=//*[@id=\\\"plain\\\"]\", \"#plain\"]), \"\"]), \"Step 6: assert — elementExists\", \"expected element to exist\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 7: assert — isChecked\n  await test.step(\"Step 7: assert — isChecked\", async () => {\n    throw new Error(\"Assert step 7: unknown condition type, named in the comment above\");\n    await page.waitForTimeout(300);\n  });\n\n  // Step 9: condition — elementExists\n  if (await test.step(\"Step 9: condition — elementExists\", async () => page.evaluate(_checkCond, [\"elementExists\", await _first(page, [\"xpath=//*[@id=\\\"panel\\\"]\", \"#panel\"]), '']))) {\n    // Step 10: assert — valueEquals\n    await test.step(\"Step 10: assert — valueEquals\", async () => {\n      await _assert(async () => page.evaluate(_checkCond, [\"valueEquals\", await _first(page, [\"xpath=//*[@id=\\\"qty\\\"]\", \"#qty\"]), \"3\"]), \"Step 10: assert — valueEquals\", \"expected value \\\"3\\\"\");\n      await page.waitForTimeout(300);\n    });\n\n  }\n\n  // Step 11: click\n  await test.step(\"Step 11: click\", async () => {\n    const el11 = await _find(page, [\"xpath=//*[@id=\\\"end\\\"]\", \"#end\"]);\n    await el11.click();\n    await page.waitForTimeout(300);\n  });\n\n});",
+  "stats": {
+   "total": 10,
+   "supported": 10,
+   "skipped": 0
+  },
+  "steps": [
+   {
+    "n": 1,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 5,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 6,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 7,
+    "type": "assert",
+    "status": "verify",
+    "reason": "unknown condition type — the exported code stops there, as a run does"
+   },
+   {
+    "n": 9,
+    "type": "condition",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 10,
+    "type": "assert",
+    "status": "ok",
+    "reason": ""
+   },
+   {
+    "n": 11,
+    "type": "click",
+    "status": "ok",
+    "reason": ""
+   }
+  ],
+  "warnings": [
+   "\"lang\" is a Fallback variable — resolved only inside Child Conditions, literal everywhere else",
+   "Assert step 7: type \"isChecked\" is unknown — the exported code stops there, as a run does",
+   "${user} is used by a step but not defined in the Variables tab"
+  ]
+ },
  "Every action type | csv": {
   "code": "// SCENARIO: Every action type\n// How to run: npm install -D @playwright/test, then: npx playwright test <this file>\n// Without exporting again, the environment can set:\n//   PQA_BASE_URL  a site to open instead of the first page's (staging, production): its steps go there\n//   PQA_<name>    a variable's value: PQA_user, PQA_token, PQA_pin, PQA_stamp, PQA_word, PQA_role, PQA_lang, PQA_tên, PQA_empty\nimport { test } from '@playwright/test';\nimport { readFileSync } from 'node:fs';\nimport { join } from 'node:path';\n\n// How long a step waits for its element, as set in the export.\nconst TIMEOUT = 10000;\ntest.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });\n\n// A variable's value: PQA_<name> from the environment when it is set, else the exported one.\nconst _var = (name, value) => process.env['PQA_' + name] ?? value;\n\n// u — or, with PQA_BASE_URL set and u on the site of the first page opened, the same page there.\nlet _firstOrigin = null;\nfunction _url(u) {\n  const x = new URL(u);\n  _firstOrigin ??= x.origin;\n  const base = process.env.PQA_BASE_URL;\n  return base && x.origin === _firstOrigin ? base.replace(/\\/+$/, '') + x.pathname + x.search + x.hash : u;\n}\n\n// The rows of a CSV file beside this spec, read as the extension's CSV run reads them.\nfunction _delimiterOf(text) {\n  const counts = { ',': 0, ';': 0, '\\t': 0 };\n  let inQuote = false;\n  for (const ch of text) {\n    if (ch === '\"') inQuote = !inQuote;\n    else if (!inQuote && (ch === '\\n' || ch === '\\r')) break;\n    else if (!inQuote && ch in counts) counts[ch]++;\n  }\n  return Object.keys(counts).reduce((best, d) => (counts[d] > counts[best] ? d : best), ',');\n}\n\nfunction parseCSV(text) {\n  if (typeof text !== 'string') return null;\n  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);\n  const delimiter = _delimiterOf(text);\n\n  const records = [];\n  let record  = [];\n  let field   = '';\n  let quoted  = false;   // this field was opened with a quote\n  let inQuote = false;   // currently inside the quotes\n  // Whether the current record has any content at all. Distinguishes a blank line\n  // (skipped) from a genuine one-column row holding an empty quoted value.\n  let dirty   = false;\n  let i       = 0;\n\n  const endField = () => {\n    record.push(quoted ? field : field.trim());\n    field  = '';\n    quoted = false;\n  };\n  const endRecord = () => {\n    endField();\n    if (dirty) records.push(record);\n    record = [];\n    dirty  = false;\n  };\n\n  while (i < text.length) {\n    const ch = text[i];\n    if (inQuote) {\n      if (ch === '\"') {\n        if (text[i + 1] === '\"') { field += '\"'; i += 2; }\n        else { inQuote = false; i++; }\n      } else { field += ch; i++; }\n      continue;\n    }\n    if (ch === '\"')       { inQuote = true; quoted = true; dirty = true; i++; }\n    else if (ch === delimiter) { endField(); dirty = true; i++; }\n    else if (ch === '\\r') { i++; if (text[i] === '\\n') i++; endRecord(); }\n    else if (ch === '\\n') { i++; endRecord(); }\n    else                  { field += ch; dirty = true; i++; }\n  }\n  // Trailing record when the file does not end in a newline.\n  if (dirty) endRecord();\n\n  if (records.length < 2) return null;\n\n  const headers = records[0];\n  const rows = records.slice(1).map((vals) => {\n    const row = {};\n    headers.forEach((h, idx) => { row[h] = vals[idx] ?? \"\"; });\n    return row;\n  });\n  return { headers, rows };\n}\n\nfunction _rows(name) {\n  const parsed = parseCSV(readFileSync(join(typeof __dirname === 'string' ? __dirname : process.cwd(), name), 'utf8'));\n  if (!parsed) throw new Error(name + ': a header row and at least one row of data are needed');\n  return parsed.rows;\n}\n\n// The row's value of a column a step needs.\nfunction _column(row, name) {\n  if (!(name in row)) throw new Error('the data file has no column \"' + name + '\"');\n  return row[name];\n}\n\n// How the extension finds an element (content.js _locators): each selector in turn\n// until one finds it, for up to TIMEOUT; one the page cannot parse is passed over.\nasync function _find(page, selectors) {\n  const end = Date.now() + TIMEOUT;\n  for (;;) {\n    for (const s of selectors) {\n      const el = page.locator(s).first();\n      if (await el.count().catch(() => 0)) return el;\n    }\n    if (Date.now() > end) throw new Error('No element found by ' + selectors.join(' | '));\n    await page.waitForTimeout(100);\n  }\n}\n\n// The child a Child Condition picks in its parent (content.js findElementByCondition).\nconst _findChild = (parent, cond) => {\n  const _fbRe = /^\\{fallback:(.+)\\}$/;\n  const _fbField = ['valueEquals','textContains','idContains','classContains','typeEquals'].find(f => cond[f] != null && _fbRe.test(String(cond[f])));\n  const _fbVals  = _fbField ? String(cond[_fbField]).match(_fbRe)[1].split('|').map(s=>s.trim()) : null;\n  const _tryFind = (c, blankField) => {\n    const mode = c.matchMode || 'any';\n    const norm = s => (s == null ? '' : String(s).trim().toLowerCase());\n    const checks = [];\n    if (c.valueEquals   != null && c.valueEquals   !== '') checks.push(el => el.value !== undefined && String(el.value) === String(c.valueEquals));\n    if (c.textContains  != null && c.textContains  !== '') {\n      // The element's own text (its text nodes, not its children's) or all of it, as playback matches.\n      const n = norm(c.textContains);\n      const own = el => [...el.childNodes].filter(x => x.nodeType === 3).map(x => x.textContent).join('');\n      checks.push(el => norm(own(el)).includes(n) || norm(el.textContent).includes(n));\n    }\n    if (c.idContains    != null && c.idContains    !== '') { const n = norm(c.idContains);    checks.push(el => norm(el.id).includes(n)); }\n    if (c.classContains != null && c.classContains !== '') { const n = norm(c.classContains); checks.push(el => norm(el.className).includes(n)); }\n    if (c.typeEquals    != null && c.typeEquals    !== '') checks.push(el => (c.typeEquals === 'select' ? el.tagName === 'SELECT' : el.type === c.typeEquals));\n    if (blankField) checks.push(el => {\n      if (blankField === 'valueEquals')   return el.value !== undefined && String(el.value) === '';\n      if (blankField === 'textContains')  return norm(el.textContent) === '';\n      if (blankField === 'idContains')    return !el.id;\n      if (blankField === 'classContains') return norm(el.getAttribute('class')) === '';\n      return !el.getAttribute('type');\n    });\n    if (!checks.length) return null;\n    const test = mode === 'all' ? el => checks.every(fn => fn(el)) : el => checks.some(fn => fn(el));\n    const first = (root) => {\n      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);\n      for (let node = walker.nextNode(); node; node = walker.nextNode()) { if (test(node)) return node; }\n      return null;\n    };\n    let hit = first(parent);\n    if (hit && c.textContains != null && c.textContains !== '') { for (let inner = first(hit); inner; inner = first(hit)) hit = inner; }\n    return hit;\n  };\n  if (_fbField && _fbVals) {\n    for (const _fv of _fbVals) { const el = _tryFind({...cond, [_fbField]: _fv}, _fv === '' ? _fbField : null); if (el) return el; }\n    return null;\n  }\n  return _tryFind(cond);\n};\n\n// What Read DOM reads (content.js readElementValue); [from, attr] as one argument.\nconst _readVal = (el, [from, attr]) => ((el, from, attr) => {\n  const tag = String(el.tagName || '').toUpperCase(), fld = tag === 'INPUT' || tag === 'TEXTAREA';\n  const txt = () => (typeof el.innerText === 'string' ? el.innerText : (el.textContent || ''));\n  const ws = (s) => String(s == null ? '' : s).replace(/\\s+/g, ' ').trim();\n  if (from === 'attr') return el.getAttribute(attr) ?? '';\n  if (from === 'value') {\n    if (tag === 'SELECT' && el.multiple) return Array.from(el.selectedOptions).map(o => o.value).join(', ');\n    if (fld || tag === 'SELECT') return el.value ?? '';\n    if (el.isContentEditable) return txt().trim();\n    if (typeof el.value === 'string' && el.value !== '') return el.value;\n    if (typeof el.value === 'number' && tag !== 'LI') return String(el.value);\n    return txt().trim();\n  }\n  if (from === 'visible') {\n    if (tag === 'SELECT') return Array.from(el.selectedOptions).map(o => ws(o.text)).join(', ');\n    if (fld) return el.value ?? '';\n    return ws(txt());\n  }\n  return (el.textContent || '').trim();\n})(el, from, attr);\n\n// An Input as the extension makes it: a <select>, a date, time, color or range field\n// through its own setter (a typed date follows the browser's locale); any other field filled.\nconst _setInput = (el, value) => {\n  el.scrollIntoView({ behavior: 'auto', block: 'center' });\n  el.focus();\n  const v = value ?? '';\n  if (el.isContentEditable) {\n    document.execCommand('selectAll', false, null);\n    document.execCommand('insertText', false, v);\n    el.dispatchEvent(new Event('input', { bubbles: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true }));\n    return;\n  }\n  if (el.tagName === 'SELECT') {\n    const want = String(v);\n    const options = Array.from(el.options);\n    const option = options.find(o => o.value === want) || options.find(o => o.text === want);\n    if (!option) throw new Error('The dropdown has no option \"' + want + '\"');\n    el.value = option.value;\n    el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));\n    el.dispatchEvent(new Event('blur', { bubbles: true }));\n    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));\n    return;\n  }\n  let setter = null;\n  for (let p = Object.getPrototypeOf(el); p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {\n    const d = Object.getOwnPropertyDescriptor(p, 'value');\n    if (d?.set) { setter = d.set; break; }\n  }\n  if (setter) setter.call(el, v); else el.value = v;\n  el.dispatchEvent(new Event('input', { bubbles: true }));\n  el.dispatchEvent(new Event('change', { bubbles: true }));\n  el.dispatchEvent(new Event('blur', { bubbles: true }));\n};\nconst _SCRIPT_INPUT_TYPES = ['date', 'time', 'datetime-local', 'month', 'week', 'color', 'range'];\nasync function _input(el, value) {\n  const kind = await el.evaluate((e) => (e.tagName === 'SELECT' ? 'select' : e.type));\n  if (kind === 'select' || _SCRIPT_INPUT_TYPES.includes(kind)) await el.evaluate(_setInput, value);\n  else await el.fill(value);\n}\n\n// A value inlined into script code, escaped as the extension escapes it (_applyVarsToCode).\nconst _js = (v) => String(v).replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/'/g, \"\\\\'\")\n  .replace(/`/g, '\\\\`').replace(/\\$\\{/g, '\\\\${').replace(/\\n/g, '\\\\n').replace(/\\r/g, '\\\\r');\n\nfor (const [n, _row] of _rows(\"data.csv\").entries()) {\n  test(\"Every action type\" + ' #' + (n + 1), async ({ page }) => {\n    // A scenario takes as long as its steps; each one waits for TIMEOUT at most.\n    test.setTimeout(0);\n    // --- VARIABLES ---\n    const user = _row[\"user\"] ?? _var(\"user\", \"bob\");\n    const token = _row[\"token\"] ?? _var(\"token\", (() => Array.from({length:12},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join(''))());\n    const pin = _row[\"pin\"] ?? _var(\"pin\", (() => Array.from({length:4},()=>String(Math.floor(Math.random()*10))).join(''))());\n    const stamp = _row[\"stamp\"] ?? _var(\"stamp\", (() => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); })());\n    const word = _row[\"word\"] ?? _var(\"word\", (() => Array.from({length:5},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random()*52)]).join(''))());\n    const role = _row[\"role\"] ?? _var(\"role\", [\"admin\",\"user\",\"\"][Math.floor(Math.random() * 3)]);\n    const lang = _row[\"lang\"] ?? _var(\"lang\", \"{fallback:vi|en}\");\n    const t_n = _row[\"tên\"] ?? _var(\"tên\", \"Đức \\\"the\\\" \\\\ `bold`\");\n    const empty = _row[\"empty\"] ?? _var(\"empty\", \"\");\n    const page_v = _column(_row, \"page\");\n    const attr = _column(_row, \"attr\");\n    const fileName = _column(_row, \"fileName\");\n    let greeting = _row[\"greeting\"] ?? '';\n    let order = _row[\"order\"] ?? '';\n    let orderId = _row[\"orderId\"] ?? '';\n    let customer = _row[\"customer\"] ?? '';\n    let href = _row[\"href\"] ?? '';\n    let shot = _row[\"shot\"] ?? '';\n\n    // Step 1: navigate — Open login\n    await test.step(\"Step 1: navigate — Open login\", async () => {\n      await page.goto(_url(`https://example.com/login?next=${page_v}`));\n      await page.waitForTimeout(300);\n    });\n\n    // Step 2: wait — Settle\n    await test.step(\"Step 2: wait — Settle\", async () => {\n      await page.waitForTimeout(250);\n    });\n\n    // Step 3: click — Start\n    await test.step(\"Step 3: click — Start\", async () => {\n      const el3 = await _find(page, [\"xpath=//*[@id=\\\"start\\\"]\", \"#start\"]);\n      await el3.click();\n    });\n\n    // Step 4: input — User\n    await test.step(\"Step 4: input — User\", async () => {\n      const el4 = await _find(page, [\"xpath=//*[@id=\\\"user\\\"]\", \"#user\"]);\n      await _input(el4, `${user}`);\n      await page.waitForTimeout(300);\n    });\n\n    // Step 5: input\n    await test.step(\"Step 5: input\", async () => {\n      const el5 = await _find(page, [\"xpath=//*[@id=\\\"pass\\\"]\", \"#pass\"]);\n      await _input(el5, \"p@ss \\\"quoted\\\" \\\\ back`tick`\");\n      await page.waitForTimeout(300);\n    });\n\n    // Step 6: hover\n    await test.step(\"Step 6: hover\", async () => {\n      const el6 = await _find(page, [\"xpath=//*[@id=\\\"menu\\\"]\", \"#menu\"]);\n      await el6.hover();\n      await page.waitForTimeout(300);\n    });\n\n    // Step 7: open dropdown (freeze)\n    await test.step(\"Step 7: open dropdown (freeze)\", async () => {\n      const el7 = await _find(page, [\"xpath=//*[@id=\\\"country\\\"]\", \"#country\"]);\n      await el7.click();\n      await page.waitForTimeout(300);\n    });\n\n    // Step 8: drag & drop\n    await test.step(\"Step 8: drag & drop\", async () => {\n      const el8_s = await _find(page, [\"xpath=//*[@id=\\\"card-1\\\"]\", \"#card-1\"]);\n      const el8_t = page.locator(\"#lane-2\").first();\n      await el8_s.dragTo(el8_t);\n      await page.waitForTimeout(300);\n    });\n\n    // Step 9: script — Inline script\n    await test.step(\"Step 9: script — Inline script\", async () => {\n      await page.evaluate(\"const n = '\" + _js(user) + \"';\\nconsole.log(n, \" + _js(t_n) + \");\\nreturn 1;\");\n      await page.waitForTimeout(300);\n    });\n\n    // Step 10: readdom → \"greeting\"\n    await test.step(\"Step 10: readdom → \\\"greeting\\\"\", async () => {\n      const el10 = await _find(page, [\"xpath=//*[@id=\\\"greeting\\\"]\", \"#greeting\"]);\n      greeting = await el10.evaluate(_readVal, [\"visible\", \"\"]);\n      await page.waitForTimeout(300);\n    });\n\n    // Step 11: readdom → \"order\", \"orderId\", \"customer\"\n    await test.step(\"Step 11: readdom → \\\"order\\\", \\\"orderId\\\", \\\"customer\\\"\", async () => {\n      const el11 = await _find(page, [\"xpath=//*[@id=\\\"order\\\"]\", \"#order\"]);\n      const el11_t = await el11.evaluate(_readVal, [\"text\", \"\"]);\n      order = el11_t;\n      const el11_m = new RegExp(\"Order\\\\s+#([\\\\s\\\\S]*?)\\\\s+for\\\\s+([\\\\s\\\\S]*)$\", \"\").exec(el11_t);\n      if (!el11_m) throw new Error(\"Read DOM (step 11): text does not match Order #${orderId} for ${customer}: \" + el11_t);\n      orderId = el11_m[1].trim();\n      customer = el11_m[2].trim();\n      await page.waitForTimeout(300);\n    });\n\n    // Step 12: readdom → \"href\"\n    await test.step(\"Step 12: readdom → \\\"href\\\"\", async () => {\n      const el12 = await _find(page, [\"xpath=//*[@id=\\\"link\\\"]\", \"#link\"]);\n      href = await el12.evaluate(_readVal, [\"attr\", `data-${attr}`]);\n      await page.waitForTimeout(300);\n    });\n\n    // Step 13: screenshot (visible) — Visible\n    await test.step(\"Step 13: screenshot (visible) — Visible\", async () => {\n      await page.screenshot({ path: \"screenshot_step13.png\" });\n      await page.waitForTimeout(300);\n    });\n\n    // Step 14: screenshot (full page)\n    await test.step(\"Step 14: screenshot (full page)\", async () => {\n      await page.screenshot({ path: \"screenshot_full_step14.png\", fullPage: true });\n      await page.waitForTimeout(300);\n    });\n\n    // Step 15: screenshot element\n    await test.step(\"Step 15: screenshot element\", async () => {\n      const el15 = await _find(page, [\"xpath=//*[@id=\\\"chart\\\"]\", \"#chart\"]);\n      await el15.screenshot({ path: \"screenshot_element_step15.png\" });\n      await page.waitForTimeout(300);\n    });\n\n    // Step 16: screenshot → variable \"shot\"\n    await test.step(\"Step 16: screenshot → variable \\\"shot\\\"\", async () => {\n      shot = \"screenshot_shot_step16.png\";\n      await page.screenshot({ path: shot });\n      await page.waitForTimeout(300);\n    });\n\n    // Step 17: upload files\n    await test.step(\"Step 17: upload files\", async () => {\n      const el17 = await _find(page, [\"xpath=//*[@id=\\\"file\\\"]\", \"#file\"]);\n      await el17.setInputFiles([\"C:\\\\data\\\\a.png\", `C:\\\\data\\\\${fileName}`]);\n      await page.waitForTimeout(300);\n    });\n\n    // Step 18: click\n    await test.step(\"Step 18: click\", async () => {\n      const el18_p = await _find(page, [\"xpath=//*[@id=\\\"row\\\"]\", \"#row\"]);\n      const el18 = (await el18_p.evaluateHandle(_findChild, {matchMode: \"any\", textContains: `${t_n}`, classContains: \"{fallback:a|b}\"})).asElement();\n      if (!el18) throw new Error('Child condition not matched (step 18)');\n      await el18.click();\n      await page.waitForTimeout(300);\n    });\n\n  });\n}",
   "stats": {
