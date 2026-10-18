@@ -597,9 +597,9 @@
   ],
   [],
   [
-   "#in-frame",
-   "#in-frame",
-   "//*[@id=\"in-frame\"]"
+   "#shown",
+   "#shown",
+   "//*[@id=\"shown\"]"
   ],
   [
    "#x",
@@ -4370,7 +4370,7 @@
     {"type":"assert","conditionType":"textEquals","selector":"#toast","selectors":{"css":"#toast","xpath":"//*[@id=\"toast\"]"},"expectedValue":"Saved ${user}","label":"Saved toast"},
     {"type":"click","selector":"#next","selectors":{"css":"#next","xpath":"//*[@id=\"next\"]"}},
     {"type":"assert","conditionType":"urlContains","expectedValue":"/done","delay":500},
-    {"type":"assert","conditionType":"elementVisible","selector":"#in-frame","selectors":{"css":"#in-frame","xpath":"//*[@id=\"in-frame\"]"},"frameId":4},
+    {"type":"assert","conditionType":"elementVisible","selector":"#shown","selectors":{"css":"#shown","xpath":"//*[@id=\"shown\"]"}},
     {"type":"assert","conditionType":"hasAttribute","selector":"#x","selectors":{"css":"#x","xpath":"//*[@id=\"x\"]"},"expectedValue":"data-x=\"1\""},
     {"type":"assert","selector":"#plain","selectors":{"css":"#plain","xpath":"//*[@id=\"plain\"]"}},
     {"type":"assert","conditionType":"isChecked","selector":"#c","selectors":{"css":"#c","xpath":"//*[@id=\"c\"]"}},
@@ -4531,7 +4531,7 @@
     {"type":"assert","conditionType":"textEquals","selector":"#toast","selectors":{"css":"#toast","xpath":"//*[@id=\"toast\"]"},"expectedValue":"Saved alice","label":"Saved toast"},
     {"type":"click","selector":"#next","selectors":{"css":"#next","xpath":"//*[@id=\"next\"]"}},
     {"type":"assert","conditionType":"urlContains","expectedValue":"/done","delay":500},
-    {"type":"assert","conditionType":"elementVisible","selector":"#in-frame","selectors":{"css":"#in-frame","xpath":"//*[@id=\"in-frame\"]"},"frameId":4},
+    {"type":"assert","conditionType":"elementVisible","selector":"#shown","selectors":{"css":"#shown","xpath":"//*[@id=\"shown\"]"}},
     {"type":"assert","conditionType":"hasAttribute","selector":"#x","selectors":{"css":"#x","xpath":"//*[@id=\"x\"]"},"expectedValue":"data-x=\"1\""},
     {"type":"assert","selector":"#plain","selectors":{"css":"#plain","xpath":"//*[@id=\"plain\"]"}},
     {"type":"assert","conditionType":"isChecked","selector":"#c","selectors":{"css":"#c","xpath":"//*[@id=\"c\"]"}},
@@ -4692,7 +4692,7 @@
     {"type":"assert","conditionType":"textEquals","selector":"#toast","selectors":{"css":"#toast","xpath":"//*[@id=\"toast\"]"},"expectedValue":"Saved $&","label":"Saved toast"},
     {"type":"click","selector":"#next","selectors":{"css":"#next","xpath":"//*[@id=\"next\"]"}},
     {"type":"assert","conditionType":"urlContains","expectedValue":"/done","delay":500},
-    {"type":"assert","conditionType":"elementVisible","selector":"#in-frame","selectors":{"css":"#in-frame","xpath":"//*[@id=\"in-frame\"]"},"frameId":4},
+    {"type":"assert","conditionType":"elementVisible","selector":"#shown","selectors":{"css":"#shown","xpath":"//*[@id=\"shown\"]"}},
     {"type":"assert","conditionType":"hasAttribute","selector":"#x","selectors":{"css":"#x","xpath":"//*[@id=\"x\"]"},"expectedValue":"data-x=\"1\""},
     {"type":"assert","selector":"#plain","selectors":{"css":"#plain","xpath":"//*[@id=\"plain\"]"}},
     {"type":"assert","conditionType":"isChecked","selector":"#c","selectors":{"css":"#c","xpath":"//*[@id=\"c\"]"}},

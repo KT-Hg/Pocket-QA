@@ -79,14 +79,15 @@ export const SYNTHETIC_SCENARIOS = [
     ],
   },
   {
-    // Asserts: with a variable and quotes in what they expect, a URL, in a frame, no
-    // check type (elementExists), an unknown one, disabled, inside a Condition's block.
+    // Asserts: with a variable and quotes in what they expect, a URL, no check type
+    // (elementExists), an unknown one, disabled, inside a Condition's block. None in a
+    // frame: Robot's dry run stops on the recursive frame search of any frame step.
     name: 'Asserts',
     actions: [
       { type: 'assert', conditionType: 'textEquals', ...sel('#toast'), expectedValue: 'Saved ${user}', label: 'Saved toast' },
       { type: 'click', ...sel('#next') },
       { type: 'assert', conditionType: 'urlContains', expectedValue: '/done', delay: 500 },
-      { type: 'assert', conditionType: 'elementVisible', ...sel('#in-frame'), frameId: 4 },
+      { type: 'assert', conditionType: 'elementVisible', ...sel('#shown') },
       { type: 'assert', conditionType: 'hasAttribute', ...sel('#x'), expectedValue: 'data-x="1"' },
       { type: 'assert', ...sel('#plain') },
       { type: 'assert', conditionType: 'isChecked', ...sel('#c') },
