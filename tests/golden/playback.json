@@ -3387,8 +3387,8 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.sync.get [[\"notifyOnComplete\"]]",
-   "notifications.create [\"complete_1768467780144\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"1 ✓ · 2 ✗ of 3 rows — \\\"Csv\\\"\"}]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":3,\"failRows\":2,\"scenarioName\":\"Csv\"}]"
+   "notifications.create [\"complete_1768467780144\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"1 passed · 2 broken of 3 row(s) — \\\"Csv\\\"\"}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":3,\"failRows\":2,\"tally\":{\"passed\":1,\"failed\":0,\"broken\":2,\"stopped\":0},\"scenarioName\":\"Csv\"}]"
   ],
   "console": [],
   "storage": {
@@ -3499,8 +3499,8 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.sync.get [[\"notifyOnComplete\"]]",
-   "notifications.create [\"complete_1768467781454\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"1 rows done — \\\"Csv\\\"\"}]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":0,\"scenarioName\":\"Csv\"}]"
+   "notifications.create [\"complete_1768467781454\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"1 passed of 1 row(s) — \\\"Csv\\\"\"}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":0,\"tally\":{\"passed\":1,\"failed\":0,\"broken\":0,\"stopped\":0},\"scenarioName\":\"Csv\"}]"
   ],
   "console": [],
   "state": {
@@ -3583,8 +3583,8 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.sync.get [[\"notifyOnComplete\"]]",
-   "notifications.create [\"complete_1768467782434\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"0 ✓ · 1 ✗ of 1 rows — \\\"Csv\\\"\"}]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":1,\"scenarioName\":\"Csv\"}]"
+   "notifications.create [\"complete_1768467782434\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"0 passed · 1 broken of 1 row(s) — \\\"Csv\\\"\"}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":1,\"tally\":{\"passed\":0,\"failed\":0,\"broken\":1,\"stopped\":0},\"scenarioName\":\"Csv\"}]"
   ],
   "console": [],
   "state": {
@@ -3728,8 +3728,8 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.sync.get [[\"notifyOnComplete\"]]",
-   "notifications.create [\"complete_1768467784564\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"0 ✓ · 1 ✗ of 1 rows — \\\"Csv\\\"\"}]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":1,\"scenarioName\":\"Csv\"}]"
+   "notifications.create [\"complete_1768467784564\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"0 passed · 1 broken of 1 row(s) — \\\"Csv\\\"\"}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":1,\"tally\":{\"passed\":0,\"failed\":0,\"broken\":1,\"stopped\":0},\"scenarioName\":\"Csv\"}]"
   ],
   "console": [
    "warn: [UTILS] getActiveTabId: using last-known tab 1",
@@ -3811,8 +3811,8 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.sync.get [[\"notifyOnComplete\"]]",
-   "notifications.create [\"complete_1768467784564\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"0 ✓ · 1 ✗ of 1 rows — \\\"Csv\\\"\"}]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":1,\"scenarioName\":\"Csv\"}]"
+   "notifications.create [\"complete_1768467784564\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"0 passed · 1 broken of 1 row(s) — \\\"Csv\\\"\"}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":1,\"tally\":{\"passed\":0,\"failed\":0,\"broken\":1,\"stopped\":0},\"scenarioName\":\"Csv\"}]"
   ],
   "console": [],
   "state": {
@@ -3913,7 +3913,7 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.sync.get [[\"notifyOnError\"]]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_ERROR\",\"error\":\"The quota has been exceeded.\",\"total\":1,\"failRows\":0}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_ERROR\",\"error\":\"The quota has been exceeded.\",\"total\":1,\"failRows\":0,\"tally\":{\"passed\":1,\"failed\":0,\"broken\":0,\"stopped\":0}}]",
    "notifications.create [\"csv_error\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⚠ CSV Run Failed\",\"message\":\"Stopped after 1 row(s): The quota has been exceeded.\"}]"
   ],
   "console": [
@@ -4950,8 +4950,8 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.sync.get [[\"notifyOnComplete\"]]",
-   "notifications.create [\"complete_1768467791714\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"1 ✓ · 1 ✗ of 2 rows — \\\"Named\\\"\"}]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":2,\"failRows\":1,\"scenarioName\":\"Named\"}]"
+   "notifications.create [\"complete_1768467791714\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"1 passed · 1 broken of 2 row(s) — \\\"Named\\\"\"}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":2,\"failRows\":1,\"tally\":{\"passed\":1,\"failed\":0,\"broken\":1,\"stopped\":0},\"scenarioName\":\"Named\"}]"
   ],
   "console": [],
   "storage": {
@@ -5795,8 +5795,8 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.sync.get [[\"notifyOnComplete\"]]",
-   "notifications.create [\"complete_1768467852214\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"0 ✓ · 1 ✗ of 1 rows — \\\"VFail\\\"\"}]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":1,\"scenarioName\":\"VFail\"}]"
+   "notifications.create [\"complete_1768467852214\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"0 passed · 1 failed of 1 row(s) — \\\"VFail\\\"\"}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":1,\"tally\":{\"passed\":0,\"failed\":1,\"broken\":0,\"stopped\":0},\"scenarioName\":\"VFail\"}]"
   ],
   "console": [],
   "storage": {
@@ -5863,8 +5863,8 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.sync.get [[\"notifyOnComplete\"]]",
-   "notifications.create [\"complete_1768467852214\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"2 rows done — \\\"VStop\\\"\"}]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":2,\"failRows\":0,\"scenarioName\":\"VStop\"}]"
+   "notifications.create [\"complete_1768467852214\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"1 passed · 1 stopped of 2 row(s) — \\\"VStop\\\"\"}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":2,\"failRows\":0,\"tally\":{\"passed\":1,\"failed\":0,\"broken\":0,\"stopped\":1},\"scenarioName\":\"VStop\"}]"
   ],
   "console": [],
   "state": {
