@@ -10,6 +10,7 @@ import { idleSegmentCapture, state } from '../state.js';
 import { updateBadge } from '../badge.js';
 import { takeFullPageScreenshot, compareScreenshots, downloadDataUrl, openCropUI, buildScreenshotFilename, getPendingCrop, reportCaptureResult } from '../screenshot.js';
 import { ignoreLastError } from '../last-error.js';
+import { sendCaptureNotification } from '../notify.js';
 import { loadOverlays } from '../tabs.js';
 import { readCaptureSettings } from '../screenshot/settings.js';
 
@@ -89,6 +90,14 @@ export const captureHandlers = {
       const cleanup = (result) => {
         clearTimeout(timeoutHandle);
         chrome.downloads.onChanged.removeListener(onChanged);
+        // The editor says "Saved" and closes itself 1.2 s later, so its toast was
+        // the only sign of a save and gone almost at once. Named as saved on disk:
+        // a Save As may have renamed it.
+        if (result.success && !responded) {
+          chrome.downloads.search({ id }, (items) => sendCaptureNotification(
+            'Screenshot saved', (items?.[0]?.filename || request.downloadPath).split(/[\\/]/).pop(), 'hotkey_capture',
+          ));
+        }
         respond(result);
       };
 
