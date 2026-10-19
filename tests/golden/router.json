@@ -2926,7 +2926,7 @@
    "tabs.setZoom [1,1.25]",
    "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"error\":\"Element produced no image — it may be hidden or have zero size when scrolled into view\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
-   "notifications.create [\"elemshot\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Element Screenshot\",\"message\":\"Error: Element produced no image — it may be hidden or have zero size when scrolled into view\"}]"
+   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Element screenshot failed\",\"message\":\"Element produced no image — it may be hidden or have zero size when scrolled into view\"}]"
   ],
   "console": []
  },
