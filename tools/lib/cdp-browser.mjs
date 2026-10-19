@@ -187,10 +187,14 @@ export async function launchWithExtension(extDir, { headed = false } = {}) {
   const exe = findBrowser();
   if (!exe) throw new Error('no browser: set CHROMIUM_PATH to an Edge or Chromium executable');
   const profile = makeProfile();
+  // --disable-sync: Edge signs a fresh profile in to the Windows account and syncs
+  // it, so chrome.storage.sync took settings other runs had written (a "e2e" file
+  // prefix, a notification toggle switched back off) mid-run — and this run's
+  // writes went up to the account.
   const proc = spawn(exe, [
     ...(headed ? [] : ['--headless=new']), '--remote-debugging-port=0', `--user-data-dir=${profile.dir}`,
     `--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`,
-    '--no-first-run', '--no-default-browser-check', '--window-size=1000,800', 'about:blank',
+    '--no-first-run', '--no-default-browser-check', '--disable-sync', '--window-size=1000,800', 'about:blank',
   ], { stdio: 'ignore' });
   const conn = await connect(await devToolsUrl(profile.dir));
 
