@@ -99,6 +99,11 @@ test('the steps are those run, in order, up to the failed one', () => {
   assert.ok(!report.includes('closePromo'), 'the step the Condition skipped is not listed');
 });
 
+test('page text keeps its # — it only makes a heading at a line\'s start', () => {
+  const r = buildBugReport({ ...lastRun, failures: [{ ...lastRun.failures[0], reason: 'Expected text "Saved", got "Order #1042"' }] }, { env: ENV });
+  assert.ok(r.includes('got "Order #1042"'), r.split('\n')[2]);
+});
+
 test('other failures, the variables the steps use, the screenshot', () => {
   assert.ok(report.includes('### Other failures in this run\n\n- ⚠ #6 click — Element not found'));
   assert.ok(report.includes('### Variables\n\n- `code` = •••'));

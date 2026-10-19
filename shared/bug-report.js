@@ -22,9 +22,13 @@ const VAR_REF = /\$\{[^}]+\}/g;
 // Of a Run JS step's code, the start, on one line.
 const CODE_SHOWN_MAX = 80;
 
-/** Text that Markdown would read as formatting, escaped; on one line. */
+/**
+ * Text that Markdown would read as formatting, escaped; on one line. Not `#`: it
+ * makes a heading only at a line's start, where page text never lands here, and
+ * "Order \#1042" reads badly wherever the report is pasted as plain text.
+ */
 function _md(s) {
-  return String(s ?? '').replace(/\s+/g, ' ').replace(/[\\`*_[\]<>#|~]/g, '\\$&');
+  return String(s ?? '').replace(/\s+/g, ' ').replace(/[\\`*_[\]<>|~]/g, '\\$&');
 }
 
 /** An inline code span that holds any text, backticks included. */
