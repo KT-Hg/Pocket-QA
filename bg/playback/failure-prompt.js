@@ -6,6 +6,7 @@
 import { state } from '../state.js';
 import { updateBadge } from '../badge.js';
 import { sendAlertNotification } from '../notify.js';
+import { ignoreLastError } from '../last-error.js';
 import { loadOverlays, tabMsg, waitForTabLoad } from '../tabs.js';
 
 // How often an open prompt checks whether the run was stopped elsewhere.
@@ -111,6 +112,17 @@ export function recordFailure({ i, action, reason, failedActions, facts = {} }) 
 export async function onActionFailed({ tabId, i, actions, action, reason, failedActions, record = reason, facts = {} }) {
   const r = reason || 'element not found';
   chrome.runtime.sendMessage({ type: 'ACTION_FAILED', index: i, action, reason: r }).catch(() => {});
+  // The run now waits for a click in the page, for as long as it takes. Without
+  // this, a run nobody is watching (a scheduled one, a tab in another window)
+  // sat paused with no sign anywhere. Same id as the other failure notices, and
+  // sent in CSV runs too: a paused run is no longer one alert per failed row.
+  // Awaited, so the clear below can never overtake it (a prompt can end at once).
+  const label = action?.label || action?.type || '';
+  await sendAlertNotification(
+    `⚠ Action ${i + 1} failed — run paused`,
+    `${label ? `${label}: ` : ''}${r} — Retry, Skip or Stop on the page`,
+    'action_failed',
+  );
 
   const csv = state.csvPlayback.active;
   const choice = await _askOnFailure(tabId, {
@@ -121,6 +133,9 @@ export async function onActionFailed({ tabId, i, actions, action, reason, failed
     rows: csv ? state.csvPlayback.rows?.length || 0 : null,
   });
 
+  // "Run paused" is no longer true: answered, or no page could ask and the run
+  // goes on (outside a CSV run, notifyActionFailed below says so instead).
+  chrome.notifications.clear('action_failed', ignoreLastError);
   if (choice === FAIL_RETRY) return FAIL_RETRY;
   if (!choice) notifyActionFailed(i, action, r, { toPopup: false });
   if (failedActions) {

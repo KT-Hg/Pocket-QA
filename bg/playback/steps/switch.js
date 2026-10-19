@@ -8,7 +8,6 @@ import {
 } from '../../../shared/switch-blocks.js';
 import { state } from '../../state.js';
 import { getScenarios } from '../../storage.js';
-import { sendAlertNotification } from '../../notify.js';
 import { FAIL_STOP } from '../failure-prompt.js';
 import { STOP, afterFailure } from './flow.js';
 
@@ -88,11 +87,6 @@ export async function runSwitch(ctx, i, action) {
       state.playback.actionIndex   = startIdx;
       state.playback.totalActions  = targetScenario.actions.length;
       chrome.runtime.sendMessage({ type: 'SWITCH_SCENARIO', scenarioName: switchedName, caseLabel }).catch(() => {});
-      if (!state.csvPlayback.active) {
-        // Same reasoning as action_failed: a scenario can switch many times
-        // in one run, and only the most recent hop is worth showing.
-        sendAlertNotification('🔀 Scenario Switched', `[${caseLabel}] → "${switchedName}"`, 'scenario_switched');
-      }
       // Pass a copy of vars so the nested scenario cannot mutate the parent's
       // variable map; merge returned vars back after completion.
       //

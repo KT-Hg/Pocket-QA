@@ -525,17 +525,17 @@ export const CARD_HELP_DATA = {
     vi: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Vì sao có thẻ này</span><span class="ch-title">Kịch bản chạy khi bạn không nhìn</span></div><p class="ch-desc">Một lần chạy CSV vài trăm dòng, hay một lịch tự chạy lúc 8 giờ sáng, đều diễn ra khi popup đã đóng và bạn đang làm việc khác. Thông báo của hệ điều hành là cách duy nhất biết được kết quả mà không phải ngồi canh.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">4 nhóm</span><span class="ch-title">Bật/tắt riêng từng nhóm</span></div><p class="ch-desc">
-        • <b>Run finished</b> — playback, sequence hay CSV chạy xong<br>
-        • <b>Errors &amp; warnings</b> — action lỗi, tab bị đóng giữa chừng, storage đầy<br>
-        • <b>Capture results</b> — ảnh chụp bằng <i>phím tắt</i> đã lưu ở đâu. Nhóm này đáng bật nhất, vì chụp bằng phím tắt thì popup đóng, không có chỗ nào khác báo kết quả<br>
+        • <b>Run passed or stopped</b> — playback, sequence hay CSV chạy xong mà không lỗi, hoặc bị dừng<br>
+        • <b>Errors &amp; warnings</b> — một lần chạy hay action bị lỗi, lần chạy đang dừng chờ bạn chọn Retry / Skip / Stop, tab bị đóng giữa chừng, storage đầy<br>
+        • <b>Capture results</b> — ảnh chụp đã lưu ở đâu, khi popup đã đóng (phím tắt, đếm ngược, chụp theo đoạn, chọn phần tử). Nhóm này đáng bật nhất, vì lúc đó không có chỗ nào khác báo kết quả<br>
         • <b>Scheduled runs</b> — một lịch vừa tự khởi động</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-red">Ngoại lệ</span><span class="ch-title">Một thông báo không tắt được</span></div><p class="ch-desc">Khi đã quá hạn cập nhật bắt buộc, thông báo <b>"cần cập nhật"</b> luôn hiện dù bạn tắt hết — vì lúc đó nó là thứ duy nhất giải thích tại sao bấm nút mà không có gì xảy ra. Lời nhắc <i>trước</i> hạn thì vẫn theo công tắc <b>Errors &amp; warnings</b>.</p></div>`,
     en: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Why this card exists</span><span class="ch-title">Runs that happen while you are not watching</span></div><p class="ch-desc">A CSV run of a few hundred rows, or a schedule firing at 8am, both happen with the popup closed while you are doing something else. A system notification is the only way to learn the outcome without sitting and watching.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">Four categories</span><span class="ch-title">Each switched separately</span></div><p class="ch-desc">
-        • <b>Run finished</b> — a playback, sequence or CSV run completed<br>
-        • <b>Errors &amp; warnings</b> — a failed action, a tab closed mid-run, storage full<br>
-        • <b>Capture results</b> — where a <i>hotkey</i> screenshot was saved. The most worthwhile one: with a hotkey capture the popup is closed, so nothing else reports the result<br>
+        • <b>Run passed or stopped</b> — a playback, sequence or CSV run finished with nothing failed, or was stopped<br>
+        • <b>Errors &amp; warnings</b> — a failed run or action, a run paused for your Retry / Skip / Stop, a tab closed mid-run, storage full<br>
+        • <b>Capture results</b> — where a screenshot was saved, when the popup is closed (hotkey, countdown, segment, element pick). The most worthwhile one: nothing else reports the result then<br>
         • <b>Scheduled runs</b> — a schedule started on its own</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-red">One exception</span><span class="ch-title">A notice you cannot switch off</span></div><p class="ch-desc">Once an update deadline has passed, the <b>"update required"</b> notice is always shown even with everything off — at that point it is the only thing explaining why pressing a button does nothing. The reminder <i>before</i> the deadline still follows the <b>Errors &amp; warnings</b> switch.</p></div>`
   },

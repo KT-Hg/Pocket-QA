@@ -99,9 +99,15 @@ function _endVerdict(failures, completed) {
   return verdict;
 }
 
-/** The verdict as the completion notification: in the title, and the counts after `done`. */
+/**
+ * The verdict as the run's last notification: in the title, and the counts after
+ * `done`. A failed or broken run goes out as an alert, which is on by default:
+ * as a completion notice (off by default) a run that failed ended in silence,
+ * the per-action alerts being the only sign — and CSV runs raise none of those.
+ */
 function _notifyVerdict(name, verdict, done) {
-  return sendCompletionNotification(`${verdictLabel(verdict.status)} — ${name}`, `${done}${_failCounts(verdict)}`);
+  const send = verdict.status === 'failed' || verdict.status === 'broken' ? sendAlertNotification : sendCompletionNotification;
+  return send(`${verdictLabel(verdict.status)} — ${name}`, `${done}${_failCounts(verdict)}`);
 }
 
 /**
@@ -859,7 +865,9 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
   // Nothing ran: missing scenario or no eligible tab, both already reported above.
   if (!scenario || tabId == null) return;
 
-  await sendCompletionNotification('CSV Run complete', `${tallyText(tally)} of ${completedRows} row(s) — "${scenario.name}"`);
+  // Rows that failed or broke make it an alert, as for a single run (_notifyVerdict).
+  const send = tally.failed || tally.broken ? sendAlertNotification : sendCompletionNotification;
+  await send('CSV Run complete', `${tallyText(tally)} of ${completedRows} row(s) — "${scenario.name}"`);
   chrome.runtime.sendMessage({
     type: 'CSV_RUN_DONE',
     total: completedRows,
