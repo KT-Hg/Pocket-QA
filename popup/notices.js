@@ -10,10 +10,14 @@ export function initNotices() {
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type !== "SCREENSHOT_RESULT") return;
     const { result } = msg;
+    // A dismissed Save As is the user's own choice, not a failure.
     if (result?.cancelled) {
-      showToast('Capture cancelled', 'error');
+      showToast('Capture cancelled', 'info');
     } else if (result?.error) {
       showToast(result.error, 'error');
+    } else if (result?.cropping) {
+      // Nothing is saved yet: the editor saves, and says so itself.
+      showToast('Opening editor…', 'info');
     } else if (result?.partial) {
       showToast('Saved partial capture: ' + (result.filename || 'screenshot'), 'success');
     } else if (result?.success) {

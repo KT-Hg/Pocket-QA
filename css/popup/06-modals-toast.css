@@ -266,7 +266,9 @@
   text-align: center;
   opacity: 0;
   pointer-events: none;
-  z-index: 9999;
+  /* Above every overlay: the Export modal (9999, later in the DOM) used to cover
+     "Scenario reloaded" and "Clipboard not available", fired while it is open. */
+  z-index: 10001;
   box-shadow: 0 4px 14px rgba(0,0,0,0.18);
   transition: opacity 0.18s ease, transform 0.18s ease;
 }

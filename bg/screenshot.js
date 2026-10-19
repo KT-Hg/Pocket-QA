@@ -94,10 +94,11 @@ function handleScreenshotRequest(request, sender, sendResponse) {
         selector: request.selector, saveMode, prefix, crop: !!request.crop, returnBase64: false,
         skipDownload: false, selectors: request.selectors, selectorType: request.selectorType,
       })
+        .catch((e) => ({ error: e.message }))
         .then((result) => {
           sendResponse(result);
           reportCaptureResult(result, { fromHotkey: !!request.fromHotkey, label: 'Element screenshot' });
-        }).catch(e => sendResponse({ error: e.message }));
+        });
     });
     return;
   }
@@ -127,10 +128,12 @@ function handleScreenshotRequest(request, sender, sendResponse) {
         scrollDir: dirMap[request.type],
       })
       : takeVisibleScreenshot(tabId, { saveMode, prefix, requestedFilename: request.filename, crop });
-    task.then((result) => {
+    // A thrown capture is reported like a returned error: with the popup closed
+    // (countdown, hotkey) the notification is the only place it can show up.
+    task.catch((e) => ({ error: e.message })).then((result) => {
       sendResponse(result);
       reportCaptureResult(result, { fromHotkey: !!request.fromHotkey, label: LABELS[request.type] || 'Screenshot' });
-    }).catch(e => sendResponse({ error: e.message }))
+    })
       .finally(() => { if (isFull) tabMsg(tabId, { type: 'FULL_CAPTURE_STATE', active: false }).catch(() => {}); });
   });
 }

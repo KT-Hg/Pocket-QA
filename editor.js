@@ -1295,7 +1295,10 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
         restore();
         // "Cancelled" is the user's own choice, so it is stated plainly rather
         // than dressed up as an error.
-        showSaveToast(reply?.error === "Cancelled" ? "Save cancelled" : ("Save failed — " + (reply?.error || "unknown")), true);
+        // SAVE_CROPPED answers { cancelled: true } for a dismissed Save As dialog;
+        // only checking error === "Cancelled" turned that into "Save failed — unknown".
+        const cancelled = reply?.cancelled || reply?.error === "Cancelled";
+        showSaveToast(cancelled ? "Save cancelled" : ("Save failed — " + (reply?.error || "unknown")), true);
       },
     );
   }

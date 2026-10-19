@@ -68,11 +68,13 @@ function _doCapture(msgType, tabId, crop) {
     TAKE_SCREENSHOT_SCROLL_H: 'Capturing horizontal scroll…',
   };
   showToast(toastMap[msgType] || 'Capturing…', 'info');
+  // Only errors here: every other outcome (saved, partial, cancelled, editor
+  // opening) arrives as the SCREENSHOT_RESULT broadcast, toasted in notices.js.
+  // This used to call anything without an error "Saved", so a cancelled Save As
+  // or a worker that never answered flashed a false "Saved: screenshot".
   chrome.runtime.sendMessage({ type: msgType, tabId, crop }, (res) => {
-    void chrome.runtime.lastError;
-    if (res?.error) showToast(res.error, 'error');
-    else if (res?.cropping) showToast('Opening editor…', 'info');
-    else showToast('Saved: ' + (res?.filename || 'screenshot'), 'success');
+    const err = res?.error || chrome.runtime.lastError?.message;
+    if (err) showToast(err, 'error');
   });
 }
 

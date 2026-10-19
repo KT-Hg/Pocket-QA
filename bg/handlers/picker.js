@@ -10,7 +10,7 @@ import { state } from '../state.js';
 import { targetTab } from '../sender.js';
 import { updateBadge } from '../badge.js';
 import { sendCaptureNotification } from '../notify.js';
-import { takeElementScreenshot } from '../screenshot.js';
+import { takeElementScreenshot, reportCaptureResult } from '../screenshot.js';
 import { readCaptureSettings } from '../screenshot/settings.js';
 
 /* --- Element picker passthrough --- */
@@ -71,13 +71,10 @@ export const pickerHandlers = {
               selector: request.selector, saveMode, prefix, crop, returnBase64: false,
               skipDownload: false, selectors: request.selectors, frameId: request.frameId,
             })
-              .then((result) => {
-                chrome.runtime.sendMessage({ type: "SCREENSHOT_RESULT", result }).catch(() => {});
-                const _notif = (msg) => sendCaptureNotification("Element Screenshot", msg, "elemshot");
-                if (result.error) _notif("Error: " + result.error);
-                else if (!crop)   _notif("Saved: " + (result.filename || "screenshot"));
-              })
-              .catch((e) => _elemShotErr("Error: " + e.message));
+              // The popup closed itself for the pick, so fromHotkey: true is right
+              // where reportCaptureResult cannot ask the browser.
+              .catch((e) => ({ error: e.message }))
+              .then((result) => reportCaptureResult(result, { fromHotkey: true, label: "Element screenshot" }));
           });
         }
       } else {
