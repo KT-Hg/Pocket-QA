@@ -1003,6 +1003,16 @@ await run('evidence: a run in a background tab has no screenshot', () => startPl
 await run('evidence: a passed run leaves no screenshot', () => startPlayback('vPass'), {
   teardown: evidOf('evidence: a passed run leaves no screenshot'),
 });
+// Its Switch is step 2 of this scenario, and the false Assert step 2 of vFail: only
+// a flag tells the failure is not this scenario's own step 2.
+await run('evidence: a failure inside another scenario says so', () => startPlayback('eNested'), {
+  setup: () => {
+    fake.data.local.scenarios.eNested = { name: 'ENested', actions: [
+      hover('#n0'), { type: 'switch', switchVar: '', cases: [{ value: '__default__', scenarioId: 'vFail', scenarioName: 'VFail' }] },
+    ] };
+  },
+  teardown: evidOf('evidence: a failure inside another scenario says so'),
+});
 
 const _shots = (step) => evid[step].calls.filter((c) => c.startsWith('tabs.captureVisibleTab'));
 test('the first failure keeps the URL, the time, the loop and the steps run so far; later ones do not', () => {
@@ -1017,6 +1027,11 @@ test('the first failure keeps the URL, the time, the loop and the steps run so f
 test('a step a Condition skips is not in the trace; a step of a Switch case of the same scenario is', () => {
   const { trace } = evid['evidence: trace and the first failure'].lastRun.failures[0];
   assert.ok(!trace.includes(2) && trace.includes(4));
+});
+test('a first failure inside another scenario is marked nested; one of the scenario itself is not', () => {
+  const f = evid['evidence: a failure inside another scenario says so'].lastRun.failures[0];
+  assert.deepEqual([f.index, f.nested, f.trace], [2, true, [0, 1]]);
+  assert.equal(evid['evidence: trace and the first failure'].lastRun.failures[0].nested, undefined);
 });
 test('a retried step is in the trace once; the trace is the loop the failure is in', () => {
   assert.deepEqual(evid['evidence: a retried step is in the trace once'].lastRun.failures[0].trace, [0, 1]);

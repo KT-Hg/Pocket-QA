@@ -154,10 +154,13 @@ function _saveCheckpoint(frames, tabId) {
  * site steps i back on FAIL_RETRY and stops the run on FAIL_STOP; FAIL_SKIP falls
  * through to the action's usual tail. `recordFail` records one the run goes on
  * past without asking (a false Assert). A Play or Resume's first failure carries
- * its bug report's facts (_evidence), taken before a prompt shows.
+ * its bug report's facts (_evidence), taken before a prompt shows, and `nested`
+ * when it is a step of another scenario a Switch plays (its index is that one's).
  */
-function _failureRecorders(tabId, actions, failedActions, evidence) {
-  const firstFacts = async () => (evidence && !failedActions?.length ? _evidence(tabId, evidence) : {});
+function _failureRecorders(tabId, actions, failedActions, evidence, traced) {
+  const firstFacts = async () => (evidence && !failedActions?.length
+    ? { ...(await _evidence(tabId, evidence)), ...(traced ? {} : { nested: true }) }
+    : {});
   return {
     fail: async (i, action, reason, record) =>
       onActionFailed({ tabId, i, actions, action, reason, failedActions, record, facts: await firstFacts() }),
@@ -214,7 +217,7 @@ export async function playActionsOnTab(tabId, actions, {
     ? actions.length - 1
     : Math.min(endAtIndex, actions.length - 1);
 
-  const { fail, recordFail } = _failureRecorders(tabId, actions, failedActions, evidence);
+  const { fail, recordFail } = _failureRecorders(tabId, actions, failedActions, evidence, traced);
 
   // Sticky fallback resolution: if the content script resolved a {fallback:...}
   // variable, persist the winning value into resolvedVars so every subsequent

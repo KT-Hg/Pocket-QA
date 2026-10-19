@@ -157,7 +157,8 @@ function _steps(run, first, showValues) {
     let text = stepText(acts[i], { showValues });
     if (i === last) {
       text = `${_mark(first)} ${text}`;
-      if (i !== failedAt) text += ` — it failed at its step #${first.index}`;
+      // A step of another scenario: flagged by the run (`nested`), else told by its index.
+      if (first.nested || i !== failedAt) text += ` — it failed at its step #${first.index}`;
     }
     lines.push(`${k + 1}. ${text}`);
   });

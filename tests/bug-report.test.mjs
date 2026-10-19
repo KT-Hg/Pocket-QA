@@ -130,4 +130,7 @@ test('a failure inside another scenario is told by the Switch that ran it', () =
   };
   const r = buildBugReport(nested, { env: ENV });
   assert.ok(r.includes('2. ⚠ Run the scenario "Pay" — it failed at its step #3'), r);
+  // Its step #2, under a Switch that is step #2 too: the run's `nested` flag tells.
+  const same = { ...nested, failures: [{ ...nested.failures[0], index: 2, nested: true }] };
+  assert.ok(buildBugReport(same, { env: ENV }).includes('2. ⚠ Run the scenario "Pay" — it failed at its step #2'));
 });
