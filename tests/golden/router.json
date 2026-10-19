@@ -2808,7 +2808,10 @@
   "calls": [
    "downloads.download [{\"url\":\"data:image/png;base64,AA==\",\"filename\":\"x.png\",\"saveAs\":false}]",
    "downloads.onChanged.addListener []",
-   "downloads.search [{\"id\":7}]"
+   "downloads.search [{\"id\":7}]",
+   "downloads.search [{\"id\":7}]",
+   "storage.sync.get [[\"notifyOnCapture\"]]",
+   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Screenshot saved\",\"message\":\"x.png\"}]"
   ],
   "console": []
  },
