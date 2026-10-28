@@ -13,6 +13,21 @@ import { deepFindExpr } from './deep-find.js';
 const DROPZONE_TIMEOUT_MS   = 20_000;
 const FILE_INPUT_TIMEOUT_MS = 15_000;
 
+// DOM.setFileInputFiles takes a path that is not there without a word: the input
+// then holds an empty File the page cannot read, and the form sends no file. A
+// page function on the input: the indexes of its files that cannot be read (one
+// with a size is there; an empty one is read to tell).
+const MISSING_FILES_FN = `async function () {
+  const missing = [];
+  for (const [i, f] of Array.from(this.files).entries()) {
+    if (!f.size) await f.arrayBuffer().catch(() => missing.push(i));
+  }
+  return missing;
+}`;
+
+/** The error for the files at `indexes` (MISSING_FILES_FN) of `filePaths`. */
+const notFound = (filePaths, indexes) => 'file not found — ' + indexes.map((i) => filePaths[i]).join(', ');
+
 export function setFileDropZoneViaCdp(tabId, dropSelector, filePaths) {
   return new Promise((resolve, reject) => {
     // Set once the attach callback has run and knows whether the session is ours
@@ -82,13 +97,15 @@ export function setFileDropZoneViaCdp(tabId, dropSelector, filePaths) {
 
               const sel = JSON.stringify(dropSelector);
               chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', {
-                expression: `(function(){
+                expression: `(async function(){
                   try {
                     const inp = document.querySelector('input[data-cdp-dz-bridge="1"]');
                     const dz  = ${deepFindExpr(dropSelector)};
                     if (!inp)              return 'no bridge input';
                     if (!dz)               return 'dropzone element not found for selector: '+${sel};
                     if (!inp.files.length) return 'no files loaded in bridge';
+                    const missing = await (${MISSING_FILES_FN}).call(inp);
+                    if (missing.length) { inp.remove(); return missing; }
                     // The zone's own window: in a frame, its events come from there.
                     const win = dz.ownerDocument.defaultView;
                     const dt = new win.DataTransfer();
@@ -102,6 +119,7 @@ export function setFileDropZoneViaCdp(tabId, dropSelector, filePaths) {
                     return 'error:'+e.message;
                   }
                 })()`,
+                awaitPromise: true,
                 returnByValue: true,
               }, (dropRes) => {
                 if (chrome.runtime.lastError) {
@@ -109,7 +127,9 @@ export function setFileDropZoneViaCdp(tabId, dropSelector, filePaths) {
                   return;
                 }
                 const val = dropRes?.result?.value;
-                if (val !== 'ok') {
+                if (Array.isArray(val)) {
+                  fail('dropzone: ' + notFound(filePaths, val));
+                } else if (val !== 'ok') {
                   fail('dropzone: drop simulation failed — ' + (val || 'unknown'));
                 } else {
                   done();
@@ -178,7 +198,15 @@ export function setFileInputViaCdp(tabId, selector, filePaths) {
                    ' (selector is not a file input? Try DropZone mode)');
               return;
             }
-            done();
+
+            // Step 4: every file is on disk — a missing one is set without an error
+            chrome.debugger.sendCommand({ tabId }, 'Runtime.callFunctionOn', {
+              objectId, functionDeclaration: MISSING_FILES_FN, awaitPromise: true, returnByValue: true,
+            }, (checkRes) => {
+              const missing = (!chrome.runtime.lastError && checkRes?.result?.value) || [];
+              if (missing.length) fail('uploadFile: ' + notFound(filePaths, missing));
+              else done();
+            });
           });
         });
       });
