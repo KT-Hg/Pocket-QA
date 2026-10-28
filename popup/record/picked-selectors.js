@@ -10,22 +10,44 @@ import { ui } from '../ui-state.js';
 // How long a field stays marked with its error.
 const FIELD_ERROR_MS = 2500;
 
+/**
+ * What a field's message goes after: the field, or the row it sits in. Inside a
+ * row (the selector box [CSS ▾ | …], a field and its button) the message would
+ * be squeezed in beside the field.
+ */
+function _errorAnchor(inputEl) {
+  let el = inputEl;
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const { display, flexDirection } = getComputedStyle(p);
+    if (!display.includes("flex") || flexDirection.startsWith("column")) break;
+    el = p;
+  }
+  return el;
+}
+
+/**
+ * The field marked and its message under it, for FIELD_ERROR_MS. In a .form-grid
+ * the message takes the field column (04-lists-cards-forms.css); it is removed
+ * after, so it leaves no cell behind to shift the rows below.
+ */
 export function showFieldError(inputEl, message) {
   inputEl.classList.add("required-error");
   inputEl.setAttribute("aria-invalid", "true");
-  let errorEl = inputEl.parentElement.querySelector('[role="alert"].field-error');
-  if (!errorEl) {
+  const anchor = _errorAnchor(inputEl);
+  let errorEl = anchor.nextElementSibling;
+  if (!errorEl?.matches('[role="alert"].field-error')) {
     errorEl = document.createElement("div");
     errorEl.setAttribute("role", "alert");
     errorEl.className = "field-error";
-    errorEl.style.cssText = "color:var(--danger);font-size:11px;margin-top:3px;";
-    inputEl.parentElement.insertBefore(errorEl, inputEl.nextSibling);
+    anchor.after(errorEl);
   }
   errorEl.textContent = message;
-  setTimeout(() => {
+  // Shown again before it went: the full time again.
+  clearTimeout(errorEl._t);
+  errorEl._t = setTimeout(() => {
     inputEl.classList.remove("required-error");
     inputEl.setAttribute("aria-invalid", "false");
-    errorEl.textContent = "";
+    errorEl.remove();
   }, FIELD_ERROR_MS);
 }
 

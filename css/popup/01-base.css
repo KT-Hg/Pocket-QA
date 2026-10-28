@@ -229,6 +229,7 @@ textarea:focus {
 }
 
 input.required-error,
+select.required-error,
 textarea.required-error {
   border-color: var(--danger);
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);

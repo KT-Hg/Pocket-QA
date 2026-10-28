@@ -164,13 +164,16 @@ summary:has(> .chev)::-webkit-details-marker { display: none; }
   to   { opacity: 0.9; }
 }
 
-/* === Field Validation Error Message === */
+/* === Field Validation Error Message (showFieldError, record/picked-selectors.js) === */
 .field-error {
   color: var(--danger);
   font-size: 11px;
   margin-top: 3px;
   animation: fadeSlideIn 0.15s ease forwards;
 }
+/* In a label | field grid: a row of its own, under the field, 3px below it
+   like anywhere else (the grid's gap is 8px). */
+.form-grid > .field-error { grid-column: 2; margin-top: -5px; }
 
 /* === Picked element: one line under the selector (shared with the drop target).
    Its locators are listed in the type menu (record/selector-type-menu.js). === */
