@@ -91,18 +91,22 @@ installDebugger(fake, {
         if (expr.includes('#dd') || expr.includes('data-pqa-target')) return { result: { value: JSON.stringify({ x: 10.5, y: 20.2, isSelect: false }) } };
         return { result: { value: null } };
       }
-      // The file input of Upload File (cdp/upload.js), looked for as an object; #nofile is not there.
+      // The file input of Upload File (cdp/upload.js), looked for as an object; #nofile is not there,
+      // and the second file set on #cv-typo is not on disk.
       if (params.returnByValue === false && expr.includes('function find(doc, sel)')) {
+        if (expr.includes('#cv-typo')) return { result: { type: 'object', objectId: 'node-typo' } };
         return expr.includes('#nofile') ? { result: { type: 'object', subtype: 'null' } } : { result: { type: 'object', objectId: 'node-7' } };
       }
       if (expr.includes("inp.type = 'file'")) return { result: { value: 'ok' } };
       if (expr.includes('throw new Error')) {
         return { result: { type: 'object', subtype: 'error' }, exceptionDetails: { text: 'Uncaught', exception: { description: 'Error: boom\n    at <anonymous>:1:7' } } };
       }
+      if (expr.includes('dragenter') && expr.includes('#dz-typo')) return { result: { value: [0] } };
       if (expr.includes('dragenter')) return { result: { value: expr.includes('#dz-missing') ? 'dropzone element not found for selector: "#dz-missing"' : 'ok' } };
       if (expr.includes('vpW: window.innerWidth')) return { result: { value: { x: 10, y: 900, width: 300, height: 200, dpr: 1, vpW: 800, vpH: 600 } } };
       return {};
     }
+    if (method === 'Runtime.callFunctionOn') return { result: { value: params.objectId === 'node-typo' ? [1] : [] } };
     if (method === 'DOM.getDocument') return { root: { nodeId: 1 } };
     if (method === 'DOM.querySelector') return params.selector === '#nofile' ? {} : { nodeId: 7 };
     if (method === 'Page.getLayoutMetrics') return { cssVisualViewport: { clientWidth: 800, clientHeight: 560 }, cssContentSize: { width: 800, height: 1500 } };
@@ -510,8 +514,10 @@ await run('uploadFile', play([
   { type: 'uploadFile', selector: '#nofile', folderPath: '/tmp', fileName: 'd.png' },
   { type: 'uploadFile', selector: '#dz-missing', uploadMode: 'dropzone', folderPath: '/tmp', fileNames: [] , fileName: 'e.png' },
   { type: 'uploadFile', selectors: { id: 'file2' }, folderPath: 'x', fileName: 'y' },
+  { type: 'uploadFile', selector: '#cv-typo', folderPath: 'C:\\cv', fileNames: ['a.pdf', 'typo.pdf'] },
+  { type: 'uploadFile', selector: '#dz-typo', uploadMode: 'dropzone', folderPath: '/tmp', fileName: 'typo.png' },
   hover('#end'),
-], { n: 'b' }), { setup: () => { choices = ['skip', 'skip', 'skip', 'skip']; } });
+], { n: 'b' }), { setup: () => { choices = ['skip', 'skip', 'skip', 'skip', 'skip', 'skip']; } });
 
 // ── run boundaries ──────────────────────────────────────────────────────────
 await run('start and end index', play([hover('#0'), hover('#1'), hover('#2'), hover('#3'), hover('#4')], {}, { start: 1, end: 2 }));
