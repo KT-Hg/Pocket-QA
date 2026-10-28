@@ -1,0 +1,119 @@
+Pocket QA là công cụ ghi và phát lại thao tác để kiểm thử web tự động trên Chrome, không cần viết code. Ghi lại các cú click và nội dung bạn nhập trên bất kỳ trang web nào, phát lại thành test tự động, và nhận kết quả rõ ràng cho mỗi lần chạy (Đạt, Lỗi, Test hỏng hoặc Đã dừng) kèm báo cáo lỗi sẵn sàng để dán vào hệ thống quản lý bug.
+
+Dành cho tester manual, kỹ sư QA, lập trình viên và đội sản phẩm muốn tự động hóa kiểm thử mà không phải dựng framework. Chỉ cần cài extension, không phải bảo trì script, không cần biết lập trình. Khi cần code, xuất kịch bản sang Selenium, Playwright hoặc Robot Framework chỉ với một cú click.
+
+
+▸ GHI VÀ PHÁT LẠI TRONG VÀI GIÂY
+• Bấm Ghi, thao tác trên trang như bình thường, bấm Dừng: các cú click và nội dung nhập trở thành một kịch bản test được lưu lại
+• Phát lại một kịch bản, chạy nhiều kịch bản nối tiếp, lặp N lần, hoặc hẹn giờ chạy (một lần hay hằng ngày)
+• Chạy được trong iframe và tự chạy tiếp sau khi trang tải lại
+• Hoàn tác / làm lại khi chỉnh sửa, sắp xếp kịch bản theo thư mục, đổi tên, nhân bản và kéo thả để đổi thứ tự bước
+
+
+▸ 17 LOẠI THAO TÁC
+• Click, nhập liệu, rê chuột, kéo thả, mở dropdown gốc của trình duyệt, kể cả chọn mục theo vị trí hoặc ngẫu nhiên, ngay cả trong danh sách dài dạng ảo hóa (virtualised)
+• Mở URL, chờ, hoặc chạy JavaScript của riêng bạn
+• Tải file lên ô chọn file và vùng kéo thả
+• Đọc văn bản, giá trị hoặc thuộc tính trên trang vào biến
+• Chụp màn hình vùng đang xem, toàn trang hoặc một phần tử trong lúc chạy
+• Điều kiện, kiểm tra (assert) và rẽ nhánh Switch (xem bên dưới)
+• Chế độ chặt chẽ (tùy chọn): cú click sẽ báo lỗi khi phần tử bị vô hiệu hóa, bị ẩn hoặc bị che, giống như người dùng thật sẽ bị kẹt
+
+
+▸ RẼ NHÁNH, ĐIỀU KIỆN VÀ BIẾN
+• 12 kiểu kiểm tra có sẵn: phần tử tồn tại / không tồn tại / hiển thị / bị ẩn, văn bản hoặc giá trị bằng / chứa, URL chứa / bằng, có class, có thuộc tính
+• Condition: bỏ qua các bước tiếp theo khi điều kiện sai
+• Switch: dựa trên giá trị của biến để chạy kịch bản khác, nhảy tới bước khác, hoặc chỉ chạy nhóm bước khớp với giá trị
+• Biến dạng ${tên} dùng được trong selector, giá trị, URL và script: Cố định, Ngẫu nhiên (chữ, số, chữ và số, ngày giờ), Chọn từ danh sách, hoặc Dự phòng
+• Biến toàn cục dùng chung cho mọi kịch bản
+
+
+▸ KIỂM TRA, KẾT QUẢ RÕ RÀNG VÀ BÁO CÁO LỖI
+• Assert (Expect) kiểm tra trang hiển thị đúng như mong đợi, tự thử lại tối đa 5 giây để trang tải chậm không gây báo lỗi sai
+• Kiểm tra thất bại được ghi lại và lần chạy vẫn tiếp tục, nên chỉ một lần chạy là thấy hết mọi chỗ sai
+• Mỗi lần chạy kết thúc bằng một kết luận: ✓ Đạt, ✗ Lỗi (ứng dụng sai), ⚠ Test hỏng (một bước không chạy được), ⏹ Đã dừng
+• Xem kết quả qua thông báo, biểu tượng trên thanh công cụ và thẻ Lần chạy gần nhất, mỗi lỗi một dòng, ví dụ: Expected text "Saved", got "Error"
+• Một cú click tạo báo cáo lỗi dạng Markdown gồm URL trang, trình duyệt và hệ điều hành, các bước tái hiện lỗi và ảnh chụp màn hình. Giá trị đã nhập và mật khẩu được ẩn đi, trừ khi bạn chọn hiển thị
+
+
+▸ KIỂM THỬ THEO DỮ LIỆU VỚI CSV
+• Chạy một kịch bản cho từng dòng của file CSV; dòng tiêu đề là tên các biến
+• Mỗi dòng có kết quả riêng và danh sách các bước bị lỗi
+• Xuất kết quả ra Excel (XLSX) hoặc HTML kèm hình ảnh, hoặc file ZIP với thư mục ảnh chụp cho từng dòng
+
+
+▸ XUẤT RA CODE
+Chuyển bất kỳ kịch bản nào thành:
+• Selenium Python (script thường hoặc pytest)
+• Selenium Java (TestNG)
+• Playwright Test
+• Robot Framework
+• JavaScript bookmarklet
+Ngoài ra còn xuất / nhập kịch bản và thư mục dạng JSON, sao lưu / khôi phục toàn bộ dữ liệu.
+
+
+▸ CHỤP MÀN HÌNH VÀ CÔNG CỤ ẢNH
+• Chụp vùng đang xem, toàn trang, chụp cuộn (dọc / ngang), chụp theo đoạn, một phần tử hoặc cả một cửa sổ
+• Cắt và chỉnh sửa mọi ảnh chụp; trình chỉnh sửa ảnh riêng mở ảnh từ clipboard hoặc từ file
+• So sánh hai ảnh chụp đến từng điểm ảnh
+• Watermark và tiền tố tên file tùy chọn
+
+
+▸ ĐÁNH DẤU VÀ GHI CHÚ TRÊN TRANG WEB
+• Bôi đen văn bản để tô sáng bằng 5 màu và đính kèm ghi chú
+• Phần tô sáng tự hiện lại khi bạn quay lại trang, kể cả với nội dung tải muộn
+• Mẫu URL có ký tự đại diện giúp nhiều trang dùng chung một bộ đánh dấu
+• Tìm kiếm, lọc theo màu hoặc theo trang, xuất toàn bộ ra JSON
+
+
+▸ THIẾT KẾ TEST CASE TỪ CÂU SQL (TIẾNG VIỆT / TIẾNG ANH)
+• Dán câu lệnh SELECT, INSERT, UPDATE hoặc DELETE và nhận danh sách test case được đánh số
+• Kỹ thuật: phân vùng tương đương và phân tích giá trị biên, bảng quyết định và MC/DC, NULL và logic ba giá trị, số lượng bản ghi khi JOIN, nhóm và phân trang
+• Chỉnh dữ liệu mẫu trong một bảng và xuất test case ra CSV hoặc JSON
+• Hiểu cú pháp MySQL, PostgreSQL và SQL Server; mọi xử lý đều chạy ngay trên trang
+
+
+▸ PHIÊN KIỂM THỬ CƠ SỞ DỮ LIỆU VỚI ADMINER
+• Ghi lại mọi dòng dữ liệu bạn thay đổi qua Adminer: form sửa, sửa trên lưới, xóa hàng loạt, INSERT và câu SQL tự viết
+• Hoàn tác toàn bộ một lần test chỉ trong một bước, xem trước chính xác câu SQL sẽ chạy
+• Cảnh báo khi một dòng đã bị người khác sửa sau khi test của bạn thay đổi nó
+
+
+▸ DỄ DÙNG
+• Giao diện sáng và tối
+• Năm tab có thể kéo thả để đổi thứ tự, thẻ thu gọn được
+• Phím tắt tùy chỉnh
+• Thông báo khi một lần chạy kết thúc
+
+
+▸ DÀNH CHO AI
+• Tester manual bắt đầu làm quen với kiểm thử tự động
+• Kỹ sư QA chạy regression test, smoke test và test theo dữ liệu
+• Lập trình viên kiểm tra form và luồng người dùng trước khi phát hành
+• BA và Product Owner cần báo cáo lỗi có thể tái hiện
+
+
+▸ QUYỀN RIÊNG TƯ
+Pocket QA không cần tài khoản và không có analytics hay theo dõi người dùng. Kịch bản, biến, phần tô sáng, kết quả test và nhật ký thay đổi dữ liệu được lưu cục bộ trong trình duyệt của bạn; một số tùy chọn như phím tắt và cài đặt chụp màn hình có thể đồng bộ qua hồ sơ Chrome của chính bạn. Công cụ thiết kế test case SQL và tính năng hoàn tác dữ liệu chạy hoàn toàn trên trang. Yêu cầu mạng duy nhất Pocket QA tự gửi là một lần kiểm tra nhỏ mỗi ngày để nhận thông báo cập nhật quan trọng.
+
+
+▸ VÌ SAO CẦN CÁC QUYỀN NÀY
+• Truy cập mọi trang web: để ghi và phát lại test trên trang bạn chọn kiểm thử
+• Debugger: để click tin cậy trên dropdown gốc, chụp toàn trang và chụp phần tử, tải file lên và chạy script của bạn. Khi đang dùng, Chrome hiện một thanh thông báo extension đang gỡ lỗi trình duyệt; điều này là bình thường
+• Tabs, scripting và windows: để chạy từng bước đúng tab, đúng frame và mở các cửa sổ chỉnh sửa
+• Storage: để lưu kịch bản và cài đặt trên máy của bạn
+• Downloads: để lưu ảnh chụp, file xuất và báo cáo
+• Alarms: cho lịch chạy hẹn giờ và lần kiểm tra cập nhật hằng ngày
+• Notifications: để báo cho bạn kết quả của lần chạy
+• Chụp màn hình (tùy chọn, chỉ hỏi khi bạn dùng): để chụp cả một cửa sổ
+
+
+▸ BẮT ĐẦU
+1. Mở trang cần kiểm thử và bấm biểu tượng Pocket QA
+2. Bấm Activate, rồi Start Recording
+3. Click và nhập liệu như bình thường, sau đó bấm Stop và đặt tên kịch bản
+4. Thêm bước kiểm tra bằng Add Action → Assert
+5. Bấm Play và xem kết quả
+
+
+Selenium, Playwright, Robot Framework, Adminer và Chrome là thương hiệu của các chủ sở hữu tương ứng. Pocket QA là công cụ độc lập, không liên kết và không được các bên này bảo trợ.

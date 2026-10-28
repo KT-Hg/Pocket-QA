@@ -1,0 +1,119 @@
+Pocket QA is a no-code test recorder for Chrome. Record your clicks and typing on any website, replay them as automated web tests, and get a clear verdict for every run (Passed, Failed, Test broken or Stopped) with a ready-to-paste bug report when something goes wrong.
+
+Built for manual testers, QA engineers, developers and product teams who want reliable test automation without setting up a framework. Nothing to install beyond the extension, no scripts to maintain, no coding required. And when you do need code, export your scenario to Selenium, Playwright or Robot Framework in one click.
+
+
+▸ RECORD AND REPLAY IN SECONDS
+• Press Record, use the page as usual, press Stop: your clicks and inputs become a saved test scenario
+• Replay one scenario, run several in sequence, loop N times, or schedule a run for later (once or every day)
+• Playback works inside iframes and continues where it left off after the page reloads
+• Undo / redo while editing, organise scenarios in folders, rename, duplicate and reorder steps by drag and drop
+
+
+▸ 17 ACTION TYPES
+• Click, type, hover, drag & drop, and open native dropdowns, including choosing an item by position or at random, even in long virtualised lists
+• Navigate to a URL, wait, or run your own JavaScript
+• Upload files into file inputs and drag-and-drop zones
+• Read text, values or attributes from the page into variables
+• Take screenshots of the viewport, the full page or a single element during a run
+• Conditions, assertions and switch branching (see below)
+• Optional strict mode: a click fails when its element is disabled, hidden or covered, just as a real user would get stuck
+
+
+▸ BRANCHING, CONDITIONS AND VARIABLES
+• 12 built-in checks: element exists / not exists / visible / hidden, text or value equals / contains, URL contains / equals, has class, has attribute
+• Condition: skip the next steps when a check is false
+• Switch: based on a variable's value, run another scenario, jump to another step, or run only the matching block of steps
+• Variables with ${name} syntax in selectors, values, URLs and scripts: Static, Random (letters, digits, mixed, date-time), Pick from a list, or Fallback
+• Global variables shared by all scenarios
+
+
+▸ ASSERTIONS, CLEAR VERDICTS AND BUG REPORTS
+• Assert (Expect) checks that the page shows what it should, retried for up to 5 seconds so slow pages don't cause false failures
+• A failed check is recorded and the run carries on, so a single run tells you everything that is wrong
+• Every run ends with a verdict: ✓ Passed, ✗ Failed (the app is wrong), ⚠ Test broken (a step could not run), ⏹ Stopped
+• See the result in a notification, on the toolbar badge and on the Last run card, with one line per failure such as: Expected text "Saved", got "Error"
+• One click creates a Markdown bug report with the page URL, browser and OS, steps to reproduce and a screenshot. Typed values and passwords stay hidden unless you choose to include them
+
+
+▸ DATA-DRIVEN TESTING WITH CSV
+• Run a scenario once for every row of a CSV file; the header row names the variables
+• Each row gets its own Run Result and a list of the steps that failed
+• Export results to Excel (XLSX) or HTML with images, or to a ZIP with a folder of screenshots for every row
+
+
+▸ EXPORT TO CODE
+Turn any scenario into:
+• Selenium Python (plain script or pytest)
+• Selenium Java (TestNG)
+• Playwright Test
+• Robot Framework
+• JavaScript bookmarklet
+Plus JSON export / import of scenarios and folders, and full backup / restore of your data.
+
+
+▸ SCREENSHOTS AND IMAGE TOOLS
+• Capture the visible area, the full page, scrolling captures (vertical / horizontal), segments, a single element or a whole window
+• Crop and edit every capture; a standalone image editor opens images from the clipboard or a file
+• Pixel-level image diff to compare two screenshots
+• Optional watermark and file name prefix
+
+
+▸ HIGHLIGHT AND ANNOTATE WEB PAGES
+• Select text to highlight it in 5 colours and attach a note
+• Highlights come back automatically when you revisit the page, even on content that loads late
+• URL patterns with wildcards group several pages under one set of highlights
+• Search, filter by colour or page, and export everything as JSON
+
+
+▸ SQL TEST CASE DESIGNER (ENGLISH / VIETNAMESE)
+• Paste a SELECT, INSERT, UPDATE or DELETE statement and get a numbered list of test cases
+• Techniques: equivalence partitioning and boundary value analysis, decision tables and MC/DC, NULL and three-valued logic, JOIN cardinality, grouping and paging
+• Edit the sample values in one panel and export the test cases to CSV or JSON
+• Understands MySQL, PostgreSQL and SQL Server syntax; everything runs locally in the page
+
+
+▸ DATABASE TEST SESSION FOR ADMINER
+• Records every row you change through Adminer: edit forms, grid edits, bulk delete, INSERT and hand-written SQL
+• Roll back a whole test run in one go, with a preview of the exact SQL
+• A drift check warns you when someone else changed a row after your test touched it
+
+
+▸ COMFORTABLE TO USE
+• Dark and light themes
+• Five tabs you can reorder by drag and drop, collapsible cards
+• Configurable keyboard shortcuts
+• Notifications when a run finishes
+
+
+▸ WHO IT'S FOR
+• Manual testers taking their first steps into automation
+• QA engineers running regression, smoke and data-driven tests
+• Developers checking forms and user flows before a release
+• Business analysts and product owners who need reproducible bug reports
+
+
+▸ PRIVACY
+Pocket QA needs no account and contains no analytics or tracking. Your scenarios, variables, highlights, test results and database change logs are stored locally in your browser; some preferences, such as keyboard shortcuts and screenshot settings, can sync through your own Chrome profile. The SQL designer and the database rollback run entirely in the page. The only request Pocket QA makes on its own is a small daily check for important update notices.
+
+
+▸ WHY THESE PERMISSIONS
+• Access to all websites: to record and replay tests on any site you choose to test
+• Debugger: for trusted clicks on native dropdowns, full-page and element screenshots, file uploads and running your scripts. While it is in use, Chrome shows a bar saying the extension is debugging the browser; this is expected
+• Tabs, scripting and windows: to run each step in the right tab and frame and to open the editor windows
+• Storage: to save your scenarios and settings on your device
+• Downloads: to save screenshots, exports and reports
+• Alarms: for scheduled runs and the daily update check
+• Notifications: to tell you how a run ended
+• Screen capture (optional, requested only when you use it): for whole-window screenshots
+
+
+▸ GET STARTED
+1. Open the page you want to test and click the Pocket QA icon
+2. Click Activate, then Start Recording
+3. Click and type as usual, then press Stop and name the scenario
+4. Add checks with Add Action → Assert
+5. Press Play and read the verdict
+
+
+Selenium, Playwright, Robot Framework, Adminer and Chrome are trademarks of their respective owners. Pocket QA is an independent tool and is not affiliated with or endorsed by them.
