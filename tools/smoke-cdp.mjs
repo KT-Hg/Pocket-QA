@@ -15,7 +15,9 @@
  *      Remove, and the Now Playing bar (wired by popup/connection.js) opens its panel;
  *   6. Add Manual Action: typing an XPath under CSS switches the selector type, a
  *      type chosen by hand stays; an edit restored from its draft reopens a card
- *      remembered closed with its chevron, title and Save Edit in step;
+ *      remembered closed with its chevron, title and Save Edit in step; Add with
+ *      a field missing puts the message under the field's row — not inside the
+ *      selector box, not in a .form-grid cell of its own — and removes it after;
  *   7. with --shots <dir>: screenshots of every popup tab and the other pages, light
  *      and dark, for a before/after comparison of a CSS change.
  *
@@ -44,6 +46,8 @@ const PAGE_SETTLE_MS = 800;
 const THEME_SETTLE_MS = 600;
 const ADMINER_SETTLE_MS = 1500;
 const TAB_SWITCH_MS = 400;
+// A field's validation message stays 2500 ms (record/picked-selectors.js), and the draft saves 600 ms after a change.
+const FIELD_ERROR_GONE_MS = 2900;
 const POPUP_VIEWPORT = { width: 480, height: 900 };
 const PAGE_VIEWPORT = { width: 1280, height: 900 };
 // Screenshots compare equal run to run: no animation mid-way, no caret.
@@ -87,6 +91,7 @@ async function main() {
     else ok('service worker: no uncaught errors');
     const popup = await checkActivatedPopup(browser, extUrl, base);
     await checkManualForm(popup);
+    await checkFieldErrors(popup);
     if (SHOTS) await screenshots(browser, popup, extUrl);
   } finally {
     await browser.close();
@@ -218,6 +223,45 @@ async function checkManualForm(popup) {
     ok('an edit restored from its draft: card open, chevron, title and Save Edit in step');
   } else fail(`edit restored from its draft: ${JSON.stringify(card)}`);
   if (popup.errors().length) fail(`popup (Add Manual Action): ${popup.errors().join(' | ')}`);
+}
+
+/** Add with a field missing: the message goes under the field's row, then is gone (showFieldError). */
+async function checkFieldErrors(popup) {
+  console.log('Add Manual Action: validation messages');
+  // `type` and `fields` set as if chosen, then Add pressed; the selector field's width before it.
+  const press = (type, fields) => popup.evaluate(`(() => {
+    const $ = (id) => document.getElementById(id);
+    const set = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event('change', { bubbles: true })); };
+    set('manualActionType', ${JSON.stringify(type)});
+    for (const [id, v] of Object.entries(${JSON.stringify(fields)})) set(id, v);
+    const width = $('manualSelector').offsetWidth;
+    $('addManualAction').click();
+    return width;
+  })()`);
+  const width = await press('click', { manualSelector: '' });
+  const sel = await popup.evaluate(`(() => { const msg = document.getElementById('selectorRow').nextElementSibling;
+    return { under: msg?.classList.contains('field-error') ? msg.textContent : null, width: document.getElementById('manualSelector').offsetWidth }; })()`);
+  if (sel.under && sel.width === width) ok('no selector: the message is under the selector row, the field keeps its width');
+  else fail(`no selector: ${JSON.stringify({ ...sel, widthBefore: width })}`);
+
+  await press('uploadFile', { manualSelector: '#file', uploadFolderPath: '' });
+  const grid = await popup.evaluate(`(() => {
+    const x = (el) => el && Math.round(el.getBoundingClientRect().x);
+    const field = document.getElementById('uploadFolderPath'), msg = field.nextElementSibling;
+    return { folderLabel: x(document.querySelector('label[for="uploadFolderPath"]')), filesLabel: x(document.querySelector('label[for="uploadFileNames"]')),
+      field: x(field), msg: msg?.classList.contains('field-error') ? x(msg) : null };
+  })()`);
+  if (grid.msg === grid.field && grid.filesLabel === grid.folderLabel) ok('no folder: the message takes the field column, Files keeps the label column');
+  else fail(`no folder: ${JSON.stringify(grid)}`);
+
+  await sleep(FIELD_ERROR_GONE_MS);
+  const left = await popup.evaluate(`document.querySelectorAll('#addManualActionCard .field-error').length`);
+  if (left === 0) ok('the messages are removed once timed out');
+  else fail(`${left} message element(s) left in the form once timed out`);
+  // The form back as it opens, for the screenshots.
+  await popup.evaluate(`new Promise((res) => chrome.storage.local.remove('manualFormDraft', res))`);
+  await popup.reload();
+  await sleep(POPUP_SETTLE_MS);
 }
 
 async function screenshots(browser, popup, extUrl) {
