@@ -9,7 +9,7 @@
 
 import { state } from '../state.js';
 import { getScenarios, setScenarios, getStack, pushUndo, mutateScenarioActions, runExclusive } from '../storage.js';
-import { remapAfterRemove, remapAfterReorder, toggleDisabled } from '../../shared/switch-blocks.js';
+import { remapAfterInsert, remapAfterRemove, remapAfterReorder, toggleDisabled } from '../../shared/switch-blocks.js';
 
 /**
  * Index sanity check for the action-mutation handlers.
@@ -92,14 +92,20 @@ export const actionsHandlers = {
       sendResponse({ success: false });
       return;
     }
+    // Added last, or at `insertAt`: a new Switch goes in front of the actions its
+    // cases run (addIndex), the references to them shifted in the same step.
+    const add = (a) => (_validIndex(request.insertAt, a.length)
+      ? remapAfterInsert(a, request.insertAt, request.action)
+      : [...a, request.action]);
     if (request.scenarioId) {
-      mutateScenarioActions(request.scenarioId, (a) => [...a, request.action])
+      mutateScenarioActions(request.scenarioId, add)
         .then(() => sendResponse({ success: true }))
         .catch(() => sendResponse({ success: false }));
       return true;
     }
     pushUndo("current", [...state.currentActions]);
-    state.currentActions.push(request.action);
+    // In place: everything else holding the array sees the new action.
+    state.currentActions.splice(0, state.currentActions.length, ...add(state.currentActions));
     sendResponse({ success: true });
     return;
   },

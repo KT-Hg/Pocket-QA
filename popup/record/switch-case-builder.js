@@ -3,7 +3,7 @@
  * scenario a case runs, Continue at, and validation.
  */
 
-import { CASE_COLORS, SWITCH_SELF, caseRange, continueIndex, getConditionLayout, getSwitchLayout, isBlockCase, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
+import { CASE_COLORS, SWITCH_SELF, addIndex, caseRange, continueIndex, getConditionLayout, getSwitchLayout, isBlockCase, remapAfterInsert, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
 import { scenarioList } from '../dom.js';
 import { ui } from '../ui-state.js';
 import { escHtml, showToast } from '../utils.js';
@@ -20,7 +20,7 @@ let _switchEditIdx = -1;
 const SWITCH_SELF_LABEL = "↻ This scenario (jump)";
 
 /* The scenario on screen and its Switch layout. The form lists actions by the
-   numbers the preview shows (1.2.1 …), so it reads the list the preview read. */
+   numbers the preview shows, so it reads the list the preview read. */
 export let swCtx = { scenarioId: null, actions: [], layout: [], condLayout: [] };
 
 export function setSwitchContext(scenarioId, actions) {
@@ -62,18 +62,24 @@ export function candidateActions(sw = _candidateSwitch()) {
   return list;
 }
 
-/** Display number of action `idx` (0-based), e.g. "1.2.1". */
+/**
+ * The scenario's actions with the form's Switch where saving puts it: in its
+ * place when edited; when new, where Add Action adds it — in front of the
+ * actions its cases run (addIndex), else last. The form lists and stores
+ * numbers of the list as it is now; this is what gets checked. { list, at }.
+ */
+export function placedSwitch(sw = _candidateSwitch()) {
+  const self = switchSelfIdx();
+  const at = self < swCtx.actions.length ? self : addIndex(swCtx.actions, sw);
+  return at < self ? { list: remapAfterInsert(swCtx.actions, at, sw), at } : { list: candidateActions(sw), at: self };
+}
+
+/** Number shown for action `idx` (0-based): its position, e.g. "8". */
 export function noOf(idx, layout = swCtx.layout) {
   return layout?.[idx]?.displayNo ?? `#${idx + 1}`;
 }
 
-/** Layout of another scenario, for the numbers of a case that runs part of it. */
-function _layoutOfScenario(id) {
-  const acts = ui.scenariosCache?.[id]?.actions;
-  return Array.isArray(acts) ? getSwitchLayout(acts) : null;
-}
-
-/** " 1.1.1–1.1.2" / " @3" / " (nothing)" — where a case goes, in display numbers. */
+/** " 5–6" / " @3" / " (nothing)" — where a case goes, in action numbers. */
 export function switchStartSuffix(c, layout = swCtx.layout) {
   if (c.scenarioId === SWITCH_SELF) {
     if (isBlockCase(c)) {
@@ -87,10 +93,8 @@ export function switchStartSuffix(c, layout = swCtx.layout) {
   }
   const n = parseInt(c.startAt, 10) || 1;
   const e = parseInt(c.endAt, 10);
-  const tl = _layoutOfScenario(c.scenarioId);
-  const no = (k) => tl?.[k - 1]?.displayNo ?? `#${k}`;
-  if (Number.isFinite(e)) return ` @${no(n)}–${no(e)}`;
-  return n > 1 ? ` @${no(n)}` : "";
+  if (Number.isFinite(e)) return ` @${n}–${e}`;
+  return n > 1 ? ` @${n}` : "";
 }
 
 /** Case fields for a target that is another scenario: 1-based start (omitted when 1), optional end. */
@@ -320,15 +324,20 @@ function _renderSwitchContinue() {
   const layout = getSwitchLayout(list);
   const autoSw = { ..._candidateSwitch() };
   delete autoSw.continueAt;
-  const autoIdx = continueIndex(candidateActions(autoSw), self);
-  const autoNo  = autoIdx < list.length ? noOf(autoIdx, layout) : "end of scenario";
+  // Numbers of the list as it is now: a new Switch put in front of the actions
+  // it runs is not in it yet, so from there on that list is one shorter.
+  const placed  = placedSwitch(autoSw);
+  const before  = placed.at < self ? 1 : 0;
+  const autoIdx = continueIndex(placed.list, placed.at) - before;
+  const end     = list.length - before;
+  const autoNo  = autoIdx < end ? noOf(autoIdx, layout) : "end of scenario";
   let html = `<option value="auto">Auto: ${escHtml(autoNo)}</option>`;
   // Only actions after the block: inside it is an error, and before the Switch a loop.
-  html += _actionOptions(-1, layout, { from: autoIdx });
-  html += `<option value="${list.length}">End of scenario</option>`;
+  html += _actionOptions(-1, layout, { from: autoIdx, skip: self });
+  html += `<option value="${end}">End of scenario</option>`;
   // A saved continueAt outside that range (a backward loop) stays selectable.
   const saved = ui._switchContinueAt != null ? ui._switchContinueAt - 1 : null;
-  if (saved != null && (saved < autoIdx || saved > list.length)) {
+  if (saved != null && (saved < autoIdx || saved > end)) {
     html += `<option value="${saved}">${escHtml(saved < list.length ? noOf(saved, layout) : `#${saved + 1}`)} (saved)</option>`;
   }
   sel.innerHTML = html;
@@ -340,9 +349,8 @@ function _renderSwitchContinue() {
 function _renderSwitchValidation() {
   const box = document.getElementById("switchValidation");
   if (!box) return;
-  const list = candidateActions();
-  const self = switchSelfIdx();
-  const { errors, warnings } = validateSwitch(list, self);
+  const { list, at } = placedSwitch();
+  const { errors, warnings } = validateSwitch(list, at);
   // An Always Switch with no scenario picked yet is not an error until it is saved.
   const alwaysErr = ui._switchCases.length ? alwaysSwitchError() : null;
   if (alwaysErr) errors.push(alwaysErr);
@@ -400,7 +408,7 @@ export function refreshSwitchForm() {
   _renderSwitchValidation();
 }
 
-/** What a case does, in words: "Run 1.1.1–1.1.2", "Play "Guest flow" @2", … */
+/** What a case does, in words: "Run 5–6", "Play "Guest flow" @2", … */
 function _caseTargetText(c, layout) {
   if (c.scenarioId === SWITCH_SELF) {
     if (isBlockCase(c)) return c.empty ? "Do nothing" : `Run${switchStartSuffix(c, layout)}`;

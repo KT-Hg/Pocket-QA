@@ -159,10 +159,10 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
   `continueAt` on the Switch (absent = right after the block). A case that runs nothing is `{ empty: true }`.
   A case **without** `endAt` works exactly as before (jump to `startAt` and play on, or run another scenario from
   `startAt`); a case into another scenario may also carry `endAt` to play just that range.
-- **Numbering in the preview** is computed at render time, never stored: `switch.case.step`. Case order is the
-  order in the case list (a case with no actions in the block still takes its number); nested Switches add levels
-  (`2.1.2.1.1`); an action inside a block but in no case shows `1.?` with ⚠; disabled actions keep their number.
-  The tooltip shows the absolute `#N`.
+- **Numbering**: an action's number is its position `#N`, in the preview as in the form's lists, failure
+  messages, the Last run card and the bug report. Blocks show as indentation, with a header row and a colour per
+  case; the number's tooltip names the Switch and case the action is in (`Switch 4 › case "admin"`). An action
+  inside a block but in no case gets ⚠ (it never runs).
 - **Playback** (`bg/playback/steps/switch.js` + `shared/switch-blocks.js`): the matched case plays its range, then `continueAt`;
   no match → skip the block, no error; a disabled block Switch skips its block; a Condition's `skipCount` counts a
   Switch and its block as one action, and a skip landing inside a block goes to its `continueAt`; resuming after
@@ -173,7 +173,12 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
   case, dragging the Switch moves its whole block. Old-style `startAt` jump targets and `continueAt` follow their
   action too (pointing at the next action, with ⚠, if theirs was deleted). Cases that point into *another*
   scenario are never rewritten — they get ⚠ when their range no longer fits. Undo restores ranges and actions
-  together.
+  together. An action open in the form follows a drag or a Delete, so Save Edit writes it and keeps the ranges
+  the edit made; Undo / Redo wait until the edit is saved or cancelled.
+- **A new Switch over actions already there**: picking existing actions in a new Switch's cases (the form lists
+  them as the preview numbers them now) adds the Switch right in front of the first of them (`addIndex` +
+  `remapAfterInsert`): it takes that action's place — its case, the Conditions guarding it, a `continueAt` or
+  jump that named it — and the actions it runs become its block.
 - **Export:** the code exports skip a block Switch *with its whole block* (otherwise
   every case would run), and say so in the warnings. A scenario or folder export that uses blocks carries `minVersion` — the
   version that wrote it; older versions ignore `endAt` and would play every case one after the other.

@@ -17,8 +17,9 @@
  * jumps to `startAt` and plays on to the end, a case targeting another scenario
  * plays that scenario from `startAt` to its end.
  *
- * Everything is stored by absolute index. The nested numbering (`1.2.1`) is
- * computed here at render time and never written back.
+ * Everything is stored, and numbered, by absolute index: an action's number is
+ * its position (`#N`) wherever it is shown — the list, the form, messages, the
+ * run report. The layout below only says where each action sits in the blocks.
  *
  * No chrome.* and no DOM here: the module is imported by the service worker,
  * the popup and `node --test`.
@@ -95,9 +96,10 @@ export function continueIndex(actions, s) {
  * Describe every action's place in the Switch structure.
  *
  * Returns one entry per index:
- *   role        'normal' | 'switch' | 'member' | 'orphan'
+ *   role        'normal' | 'switch' | 'member' | 'orphan' (orphan: inside a block, in no case)
  *               (a Switch nested in a case keeps role 'switch'; its `parent` says where it lives)
- *   displayNo   '1', '1.2.1', '1.?' (orphan: inside a block, in no case)
+ *   displayNo   the number shown for it: its position, '1' … — the same number
+ *               a failure message, the Last run card or the bug report gives
  *   depth       nesting level, 0 = top
  *   parent      { switchIdx, caseIdx } of the innermost block, caseIdx null for orphans
  *   chain       every enclosing block, outermost first: { switchIdx, caseIdx, start, end, color }
@@ -115,10 +117,9 @@ export function getSwitchLayout(actions) {
     caseStart: null, blockLast: [], continueOf: [], block: null,
   }));
 
-  const place = (i, no, depth, chain) => {
+  const place = (i, depth, chain) => {
     const e = out[i];
     const inner = chain.length ? chain[chain.length - 1] : null;
-    e.displayNo = no;
     e.depth     = depth;
     e.chain     = chain;
     e.parent    = inner ? { switchIdx: inner.switchIdx, caseIdx: inner.caseIdx } : null;
@@ -128,18 +129,15 @@ export function getSwitchLayout(actions) {
     else e.role = 'normal';
   };
 
-  const walk = (lo, hi, prefix, depth, chain) => {
-    let n = 0;
+  const walk = (lo, hi, depth, chain) => {
     for (let i = lo; i <= hi;) {
-      n++;
-      const no = prefix ? `${prefix}.${n}` : String(n);
-      place(i, no, depth, chain);
+      place(i, depth, chain);
       const a = list[i];
       if (!hasBlock(a)) { i++; continue; }
 
       const bEnd = Math.min(blockEnd(list, i), hi);
       const orphanChain = [...chain, { switchIdx: i, caseIdx: null, start: i + 1, end: bEnd, color: null }];
-      for (let j = i + 1; j <= bEnd; j++) place(j, `${no}.?`, depth + 1, orphanChain);
+      for (let j = i + 1; j <= bEnd; j++) place(j, depth + 1, orphanChain);
 
       const cases = (a.cases || []).map((c, k) => ({
         caseIdx: k, value: c.value, color: k % CASE_COLORS,
@@ -158,7 +156,7 @@ export function getSwitchLayout(actions) {
         const e0 = Math.min(r.end, bEnd);
         if (s0 > e0) continue;
         cc.start = s0; cc.end = e0;
-        walk(s0, e0, `${no}.${cc.caseIdx + 1}`, depth + 1,
+        walk(s0, e0, depth + 1,
           [...chain, { switchIdx: i, caseIdx: cc.caseIdx, start: s0, end: e0, color: cc.color }]);
         out[s0].caseStart = { switchIdx: i, caseIdx: cc.caseIdx };
         claimed = e0;
@@ -167,7 +165,7 @@ export function getSwitchLayout(actions) {
       i = bEnd + 1;
     }
   };
-  walk(0, list.length - 1, '', 0, []);
+  walk(0, list.length - 1, 0, []);
 
   out.forEach((e, i) => {
     if (!e.block) return;
@@ -448,12 +446,16 @@ function _countUnits(list, from, to) {
  * Rewrite `skipCount` so every Condition touched by an edit guards the same
  * actions afterwards. `newPos(old)` → new index or null (removed). With a
  * dragged `unit` (Set of old indices), the unit leaves every Condition it was in
- * and joins those in `joins` (Set of old Condition indices). Conditions the edit
+ * and joins those in `joins` (Set of old Condition indices). An action
+ * `inserted` before old index i is guarded wherever i is. Conditions the edit
  * did not touch keep their `skipCount`, even an odd one (short / cut).
  */
-function _refitConditions(oldList, newList, newPos, { removed = null, unit = null, joins = null } = {}) {
+function _refitConditions(oldList, newList, newPos, { removed = null, unit = null, joins = null, inserted = null } = {}) {
   const lay = getSwitchLayout(oldList);
   const out = [...newList];
+  // A Condition guarding a removed action, or the place an action went in (a new
+  // Switch can make several guarded actions one unit), is counted again.
+  const recount = [removed, inserted].filter((j) => j != null);
   oldList.forEach((a, c) => {
     if (a?.type !== 'condition') return;
     const cNew = newPos(c);
@@ -461,7 +463,7 @@ function _refitConditions(oldList, newList, newPos, { removed = null, unit = nul
     const r = conditionRange(oldList, c, lay);
     const members = new Set();
     for (let j = r.start; j <= r.end; j++) members.add(j);
-    let touched = removed != null && members.has(removed);
+    let touched = recount.some((j) => members.has(j));
     if (unit) {
       for (const j of unit) if (members.delete(j)) touched = true;
       if (joins?.has(c)) { for (const j of unit) members.add(j); touched = true; }
@@ -559,6 +561,58 @@ export function remapAfterRemove(actions, removedIdx) {
     return j > removedIdx ? j - 1 : j;
   };
   return _refitConditions(list, next, newPos, { removed: removedIdx });
+}
+
+/**
+ * Where a new action is added: last — or, for a Switch whose block cases run
+ * actions already in the list, right before the first of them, so its block
+ * comes after it (remapAfterInsert).
+ */
+export function addIndex(actions, action) {
+  const n = Array.isArray(actions) ? actions.length : 0;
+  if (action?.type !== 'switch') return n;
+  return (action.cases || []).reduce((at, c) => {
+    const r = caseRange(c);
+    return r && r.start >= 0 && r.start < at ? r.start : at;
+  }, n);
+}
+
+/**
+ * The action list with `action` inserted at index `at`, where it takes the place
+ * of the action there — in the cases and Conditions that action is in — with
+ * every Switch reference in this scenario shifted to match:
+ *   - a block range that holds that place grows by one, ranges after it move down;
+ *   - old-style `startAt` and an explicit `continueAt` follow their action, and
+ *     one naming the place itself now names the new action: a new Switch put in
+ *     front of an action wraps it, and is not to be jumped past.
+ * `action`'s own references are numbers in the list as it was: every action they
+ * name moved down by one. Cases that target another scenario are left alone.
+ */
+export function remapAfterInsert(actions, at, action) {
+  const list = Array.isArray(actions) ? actions : [];
+  const a1 = at + 1;
+  const rewrite = (a, own) => {
+    if (a?.type !== 'switch' || !Array.isArray(a.cases)) return a;
+    const shift = (n) => (n > a1 || (own && n === a1) ? n + 1 : n);
+    let touched = false;
+    const cases = a.cases.map((c) => {
+      if (c?.scenarioId !== SWITCH_SELF || c.empty) return c;
+      const s = _int(c.startAt) ?? 1, e = _int(c.endAt);
+      const s2 = shift(s);
+      const e2 = e != null && e >= a1 ? e + 1 : e;
+      if (s2 === s && e2 === e) return c;
+      touched = true;
+      return e == null ? { ...c, startAt: s2 } : { ...c, startAt: s2, endAt: e2 };
+    });
+    const ca = _int(a.continueAt);
+    const ca2 = ca != null ? shift(ca) : null;
+    if (!touched && ca2 === ca) return a;
+    const out = { ...a, cases };
+    if (ca != null) out.continueAt = ca2;
+    return out;
+  };
+  const next = [...list.slice(0, at), action, ...list.slice(at)].map((a, i) => rewrite(a, i === at));
+  return _refitConditions(list, next, (j) => (j >= at ? j + 1 : j), { inserted: at });
 }
 
 /**

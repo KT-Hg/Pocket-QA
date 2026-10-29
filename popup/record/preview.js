@@ -9,9 +9,9 @@ import { actionCount, actionsEl, conditionSkipCount, preview, runListDisplay, sc
 import { updateRunListDisplay } from '../run/playback-controls.js';
 import { ui } from '../ui-state.js';
 import { escHtml, getActionIcon, getDragAfterElement, showConfirm, showToast } from '../utils.js';
-import { startEdit } from './action-form.js';
+import { followListEdit, startEdit } from './action-form.js';
 import { debouncedSaveDraft } from './draft.js';
-import { noOf, setSwitchContext, swCtx, switchSelfIdx, switchStartSuffix } from './switch-case-builder.js';
+import { candidateActions, noOf, setSwitchContext, swCtx, switchSelfIdx, switchStartSuffix } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 
 export function getActionDisplayValue(a) {
@@ -66,10 +66,11 @@ export function getActionDisplayValue(a) {
 }
 
 /* === Switch blocks in the preview ===
- * Numbers come from getSwitchLayout (1, 1.2.1 …); the absolute #N is in the
- * tooltip. Cases get a header row and their own colour; a collapsed Switch
- * hides its case chips and its block, a collapsed case hides that case's rows.
- * Collapsed state is per scenario, in localStorage.
+ * A row's number is its position, as in every message and the run report; the
+ * blocks show as indentation, and cases get a header row and their own colour.
+ * The number's tooltip names the Switch and case the row is in. A collapsed
+ * Switch hides its case chips and its block, a collapsed case hides that case's
+ * rows. Collapsed state is per scenario, in localStorage.
  */
 let _previewCollapsed = new Set();      // Switch indexes
 
@@ -169,6 +170,16 @@ function _conditionIssues(i, layout) {
   return out;
 }
 
+/** The Condition as the form describes it: the action in the form, with its "Then run". */
+export function conditionCandidate() {
+  const self = switchSelfIdx();
+  // "0" is the emptied state (guards nothing); anything else reads like playback does.
+  const cur  = conditionSkipCount.value === "0" ? 0 : conditionSkip({ skipCount: conditionSkipCount.value });
+  const cand = { ...(self < swCtx.actions.length ? swCtx.actions[self] : {}), type: "condition", skipCount: Math.max(1, cur) };
+  if (cur === 0) cand.empty = true; else delete cand.empty;
+  return cand;
+}
+
 /**
  * "Then run" in the Condition form: one option per possible skipCount, counted
  * in actions, with the actions it guards listed below (_renderConditionGuarded).
@@ -179,12 +190,9 @@ export function renderConditionRunTo() {
   const sel = document.getElementById("conditionRunTo");
   if (!sel || !conditionSkipCount) return;
   const self = switchSelfIdx();
-  // "0" is the emptied state (guards nothing); anything else reads like playback does.
-  const cur  = conditionSkipCount.value === "0" ? 0 : conditionSkip({ skipCount: conditionSkipCount.value });
-  const list = [...swCtx.actions];
-  const cand = { ...(self < list.length ? list[self] : {}), type: "condition", skipCount: Math.max(1, cur) };
-  if (cur === 0) cand.empty = true; else delete cand.empty;
-  if (self < list.length) list[self] = cand; else list.push(cand);
+  const cand = conditionCandidate();
+  const cur  = cand.empty ? 0 : cand.skipCount;
+  const list = candidateActions(cand);
   const layout = getSwitchLayout(list);
   const ends = conditionChoices(list, self, layout);
   // Counted in actions; a Switch's block is in its unit, so counts can jump.
@@ -253,6 +261,12 @@ function _condOutsideLi(c, layout) {
   li.dataset.blocks = _withConds(_blockKeys(layout[c]?.chain || []).blocks, conds);
   li.textContent = `⤓ Drop here to move out of If ${noOf(c, layout)}`;
   return li;
+}
+
+/** Where a row sits, outermost first: 'Switch 4 › case "admin" › Switch 6 › case default'. */
+function _placeOf(chain, actions) {
+  return chain.map(c => `Switch ${c.switchIdx + 1} › ${c.caseIdx == null
+    ? "in no case" : `case ${caseLabel(actions[c.switchIdx].cases[c.caseIdx])}`}`).join(" › ");
 }
 
 /** Space-separated keys used to find a block's / a case's rows. */
@@ -396,7 +410,6 @@ function createActionListItem(a, i, scenarioId, view = null) {
 
   const layout = view?.layout;
   const e = layout?.[i];
-  const blocksOn = !!view?.blocksOn;
   const no = e?.displayNo ?? String(i + 1);
   const isBlockSwitch = !!e?.block;
   const condRange = swCtx.condLayout?.[i]?.range;
@@ -476,8 +489,9 @@ function createActionListItem(a, i, scenarioId, view = null) {
     ? `<span class="sw-toggle" role="button" tabindex="0" data-switch="${i}" aria-label="Collapse or expand the ${isBlockSwitch ? "Switch cases and block" : "actions this Condition guards"}" aria-expanded="true"><span class="chev" aria-hidden="true">▸</span></span>`
     : "";
 
+  const placeTitle = e?.chain.length ? ` title="${escHtml(_placeOf(e.chain, view.actions))}"` : "";
   li.innerHTML = `
-    <span class="index" title="#${i + 1}">${escHtml(blocksOn ? no : `${i + 1}.`)}</span>
+    <span class="index"${placeTitle}>${escHtml(no)}.</span>
     <span class="type">${getActionIcon(a.type)}${escHtml(a.type)}${toggleHtml}</span>
     <span class="value" title="${escHtml(value)}${escHtml(delayText)}">
       <span class="value-main">${warnHtml}${clickThroughHtml}${escHtml(value)}${escHtml(delayText)}</span>
@@ -586,9 +600,10 @@ function createActionListItem(a, i, scenarioId, view = null) {
       ? `Delete this Switch? The ${inBlock} action${inBlock === 1 ? "" : "s"} in its block stay and become regular actions.`
       : "Delete this action?";
     showConfirm(msg, () => {
+      const follow = followListEdit(scenarioId, { removed: i });
       chrome.runtime.sendMessage(
         { type: "REMOVE_ACTION", scenarioId, index: i },
-        () => { previewActions(); updateUndoRedoState(); }
+        (res) => { if (res?.success) follow(); previewActions(); updateUndoRedoState(); }
       );
     }, { title: isBlockSwitch ? 'Delete Switch' : 'Delete Action', danger: true });
   });
@@ -615,15 +630,13 @@ function createActionListItem(a, i, scenarioId, view = null) {
 function _renderActionRows(actions, scenarioId) {
   const layout = swCtx.layout;
   const blocksOn = anyBlocks(actions);
-  // Numbering only nests for Switch blocks; Conditions keep flat numbers but
-  // still collapse and indent.
+  // Switch blocks and Conditions collapse and indent; only Switch blocks have cases.
   const structOn = blocksOn || anyConditions(actions);
   _previewCollapsed = structOn ? _loadCollapsed(scenarioId) : new Set();
   _previewCaseCollapsed = blocksOn ? _loadCaseCollapsed(scenarioId) : new Set();
-  actionsEl.classList.toggle("has-blocks", blocksOn);
   const widest = layout.reduce((m, e) => Math.max(m, e.displayNo.length), 2);
   actionsEl.style.setProperty("--idx-w", `${Math.max(18, widest * 6 + 4)}px`);
-  const view = { layout, actions, blocksOn };
+  const view = { layout, actions };
 
   actions.forEach((a, i) => {
     if (a == null) return;
@@ -795,6 +808,7 @@ function updateActionOrderFromDOM() {
   const plan = planDrop(swCtx.actions, ui.dragFromIndex, anchor);
   if (!plan) { previewActions(); return; }
 
+  const follow = followListEdit(scenarioId, { order: plan.newOrder, move: plan.move });
   chrome.runtime.sendMessage(
     {
       type: "REORDER_ACTIONS",
@@ -802,7 +816,8 @@ function updateActionOrderFromDOM() {
       newOrder: plan.newOrder,
       move: plan.move,
     },
-    () => {
+    (res) => {
+      if (res?.success) follow();
       // Refresh preview to update STT immediately after reorder
       previewActions();
       updateUndoRedoState();

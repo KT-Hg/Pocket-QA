@@ -4,7 +4,7 @@
  */
 
 import { pickIndexError, pickStrings } from '../../shared/dropdown-pick.js';
-import { isBlockCase, validateSwitch } from '../../shared/switch-blocks.js';
+import { addIndex, isBlockCase, remapAfterRemove, remapAfterReorder, validateSwitch } from '../../shared/switch-blocks.js';
 import { patternError } from '../../shared/text-pattern.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings } from '../../shared/var-name.js';
 import { addManualAction, cancelEdit, conditionExpectedValue, conditionExpectedValueWrapper, conditionSkipCount, conditionType, manualActionType, manualDelay, manualSelector, manualValue, pickElement, pickedSelectorsInfo, pickedSelectorsWrap, scenarioList, selectorType } from '../dom.js';
@@ -16,8 +16,8 @@ import { CONDITION_FORM_TYPES, DEFAULT_DELAY_MS, TYPES_CHILD_CONDITION, TYPES_NO
 import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, clickThroughOff, fillField, setClickThrough, showClickThroughFor } from './form-table.js';
 import { clearPickedSelectorsPanel, selectorIsPicked, showFieldError, updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
-import { renderConditionRunTo, previewActions } from './preview.js';
-import { alwaysSwitchError, candidateActions, commitPendingCase, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, switchSelfIdx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
+import { conditionCandidate, renderConditionRunTo, previewActions } from './preview.js';
+import { alwaysSwitchError, candidateActions, commitPendingCase, placedSwitch, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, swCtx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 import { applyValueBox, resetManualValueMemory, seedManualValueMemory } from './value-memory.js';
 import { setChildCondExpanded, setManualDelayUI, updateChildCondBadge } from './form-widgets.js';
@@ -246,7 +246,8 @@ function _buildSwitch(action) {
   // Only a Switch with a block has somewhere to continue; left out when
   // automatic, so an untouched old Switch saves exactly as it was.
   if (ui._switchContinueAt != null && action.cases.some(isBlockCase)) action.continueAt = ui._switchContinueAt;
-  const { errors } = validateSwitch(candidateActions({ ...action }), switchSelfIdx());
+  const { list, at } = placedSwitch({ ...action });
+  const { errors } = validateSwitch(list, at);
   if (errors.length) { showToast(errors[0], "error"); return false; }
 }
 
@@ -467,6 +468,69 @@ export function clearEditState() {
   updateChildCondBadge();
 }
 
+/**
+ * Keep an open edit on its action while the list changes under it: a drag or a
+ * Delete in the list. Save writes back by index, and the cases of a Switch or
+ * the range of a Condition in the form are positions in the list — without this,
+ * Save Edit put the old ranges back, or overwrote whichever action had moved into
+ * the old place. So the edit moves with its action, and what the form holds gets
+ * the rewrite the worker gives the stored list. The edited action deleted: the
+ * edit closes.
+ *
+ * `change` is { order, move } of a REORDER_ACTIONS or { removed } of a
+ * REMOVE_ACTION. Called before the message goes, while swCtx still holds the list
+ * as it was; the function returned applies the change once the worker made it.
+ */
+export function followListEdit(scenarioId, change) {
+  const ed = ui.editing;
+  if (!ed || ed.scenarioId !== scenarioId || swCtx.scenarioId !== scenarioId) return () => {};
+  if (change.removed === ed.index) {
+    return () => {
+      clearEditState();
+      chrome.storage.local.remove("manualFormDraft");
+      showToast("The action being edited was deleted", "info");
+    };
+  }
+  const index = change.order ? change.order.indexOf(ed.index) : ed.index - (change.removed < ed.index ? 1 : 0);
+  // An action as the form describes it, in its place in the list as it was, rewritten.
+  const rewrite = (a) => {
+    const list = [...swCtx.actions];
+    list[ed.index] = a;
+    return (change.order ? remapAfterReorder(list, change.order, change.move) : remapAfterRemove(list, change.removed))[index];
+  };
+  const type = manualActionType.value;
+  const sw = type === "switch" ? rewrite(candidateActions()[ed.index]) : null;
+  // The cases "Always" put aside come back with "On a variable": the same positions.
+  const stash = ui._switchVarStash && rewrite({ type: "switch", ...ui._switchVarStash });
+  const cond = type === "condition" ? rewrite(conditionCandidate()) : null;
+  return () => {
+    setEditing({ scenarioId, index });
+    if (sw) {
+      ui._switchCases = sw.cases;
+      if (sw.continueAt != null) ui._switchContinueAt = sw.continueAt;
+    }
+    if (stash) ui._switchVarStash = { cases: stash.cases, continueAt: stash.continueAt ?? null };
+    if (cond) conditionSkipCount.value = cond.empty ? "0" : String(cond.skipCount);
+    // The form's From / To and "Then run" choices are built again from the new list.
+    if (sw || cond) {
+      refreshSwitchContext(() => {
+        if (sw) refreshSwitchForm();
+        else renderConditionRunTo();
+      });
+    }
+    saveDraft();
+  };
+}
+
+/**
+ * Where Add Action puts a new action: last (nothing to say), or a new Switch in
+ * front of the actions it runs — where the form checked it (placedSwitch).
+ */
+function _placeOfNew(scenarioId, action) {
+  const at = addIndex(swCtx.actions, action);
+  return at < swCtx.actions.length && swCtx.scenarioId === scenarioId ? { insertAt: at } : {};
+}
+
 /** startEdit: what a type needs once its fields are filled in. */
 /**
  * A selector type the action was saved with (chosen from the menu) goes back on
@@ -627,11 +691,8 @@ export function initActionForm() {
         action,
       }, onDone);
     } else {
-      chrome.runtime.sendMessage({
-        type: "ADD_MANUAL_ACTION",
-        action,
-        scenarioId: scenarioList.value || null,
-      }, onDone);
+      const scenarioId = scenarioList.value || null;
+      chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action, scenarioId, ..._placeOfNew(scenarioId, action) }, onDone);
     }
   });
   cancelEdit.addEventListener('click', () => {

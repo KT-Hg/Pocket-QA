@@ -8,7 +8,6 @@
  * popup/ui/var-suggest.js shows the list.
  */
 
-import { getSwitchLayout } from '../../shared/switch-blocks.js';
 import { writtenVarNames } from '../../shared/var-name.js';
 import { variableType } from '../../shared/var-order.js';
 import { varValueDetail } from '../../shared/var-suggest.js';
@@ -45,12 +44,11 @@ export async function varEntries() {
   // only the steps above it.
   const actions = preview?.actions || [];
   const upto = ui.editing ? Math.min(ui.editing.index, actions.length) : actions.length;
-  const layout = getSwitchLayout(actions);
   for (let k = 0; k < upto; k++) {
     const a = actions[k];
     if (!a || a.disabled) continue;
     for (const name of writtenVarNames(a)) {
-      out.push({ name, kind: 'w', detail: { text: `set by step ${layout[k]?.displayNo ?? k + 1}` } });
+      out.push({ name, kind: 'w', detail: { text: `set by step ${k + 1}` } });
     }
   }
   for (const name of ui.csvParsed?.headers || []) out.push({ name, kind: 'c', detail: { text: 'CSV column' } });
