@@ -237,6 +237,12 @@
 }
 .action-dropdown .type { color: #f472b6; }
 
+.action-uploadFile {
+  border-left: 4px solid #f43f5e;
+  background: linear-gradient(90deg, rgba(244, 63, 94, 0.08) 0%, transparent 100%);
+}
+.action-uploadFile .type { color: #fb7185; }
+
 /* Disabled action styling */
 .action-disabled {
   opacity: 0.5;
