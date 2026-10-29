@@ -3687,7 +3687,7 @@
    {
     "index": 1,
     "role": "member",
-    "displayNo": "1.1.1",
+    "displayNo": "2",
     "depth": 1,
     "parent": {"switchIdx":0,"caseIdx":0},
     "chain": [{"switchIdx":0,"caseIdx":0,"start":1,"end":2,"color":0}],
@@ -3700,7 +3700,7 @@
    {
     "index": 2,
     "role": "member",
-    "displayNo": "1.1.2",
+    "displayNo": "3",
     "depth": 1,
     "parent": {"switchIdx":0,"caseIdx":0},
     "chain": [{"switchIdx":0,"caseIdx":0,"start":1,"end":2,"color":0}],
@@ -3713,7 +3713,7 @@
    {
     "index": 3,
     "role": "switch",
-    "displayNo": "1.2.1",
+    "displayNo": "4",
     "depth": 1,
     "parent": {"switchIdx":0,"caseIdx":1},
     "chain": [{"switchIdx":0,"caseIdx":1,"start":3,"end":5,"color":1}],
@@ -3726,7 +3726,7 @@
    {
     "index": 4,
     "role": "member",
-    "displayNo": "1.2.1.1.1",
+    "displayNo": "5",
     "depth": 2,
     "parent": {"switchIdx":3,"caseIdx":0},
     "chain": [{"switchIdx":0,"caseIdx":1,"start":3,"end":5,"color":1},{"switchIdx":3,"caseIdx":0,"start":4,"end":4,"color":0}],
@@ -3739,7 +3739,7 @@
    {
     "index": 5,
     "role": "member",
-    "displayNo": "1.2.1.2.1",
+    "displayNo": "6",
     "depth": 2,
     "parent": {"switchIdx":3,"caseIdx":1},
     "chain": [{"switchIdx":0,"caseIdx":1,"start":3,"end":5,"color":1},{"switchIdx":3,"caseIdx":1,"start":5,"end":5,"color":1}],
@@ -3752,7 +3752,7 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "2",
+    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3765,7 +3765,7 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "3",
+    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3778,7 +3778,7 @@
    {
     "index": 8,
     "role": "switch",
-    "displayNo": "4",
+    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3791,7 +3791,7 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "5",
+    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3804,7 +3804,7 @@
    {
     "index": 10,
     "role": "switch",
-    "displayNo": "6",
+    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3817,7 +3817,7 @@
    {
     "index": 11,
     "role": "normal",
-    "displayNo": "7",
+    "displayNo": "12",
     "depth": 0,
     "parent": null,
     "chain": [],

@@ -516,6 +516,201 @@ async function checkSwitchDraft(ctx) {
   await popup.close();
 }
 
+/**
+ * Drag action row `from` of the popup's list as a pointer does — dragover moving
+ * up two pixels at a time — until what is above it reads `want` ('top',
+ * 'after <index>'), and drop it there. Returns what it was dropped under.
+ */
+function dragRow(popup, from, want) {
+  return popup.evaluate(`(async () => {
+    const list = document.getElementById('actions');
+    const li = list.querySelector('li.action[data-index="${from}"]');
+    const dt = new DataTransfer();
+    li.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+    // The "move out of …" drop zones come in once dragstart has returned.
+    await new Promise((r) => setTimeout(r, 100));
+    const above = () => {
+      let p = li.previousElementSibling;
+      while (p && !p.getClientRects().length) p = p.previousElementSibling;
+      if (!p) return 'top';
+      return p.matches('li.action') ? 'after ' + p.dataset.index : p.className.split(' ')[0];
+    };
+    let got = above();
+    for (let y = li.getBoundingClientRect().top + 20; y > -2000 && got !== ${JSON.stringify(want)}; y -= 2) {
+      list.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientY: y, dataTransfer: dt }));
+      got = above();
+    }
+    list.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    li.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
+    return got;
+  })()`);
+}
+
+/** #4 Switch ${role}: "admin" runs #5–#6, "user" #7; then #8 logout and #9 new. */
+function switchBlockActions() {
+  const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` } });
+  const own = (value, startAt, endAt) => ({ value, scenarioId: '__self__', scenarioName: '↻ This scenario (jump)', startAt, endAt });
+  return [
+    click('a'), click('b'), click('c'),
+    { type: 'switch', switchVar: '${role}', cases: [own('admin', 5, 6), own('user', 7, 7)] },
+    click('menu'), click('settings'), click('profile'), click('logout'), click('new'),
+  ];
+}
+
+/** Scenario `id` in the popup's action list. */
+async function showScenario(popup, id) {
+  await popup.evaluate(`(() => {
+    document.querySelector('.tab-btn[data-tab="tabRecord"]').click();
+    const s = document.getElementById('scenarioList'); s.value = ${JSON.stringify(id)}; s.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await sleep(POPUP_SETTLE_MS);
+}
+
+/** Button `n` of action row `i` clicked: 1 Disable, 2 Copy, 3 Edit, 4 Delete. */
+async function rowButton(popup, i, n) {
+  await popup.evaluate(`document.querySelector('#actions li.action[data-index="${i}"] .btn-row button:nth-child(${n})').click()`);
+  await sleep(SETTLE_MS);
+}
+
+const formTitle = (popup) => popup.evaluate(`document.getElementById('manualCardTitle').textContent`);
+
+async function checkNumbersByPosition(ctx) {
+  const id = await makeScenario(ctx, 'e2e numbers by position', switchBlockActions());
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    const rows = await popup.evaluate(`[...document.querySelectorAll('#actions li.action .index')].map((el) => el.textContent.trim()).join(' ')`);
+    const place = await popup.evaluate(`document.querySelector('#actions li.action[data-index="4"] .index').title`);
+    check(rows === '1. 2. 3. 4. 5. 6. 7. 8. 9.' && place === 'Switch 4 › case "admin"',
+      'every row is numbered by its position, in a Switch block too; the number\'s tooltip names its Switch and case', { rows, place });
+    await rowButton(popup, 7, 3);
+    const title = await formTitle(popup);
+    check(title === 'Edit Action #8', 'Edit on row 8, after the block, opens "Edit Action #8"', title);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
+async function checkNewSwitchOverActions(ctx) {
+  // #1 Switch: default runs #2..#3; then #4 and #5. A new Switch is to run #5.
+  const wait = (label) => ({ type: 'wait', delay: 100, label });
+  const id = await makeScenario(ctx, 'e2e new switch over actions', [
+    { type: 'switch', switchVar: '${role}', cases: [{ value: '__default__', scenarioId: '__self__', scenarioName: '↻ This scenario (jump)', startAt: 2, endAt: 3 }] },
+    wait('upload'), wait('w3'), wait('w4'), wait('w5'),
+  ]);
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    const form = await popup.evaluate(`(async () => {
+      document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+      const type = document.getElementById('manualActionType'); type.value = 'switch'; type.dispatchEvent(new Event('change'));
+      await new Promise((r) => setTimeout(r, 600));
+      document.getElementById('switchVar').value = '\${mode}';
+      const from = document.getElementById('switchCaseFrom'); from.value = '4'; from.dispatchEvent(new Event('change'));
+      document.getElementById('switchAddCase').click();
+      await new Promise((r) => setTimeout(r, 300));
+      return { validation: document.getElementById('switchValidation').innerText.trim(),
+        continueAt: document.getElementById('switchContinueAt').selectedOptions[0]?.textContent };
+    })()`);
+    await popup.evaluate(`document.getElementById('addManualAction').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const acts = await popup.evaluate(`new Promise((r) => chrome.storage.local.get(['scenarios'], (x) => r(x.scenarios[${JSON.stringify(id)}].actions)))`);
+    const shape = acts.map((a) => (a.type === 'switch' ? `switch ${a.cases.map((c) => `${c.startAt}–${c.endAt}`).join(' ')}` : a.label)).join(' | ');
+    const place = await popup.evaluate(`document.querySelector('#actions li.action[data-index="5"] .index')?.title`);
+    check(form.validation === '' && shape === 'switch 2–3 | upload | w3 | w4 | switch 6–6 | w5' && place === 'Switch 5 › case default',
+      'a new Switch whose case runs action 5 goes in front of it: the Switch is #5, its case #6', { form, shape, place });
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
+async function checkEditFollowsList(ctx) {
+  const ids = {};
+  for (const name of ['switch', 'action', 'delete']) ids[name] = await makeScenario(ctx, `e2e edit follows ${name}`, switchBlockActions());
+  let popup = await openPopup(ctx);
+  try {
+    const stored = (id) => popup.evaluate(`new Promise((r) => chrome.storage.local.get(['scenarios'], (x) => r(x.scenarios[${JSON.stringify(id)}].actions)))`);
+    const confirmDelete = async () => {
+      await popup.evaluate(`document.getElementById('confirmModalOk').click()`);
+      await sleep(POPUP_SETTLE_MS);
+    };
+    const title = () => formTitle(popup);
+    const save = () => popup.evaluate(`(async () => {
+      const button = document.getElementById('addManualAction');
+      button.click();
+      for (let t = 0; button.textContent !== 'Add Action' && t < 100; t++) await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 300));
+    })()`, 10_000);
+    const setSelector = (s) => popup.evaluate(`(() => { const el = document.getElementById('manualSelector');
+      el.value = ${JSON.stringify(s)}; el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    const ranges = (acts) => acts.find((a) => a.type === 'switch').cases.map((c) => `${c.startAt}–${c.endAt}`).join(' ');
+    const selectors = (acts) => acts.map((a) => a.selector || a.type).join(' ');
+
+    // The Switch open in the form, "new" dragged to the end of case "admin", then Save Edit.
+    await showScenario(popup, ids.switch);
+    await rowButton(popup, 3, 3);
+    const dropped = await dragRow(popup, 8, 'after 5');
+    await sleep(POPUP_SETTLE_MS);
+    const dragged = ranges(await stored(ids.switch));
+    await save();
+    const saved = ranges(await stored(ids.switch));
+    check(dropped === 'after 5' && dragged === '5–7 8–8' && saved === dragged,
+      'Save Edit on a Switch keeps the case ranges a drag gave it while the form was open', { dropped, dragged, saved });
+
+    // "logout" (#8) open in the form and changed, "new" dragged to the top, the popup
+    // closed and opened again on its draft, then Save Edit.
+    await showScenario(popup, ids.action);
+    await rowButton(popup, 7, 3);
+    await setSelector('#logout2');
+    await dragRow(popup, 8, 'top');
+    await sleep(POPUP_SETTLE_MS);
+    const moved = await title();
+    await popup.close();
+    popup = await openPopup(ctx);
+    const reopened = await title();
+    await save();
+    const afterDrag = selectors(await stored(ids.action));
+    check(moved === 'Edit Action #9' && reopened === moved && afterDrag === '#new #a #b #c switch #menu #settings #profile #logout2',
+      'the action open in the form follows a drag, its draft too: Save Edit writes it, not the one now in its old place',
+      { moved, reopened, afterDrag });
+
+    // A Delete above the action open in the form, Undo while it is open, then deleting it.
+    await showScenario(popup, ids.delete);
+    await rowButton(popup, 7, 3);
+    await setSelector('#logout2');
+    await rowButton(popup, 0, 4);
+    await confirmDelete();
+    const shifted = await title();
+    await save();
+    const afterDelete = selectors(await stored(ids.delete));
+    check(shifted === 'Edit Action #7' && afterDelete === '#b #c switch #menu #settings #profile #logout2 #new',
+      'the action open in the form follows a Delete above it', { shifted, afterDelete });
+
+    await rowButton(popup, 6, 3);
+    const undo = await popup.evaluate(`(async () => {
+      const button = document.getElementById('undoAction');
+      const enabled = !button.disabled;
+      button.click();
+      await new Promise((r) => setTimeout(r, ${POPUP_SETTLE_MS}));
+      return { enabled, toast: document.getElementById('toast').textContent };
+    })()`);
+    const afterUndo = selectors(await stored(ids.delete));
+    check(undo.enabled && afterUndo === afterDelete && await title() === 'Edit Action #7',
+      'Undo waits while an action is open in the form: the list and the edit stay', { ...undo, afterUndo });
+    await rowButton(popup, 6, 4);
+    await confirmDelete();
+    check(await title() === 'Add Manual Action', 'deleting the action open in the form closes the edit', await title());
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
 async function checkBackgroundTab(ctx) {
   await reloadTestPage(ctx);
   const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` }, delay: 200 });
@@ -3311,6 +3506,9 @@ const CHECKS = [
   ['overlays', 'The countdown, failed-action prompt and segment bar, loaded when needed', checkOverlays],
   ['suggest', 'Variable suggestions in the popup', checkSuggest],
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
+  ['edit-follows-list', 'An action open in the form while its list changes', checkEditFollowsList],
+  ['numbers-by-position', 'Every action numbered by its position, in a Switch block too', checkNumbersByPosition],
+  ['switch-insert', 'A new Switch over actions already in the list', checkNewSwitchOverActions],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],
