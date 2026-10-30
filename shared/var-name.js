@@ -99,6 +99,50 @@ export function writtenVarNames(action) {
   return out;
 }
 
+/**
+ * `{ action, count }`: the action with variable `from` renamed to `to`, and how
+ * many places changed.
+ *
+ * Every string anywhere in the action has its `${from}` replaced, not only the
+ * fields interpolateAction() fills in, so a field added later follows a rename
+ * without being listed here; a label naming the variable follows too. The two
+ * names written without `${…}` — the variable a step writes and a bare Switch
+ * name — are renamed on their own. Split / join, not a RegExp: a name may hold
+ * `.` or `$`, which a pattern or a replacement string reads as syntax.
+ *
+ * The action given is never modified: the same object comes back when nothing
+ * changed, a copy otherwise.
+ */
+export function renameVarRefs(action, from, to) {
+  const ref  = '${' + from + '}';
+  const next = '${' + to + '}';
+  let count = 0;
+  const walk = (v) => {
+    if (typeof v === 'string') {
+      const parts = v.split(ref);
+      count += parts.length - 1;
+      return parts.join(next);
+    }
+    if (!v || typeof v !== 'object') return v;
+    // Copied only where something changed, so an untouched action stays the same object.
+    let out = v;
+    for (const [k, x] of Object.entries(v)) {
+      const y = walk(x);
+      if (y === x) continue;
+      if (out === v) out = Array.isArray(v) ? [...v] : { ...v };
+      out[k] = y;
+    }
+    return out;
+  };
+  const bare = {};
+  if (writtenVarNames({ type: action?.type, varName: action?.varName }).includes(from)) bare.varName = to;
+  const sv = action?.switchVar;
+  if (typeof sv === 'string' && !sv.includes('${') && normalizeVarRef(sv) === ref) bare.switchVar = to;
+  const named = Object.keys(bare).length;
+  count += named;
+  return { action: walk(named ? { ...action, ...bare } : action), count };
+}
+
 /** Values of a `{pick:…}` / `{fallback:…}` spec (Blank as ''), or null for anything else. */
 export function parseListSpec(kind, str) {
   if (typeof str !== 'string') return null;
