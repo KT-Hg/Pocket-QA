@@ -14,6 +14,9 @@
  *   capture       two visible screenshots within a second are both saved (Chrome
  *                 allows two captureVisibleTab calls a second; the second shot retries)
  *   suggest       typing ${g in the popup lists the matching variables; Enter inserts one
+ *   var-name-guard  the variable modal refuses a name another row has (adding or
+ *                 renaming) and one holding "}" or "${"; saving a row under its own
+ *                 name goes through
  *   switch-draft  the popup reopened on a Switch draft lists the scenarios in the
  *                 case editor; a scenario picked there survives a reload of the list
  *   background-tab  a run keeps going once its tab is sent to the background, and
@@ -486,6 +489,54 @@ async function checkSuggest(ctx) {
   await sleep(SETTLE_MS);
   const value = await popup.evaluate(`document.getElementById('manualValue').value`);
   check(/^Hi \$\{(greet|gamma)\}$/.test(value), 'Enter inserts the highlighted ${name}', value);
+  if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  await popup.close();
+}
+
+async function checkVarNameGuard(ctx) {
+  await ctx.send({ type: 'SAVE_VARIABLES', variables: { alpha: 'one', beta: 'two' }, order: ['alpha', 'beta'] });
+  const popup = await openPopup(ctx);
+  const table = async () => JSON.stringify((await ctx.send({ type: 'GET_VARIABLES' })).variables);
+  const open = (key) => popup.evaluate(key == null
+    ? `document.getElementById('addVariableRow').click()`
+    : `[...document.querySelectorAll('li.var-row')].find((li) => li.dataset.key === ${JSON.stringify(key)}).querySelector('.vr-edit').click()`);
+  // Fill the modal in and press Save: the toast, and whether the modal stayed open.
+  const save = async (name, value) => {
+    const r = await popup.evaluate(`(() => {
+      document.getElementById('randomVarName').value = ${JSON.stringify(name)};
+      document.getElementById('staticValue').value = ${JSON.stringify(value)};
+      document.getElementById('confirmRandom').click();
+      return { toast: document.getElementById('toast').textContent, open: document.getElementById('randomModal').classList.contains('show') };
+    })()`);
+    await sleep(SETTLE_MS);
+    return r;
+  };
+  const cancel = () => popup.evaluate(`document.getElementById('cancelRandom').click()`);
+  const before = await table();
+
+  await open(null);
+  const added = await save('beta', 'three');
+  check(added.open && /already exists/.test(added.toast), 'adding a name the table has is refused', added);
+  await cancel();
+  await open('alpha');
+  const renamed = await save('beta', 'one');
+  check(renamed.open && /already exists/.test(renamed.toast), 'renaming to a name another row has is refused', renamed);
+  await cancel();
+  for (const bad of ['a}', '${x}']) {
+    await open(null);
+    const r = await save(bad, 'v');
+    check(r.open && /variable name/i.test(r.toast), `"${bad}" is refused as a name`, r);
+    await cancel();
+  }
+  const rows = await popup.evaluate(`[...document.querySelectorAll('li.var-row')].map((li) => li.dataset.key)`);
+  check(JSON.stringify(rows) === '["alpha","beta"]', 'the table still has alpha and beta once', rows);
+  const after = await table();
+  check(after === before, 'nothing refused was saved', { before, after });
+
+  await open('alpha');
+  const kept = await save('alpha', 'uno');
+  const vars = JSON.parse(await table());
+  check(!kept.open && vars.alpha?.s === 'uno' && vars.beta?.s === 'two', 'saving a row under its own name is not a clash', { kept, vars });
   if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   await popup.close();
 }
@@ -3505,6 +3556,7 @@ const CHECKS = [
   ['capture', 'Two visible screenshots in a row', checkCapture],
   ['overlays', 'The countdown, failed-action prompt and segment bar, loaded when needed', checkOverlays],
   ['suggest', 'Variable suggestions in the popup', checkSuggest],
+  ['var-name-guard', 'A variable name already taken, or one no ${…} can reach', checkVarNameGuard],
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
   ['edit-follows-list', 'An action open in the form while its list changes', checkEditFollowsList],
   ['numbers-by-position', 'Every action numbered by its position, in a Switch block too', checkNumbersByPosition],

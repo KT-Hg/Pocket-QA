@@ -1,7 +1,7 @@
 // Each variable stores a full config object across all 4 types so switching type never discards data.
 
 import { showToast, showConfirm, lockScroll, unlockScroll, getDragAfterElement } from './utils.js';
-import { listEntries, parseListSpec } from '../shared/var-name.js';
+import { listEntries, normalizeVarName, parseListSpec } from '../shared/var-name.js';
 import { normalizeVariableSort, orderNames, variableComparator } from '../shared/var-order.js';
 import { configValue } from '../shared/var-spec.js';
 
@@ -728,6 +728,16 @@ export function initVariables() {
     if (!name) {
       varName?.classList.add('required-error');
       setTimeout(() => varName?.classList.remove('required-error'), REQUIRED_FLASH_MS);
+      return;
+    }
+    // No ${…} reaches a name holding "}", and "${user}" is read as user.
+    if (normalizeVarName(name) !== name) {
+      showToast('A variable name cannot start with "${" or contain "}"', 'error');
+      return;
+    }
+    // Two rows of one name save only the second's value: the other is lost.
+    if (_rows().some(li => li !== _editingRow && li.dataset.key?.trim() === name)) {
+      showToast(`"${name}" already exists`, 'error');
       return;
     }
 
