@@ -70,8 +70,17 @@ export function candidateActions(sw = _candidateSwitch()) {
  */
 function placedSwitch(sw = _candidateSwitch()) {
   const self = switchSelfIdx();
-  const at = self < swCtx.actions.length ? self : addIndex(swCtx.actions, sw);
+  const at = self < swCtx.actions.length ? self : newActionIndex(sw);
   return at < self ? { list: remapAfterInsert(swCtx.actions, at, sw), at } : { list: candidateActions(sw), at: self };
+}
+
+/**
+ * Where Add Action puts a new action, and where the form checks it: last, or a
+ * new Switch in front of the actions its cases run (addIndex) — only while
+ * swCtx holds the scenario on screen, the one the action is added to.
+ */
+export function newActionIndex(action) {
+  return swCtx.scenarioId === (scenarioList.value || null) ? addIndex(swCtx.actions, action) : swCtx.actions.length;
 }
 
 /** What is wrong with the form's Switch where saving puts it — the Switches in its cases too. */

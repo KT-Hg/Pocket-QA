@@ -4,7 +4,7 @@
  */
 
 import { pickIndexError, pickStrings } from '../../shared/dropdown-pick.js';
-import { addIndex, isBlockCase, remapAfterRemove, remapAfterReorder, remapDraftSwitch } from '../../shared/switch-blocks.js';
+import { isBlockCase, remapAfterRemove, remapAfterReorder, remapDraftSwitch } from '../../shared/switch-blocks.js';
 import { patternError } from '../../shared/text-pattern.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings } from '../../shared/var-name.js';
 import { addManualAction, cancelEdit, conditionExpectedValue, conditionExpectedValueWrapper, conditionSkipCount, conditionType, manualActionType, manualDelay, manualSelector, manualValue, pickElement, pickedSelectorsInfo, pickedSelectorsWrap, scenarioList, selectorType } from '../dom.js';
@@ -17,7 +17,7 @@ import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, clickThroughOff, fillField, setClickThrough, showClickThroughFor } from './form-table.js';
 import { clearPickedSelectorsPanel, selectorIsPicked, showFieldError, updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 import { conditionCandidate, renderConditionRunTo, previewActions } from './preview.js';
-import { alwaysSwitchError, candidateActions, checkPlacedSwitch, commitPendingCase, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, swCtx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
+import { alwaysSwitchError, candidateActions, checkPlacedSwitch, commitPendingCase, newActionIndex, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, swCtx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 import { applyValueBox, resetManualValueMemory, seedManualValueMemory } from './value-memory.js';
 import { setChildCondExpanded, setManualDelayUI, updateChildCondBadge } from './form-widgets.js';
@@ -545,13 +545,10 @@ function _applyFollowed(sw, stash, cond) {
   saveDraft();
 }
 
-/**
- * Where Add Action puts a new action: last (nothing to say), or a new Switch in
- * front of the actions it runs — where the form checked it (checkPlacedSwitch).
- */
-function _placeOfNew(scenarioId, action) {
-  const at = addIndex(swCtx.actions, action);
-  return at < swCtx.actions.length && swCtx.scenarioId === scenarioId ? { insertAt: at } : {};
+/** ADD_MANUAL_ACTION's `insertAt` when the new action does not go last (newActionIndex). */
+function _placeOfNew(action) {
+  const at = newActionIndex(action);
+  return at < swCtx.actions.length ? { insertAt: at } : {};
 }
 
 /** startEdit: what a type needs once its fields are filled in. */
@@ -715,7 +712,7 @@ export function initActionForm() {
       }, onDone);
     } else {
       const scenarioId = scenarioList.value || null;
-      chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action, scenarioId, ..._placeOfNew(scenarioId, action) }, onDone);
+      chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action, scenarioId, ..._placeOfNew(action) }, onDone);
     }
   });
   cancelEdit.addEventListener('click', () => {
