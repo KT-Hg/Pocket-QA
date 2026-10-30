@@ -98,9 +98,7 @@ export function continueIndex(actions, s) {
  * Returns one entry per index:
  *   role        'normal' | 'switch' | 'member' | 'orphan' (orphan: inside a block, in no case)
  *               (a Switch nested in a case keeps role 'switch'; its `parent` says where it lives)
- *   displayNo   the number shown for it: its position, '1' … — the same number
- *               a failure message, the Last run card or the bug report gives
- *   depth       nesting level, 0 = top
+ *   depth      nesting level, 0 = top
  *   parent      { switchIdx, caseIdx } of the innermost block, caseIdx null for orphans
  *   chain       every enclosing block, outermost first: { switchIdx, caseIdx, start, end, color }
  *   color       case colour index of the innermost case, or null
@@ -112,7 +110,7 @@ export function continueIndex(actions, s) {
 export function getSwitchLayout(actions) {
   const list = Array.isArray(actions) ? actions : [];
   const out = list.map((_, i) => ({
-    index: i, role: 'normal', displayNo: String(i + 1), depth: 0,
+    index: i, role: 'normal', depth: 0,
     parent: null, chain: [], color: null,
     caseStart: null, blockLast: [], continueOf: [], block: null,
   }));

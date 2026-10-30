@@ -26,10 +26,8 @@ const withPrefix = (...pre) => [
 // enclosing case, outermost first ('?': in the block, in no case).
 const places = (actions) => getSwitchLayout(actions).map((e) =>
   e.chain.map((c) => `${c.switchIdx + 1}.${c.caseIdx == null ? '?' : c.caseIdx + 1}`).join(' ') || '-');
-const nos = (actions) => getSwitchLayout(actions).map((e) => e.displayNo);
 
-test('layout: sample — numbered by position, placed in its cases', () => {
-  assert.deepEqual(nos(sample()), ['1', '2', '3', '4', '5', '6']);
+test('layout: sample — placed in its cases', () => {
   assert.deepEqual(places(sample()), ['-', '1.1', '1.1', '1.2', '1.2', '-']);
   const lay = getSwitchLayout(sample());
   assert.equal(lay[0].role, 'switch');
@@ -67,8 +65,6 @@ test('layout: nested switch', () => {
     act('end'),
   ];
   assert.deepEqual(places(acts), ['-', '-', '2.1', '2.1', '2.1 4.1', '2.1 4.2', '-']);
-  // Numbered by position all the same: the number a failure or the run report gives.
-  assert.deepEqual(nos(acts), ['1', '2', '3', '4', '5', '6', '7']);
 });
 
 test('layout: a disabled action keeps its place', () => {

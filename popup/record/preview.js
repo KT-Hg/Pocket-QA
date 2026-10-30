@@ -125,7 +125,7 @@ function _switchIssues(actions, i, layout) {
 
 /** "2" for an action index, or "end" past the last action. */
 function _contNo(idx, layout) {
-  return idx < layout.length ? layout[idx].displayNo : "end";
+  return idx < layout.length ? String(idx + 1) : "end";
 }
 
 /** The colour of a block's stripe: a Condition's, a case colour, or none. */
@@ -163,10 +163,10 @@ function _conditionIssues(i, layout) {
   if (r.short) out.push(`Skips ${acts(r.skip)} when false, but only ${r.units} follow`);
   if (r.cut) {
     const inner = layout[i]?.chain?.[layout[i].chain.length - 1];
-    const sw = inner ? layout[inner.switchIdx]?.displayNo : "?";
+    const sw = inner ? inner.switchIdx + 1 : "?";
     out.push(`Skipping ${acts(r.skip)} when false runs past the end of its case in Switch ${sw} — playback then continues after that Switch`);
   }
-  if (r.past != null) out.push(`Guards actions past the end of the Condition at ${noOf(r.past, layout)}`);
+  if (r.past != null) out.push(`Guards actions past the end of the Condition at ${noOf(r.past)}`);
   return out;
 }
 
@@ -209,11 +209,11 @@ export function renderConditionRunTo() {
   sel.innerHTML = html;
   sel.value = String(cur);
   if (!sel.value) { sel.value = "1"; conditionSkipCount.value = "1"; }
-  _renderConditionGuarded(list, layout, self, ends, parseInt(sel.value, 10) || 0);
+  _renderConditionGuarded(list, self, ends, parseInt(sel.value, 10) || 0);
 }
 
 /** The actions "Then run" guards, one row per unit (a Switch stands for its block). */
-function _renderConditionGuarded(list, layout, self, ends, units) {
+function _renderConditionGuarded(list, self, ends, units) {
   const ol   = document.getElementById("conditionGuarded");
   const hint = document.getElementById("conditionRunHint");
   if (!ol) return;
@@ -238,7 +238,7 @@ function _renderConditionGuarded(list, layout, self, ends, units) {
     const inBlock = ends[k] - start;
     const no = document.createElement("span");
     no.className = "cg-no";
-    no.textContent = noOf(start, layout);
+    no.textContent = noOf(start);
     const type = document.createElement("span");
     type.className = "cg-type";
     type.textContent = `${getActionIcon(a.type)} ${a.type || ""}`.trim();
@@ -259,7 +259,7 @@ function _condOutsideLi(c, layout) {
   const conds = _condsOf(c);
   _applyBlockStyle(li, (layout[c]?.depth || 0) + conds.length, conds.length ? "cond" : layout[c]?.color);
   li.dataset.blocks = _withConds(_blockKeys(layout[c]?.chain || []).blocks, conds);
-  li.textContent = `⤓ Drop here to move out of If ${noOf(c, layout)}`;
+  li.textContent = `⤓ Drop here to move out of If ${noOf(c)}`;
   return li;
 }
 
@@ -316,7 +316,7 @@ function _outsideLi(s, layout) {
   const conds = _condsOf(s);
   _applyBlockStyle(li, sw.depth + conds.length, conds.length && conds[conds.length - 1] > (sw.chain[sw.chain.length - 1]?.switchIdx ?? -1) ? "cond" : sw.color);
   li.dataset.blocks = _withConds(_blockKeys(sw.chain).blocks, conds);
-  li.textContent = `⤓ Drop here to move out of Switch ${sw.displayNo}`;
+  li.textContent = `⤓ Drop here to move out of Switch ${s + 1}`;
   return li;
 }
 
@@ -347,12 +347,12 @@ function _switchSummary(a, i, layout) {
     if (isBlockCase(c)) {
       const cc = e.block?.cases?.[k];
       if (c.empty || cc?.start == null) where = "nothing";
-      else if (cc.start === cc.end) where = layout[cc.start].displayNo;
-      else where = `${layout[cc.start].displayNo}–${layout[cc.end].displayNo}`;
+      else if (cc.start === cc.end) where = String(cc.start + 1);
+      else where = `${cc.start + 1}–${cc.end + 1}`;
     } else if (c.scenarioId === SWITCH_SELF) {
-      where = `jump${switchStartSuffix(c, layout)}`;
+      where = `jump${switchStartSuffix(c)}`;
     } else {
-      where = `→ ${c.scenarioName || c.scenarioId}${switchStartSuffix(c, layout)}`;
+      where = `→ ${c.scenarioName || c.scenarioId}${switchStartSuffix(c)}`;
     }
     return `${caseLabel(c)}  ${where}`;
   });
@@ -410,7 +410,7 @@ function createActionListItem(a, i, scenarioId, view = null) {
 
   const layout = view?.layout;
   const e = layout?.[i];
-  const no = e?.displayNo ?? String(i + 1);
+  const no = String(i + 1);
   const isBlockSwitch = !!e?.block;
   const condRange = swCtx.condLayout?.[i]?.range;
   const isCondBlock = !!condRange && condRange.end >= condRange.start;
@@ -448,7 +448,7 @@ function createActionListItem(a, i, scenarioId, view = null) {
       if (issues.length) warnHtml = `<span class="sw-warn" title="${escHtml(issues.join("\n"))}">⚠</span>`;
       if (isCondBlock) {
         const n = condRange.end - condRange.start + 1;
-        const full = `If true: runs ${noOf(condRange.start, layout)}${n > 1 ? `–${noOf(condRange.end, layout)}` : ""}\nIf false: skips them`;
+        const full = `If true: runs ${noOf(condRange.start)}${n > 1 ? `–${noOf(condRange.end)}` : ""}\nIf false: skips them`;
         summaryHtml = `<span class="sw-summary" title="${escHtml(full)}">if true → runs ${n} action${n === 1 ? "" : "s"}</span>`
           + `<span class="sw-hidden-count"></span>`;
       }
@@ -467,14 +467,14 @@ function createActionListItem(a, i, scenarioId, view = null) {
     }
     if (e.role === "orphan") {
       li.classList.add("sw-orphan");
-      warnHtml = `<span class="sw-warn" title="Inside the block of Switch ${escHtml(layout[e.parent.switchIdx].displayNo)} but in no case — it never runs">⚠</span>`;
+      warnHtml = `<span class="sw-warn" title="Inside the block of Switch ${e.parent.switchIdx + 1} but in no case — it never runs">⚠</span>`;
     }
     if (e.blockLast.length) {
       const inner = Math.max(...e.blockLast);
       notesHtml += `<span class="sw-note">↳ then go to ${escHtml(_contNo(layout[inner].block.continueIdx, layout))}</span>`;
     }
     if (e.continueOf.length) {
-      notesHtml += `<span class="sw-note">⤴ continues after Switch ${e.continueOf.map(s => escHtml(layout[s].displayNo)).join(", ")}</span>`;
+      notesHtml += `<span class="sw-note">⤴ continues after Switch ${e.continueOf.map(s => s + 1).join(", ")}</span>`;
     }
   }
 
@@ -634,7 +634,7 @@ function _renderActionRows(actions, scenarioId) {
   const structOn = blocksOn || anyConditions(actions);
   _previewCollapsed = structOn ? _loadCollapsed(scenarioId) : new Set();
   _previewCaseCollapsed = blocksOn ? _loadCaseCollapsed(scenarioId) : new Set();
-  const widest = layout.reduce((m, e) => Math.max(m, e.displayNo.length), 2);
+  const widest = Math.max(String(actions.length).length, 2);
   actionsEl.style.setProperty("--idx-w", `${Math.max(18, widest * 6 + 4)}px`);
   const view = { layout, actions };
 

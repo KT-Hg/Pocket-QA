@@ -81,22 +81,20 @@ export function checkPlacedSwitch(sw = _candidateSwitch()) {
   return { errors: [...errors, ...nestedBlockErrors(list, at)], warnings };
 }
 
-/** Number shown for action `idx` (0-based): its position, e.g. "8". */
-export function noOf(idx, layout = swCtx.layout) {
-  return layout?.[idx]?.displayNo ?? `#${idx + 1}`;
+/** Number shown for action `idx` (0-based): its position, "8" — "#8" when the scenario has no such action. */
+export function noOf(idx) {
+  return idx >= 0 && idx < swCtx.actions.length ? String(idx + 1) : `#${idx + 1}`;
 }
 
 /** " 5–6" / " @3" / " (nothing)" — where a case goes, in action numbers. */
-export function switchStartSuffix(c, layout = swCtx.layout) {
+export function switchStartSuffix(c) {
   if (c.scenarioId === SWITCH_SELF) {
     if (isBlockCase(c)) {
       if (c.empty) return " (nothing)";
       const r = caseRange(c);
-      return r.start === r.end
-        ? ` ${noOf(r.start, layout)}`
-        : ` ${noOf(r.start, layout)}–${noOf(r.end, layout)}`;
+      return r.start === r.end ? ` ${noOf(r.start)}` : ` ${noOf(r.start)}–${noOf(r.end)}`;
     }
-    return ` @${noOf((parseInt(c.startAt, 10) || 1) - 1, layout)}`;
+    return ` @${noOf((parseInt(c.startAt, 10) || 1) - 1)}`;
   }
   const n = parseInt(c.startAt, 10) || 1;
   const e = parseInt(c.endAt, 10);
@@ -133,13 +131,13 @@ function _sameCaseTarget(a, b) {
 }
 
 /** <option>s listing the scenario's actions (display number + summary). */
-function _actionOptions(selected, layout, { from = 0, skip = -1 } = {}) {
+function _actionOptions(selected, { from = 0, skip = -1 } = {}) {
   const list = candidateActions();
   let html = "";
   for (let i = from; i < list.length; i++) {
     if (i === skip) continue;
     const a = list[i];
-    const txt = `${noOf(i, layout)}  ${a.type} ${a.label || getActionDisplayValue(a) || ""}`.slice(0, 60);
+    const txt = `${noOf(i)}  ${a.type} ${a.label || getActionDisplayValue(a) || ""}`.slice(0, 60);
     html += `<option value="${i}"${i === selected ? " selected" : ""}>${escHtml(txt)}</option>`;
   }
   return html;
@@ -151,7 +149,6 @@ function _actionOptions(selected, layout, { from = 0, skip = -1 } = {}) {
  * case on "Only this action".
  */
 function _fillRangeSelects(fromEl, toEl, c) {
-  const layout = getSwitchLayout(candidateActions());
   const self   = switchSelfIdx();
   let from = "none", to = "only";
   if (c && c.scenarioId === SWITCH_SELF) {
@@ -165,7 +162,7 @@ function _fillRangeSelects(fromEl, toEl, c) {
   } else if (self + 1 < candidateActions().length) {
     from = self + 1;
   }
-  let fromHtml = `<option value="none">— nothing —</option>` + _actionOptions(from, layout, { skip: self });
+  let fromHtml = `<option value="none">— nothing —</option>` + _actionOptions(from, { skip: self });
   if (typeof from === "number" && from >= candidateActions().length) {
     fromHtml += `<option value="${from}" selected>#${from + 1} (missing)</option>`;
   }
@@ -178,7 +175,7 @@ function _fillRangeSelects(fromEl, toEl, c) {
     toEl.disabled = false;
     const fi = Number(f);
     toEl.innerHTML = `<option value="only">Only this action</option>`
-      + _actionOptions(-1, layout, { from: fi + 1, skip: self })
+      + _actionOptions(-1, { from: fi + 1, skip: self })
       + `<option value="tail">To the end (old-style jump)</option>`;
     toEl.value = [...toEl.options].some(o => o.value === String(want)) ? String(want) : "only";
   };
@@ -328,7 +325,6 @@ function _renderSwitchContinue() {
   if (!block) return;
   const list   = candidateActions();
   const self   = switchSelfIdx();
-  const layout = getSwitchLayout(list);
   const autoSw = { ..._candidateSwitch() };
   delete autoSw.continueAt;
   // Numbers of the list as it is now: a new Switch put in front of the actions
@@ -337,15 +333,15 @@ function _renderSwitchContinue() {
   const before  = placed.at < self ? 1 : 0;
   const autoIdx = continueIndex(placed.list, placed.at) - before;
   const end     = list.length - before;
-  const autoNo  = autoIdx < end ? noOf(autoIdx, layout) : "end of scenario";
+  const autoNo  = autoIdx < end ? noOf(autoIdx) : "end of scenario";
   let html = `<option value="auto">Auto: ${escHtml(autoNo)}</option>`;
   // Only actions after the block: inside it is an error, and before the Switch a loop.
-  html += _actionOptions(-1, layout, { from: autoIdx, skip: self });
+  html += _actionOptions(-1, { from: autoIdx, skip: self });
   html += `<option value="${end}">End of scenario</option>`;
   // A saved continueAt outside that range (a backward loop) stays selectable.
   const saved = ui._switchContinueAt != null ? ui._switchContinueAt - 1 : null;
   if (saved != null && (saved < autoIdx || saved > end)) {
-    html += `<option value="${saved}">${escHtml(saved < list.length ? noOf(saved, layout) : `#${saved + 1}`)} (saved)</option>`;
+    html += `<option value="${saved}">${escHtml(noOf(saved))} (saved)</option>`;
   }
   sel.innerHTML = html;
   sel.value = ui._switchContinueAt == null ? "auto" : String(ui._switchContinueAt - 1);
@@ -415,19 +411,18 @@ export function refreshSwitchForm() {
 }
 
 /** What a case does, in words: "Run 5–6", "Play "Guest flow" @2", … */
-function _caseTargetText(c, layout) {
+function _caseTargetText(c) {
   if (c.scenarioId === SWITCH_SELF) {
-    if (isBlockCase(c)) return c.empty ? "Do nothing" : `Run${switchStartSuffix(c, layout)}`;
-    return `Jump to${switchStartSuffix(c, layout).replace(" @", " ")}, play to the end`;
+    if (isBlockCase(c)) return c.empty ? "Do nothing" : `Run${switchStartSuffix(c)}`;
+    return `Jump to${switchStartSuffix(c).replace(" @", " ")}, play to the end`;
   }
-  return `Play "${c.scenarioName || c.scenarioId}"${switchStartSuffix(c, layout)}`;
+  return `Play "${c.scenarioName || c.scenarioId}"${switchStartSuffix(c)}`;
 }
 
 export function renderSwitchCaseList() {
   const list = document.getElementById("switchCaseList");
   if (!list) return;
   list.innerHTML = "";
-  const layout = getSwitchLayout(candidateActions());
   if (!ui._switchCases.length) {
     list.innerHTML = `<div class="sw-case-empty-list">No cases yet — add the first one below.</div>`;
     return;
@@ -442,7 +437,7 @@ export function renderSwitchCaseList() {
     row.innerHTML = `
       <span class="sw-case-no">${idx + 1}</span>
       <span class="sw-case-label${isDefault ? " sw-case-default" : ""}${isBlockCase(c) ? " sw-case-label-block" : ""}">${isDefault ? "default" : `"${escHtml(c.value)}"`}</span>
-      <span class="sw-case-target" title="${escHtml(_caseTargetText(c, layout))}">${escHtml(_caseTargetText(c, layout))}</span>
+      <span class="sw-case-target" title="${escHtml(_caseTargetText(c))}">${escHtml(_caseTargetText(c))}</span>
       <button data-idx="${idx}" class="sw-case-edit secondary sw-case-btn" type="button" title="Edit case" aria-label="Edit case ${idx + 1}">✎</button>
       <button data-idx="${idx}" class="sw-case-del secondary sw-case-btn" type="button" title="Delete case" aria-label="Delete case ${idx + 1}">🗑</button>
     `;
