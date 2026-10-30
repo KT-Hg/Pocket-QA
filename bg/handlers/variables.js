@@ -7,7 +7,8 @@
 
 import { normalizeVarName, renameVarRefs } from '../../shared/var-name.js';
 import { isAnyPlaybackActive } from '../run-state.js';
-import { getScenarios, getVariableTable, runExclusive, setScenarios, setVariables } from '../storage.js';
+import { state } from '../state.js';
+import { getScenarios, getVariableTable, mapUndoSnapshots, runExclusive, setScenarios, setVariables } from '../storage.js';
 
 // Scenarios named when a new name is refused as already used; the rest are "…".
 const USED_IN_SHOWN = 3;
@@ -28,7 +29,8 @@ export const variablesHandlers = {
 
   /**
    * Renames a variable in the table and in every scenario that uses it
-   * (renameVarRefs), in one queued task so no other scenario edit lands in
+   * (renameVarRefs) — their undo / redo snapshots and the unsaved recorded
+   * actions too — in one queued task so no other scenario edit lands in
    * between. Refused whole, nothing written, when the new name is already the
    * table's or a scenario's (a Read DOM target, a CSV column…) — two variables
    * would become one for good — and while a run plays, its variables resolved
@@ -62,6 +64,11 @@ export const variablesHandlers = {
         if (n) { s.actions = actions; changed++; refs += n; }
       }
       if (changed) await setScenarios(scenarios);
+      // Undo / Redo would otherwise bring the old name back, and the actions
+      // recorded with no scenario chosen are saved later as they are.
+      const renameAll = (actions) => (Array.isArray(actions) ? actions.map(a => renameVarRefs(a, from, to).action) : actions);
+      mapUndoSnapshots(renameAll);
+      state.currentActions = renameAll(state.currentActions);
       const renamed = {};
       for (const [k, v] of Object.entries(variables)) renamed[k === from ? to : k] = v;
       await setVariables(renamed, order.map(n => (n === from ? to : n)));

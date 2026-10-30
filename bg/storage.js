@@ -210,6 +210,17 @@ export function getStack(key) {
   return undoStacks[key];
 }
 
+/**
+ * Runs `fn(actions) → actions` on every snapshot of every undo and redo stack.
+ * In place: UNDO_ACTION / REDO_ACTION hold on to the stack they looked up.
+ */
+export function mapUndoSnapshots(fn) {
+  for (const s of Object.values(undoStacks)) {
+    for (const list of [s.undo, s.redo]) list.forEach((snap, i) => { list[i] = fn(snap); });
+  }
+  _persistUndoStacks();
+}
+
 export function pushUndo(key, snapshot) {
   const s = getStack(key);
   s.undo.push(JSON.parse(JSON.stringify(snapshot)));
