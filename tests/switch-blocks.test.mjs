@@ -210,6 +210,19 @@ test('remapAfterInsert: in a case, or at its start, the new Switch joins that ca
   assert.deepEqual(places(atStart), ['-', '1.1', '1.1', '1.1', '1.2', '1.2 5.1', '1.2']);
 });
 
+test('remapAfterInsert: in front of the last action of a case the case grows; right after it, it does not', () => {
+  // #1 Switch "1" → #2..#4; the new Switch runs C (#4), the last of case "1"
+  const last = remapAfterInsert([sw([blk('1', 2, 4)]), act('A'), act('B'), act('C'), act('D')], 3, sw([blk('x', 4, 4)]));
+  assert.deepEqual(last[0].cases.map((c) => [c.startAt, c.endAt]), [[2, 5]]);
+  assert.deepEqual(last[3].cases.map((c) => [c.startAt, c.endAt]), [[5, 5]]);
+  assert.deepEqual(places(last), ['-', '1.1', '1.1', '1.1', '1.1 4.1', '-']);
+  assert.deepEqual(validateSwitch(last, 3).errors, []);
+  // #1 Switch "1" → #2..#3; C (#4) is after the block
+  const after = remapAfterInsert([sw([blk('1', 2, 3)]), act('A'), act('B'), act('C'), act('D')], 3, sw([blk('x', 4, 4)]));
+  assert.deepEqual(after[0].cases.map((c) => [c.startAt, c.endAt]), [[2, 3]]);
+  assert.deepEqual(places(after), ['-', '1.1', '1.1', '-', '4.1', '-']);
+});
+
 test('remapAfterInsert: a jump or continueAt to that place goes to the new Switch, not into its block', () => {
   const acts = [
     sw([blk('1', 2, 2)], { continueAt: 4 }),
