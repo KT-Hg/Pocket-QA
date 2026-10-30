@@ -17,6 +17,10 @@
  *   var-name-guard  the variable modal refuses a name another row has (adding or
  *                 renaming) and one holding "}" or "${"; saving a row under its own
  *                 name goes through
+ *   var-rename    a variable renamed in the Data tab is renamed in every scenario
+ *                 using it (${…}, a Read DOM target), the toast counts them, the
+ *                 preview follows, and a played scenario types its value; a new
+ *                 name a scenario already writes is refused, nothing written
  *   switch-draft  the popup reopened on a Switch draft lists the scenarios in the
  *                 case editor; a scenario picked there survives a reload of the list
  *   background-tab  a run keeps going once its tab is sent to the background, and
@@ -493,25 +497,31 @@ async function checkSuggest(ctx) {
   await popup.close();
 }
 
+/** The Data tab's variable modal in `popup`: a row's Edit (Add with no key), filled in and saved. */
+function variableModal(popup) {
+  return {
+    open: (key) => popup.evaluate(key == null
+      ? `document.getElementById('addVariableRow').click()`
+      : `[...document.querySelectorAll('li.var-row')].find((li) => li.dataset.key === ${JSON.stringify(key)}).querySelector('.vr-edit').click()`),
+    // The toast, and whether the modal stayed open, once Save has had its answer. `value` null: as it was.
+    save: async (name, value = null) => {
+      await popup.evaluate(`(() => {
+        document.getElementById('randomVarName').value = ${JSON.stringify(name)};
+        if (${JSON.stringify(value)} !== null) document.getElementById('staticValue').value = ${JSON.stringify(value)};
+        document.getElementById('confirmRandom').click();
+      })()`);
+      await sleep(SETTLE_MS);
+      return popup.evaluate(`({ toast: document.getElementById('toast').textContent, open: document.getElementById('randomModal').classList.contains('show') })`);
+    },
+    cancel: () => popup.evaluate(`document.getElementById('cancelRandom').click()`),
+  };
+}
+
 async function checkVarNameGuard(ctx) {
   await ctx.send({ type: 'SAVE_VARIABLES', variables: { alpha: 'one', beta: 'two' }, order: ['alpha', 'beta'] });
   const popup = await openPopup(ctx);
   const table = async () => JSON.stringify((await ctx.send({ type: 'GET_VARIABLES' })).variables);
-  const open = (key) => popup.evaluate(key == null
-    ? `document.getElementById('addVariableRow').click()`
-    : `[...document.querySelectorAll('li.var-row')].find((li) => li.dataset.key === ${JSON.stringify(key)}).querySelector('.vr-edit').click()`);
-  // Fill the modal in and press Save: the toast, and whether the modal stayed open.
-  const save = async (name, value) => {
-    const r = await popup.evaluate(`(() => {
-      document.getElementById('randomVarName').value = ${JSON.stringify(name)};
-      document.getElementById('staticValue').value = ${JSON.stringify(value)};
-      document.getElementById('confirmRandom').click();
-      return { toast: document.getElementById('toast').textContent, open: document.getElementById('randomModal').classList.contains('show') };
-    })()`);
-    await sleep(SETTLE_MS);
-    return r;
-  };
-  const cancel = () => popup.evaluate(`document.getElementById('cancelRandom').click()`);
+  const { open, save, cancel } = variableModal(popup);
   const before = await table();
 
   await open(null);
@@ -539,6 +549,51 @@ async function checkVarNameGuard(ctx) {
   check(!kept.open && vars.alpha?.s === 'uno' && vars.beta?.s === 'two', 'saving a row under its own name is not a clash', { kept, vars });
   if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   await popup.close();
+}
+
+async function checkVarRename(ctx) {
+  await ctx.send({ type: 'SAVE_VARIABLES', variables: { first: '1', renameMe: 'hello', last: '3' }, order: ['first', 'renameMe', 'last'] });
+  // The preview shows an Input by its selector, and its label: a label naming the variable follows a rename too.
+  const played = await makeScenario(ctx, 'e2e rename: typed', [{ type: 'input', selector: '#out', value: '${renameMe}', label: 'Type ${renameMe}' }]);
+  const other = await makeScenario(ctx, 'e2e rename: read', [
+    { type: 'readdom', selector: '#dd', varName: 'renameMe' },
+    { type: 'click', selector: '#${renameMe}', selectors: { css: '#${renameMe}' } },
+  ]);
+  await makeScenario(ctx, 'e2e rename: writes taken', [{ type: 'readdom', selector: '#dd', varName: 'taken' }]);
+  await ctx.ext.evaluate(`chrome.storage.local.set({ lastSelectedScenario: ${JSON.stringify(played)} })`);
+  const popup = await openPopup(ctx);
+  const { open, save, cancel } = variableModal(popup);
+  const preview = () => popup.evaluate(`document.getElementById('actions').textContent`);
+  const stored = async () => JSON.stringify([await ctx.send({ type: 'GET_VARIABLES' }), await ctx.send({ type: 'GET_SCENARIOS' })]);
+  check((await preview()).includes('${renameMe}'), 'the preview shows ${renameMe} at first', await preview());
+
+  await open('renameMe');
+  const renamed = await save('renamed');
+  check(!renamed.open && /5 references in 2 scenarios/.test(renamed.toast), 'the rename says what it updated', renamed);
+  const { scenarios } = await ctx.send({ type: 'GET_SCENARIOS' });
+  const [typed] = scenarios[played].actions;
+  check(typed.value === '${renamed}' && typed.label === 'Type ${renamed}', 'the played scenario reads ${renamed}', scenarios[played].actions);
+  const [read, click] = scenarios[other].actions;
+  check(read.varName === 'renamed' && click.selector === '#${renamed}' && click.selectors?.css === '#${renamed}',
+    'Read DOM writes renamed, the selectors read ${renamed}', scenarios[other].actions);
+  const table = await ctx.send({ type: 'GET_VARIABLES' });
+  check(JSON.stringify(table.order) === '["first","renamed","last"]' && !('renameMe' in table.variables) && table.variables.renamed?.s === 'hello',
+    'the table has renamed in renameMe\'s place, its value kept', table);
+  const shown = await preview();
+  check(shown.includes('${renamed}') && !shown.includes('${renameMe}'), 'the preview follows without reopening the popup', shown);
+
+  const before = await stored();
+  await open('renamed');
+  const taken = await save('taken');
+  check(taken.open && /"taken" is already used in "e2e rename: writes taken"/.test(taken.toast), 'a name a scenario writes is refused', taken);
+  await cancel();
+  check(await stored() === before, 'the refused rename wrote nothing', null);
+  if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  await popup.close();
+
+  const page = await play(ctx, played);
+  check(page.out === 'hello', 'played, the scenario types the value of renamed', page);
+  await reloadTestPage(ctx);
 }
 
 async function checkSwitchDraft(ctx) {
@@ -3557,6 +3612,7 @@ const CHECKS = [
   ['overlays', 'The countdown, failed-action prompt and segment bar, loaded when needed', checkOverlays],
   ['suggest', 'Variable suggestions in the popup', checkSuggest],
   ['var-name-guard', 'A variable name already taken, or one no ${…} can reach', checkVarNameGuard],
+  ['var-rename', 'A variable renamed in the Data tab, and in the scenarios using it', checkVarRename],
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
   ['edit-follows-list', 'An action open in the form while its list changes', checkEditFollowsList],
   ['numbers-by-position', 'Every action numbered by its position, in a Switch block too', checkNumbersByPosition],
