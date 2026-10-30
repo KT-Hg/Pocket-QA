@@ -2,6 +2,7 @@
 
 import { renameVarInForm } from './record/form-state.js';
 import { loadScenarios } from './scenarios/scenario-list.js';
+import { ui } from './ui-state.js';
 import { showToast, showConfirm, lockScroll, unlockScroll, getDragAfterElement } from './utils.js';
 import { listEntries, normalizeVarName, parseListSpec } from '../shared/var-name.js';
 import { normalizeVariableSort, orderNames, variableComparator } from '../shared/var-order.js';
@@ -709,7 +710,7 @@ function _saveEdit(row, name, cfg, confirmBtn) {
   // Saving without a change is not an edit, for the Recently edited sort.
   if (name !== oldKey || _configBody(prev) !== _configBody(cfg)) cfg.updatedAt = Date.now();
   else if (prev.updatedAt) cfg.updatedAt = prev.updatedAt;
-  const apply = (updated = '') => {
+  const apply = (updated = '', type = 'success') => {
     // A renamed variable keeps its place in the custom order.
     if (name !== oldKey) _customOrder = _customOrder.map(n => (n === oldKey ? name : n));
     row.dataset.key    = name;
@@ -718,7 +719,7 @@ function _saveEdit(row, name, cfg, confirmBtn) {
     _layoutRows();
     _closeModal();
     _autoSave();
-    showToast(`"${name}" saved${updated}`, 'success');
+    showToast(`"${name}" saved${updated}`, type);
   };
   if (!oldKey || name === oldKey) { apply(); return; }
   // One answer per Save: a second click would rename a name already gone.
@@ -727,10 +728,20 @@ function _saveEdit(row, name, cfg, confirmBtn) {
     void chrome.runtime.lastError;
     if (confirmBtn) confirmBtn.disabled = false;
     if (!res?.success) { showToast(res?.error || `"${oldKey}" was not renamed`, 'error'); return; }
-    apply(res.refs ? ` · ${_count(res.refs, 'reference')} in ${_count(res.scenarios, 'scenario')} updated` : '');
-    // The preview and every scenario list hold the scenarios as they were loaded.
-    loadScenarios();
-    renameVarInForm(oldKey, name);
+    const updated = res.refs ? ` · ${_count(res.refs, 'reference')} in ${_count(res.scenarios, 'scenario')} updated` : '';
+    chrome.storage.local.get('csvSessionData', ({ csvSessionData }) => {
+      // A CSV column fills in the variable of its name, so the loaded CSV's old one no longer does.
+      // Told in the same toast: a second one would replace "saved" at once.
+      const headers = (ui.csvParsed || csvSessionData)?.headers || [];
+      if (headers.includes(oldKey) && !headers.includes(name)) {
+        apply(`${updated} · rename CSV column "${oldKey}" to "${name}"`, 'warn');
+      } else {
+        apply(updated);
+      }
+      // The preview and every scenario list hold the scenarios as they were loaded.
+      loadScenarios();
+      renameVarInForm(oldKey, name);
+    });
   });
 }
 

@@ -629,11 +629,22 @@ async function checkVarRename(ctx) {
   const { variables: finalVars } = await ctx.send({ type: 'GET_VARIABLES' });
   check(edited.map((a) => a.value).join() === '${final},${final} and more' && !('renamed' in finalVars),
     'Save Edit keeps ${final}; no renamed comes back', { edited, variables: Object.keys(finalVars) });
+  // The CSV loaded last still has a column of the old name: it no longer fills the variable in.
+  await ctx.ext.evaluate(`chrome.storage.local.set({ csvSessionData: { headers: ['final', 'other'], rows: [{ final: 'x', other: 'y' }] } })`);
+  await popup.reload();
+  await sleep(POPUP_SETTLE_MS);
+  await open('final');
+  const csv = await save('csvd');
+  check(!csv.open && /CSV column "final"/.test(csv.toast) && /"csvd"/.test(csv.toast), 'a CSV column of the old name is pointed out', csv);
+  await open('csvd');
+  const plain = await save('plain');
+  check(!plain.open && !/CSV/.test(plain.toast), 'not when the CSV has no column of that name', plain);
+  await ctx.ext.evaluate(`chrome.storage.local.remove('csvSessionData')`);
   if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   await popup.close();
 
   const page = await play(ctx, played);
-  check(page.out === 'hello' && page.big === 'hello and more', 'played, the scenario types the value of final', page);
+  check(page.out === 'hello' && page.big === 'hello and more', 'played, the scenario types the value of plain', page);
   await reloadTestPage(ctx);
 }
 
