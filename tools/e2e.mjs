@@ -304,7 +304,12 @@ async function makeScenario(ctx, name, actions) {
 async function play(ctx, scenarioId, { away = null } = {}) {
   await ctx.web.bringToFront();
   await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId });
-  if (away) await away.bringToFront();
+  if (away) {
+    // The run takes the active tab once it has read the scenarios — slower the more
+    // there are: hidden before that, the test tab is not the one it plays on.
+    for (let waited = 0; waited < 5_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing; waited += 20) await sleep(20);
+    await away.bringToFront();
+  }
   await sleep(SETTLE_MS);
   let running = true;
   for (let waited = 0; running && waited < PLAY_TIMEOUT_MS; waited += POLL_MS) {
