@@ -4,7 +4,7 @@
  */
 
 import { pickIndexError, pickStrings } from '../../shared/dropdown-pick.js';
-import { addIndex, isBlockCase, remapAfterRemove, remapAfterReorder, remapDraftSwitch, validateSwitch } from '../../shared/switch-blocks.js';
+import { addIndex, isBlockCase, remapAfterRemove, remapAfterReorder, remapDraftSwitch } from '../../shared/switch-blocks.js';
 import { patternError } from '../../shared/text-pattern.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings } from '../../shared/var-name.js';
 import { addManualAction, cancelEdit, conditionExpectedValue, conditionExpectedValueWrapper, conditionSkipCount, conditionType, manualActionType, manualDelay, manualSelector, manualValue, pickElement, pickedSelectorsInfo, pickedSelectorsWrap, scenarioList, selectorType } from '../dom.js';
@@ -17,7 +17,7 @@ import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, clickThroughOff, fillField, setClickThrough, showClickThroughFor } from './form-table.js';
 import { clearPickedSelectorsPanel, selectorIsPicked, showFieldError, updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 import { conditionCandidate, renderConditionRunTo, previewActions } from './preview.js';
-import { alwaysSwitchError, candidateActions, commitPendingCase, placedSwitch, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, swCtx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
+import { alwaysSwitchError, candidateActions, checkPlacedSwitch, commitPendingCase, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, swCtx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 import { applyValueBox, resetManualValueMemory, seedManualValueMemory } from './value-memory.js';
 import { setChildCondExpanded, setManualDelayUI, updateChildCondBadge } from './form-widgets.js';
@@ -246,8 +246,7 @@ function _buildSwitch(action) {
   // Only a Switch with a block has somewhere to continue; left out when
   // automatic, so an untouched old Switch saves exactly as it was.
   if (ui._switchContinueAt != null && action.cases.some(isBlockCase)) action.continueAt = ui._switchContinueAt;
-  const { list, at } = placedSwitch({ ...action });
-  const { errors } = validateSwitch(list, at);
+  const { errors } = checkPlacedSwitch({ ...action });
   if (errors.length) { showToast(errors[0], "error"); return false; }
 }
 
@@ -548,7 +547,7 @@ function _applyFollowed(sw, stash, cond) {
 
 /**
  * Where Add Action puts a new action: last (nothing to say), or a new Switch in
- * front of the actions it runs — where the form checked it (placedSwitch).
+ * front of the actions it runs — where the form checked it (checkPlacedSwitch).
  */
 function _placeOfNew(scenarioId, action) {
   const at = addIndex(swCtx.actions, action);

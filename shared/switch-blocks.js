@@ -256,6 +256,29 @@ export function validateSwitch(actions, i, layout = null) {
 }
 
 /**
+ * Errors for the Switches inside the block cases of the Switch at `i` whose own
+ * block runs past the end of that case: the two blocks cross. validateSwitch
+ * checks a Switch's block against the case it sits in, not the Switches in its
+ * cases, so the form — which saves the outer one — asks this too. Not part of
+ * validateSwitch: playback and export keep treating saved scenarios as before.
+ */
+export function nestedBlockErrors(actions, i) {
+  const list = Array.isArray(actions) ? actions : [];
+  const cases = list[i]?.type === 'switch' && Array.isArray(list[i].cases) ? list[i].cases : [];
+  const errors = [];
+  for (const c of cases) {
+    const r = caseRange(c);
+    if (!r) continue;
+    for (let j = Math.max(r.start, i + 1); j <= Math.min(r.end, list.length - 1); j++) {
+      if (hasBlock(list[j]) && blockEnd(list, j) > r.end) {
+        errors.push(`Case ${caseLabel(c)}: the block of Switch #${j + 1} runs past the end of this case (#${r.end + 1})`);
+      }
+    }
+  }
+  return errors;
+}
+
+/**
  * Check a case that plays a range of another scenario. Returns an error
  * string, or null when the range fits `targetActions`.
  */

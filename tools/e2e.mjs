@@ -683,6 +683,63 @@ async function checkDraftSwitchFollows(ctx) {
   }
 }
 
+async function checkNestedBlockCheck(ctx) {
+  const wait = (label) => ({ type: 'wait', delay: 100, label });
+  const own = (value, startAt, endAt) => ({ value, scenarioId: '__self__', scenarioName: '↻ This scenario (jump)', startAt, endAt });
+  const swOn = (v, ...cases) => ({ type: 'switch', switchVar: `\${${v}}`, cases });
+  // #2 Switch runs #3–#4 (A, B); a new Switch over #2–#3 would hold it and half its block.
+  const addId = await makeScenario(ctx, 'e2e nested check add', [wait('x'), swOn('role', own('1', 3, 4)), wait('A'), wait('B'), wait('C')]);
+  // #1 Switch "1" runs #2–#4: #2 Switch and its block #3–#4. Cut to #2–#3, it would cross that block.
+  const editId = await makeScenario(ctx, 'e2e nested check edit', [swOn('role', own('1', 2, 4)), swOn('mode', own('i', 3, 4)), wait('A'), wait('B'), wait('C')]);
+  const popup = await openPopup(ctx);
+  try {
+    const stored = (id) => popup.evaluate(`new Promise((r) => chrome.storage.local.get(['scenarios'], (x) => r(JSON.stringify(x.scenarios[${JSON.stringify(id)}].actions))))`);
+    const tryToSave = () => popup.evaluate(`(async () => {
+      const shown = document.getElementById('switchValidation').innerText.trim();
+      document.getElementById('addManualAction').click();
+      await new Promise((r) => setTimeout(r, ${SETTLE_MS}));
+      return { shown, toast: document.getElementById('toast').textContent };
+    })()`);
+
+    await showScenario(popup, addId);
+    const before = await stored(addId);
+    await popup.evaluate(`(async () => {
+      document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+      const type = document.getElementById('manualActionType'); type.value = 'switch'; type.dispatchEvent(new Event('change'));
+      await new Promise((r) => setTimeout(r, 600));
+      document.getElementById('switchVar').value = '\${mode}';
+      const pick = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change')); };
+      pick('switchCaseFrom', '1'); pick('switchCaseTo', '2');
+      document.getElementById('switchAddCase').click();
+      await new Promise((r) => setTimeout(r, 300));
+    })()`);
+    const added = await tryToSave();
+    const addWhy = 'the block of Switch #3 runs past the end of this case (#4)';
+    check(added.shown.includes(addWhy) && added.toast.includes(addWhy) && await stored(addId) === before,
+      'a new Switch over a Switch and half its block: the form says why and Add Action refuses', added);
+    await popup.evaluate(`document.getElementById('cancelEdit')?.click()`);
+
+    await showScenario(popup, editId);
+    const beforeEdit = await stored(editId);
+    await rowButton(popup, 0, 3);
+    await popup.evaluate(`(async () => {
+      document.querySelector('#switchCaseList .sw-case-edit[data-idx="0"]').click();
+      await new Promise((r) => setTimeout(r, 300));
+      const to = document.getElementById('switchCaseTo'); to.value = '2'; to.dispatchEvent(new Event('change'));
+      document.getElementById('switchAddCase').click();
+      await new Promise((r) => setTimeout(r, 300));
+    })()`);
+    const edited = await tryToSave();
+    const editWhy = 'the block of Switch #2 runs past the end of this case (#3)';
+    check(edited.shown.includes(editWhy) && edited.toast.includes(editWhy) && await stored(editId) === beforeEdit,
+      'a Switch\'s case cut through the block of a Switch in it: the form says why and Save Edit refuses', edited);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
 async function checkEditFollowsList(ctx) {
   const ids = {};
   for (const name of ['switch', 'action', 'delete']) ids[name] = await makeScenario(ctx, `e2e edit follows ${name}`, switchBlockActions());
@@ -3565,6 +3622,7 @@ const CHECKS = [
   ['numbers-by-position', 'Every action numbered by its position, in a Switch block too', checkNumbersByPosition],
   ['switch-insert', 'A new Switch over actions already in the list', checkNewSwitchOverActions],
   ['switch-draft-follows', 'A new Switch in the form while its list changes', checkDraftSwitchFollows],
+  ['switch-nested-check', 'A Switch whose case would cross the block of a Switch in it', checkNestedBlockCheck],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],

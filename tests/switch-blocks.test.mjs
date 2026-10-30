@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   getSwitchLayout, validateSwitch, conditionSkipTarget, resumeSegments,
   remapAfterRemove, remapAfterReorder, planDrop, continueIndex, blockEnd, isAlwaysSwitch,
-  addIndex, remapAfterInsert, remapDraftSwitch, SWITCH_SELF,
+  addIndex, remapAfterInsert, remapDraftSwitch, nestedBlockErrors, SWITCH_SELF,
 } from '../shared/switch-blocks.js';
 
 const act = (label) => ({ type: 'click', selector: `#${label}`, label });
@@ -286,6 +286,30 @@ test('remapDraftSwitch: other scenarios and empty cases are left alone, the Swit
   assert.equal(next.cases[1], empty);
   assert.equal(JSON.stringify(draft), before);
   assert.equal(remapDraftSwitch(draft, 5, {}), draft, 'no change: the same Switch');
+});
+
+test('nestedBlockErrors: a Switch in a case whose block runs past the case', () => {
+  // Added: [x, S1 #3–#4, A, B, C] and a new Switch over #2–#3 — S1 and half its block.
+  const base = [act('x'), sw([blk('1', 3, 4)]), act('A'), act('B'), act('C')];
+  const added = sw([blk('y', 2, 3)]);
+  const at = addIndex(base, added);
+  const wrap = remapAfterInsert(base, at, added);
+  assert.deepEqual(validateSwitch(wrap, at).errors, [], 'validateSwitch alone lets it through');
+  assert.deepEqual(nestedBlockErrors(wrap, at), ['Case "y": the block of Switch #3 runs past the end of this case (#4)']);
+  // Edited: the outer Switch's case cut short, through the inner block.
+  assert.deepEqual(nestedBlockErrors([sw([blk('1', 2, 3)]), sw([blk('i', 3, 4)]), act('A'), act('B'), act('C')], 0),
+    ['Case "1": the block of Switch #2 runs past the end of this case (#3)']);
+});
+
+test('nestedBlockErrors: a nested block inside its case, or ending with it, is fine', () => {
+  assert.deepEqual(nestedBlockErrors([sw([blk('1', 2, 4)]), sw([blk('i', 3, 4)]), act('A'), act('B'), act('C')], 0), []);
+  assert.deepEqual(nestedBlockErrors([sw([blk('1', 2, 5)]), sw([blk('i', 3, 3)]), act('A'), act('B'), act('C')], 0), []);
+  assert.deepEqual(nestedBlockErrors(sample(), 0), []);
+  // An empty case, a case into another scenario, an old-style jump: no block of this Switch to check.
+  const outer = sw([{ value: 'e', scenarioId: SWITCH_SELF, empty: true }, { value: 'o', scenarioId: 'guest', startAt: 1, endAt: 3 },
+    { value: 'j', scenarioId: SWITCH_SELF, startAt: 2 }]);
+  assert.deepEqual(nestedBlockErrors([outer, sw([blk('i', 3, 4)]), act('A'), act('B')], 0), []);
+  assert.deepEqual(nestedBlockErrors([act('A')], 0), []);
 });
 
 test('remapAfterReorder: plain permutation keeps old-style targets on their action', () => {

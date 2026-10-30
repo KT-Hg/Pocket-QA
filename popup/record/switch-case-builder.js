@@ -3,7 +3,7 @@
  * scenario a case runs, Continue at, and validation.
  */
 
-import { CASE_COLORS, SWITCH_SELF, addIndex, caseRange, continueIndex, getConditionLayout, getSwitchLayout, isBlockCase, remapAfterInsert, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
+import { CASE_COLORS, SWITCH_SELF, addIndex, caseRange, continueIndex, getConditionLayout, getSwitchLayout, isBlockCase, nestedBlockErrors, remapAfterInsert, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
 import { scenarioList } from '../dom.js';
 import { ui } from '../ui-state.js';
 import { escHtml, showToast } from '../utils.js';
@@ -68,10 +68,17 @@ export function candidateActions(sw = _candidateSwitch()) {
  * actions its cases run (addIndex), else last. The form lists and stores
  * numbers of the list as it is now; this is what gets checked. { list, at }.
  */
-export function placedSwitch(sw = _candidateSwitch()) {
+function placedSwitch(sw = _candidateSwitch()) {
   const self = switchSelfIdx();
   const at = self < swCtx.actions.length ? self : addIndex(swCtx.actions, sw);
   return at < self ? { list: remapAfterInsert(swCtx.actions, at, sw), at } : { list: candidateActions(sw), at: self };
+}
+
+/** What is wrong with the form's Switch where saving puts it — the Switches in its cases too. */
+export function checkPlacedSwitch(sw = _candidateSwitch()) {
+  const { list, at } = placedSwitch(sw);
+  const { errors, warnings } = validateSwitch(list, at);
+  return { errors: [...errors, ...nestedBlockErrors(list, at)], warnings };
 }
 
 /** Number shown for action `idx` (0-based): its position, e.g. "8". */
@@ -349,8 +356,7 @@ function _renderSwitchContinue() {
 function _renderSwitchValidation() {
   const box = document.getElementById("switchValidation");
   if (!box) return;
-  const { list, at } = placedSwitch();
-  const { errors, warnings } = validateSwitch(list, at);
+  const { errors, warnings } = checkPlacedSwitch();
   // An Always Switch with no scenario picked yet is not an error until it is saved.
   const alwaysErr = ui._switchCases.length ? alwaysSwitchError() : null;
   if (alwaysErr) errors.push(alwaysErr);
