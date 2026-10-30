@@ -4809,5 +4809,177 @@
   "responses": [],
   "calls": [],
   "console": []
+ },
+ {
+  "step": "variables: rename to a name the table has",
+  "type": "RENAME_VARIABLE",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   true,
+   "‹undefined›"
+  ],
+  "responses": [
+   {"success":false,"error":"\"role\" already exists"}
+  ],
+  "calls": [
+   "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
+   "storage.local.get [[\"scenarios\"]]"
+  ],
+  "console": [],
+  "storage": {
+   "local": {"scenarios":{"vr1":{"name":"Uses user","actions":[{"type":"input","selector":"#b","value":"${user}"},{"type":"switch","switchVar":"user","cases":[]}]},"vr2":{"name":"Uses nothing","actions":[{"type":"click","selector":"#c"}]},"vr3":{"name":"Writes token","actions":[{"type":"readdom","selector":"#t","varName":"token"}]}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500},"00000000-0000-4000-8000-000000000016":{"name":"Uploads","createdAt":1768467644130}},"variables":{"user":{"activeType":"s","s":"alice"},"role":"x"},"schedules":[{"id":"scRestored","scenarioId":"s1","time":"05:30","enabled":true,"repeat":true}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["role","user"],"hl_v1":{"example.com/*":[{"id":"p1","text":"one","color":"green","srcUrl":"https://example.com/pop"},{"id":"p2","text":"two","srcUrl":"https://example.com/pop"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3,"hl_patterns_v1":["example.com/*"],"lastSelectedScenario":null},
+   "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1}
+  }
+ },
+ {
+  "step": "variables: rename a name the table lacks",
+  "type": "RENAME_VARIABLE",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   true,
+   "‹undefined›"
+  ],
+  "responses": [
+   {"success":false,"error":"No variable \"nobody\""}
+  ],
+  "calls": [
+   "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
+   "storage.local.get [[\"scenarios\"]]"
+  ],
+  "console": []
+ },
+ {
+  "step": "variables: rename to a name no ${…} reaches",
+  "type": "RENAME_VARIABLE",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   true,
+   "‹undefined›"
+  ],
+  "responses": [
+   {"success":false,"error":"A variable name cannot start with \"${\" or contain \"}\""}
+  ],
+  "calls": [],
+  "console": []
+ },
+ {
+  "step": "variables: rename to a name a scenario writes",
+  "type": "RENAME_VARIABLE",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   true,
+   "‹undefined›"
+  ],
+  "responses": [
+   {"success":false,"error":"\"token\" is already used in \"Writes token\""}
+  ],
+  "calls": [
+   "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
+   "storage.local.get [[\"scenarios\"]]"
+  ],
+  "console": []
+ },
+ {
+  "step": "variables: rename while a run plays",
+  "type": "RENAME_VARIABLE",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   true,
+   "‹undefined›"
+  ],
+  "responses": [
+   {"success":false,"error":"Stop the run before renaming a variable"}
+  ],
+  "calls": [],
+  "console": [],
+  "state": {
+   "recording": false,
+   "recordingTabId": 1,
+   "recordingScenarioId": null,
+   "pickMode": false,
+   "currentActions": [{"type":"input","selector":"#q","value":"typed","frameId":0,"delay":500}],
+   "undoStack": [],
+   "redoStack": [],
+   "csvInterrupted": null,
+   "playback": {"active":true,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
+   "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
+   "runVerdict": null
+  }
+ },
+ {
+  "step": "from a web page: RENAME_VARIABLE refused",
+  "type": "RENAME_VARIABLE",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›"
+  ],
+  "responses": [],
+  "calls": [],
+  "console": [],
+  "state": {
+   "recording": false,
+   "recordingTabId": 1,
+   "recordingScenarioId": null,
+   "pickMode": false,
+   "currentActions": [{"type":"input","selector":"#q","value":"typed","frameId":0,"delay":500}],
+   "undoStack": [],
+   "redoStack": [],
+   "csvInterrupted": null,
+   "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
+   "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
+   "runVerdict": null
+  }
+ },
+ {
+  "step": "variables: rename user to login",
+  "type": "RENAME_VARIABLE",
+  "returned": [
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   "‹undefined›",
+   true,
+   "‹undefined›"
+  ],
+  "responses": [
+   {"success":true,"scenarios":1,"refs":2}
+  ],
+  "calls": [
+   "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
+   "storage.local.get [[\"scenarios\"]]",
+   "storage.local.set [{\"scenarios\":{\"vr1\":{\"name\":\"Uses user\",\"actions\":[{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${login}\"},{\"type\":\"switch\",\"switchVar\":\"login\",\"cases\":[]}]},\"vr2\":{\"name\":\"Uses nothing\",\"actions\":[{\"type\":\"click\",\"selector\":\"#c\"}]},\"vr3\":{\"name\":\"Writes token\",\"actions\":[{\"type\":\"readdom\",\"selector\":\"#t\",\"varName\":\"token\"}]}}}]",
+   "storage.local.getBytesInUse [null]",
+   "storage.local.set [{\"variables\":{\"role\":\"x\",\"login\":{\"activeType\":\"s\",\"s\":\"alice\"}},\"variableOrder\":[\"role\",\"login\"]}]"
+  ],
+  "console": [],
+  "storage": {
+   "local": {"scenarios":{"vr1":{"name":"Uses user","actions":[{"type":"input","selector":"#b","value":"${login}"},{"type":"switch","switchVar":"login","cases":[]}]},"vr2":{"name":"Uses nothing","actions":[{"type":"click","selector":"#c"}]},"vr3":{"name":"Writes token","actions":[{"type":"readdom","selector":"#t","varName":"token"}]}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500},"00000000-0000-4000-8000-000000000016":{"name":"Uploads","createdAt":1768467644130}},"variables":{"role":"x","login":{"activeType":"s","s":"alice"}},"schedules":[{"id":"scRestored","scenarioId":"s1","time":"05:30","enabled":true,"repeat":true}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["role","login"],"hl_v1":{"example.com/*":[{"id":"p1","text":"one","color":"green","srcUrl":"https://example.com/pop"},{"id":"p2","text":"two","srcUrl":"https://example.com/pop"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3,"hl_patterns_v1":["example.com/*"],"lastSelectedScenario":null},
+   "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1}
+  }
  }
 ]
