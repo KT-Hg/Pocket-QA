@@ -497,6 +497,47 @@ await send('page: window capture result refused', { type: 'WINDOW_CAPTURE_RESULT
   sender: { ...PAGE_SENDER, tab: { ...PAGE_SENDER.tab, windowId: 7 } },
 });
 
+// Renaming a Data tab variable renames it in every scenario that uses it. A name
+// the table or a scenario already has would make two variables one for good, and
+// a run has its variables resolved already: those are refused, nothing written.
+// Added beside the scenarios already stored (tests below read some of them), under
+// names none of those use.
+const VR_SCENARIOS = {
+  vr1: { name: 'Uses who', actions: [{ type: 'input', selector: '#b', value: '${who}' }, { type: 'switch', switchVar: 'who', cases: [] }] },
+  vr2: { name: 'Uses nothing', actions: [{ type: 'click', selector: '#c' }] },
+  vr3: { name: 'Writes reading', actions: [{ type: 'readdom', selector: '#t', varName: 'reading' }] },
+};
+const vrStored = () => JSON.stringify(['variables', 'variableOrder', 'scenarios'].map((k) => fake.data.local[k]));
+// An edit made before the rename, to be undone after it; and actions recorded
+// with no scenario chosen, waiting in the worker to be saved.
+await send('variables: an edit before the rename', { type: 'UPDATE_ACTION', scenarioId: 'vr1', index: 0, action: { type: 'input', selector: '#b', value: 'Hi ${who}' } }, {
+  setup: () => {
+    Object.assign(fake.data.local.scenarios, JSON.parse(JSON.stringify(VR_SCENARIOS)));
+    fake.data.local.variables = { who: { activeType: 's', s: 'alice' }, mood: 'x' };
+    fake.data.local.variableOrder = ['mood', 'who'];
+    state.currentActions = [{ type: 'input', selector: '#q', value: '${who}' }];
+  },
+});
+await send('variables: rename to a name the table has', { type: 'RENAME_VARIABLE', from: 'who', to: 'mood' });
+const vrBefore = vrStored();
+await send('variables: rename a name the table lacks', { type: 'RENAME_VARIABLE', from: 'nobody', to: 'x' });
+await send('variables: rename to a name no ${…} reaches', { type: 'RENAME_VARIABLE', from: 'who', to: 'a}' });
+await send('variables: rename to a name a scenario writes', { type: 'RENAME_VARIABLE', from: 'who', to: 'reading' });
+await send('variables: rename while a run plays', { type: 'RENAME_VARIABLE', from: 'who', to: 'person' }, {
+  setup: () => { state.playback.active = true; },
+});
+await send('from a web page: RENAME_VARIABLE refused', { type: 'RENAME_VARIABLE', from: 'who', to: 'person' }, {
+  sender: PAGE_SENDER, setup: () => { state.playback.active = false; },
+});
+const vrAfterRefused = vrStored();
+await send('variables: rename who to person', { type: 'RENAME_VARIABLE', from: 'who', to: 'person' });
+const vrAfter = JSON.parse(JSON.stringify(fake.data.local));
+const vrCurrent = JSON.parse(JSON.stringify(state.currentActions));
+await send('variables: undo after the rename', { type: 'UNDO_ACTION', scenarioId: 'vr1' });
+const vrUndone = JSON.parse(JSON.stringify(fake.data.local.scenarios.vr1.actions));
+await send('variables: redo after the rename', { type: 'REDO_ACTION', scenarioId: 'vr1' });
+const vrRedone = JSON.parse(JSON.stringify(fake.data.local.scenarios.vr1.actions));
+
 // ── compare ─────────────────────────────────────────────────────────────────
 const actual = JSON.parse(JSON.stringify(transcript));
 
@@ -626,6 +667,39 @@ test('removing the last highlight of a page drops the page', () => {
 });
 test('a web page still gets what its content script sends answered', () => {
   assert.equal(_stepOf('from a web page: REGISTER_FRAME answered')?.responses.length, 1);
+});
+
+test('renaming a variable renames it in every scenario that uses it', () => {
+  assert.deepEqual(_stepOf('variables: rename who to person')?.responses, [{ success: true, scenarios: 1, refs: 2 }]);
+  assert.deepEqual(vrAfter.scenarios.vr1.actions, [
+    { type: 'input', selector: '#b', value: 'Hi ${person}' }, { type: 'switch', switchVar: 'person', cases: [] },
+  ]);
+  assert.deepEqual(vrAfter.scenarios.vr2, VR_SCENARIOS.vr2);
+  assert.deepEqual(vrAfter.scenarios.vr3, VR_SCENARIOS.vr3);
+  assert.deepEqual(vrAfter.variables, { mood: 'x', person: { activeType: 's', s: 'alice' } });
+  assert.deepEqual(vrAfter.variableOrder, ['mood', 'person']);
+});
+test('a rename that would make two variables one, or comes mid-run, writes nothing', () => {
+  const refused = {
+    'rename to a name the table has': /"mood" already exists/,
+    'rename a name the table lacks': /No variable "nobody"/,
+    'rename to a name no ${…} reaches': /cannot start with/,
+    'rename to a name a scenario writes': /"reading" is already used in "Writes reading"/,
+    'rename while a run plays': /Stop the run/,
+  };
+  for (const [step, error] of Object.entries(refused)) {
+    const responses = _stepOf(`variables: ${step}`)?.responses;
+    assert.equal(responses?.length, 1, step);
+    assert.equal(responses[0].success, false, step);
+    assert.match(responses[0].error, error, step);
+  }
+  assert.deepEqual(_stepOf('from a web page: RENAME_VARIABLE refused')?.responses, []);
+  assert.equal(vrAfterRefused, vrBefore);
+});
+test('after a rename, undo, redo and unsaved recorded actions have the new name', () => {
+  assert.deepEqual(vrUndone, [{ type: 'input', selector: '#b', value: '${person}' }, { type: 'switch', switchVar: 'person', cases: [] }]);
+  assert.deepEqual(vrRedone, [{ type: 'input', selector: '#b', value: 'Hi ${person}' }, { type: 'switch', switchVar: 'person', cases: [] }]);
+  assert.deepEqual(vrCurrent, [{ type: 'input', selector: '#q', value: '${person}' }]);
 });
 
 test('three IMPORT_SCENARIO at once save all three', () => {

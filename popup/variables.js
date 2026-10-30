@@ -1,7 +1,10 @@
 // Each variable stores a full config object across all 4 types so switching type never discards data.
 
+import { renameVarInForm } from './record/form-state.js';
+import { loadScenarios } from './scenarios/scenario-list.js';
+import { ui } from './ui-state.js';
 import { showToast, showConfirm, lockScroll, unlockScroll, getDragAfterElement } from './utils.js';
-import { listEntries, parseListSpec } from '../shared/var-name.js';
+import { listEntries, normalizeVarName, parseListSpec } from '../shared/var-name.js';
 import { normalizeVariableSort, orderNames, variableComparator } from '../shared/var-order.js';
 import { configValue } from '../shared/var-spec.js';
 
@@ -692,6 +695,56 @@ function _closeModal() {
   unlockScroll();
 }
 
+/** "1 reference", "3 scenarios". */
+const _count = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
+/**
+ * Saves the modal over `row`. A new name goes to the worker first, which renames
+ * it in every scenario using the old one (RENAME_VARIABLE); the row changes only
+ * once that is done, and stays as it was when the worker refuses.
+ */
+function _saveEdit(row, name, cfg, confirmBtn) {
+  const oldKey = row.dataset.key || '';
+  const prev   = migrateToConfig(_rowConfig(row));
+  if (prev.createdAt) cfg.createdAt = prev.createdAt;
+  // Saving without a change is not an edit, for the Recently edited sort.
+  if (name !== oldKey || _configBody(prev) !== _configBody(cfg)) cfg.updatedAt = Date.now();
+  else if (prev.updatedAt) cfg.updatedAt = prev.updatedAt;
+  const apply = (updated = '', type = 'success') => {
+    // A renamed variable keeps its place in the custom order.
+    if (name !== oldKey) _customOrder = _customOrder.map(n => (n === oldKey ? name : n));
+    row.dataset.key    = name;
+    row.dataset.config = JSON.stringify(cfg);
+    _refreshRow(row);
+    _layoutRows();
+    _closeModal();
+    _autoSave();
+    showToast(`"${name}" saved${updated}`, type);
+  };
+  if (!oldKey || name === oldKey) { apply(); return; }
+  // One answer per Save: a second click would rename a name already gone.
+  if (confirmBtn) confirmBtn.disabled = true;
+  chrome.runtime.sendMessage({ type: 'RENAME_VARIABLE', from: oldKey, to: name }, (res) => {
+    void chrome.runtime.lastError;
+    if (confirmBtn) confirmBtn.disabled = false;
+    if (!res?.success) { showToast(res?.error || `"${oldKey}" was not renamed`, 'error'); return; }
+    const updated = res.refs ? ` · ${_count(res.refs, 'reference')} in ${_count(res.scenarios, 'scenario')} updated` : '';
+    chrome.storage.local.get('csvSessionData', ({ csvSessionData }) => {
+      // A CSV column fills in the variable of its name, so the loaded CSV's old one no longer does.
+      // Told in the same toast: a second one would replace "saved" at once.
+      const headers = (ui.csvParsed || csvSessionData)?.headers || [];
+      if (headers.includes(oldKey) && !headers.includes(name)) {
+        apply(`${updated} · rename CSV column "${oldKey}" to "${name}"`, 'warn');
+      } else {
+        apply(updated);
+      }
+      // The preview and every scenario list hold the scenarios as they were loaded.
+      loadScenarios();
+      renameVarInForm(oldKey, name);
+    });
+  });
+}
+
 /* ── Init ────────────────────────────────────────────────────────────────── */
 
 export function initVariables() {
@@ -730,6 +783,16 @@ export function initVariables() {
       setTimeout(() => varName?.classList.remove('required-error'), REQUIRED_FLASH_MS);
       return;
     }
+    // No ${…} reaches a name holding "}", and "${user}" is read as user.
+    if (normalizeVarName(name) !== name) {
+      showToast('A variable name cannot start with "${" or contain "}"', 'error');
+      return;
+    }
+    // Two rows of one name save only the second's value: the other is lost.
+    if (_rows().some(li => li !== _editingRow && li.dataset.key?.trim() === name)) {
+      showToast(`"${name}" already exists`, 'error');
+      return;
+    }
 
     // Read ALL tabs regardless of which is active — this is what preserves config across switches
     const staticVal    = document.getElementById('staticValue')?.value || '';
@@ -752,25 +815,10 @@ export function initVariables() {
       f: fallbackVals.length ? fallbackVals : ['', ''],
     };
 
-    const now = Date.now();
     if (_editingRow) {
-      const oldKey = _editingRow.dataset.key || '';
-      const prev   = migrateToConfig(_rowConfig(_editingRow));
-      if (prev.createdAt) cfg.createdAt = prev.createdAt;
-      // Saving without a change is not an edit, for the Recently edited sort.
-      if (name !== oldKey || _configBody(prev) !== _configBody(cfg)) cfg.updatedAt = now;
-      else if (prev.updatedAt) cfg.updatedAt = prev.updatedAt;
-      // A renamed variable keeps its place in the custom order.
-      if (name !== oldKey) _customOrder = _customOrder.map(n => (n === oldKey ? name : n));
-      _editingRow.dataset.key    = name;
-      _editingRow.dataset.config = JSON.stringify(cfg);
-      _refreshRow(_editingRow);
-      _layoutRows();
-      _closeModal();
-      _autoSave();
-      showToast(`"${name}" saved`, 'success');
+      _saveEdit(_editingRow, name, cfg, confirmBtn);
     } else {
-      cfg.createdAt = cfg.updatedAt = now;
+      cfg.createdAt = cfg.updatedAt = Date.now();
       addVariableRow(name, cfg);
       _closeModal();
       _autoSave();

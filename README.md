@@ -67,7 +67,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - Sequence playback (run multiple scenarios in order, each with its own delay)
 
 ### Data
-- Global variables table (`${varName}` → value)
+- Global variables table (`${varName}` → value); renaming a variable renames it in every scenario using it — see [Variable System](#variable-system)
 - **Export Code** — turn any saved scenario into a JS Bookmarklet, a Selenium Python script or pytest test, a Playwright Test spec, a Robot Framework test or a Selenium Java TestNG class
 - Scheduled playback at a set time — one-off, or **Repeat daily**
 - CSV data-driven runs (one scenario execution per CSV row)
@@ -818,6 +818,8 @@ Priority (highest → lowest):
 **Token syntax:** `${varName}` — applied to: selector (every flavour in `selectors`, drag-drop target too), value, URL, JS code, expected value, switchVar, folderPath, fileNames, Child Condition fields, Read DOM attribute name, Dropdown item # and items selector
 
 **Suggestions while typing:** in the Add Action card, typing `${` (or Ctrl+Space) in any of those fields opens a list of names — the Data tab's variables (with their type and current value), the ones earlier steps of the scenario write (Read DOM, Screenshot → Variable; for an edited step, only the steps above it) and the loaded CSV's columns. ↑ / ↓ move, Enter / Tab insert `${name}`, Escape closes; the keys do their usual thing whenever the list is closed. Name-only fields (Switch Variable, Read DOM and Screenshot → Variable names) list the names on focus and take the bare name. `shared/var-suggest.js` (what fits) + `popup/ui/var-suggest.js` (the list) + `popup/record/var-suggestions.js` (fields and sources).
+
+**Renaming:** saving a variable under a new name (Edit in the Data tab) renames it wherever it is used — every `${old}` in any field of any scenario (labels too), the bare names of a Switch, a Read DOM and a Screenshot → Variable step, the undo / redo history, actions recorded but not yet saved, and the Add Manual Action form with its draft; the toast counts the references and scenarios changed. Refused, nothing changed: a name another variable has, a name a scenario already uses (two variables would become one), a name holding `}` or starting with `${`, and while a run plays. Exported code, backups and CSV files keep the old name; when the CSV loaded last still has a column of the old name, the toast says to rename it. `renameVarRefs` (`shared/var-name.js`) + `RENAME_VARIABLE` (`bg/handlers/variables.js`).
 
 **Variable types:**
 
