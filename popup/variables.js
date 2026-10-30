@@ -1,5 +1,6 @@
 // Each variable stores a full config object across all 4 types so switching type never discards data.
 
+import { renameVarInForm } from './record/form-state.js';
 import { loadScenarios } from './scenarios/scenario-list.js';
 import { showToast, showConfirm, lockScroll, unlockScroll, getDragAfterElement } from './utils.js';
 import { listEntries, normalizeVarName, parseListSpec } from '../shared/var-name.js';
@@ -729,6 +730,7 @@ function _saveEdit(row, name, cfg, confirmBtn) {
     apply(res.refs ? ` · ${_count(res.refs, 'reference')} in ${_count(res.scenarios, 'scenario')} updated` : '');
     // The preview and every scenario list hold the scenarios as they were loaded.
     loadScenarios();
+    renameVarInForm(oldKey, name);
   });
 }
 

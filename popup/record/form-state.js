@@ -3,6 +3,7 @@
  * back (for the draft and for editing).
  */
 
+import { normalizeVarName, renameVarRefs } from '../../shared/var-name.js';
 import { addManualAction, cancelEdit, manualActionType, manualSelector, manualValue } from '../dom.js';
 import { ui } from '../ui-state.js';
 import { hasChildCondData, setChildCondExpanded, updateChildCondBadge, setManualDelayUI } from './form-widgets.js';
@@ -154,4 +155,35 @@ export function applyManualFormState(state) {
   const markChosen = (id, on) => { const el = document.getElementById(id); if (el && on) el.dataset.chosen = "1"; };
   markChosen("selectorType", state.selectorTypeChosen);
   markChosen("dragdropTargetSelectorType", state.dragdropTargetTypeChosen);
+}
+
+// The form's names written without ${…}: the Read DOM and Screenshot → Variable
+// targets. A bare Switch name is renameVarRefs's own (`switchVar`).
+const BARE_NAME_FIELDS = ["readdomVarName", "screenshotTovarVarName"];
+
+/** A form state (collectManualFormState) with variable `from` renamed; the same object when it names none. */
+function renameInFormState(state, from, to) {
+  if (!state) return state;
+  let { action: next } = renameVarRefs(state, from, to);
+  for (const k of BARE_NAME_FIELDS) {
+    if (normalizeVarName(next[k]) === from) next = { ...next, [k]: to };
+  }
+  return next;
+}
+
+/**
+ * The open form, and the draft kept of it, after variable `from` was renamed to
+ * `to` in the Data tab — otherwise saving the form brought the old name back,
+ * and autoCreateMissingVariables made it a new empty variable. The draft is
+ * renamed where it is stored: saveDraft() writes nothing while the card is
+ * closed, yet the next popup restores what was stored.
+ */
+export function renameVarInForm(from, to) {
+  const state = collectManualFormState();
+  const next  = renameInFormState(state, from, to);
+  if (next !== state) applyManualFormState(next);
+  chrome.storage.local.get("manualFormDraft", ({ manualFormDraft: draft }) => {
+    const renamed = renameInFormState(draft, from, to);
+    if (renamed !== draft) chrome.storage.local.set({ manualFormDraft: renamed });
+  });
 }

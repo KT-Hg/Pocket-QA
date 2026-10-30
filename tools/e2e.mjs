@@ -20,7 +20,9 @@
  *   var-rename    a variable renamed in the Data tab is renamed in every scenario
  *                 using it (${…}, a Read DOM target), the toast counts them, the
  *                 preview follows, and a played scenario types its value; a new
- *                 name a scenario already writes is refused, nothing written
+ *                 name a scenario already writes is refused, nothing written. An
+ *                 action half-typed in the form follows too, draft included, and
+ *                 adding it brings the old name back nowhere
  *   switch-draft  the popup reopened on a Switch draft lists the scenarios in the
  *                 case editor; a scenario picked there survives a reload of the list
  *   background-tab  a run keeps going once its tab is sent to the background, and
@@ -176,6 +178,8 @@ const POLL_MS = 150;
 const SETTLE_MS = 300;
 const PAGE_SETTLE_MS = 800;
 const POPUP_SETTLE_MS = 1500;
+// The Add Manual Action draft is saved 600 ms after the last change (popup/record/draft.js).
+const DRAFT_SAVE_MS = 1000;
 // After the worker is stopped: long enough for it to be gone before the next message wakes it.
 const WORKER_STOP_SETTLE_MS = 1000;
 const POPUP_VIEWPORT = { width: 480, height: 900 };
@@ -566,6 +570,17 @@ async function checkVarRename(ctx) {
   const preview = () => popup.evaluate(`document.getElementById('actions').textContent`);
   const stored = async () => JSON.stringify([await ctx.send({ type: 'GET_VARIABLES' }), await ctx.send({ type: 'GET_SCENARIOS' })]);
   check((await preview()).includes('${renameMe}'), 'the preview shows ${renameMe} at first', await preview());
+  // An Input half-typed in the Add Manual Action card, its draft saved, a Read DOM target typed under it.
+  await popup.evaluate(`(() => {
+    document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+    const type = document.getElementById('manualActionType');
+    type.value = 'input'; type.dispatchEvent(new Event('change'));
+    document.getElementById('manualSelector').value = '#big';
+    document.getElementById('readdomVarName').value = 'renameMe';
+    const value = document.getElementById('manualValue');
+    value.value = '\${renameMe} and more'; value.dispatchEvent(new Event('input'));
+  })()`);
+  await sleep(DRAFT_SAVE_MS);
 
   await open('renameMe');
   const renamed = await save('renamed');
@@ -581,6 +596,11 @@ async function checkVarRename(ctx) {
     'the table has renamed in renameMe\'s place, its value kept', table);
   const shown = await preview();
   check(shown.includes('${renamed}') && !shown.includes('${renameMe}'), 'the preview follows without reopening the popup', shown);
+  const form = await popup.evaluate(`({ type: document.getElementById('manualActionType').value,
+    value: document.getElementById('manualValue').value, readdom: document.getElementById('readdomVarName').value })`);
+  check(form.type === 'input' && form.value === '${renamed} and more' && form.readdom === 'renamed', 'the open form follows the rename', form);
+  const { manualFormDraft: draft } = await ctx.ext.evaluate(`chrome.storage.local.get('manualFormDraft')`);
+  check(draft?.value === '${renamed} and more' && draft?.readdomVarName === 'renamed', 'so does the draft kept of it', draft);
 
   const before = await stored();
   await open('renamed');
@@ -588,11 +608,32 @@ async function checkVarRename(ctx) {
   check(taken.open && /"taken" is already used in "e2e rename: writes taken"/.test(taken.toast), 'a name a scenario writes is refused', taken);
   await cancel();
   check(await stored() === before, 'the refused rename wrote nothing', null);
+
+  await popup.evaluate(`document.getElementById('addManualAction').click()`);
+  await sleep(SETTLE_MS * 2);
+  const { variables } = await ctx.send({ type: 'GET_VARIABLES' });
+  const added = (await ctx.send({ type: 'GET_SCENARIOS' })).scenarios[played].actions;
+  check(!('renameMe' in variables) && added[1]?.value === '${renamed} and more',
+    'Add Action saves ${renamed}, and brings no renameMe back to the table', { variables: Object.keys(variables), added });
+
+  // That action open for editing while renamed → final: Save Edit writes the new name, not the one it was opened with.
+  await popup.evaluate(`document.querySelector('#actions button[aria-label^="Edit action 2:"]').click()`);
+  await sleep(SETTLE_MS);
+  await open('renamed');
+  await save('final');
+  const editing = await popup.evaluate(`({ value: document.getElementById('manualValue').value, button: document.getElementById('addManualAction').textContent })`);
+  check(editing.value === '${final} and more' && editing.button === 'Save Edit', 'an action open for editing follows the rename', editing);
+  await popup.evaluate(`document.getElementById('addManualAction').click()`);
+  await sleep(SETTLE_MS * 2);
+  const edited = (await ctx.send({ type: 'GET_SCENARIOS' })).scenarios[played].actions;
+  const { variables: finalVars } = await ctx.send({ type: 'GET_VARIABLES' });
+  check(edited.map((a) => a.value).join() === '${final},${final} and more' && !('renamed' in finalVars),
+    'Save Edit keeps ${final}; no renamed comes back', { edited, variables: Object.keys(finalVars) });
   if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   await popup.close();
 
   const page = await play(ctx, played);
-  check(page.out === 'hello', 'played, the scenario types the value of renamed', page);
+  check(page.out === 'hello' && page.big === 'hello and more', 'played, the scenario types the value of final', page);
   await reloadTestPage(ctx);
 }
 
