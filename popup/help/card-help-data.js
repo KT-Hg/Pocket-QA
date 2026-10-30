@@ -65,6 +65,7 @@ export const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">⑤ Label</span><span class="ch-title">Nhãn ghi chú</span></div><p class="ch-desc">Tên hiển thị trong danh sách action để dễ nhận biết. Không ảnh hưởng đến việc thực thi. Ví dụ: <i>"Click nút đăng nhập"</i>, <i>"Nhập email"</i>.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">Variables</span><span class="ch-title">Bảng biến động</span></div><p class="ch-desc">Khai báo cặp <code>key = value</code> trong bảng. Dùng <code>\${key}</code> ở bất kỳ trường nào (selector, value, URL, JS code). Biến được lưu vào <code>chrome.storage.local</code> và tải lại tự động mỗi khi mở popup.<br><br>
         • <b>+ Add Row</b>: thêm dòng biến mới<br>
+        • <b>Edit</b> → đổi tên: mọi <code>\${tên}</code> và tên biến (Switch, Read DOM, Screenshot → Variable, label) trong mọi scenario, form đang mở và lịch sử Undo đổi theo. Không cho đặt tên đã có ở biến khác hoặc đã được scenario dùng. File đã export, bản backup và cột CSV giữ tên cũ (popup nhắc khi CSV đang nạp có cột tên cũ)<br>
         • <b>Random</b>: tạo biến ngẫu nhiên (UUID, timestamp, số…)<br>
         • <b>Save Variables</b>: lưu thay đổi<br>
         • <b>Reload</b>: tải lại từ storage (bỏ thay đổi chưa lưu)</p></div>`,
@@ -111,6 +112,7 @@ export const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">⑤ Label</span><span class="ch-title">Label / note</span></div><p class="ch-desc">Display name shown in the action list for easy identification. Does not affect execution. E.g. <i>"Click login button"</i>, <i>"Enter email"</i>.</p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">Variables</span><span class="ch-title">Variable table</span></div><p class="ch-desc">Declare <code>key = value</code> pairs in the table. Use <code>\${key}</code> anywhere (selector, value, URL, JS code). Variables are saved to <code>chrome.storage.local</code> and auto-loaded on popup open.<br><br>
         • <b>+ Add Row</b>: add a new variable row<br>
+        • <b>Edit</b> → rename: every <code>\${name}</code> and bare name (Switch, Read DOM, Screenshot → Variable, labels) in every scenario, the open form and the Undo history follow. A name another variable has, or one a scenario already uses, is refused. Exported files, backups and CSV columns keep the old name (the popup points out a loaded CSV's column)<br>
         • <b>Random</b>: generate a random variable (UUID, timestamp, number…)<br>
         • <b>Save Variables</b>: save changes<br>
         • <b>Reload</b>: reload from storage (discard unsaved changes)</p></div>`
