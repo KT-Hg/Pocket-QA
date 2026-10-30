@@ -4,7 +4,7 @@
  */
 
 import { pickIndexError, pickStrings } from '../../shared/dropdown-pick.js';
-import { addIndex, isBlockCase, remapAfterRemove, remapAfterReorder, validateSwitch } from '../../shared/switch-blocks.js';
+import { addIndex, isBlockCase, remapAfterRemove, remapAfterReorder, remapDraftSwitch, validateSwitch } from '../../shared/switch-blocks.js';
 import { patternError } from '../../shared/text-pattern.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings } from '../../shared/var-name.js';
 import { addManualAction, cancelEdit, conditionExpectedValue, conditionExpectedValueWrapper, conditionSkipCount, conditionType, manualActionType, manualDelay, manualSelector, manualValue, pickElement, pickedSelectorsInfo, pickedSelectorsWrap, scenarioList, selectorType } from '../dom.js';
@@ -475,7 +475,8 @@ export function clearEditState() {
  * Save Edit put the old ranges back, or overwrote whichever action had moved into
  * the old place. So the edit moves with its action, and what the form holds gets
  * the rewrite the worker gives the stored list. The edited action deleted: the
- * edit closes.
+ * edit closes. A new Switch in the form follows too: its cases name actions in
+ * the list (_followDraft).
  *
  * `change` is { order, move } of a REORDER_ACTIONS or { removed } of a
  * REMOVE_ACTION. Called before the message goes, while swCtx still holds the list
@@ -483,7 +484,9 @@ export function clearEditState() {
  */
 export function followListEdit(scenarioId, change) {
   const ed = ui.editing;
-  if (!ed || ed.scenarioId !== scenarioId || swCtx.scenarioId !== scenarioId) return () => {};
+  if (swCtx.scenarioId !== scenarioId) return () => {};
+  if (!ed) return _followDraft(change);
+  if (ed.scenarioId !== scenarioId) return () => {};
   if (change.removed === ed.index) {
     return () => {
       clearEditState();
@@ -505,21 +508,42 @@ export function followListEdit(scenarioId, change) {
   const cond = type === "condition" ? rewrite(conditionCandidate()) : null;
   return () => {
     setEditing({ scenarioId, index });
-    if (sw) {
-      ui._switchCases = sw.cases;
-      if (sw.continueAt != null) ui._switchContinueAt = sw.continueAt;
-    }
-    if (stash) ui._switchVarStash = { cases: stash.cases, continueAt: stash.continueAt ?? null };
-    if (cond) conditionSkipCount.value = cond.empty ? "0" : String(cond.skipCount);
-    // The form's From / To and "Then run" choices are built again from the new list.
-    if (sw || cond) {
-      refreshSwitchContext(() => {
-        if (sw) refreshSwitchForm();
-        else renderConditionRunTo();
-      });
-    }
-    saveDraft();
+    _applyFollowed(sw, stash, cond);
   };
+}
+
+/**
+ * followListEdit for a new Switch in the Add form. Its cases may run actions
+ * already in the list (it goes in front of them), by their numbers now: after a
+ * Delete or a drag they would name other actions. remapDraftSwitch keeps them on
+ * theirs.
+ */
+function _followDraft(change) {
+  if (manualActionType.value !== "switch") return () => {};
+  const n = swCtx.actions.length;
+  const cur = candidateActions()[n];
+  const sw = remapDraftSwitch(cur, n, change);
+  const stash = ui._switchVarStash && remapDraftSwitch({ type: "switch", ...ui._switchVarStash }, n, change);
+  if (!stash && JSON.stringify(sw) === JSON.stringify(cur)) return () => {};
+  return () => _applyFollowed(sw, stash, null);
+}
+
+/** What followListEdit worked out, put in the form — then its choices built again and the draft saved. */
+function _applyFollowed(sw, stash, cond) {
+  if (sw) {
+    ui._switchCases = sw.cases;
+    if (sw.continueAt != null) ui._switchContinueAt = sw.continueAt;
+  }
+  if (stash) ui._switchVarStash = { cases: stash.cases, continueAt: stash.continueAt ?? null };
+  if (cond) conditionSkipCount.value = cond.empty ? "0" : String(cond.skipCount);
+  // The form's From / To and "Then run" choices are built again from the new list.
+  if (sw || cond) {
+    refreshSwitchContext(() => {
+      if (sw) refreshSwitchForm();
+      else renderConditionRunTo();
+    });
+  }
+  saveDraft();
 }
 
 /**

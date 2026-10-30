@@ -178,7 +178,9 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
 - **A new Switch over actions already there**: picking existing actions in a new Switch's cases (the form lists
   them as the preview numbers them now) adds the Switch right in front of the first of them (`addIndex` +
   `remapAfterInsert`): it takes that action's place — its case, the Conditions guarding it, a `continueAt` or
-  jump that named it — and the actions it runs become its block.
+  jump that named it — and the actions it runs become its block. Until it is added, its cases follow their
+  actions through a Delete or a drag in the list (`remapDraftSwitch`): an action deleted or dragged away leaves
+  its case, one dropped between two of a case's actions joins it.
 - **Export:** the code exports skip a block Switch *with its whole block* (otherwise
   every case would run), and say so in the warnings. A scenario or folder export that uses blocks carries `minVersion` — the
   version that wrote it; older versions ignore `endAt` and would play every case one after the other.

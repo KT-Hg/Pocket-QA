@@ -628,6 +628,61 @@ async function checkNewSwitchOverActions(ctx) {
   }
 }
 
+async function checkDraftSwitchFollows(ctx) {
+  // #1 a … #6 f. A new Switch in the Add form runs #5–#6 (e, f); the list changes before Add Action.
+  const wait = (label) => ({ type: 'wait', delay: 100, label });
+  const id = await makeScenario(ctx, 'e2e draft switch follows', ['a', 'b', 'c', 'd', 'e', 'f'].map(wait));
+  let popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    const cases = () => popup.evaluate(`document.getElementById('switchCaseList').innerText.replace(/\\s+/g, ' ').trim()`);
+    const pendingFrom = () => popup.evaluate(`document.getElementById('switchCaseFrom').selectedOptions[0]?.textContent.trim()`);
+    await popup.evaluate(`(async () => {
+      document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+      const type = document.getElementById('manualActionType'); type.value = 'switch'; type.dispatchEvent(new Event('change'));
+      await new Promise((r) => setTimeout(r, 600));
+      document.getElementById('switchVar').value = '\${mode}';
+      const pick = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change')); };
+      pick('switchCaseFrom', '4'); pick('switchCaseTo', '5');
+      document.getElementById('switchAddCase').click();
+      await new Promise((r) => setTimeout(r, 300));
+      pick('switchCaseFrom', '2');   // a second case begun on "c", not added
+    })()`);
+    const added = await cases();
+    const pending = await pendingFrom();
+
+    await rowButton(popup, 0, 4);   // Delete "a"
+    await popup.evaluate(`document.getElementById('confirmModalOk').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const deleted = await cases();
+    const pendingAfter = await pendingFrom();
+    check(added.includes('Run 5–6') && deleted.includes('Run 4–5') && !deleted.includes('Run 5–6'),
+      'a Delete above a new Switch\'s case: the case still runs its actions, now #4–#5', { added, deleted });
+    check(pending.endsWith(' c') && (pendingAfter === '— nothing —' || pendingAfter.endsWith(' c')),
+      'a case begun but not added never names another action after a Delete', { pending, pendingAfter });
+
+    const dropped = await dragRow(popup, 4, 'top');   // "f", the case's last action, to the top
+    await sleep(POPUP_SETTLE_MS);
+    const dragged = await cases();
+    await popup.close();
+    popup = await openPopup(ctx);
+    // A draft restored before its list has loaded numbers a case "#5" (noOf), then "5".
+    const reopened = (await cases()).replace('Run #', 'Run ');
+    check(dropped === 'top' && dragged.includes('Run 5') && !dragged.includes('Run 4') && reopened === dragged,
+      'an action dragged out of a new Switch\'s case leaves it; the draft keeps that', { dropped, dragged, reopened });
+
+    await popup.evaluate(`document.getElementById('addManualAction').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const acts = await popup.evaluate(`new Promise((r) => chrome.storage.local.get(['scenarios'], (x) => r(x.scenarios[${JSON.stringify(id)}].actions)))`);
+    const shape = acts.map((a) => (a.type === 'switch' ? `switch ${a.cases.map((c) => `${c.startAt}–${c.endAt}`).join(' ')}` : a.label)).join(' | ');
+    check(shape === 'f | b | c | d | switch 6–6 | e', 'Add Action puts the Switch in front of the action its case still runs', shape);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
 async function checkEditFollowsList(ctx) {
   const ids = {};
   for (const name of ['switch', 'action', 'delete']) ids[name] = await makeScenario(ctx, `e2e edit follows ${name}`, switchBlockActions());
@@ -3509,6 +3564,7 @@ const CHECKS = [
   ['edit-follows-list', 'An action open in the form while its list changes', checkEditFollowsList],
   ['numbers-by-position', 'Every action numbered by its position, in a Switch block too', checkNumbersByPosition],
   ['switch-insert', 'A new Switch over actions already in the list', checkNewSwitchOverActions],
+  ['switch-draft-follows', 'A new Switch in the form while its list changes', checkDraftSwitchFollows],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   getSwitchLayout, validateSwitch, conditionSkipTarget, resumeSegments,
   remapAfterRemove, remapAfterReorder, planDrop, continueIndex, blockEnd, isAlwaysSwitch,
-  addIndex, remapAfterInsert,
+  addIndex, remapAfterInsert, remapDraftSwitch, SWITCH_SELF,
 } from '../shared/switch-blocks.js';
 
 const act = (label) => ({ type: 'click', selector: `#${label}`, label });
@@ -240,6 +240,52 @@ test('remapAfterInsert: a Condition guarding that place guards the new Switch, b
   const next = remapAfterInsert(acts, 1, sw([blk('x', 2, 3)]));
   assert.equal(next[0].skipCount, 1);
   assert.deepEqual(places(next), ['-', '-', '2.1', '2.1', '-']);
+});
+
+// A new Switch still in the form over #1 a … #5 e: its numbers are those of the list now.
+const ranges = (s) => s.cases.map((c) => (c.empty ? 'empty' : c.endAt == null ? `@${c.startAt}` : `${c.startAt}–${c.endAt}`));
+
+test('remapDraftSwitch: a Delete — above the range, in it, its only action, below it', () => {
+  const draft = sw([blk('k', 3, 4)]);                                   // c, d
+  assert.deepEqual(ranges(remapDraftSwitch(draft, 5, { removed: 0 })), ['2–3']);
+  assert.deepEqual(ranges(remapDraftSwitch(draft, 5, { removed: 2 })), ['3–3']);
+  assert.deepEqual(ranges(remapDraftSwitch(draft, 5, { removed: 4 })), ['3–4']);
+  const only = remapDraftSwitch(sw([blk('k', 3, 3)]), 5, { removed: 2 }).cases[0];
+  assert.deepEqual([only.empty, 'startAt' in only, 'endAt' in only], [true, false, false]);
+});
+
+test('remapDraftSwitch: a drag — out of the range, into its middle, next to it', () => {
+  const draft = sw([blk('k', 3, 4)]);                                   // c, d
+  const drag = (order, item) => ranges(remapDraftSwitch(draft, 5, { order, move: { items: [item] } }));
+  assert.deepEqual(drag([2, 0, 1, 3, 4], 2), ['4–4'], 'c dragged to the top leaves the case');
+  assert.deepEqual(drag([0, 1, 2, 4, 3], 4), ['3–5'], 'e dropped between c and d joins it');
+  assert.deepEqual(drag([0, 1, 4, 2, 3], 4), ['4–5'], 'e dropped in front of c does not');
+  assert.deepEqual(drag([1, 2, 3, 4, 0], 0), ['2–3'], 'a dragged to the end moves the range up');
+  // Without a move nothing left: every action follows.
+  assert.deepEqual(ranges(remapDraftSwitch(draft, 5, { order: [3, 0, 1, 2, 4] })), ['1–4']);
+});
+
+test('remapDraftSwitch: jumps and continueAt follow their action; past the list stays past it', () => {
+  const jump = { value: 'j', scenarioId: SWITCH_SELF, startAt: 4 };     // d
+  const draft = sw([blk('k', 2, 3), jump, blk('f', 7, 8)], { continueAt: 6 });
+  const del = remapDraftSwitch(draft, 5, { removed: 0 });
+  assert.deepEqual([ranges(del), del.continueAt], [['1–2', '@3', '6–7'], 5]);
+  const moved = remapDraftSwitch(draft, 5, { order: [3, 0, 1, 2, 4], move: { items: [3] } });
+  assert.deepEqual([ranges(moved), moved.continueAt], [['3–4', '@1', '7–8'], 6]);
+  const gone = remapDraftSwitch(draft, 5, { removed: 3 }).cases[1];
+  assert.deepEqual([gone.startAt, gone.retargeted], [4, true], 'its action deleted: the next one');
+});
+
+test('remapDraftSwitch: other scenarios and empty cases are left alone, the Switch is not changed', () => {
+  const other = { value: 'o', scenarioId: 'guest', startAt: 3, endAt: 4 };
+  const empty = { value: 'e', scenarioId: SWITCH_SELF, empty: true };
+  const draft = sw([other, empty, blk('k', 3, 4)]);
+  const before = JSON.stringify(draft);
+  const next = remapDraftSwitch(draft, 5, { removed: 0 });
+  assert.equal(next.cases[0], other);
+  assert.equal(next.cases[1], empty);
+  assert.equal(JSON.stringify(draft), before);
+  assert.equal(remapDraftSwitch(draft, 5, {}), draft, 'no change: the same Switch');
 });
 
 test('remapAfterReorder: plain permutation keeps old-style targets on their action', () => {

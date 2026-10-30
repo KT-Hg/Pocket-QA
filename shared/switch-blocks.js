@@ -616,6 +616,53 @@ export function remapAfterInsert(actions, at, action) {
 }
 
 /**
+ * A new Switch still in the form — not in the list, its references numbers of
+ * the list as it is now, `n` actions — after that list changed under it: a
+ * Delete `{ removed }` or a drag `{ order, move }` (as REORDER_ACTIONS sends).
+ * It follows its actions, not their numbers: a block case keeps the actions it
+ * had, less one deleted or dragged (`move.items`), and runs from the first to
+ * the last of them where they are now — so one dropped between two of them
+ * joins it; none left → `{ empty: true }`. A jump or `continueAt` follows its
+ * action (deleted: the next one, a jump `retargeted`); a number past the list
+ * stays past it. Cases that target another scenario are left alone.
+ * (remapAfterReorder cannot do this: it finds a case's actions in the layout,
+ * where a range in front of its Switch is no block.)
+ */
+export function remapDraftSwitch(sw, n, change) {
+  const removed = change?.removed;
+  const order = Array.isArray(change?.order) ? change.order : null;
+  if (sw?.type !== 'switch' || !Array.isArray(sw.cases) || (!order && !Number.isInteger(removed))) return sw;
+  const newPos = new Array(n);
+  if (order) order.forEach((o, p) => { newPos[o] = p; });
+  else for (let j = 0; j < n; j++) newPos[j] = j === removed ? null : j - (j > removed ? 1 : 0);
+  // Past the list: as far past the new one. null: deleted; undefined: before the first action.
+  const pos = (j) => (j >= n ? j - (order ? 0 : 1) : newPos[j]);
+  const left = new Set(order ? change.move?.items || [] : []);
+
+  const cases = sw.cases.map((c) => {
+    if (c?.scenarioId !== SWITCH_SELF || c.empty) return c;
+    if (isBlockCase(c)) {
+      const r = caseRange(c);
+      const ps = [];
+      for (let j = r.start; j <= r.end; j++) if (!left.has(j) && pos(j) != null) ps.push(pos(j));
+      if (!ps.length) {
+        const emptied = { ...c, empty: true };
+        delete emptied.startAt; delete emptied.endAt;
+        return emptied;
+      }
+      return { ...c, startAt: Math.min(...ps) + 1, endAt: Math.max(...ps) + 1 };
+    }
+    const o = (_int(c.startAt) ?? 1) - 1;
+    if (pos(o) === null) return { ...c, retargeted: true };
+    return pos(o) == null ? c : { ...c, startAt: pos(o) + 1 };
+  });
+  const out = { ...sw, cases };
+  const ca = _int(sw.continueAt);
+  if (ca != null && pos(ca - 1) != null) out.continueAt = pos(ca - 1) + 1;
+  return out;
+}
+
+/**
  * The action list reordered by `newOrder` (new position → old index), with the
  * Switch references rewritten.
  *
