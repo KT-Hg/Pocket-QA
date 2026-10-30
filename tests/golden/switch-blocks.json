@@ -4,7 +4,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -17,7 +16,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -30,7 +28,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -43,7 +40,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -56,7 +52,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -69,7 +64,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -82,7 +76,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -95,7 +88,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -108,7 +100,6 @@
    {
     "index": 8,
     "role": "normal",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -121,7 +112,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -134,7 +124,6 @@
    {
     "index": 10,
     "role": "normal",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -147,7 +136,6 @@
    {
     "index": 11,
     "role": "normal",
-    "displayNo": "12",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -160,7 +148,6 @@
    {
     "index": 12,
     "role": "normal",
-    "displayNo": "13",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -173,7 +160,6 @@
    {
     "index": 13,
     "role": "normal",
-    "displayNo": "14",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -186,7 +172,6 @@
    {
     "index": 14,
     "role": "normal",
-    "displayNo": "15",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -199,7 +184,6 @@
    {
     "index": 15,
     "role": "normal",
-    "displayNo": "16",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -212,7 +196,6 @@
    {
     "index": 16,
     "role": "normal",
-    "displayNo": "17",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -473,7 +456,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -486,7 +468,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -499,7 +480,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -512,7 +492,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -525,7 +504,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -538,7 +516,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -551,7 +528,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -564,7 +540,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -699,7 +674,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -712,7 +686,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -725,7 +698,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -738,7 +710,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -751,7 +722,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -764,7 +734,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -777,7 +746,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -790,7 +758,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -803,7 +770,6 @@
    {
     "index": 8,
     "role": "normal",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -816,7 +782,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -829,7 +794,6 @@
    {
     "index": 10,
     "role": "normal",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -842,7 +806,6 @@
    {
     "index": 11,
     "role": "normal",
-    "displayNo": "12",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -855,7 +818,6 @@
    {
     "index": 12,
     "role": "normal",
-    "displayNo": "13",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1060,7 +1022,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1073,7 +1034,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1086,7 +1046,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1099,7 +1058,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1112,7 +1070,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1125,7 +1082,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1138,7 +1094,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1151,7 +1106,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1164,7 +1118,6 @@
    {
     "index": 8,
     "role": "normal",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1177,7 +1130,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1190,7 +1142,6 @@
    {
     "index": 10,
     "role": "normal",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1203,7 +1154,6 @@
    {
     "index": 11,
     "role": "normal",
-    "displayNo": "12",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1216,7 +1166,6 @@
    {
     "index": 12,
     "role": "normal",
-    "displayNo": "13",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1229,7 +1178,6 @@
    {
     "index": 13,
     "role": "normal",
-    "displayNo": "14",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1242,7 +1190,6 @@
    {
     "index": 14,
     "role": "normal",
-    "displayNo": "15",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1491,7 +1438,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1504,7 +1450,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1517,7 +1462,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1530,7 +1474,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1543,7 +1486,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1636,7 +1578,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1649,7 +1590,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1662,7 +1602,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1675,7 +1614,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1688,7 +1626,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1701,7 +1638,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1714,7 +1650,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1727,7 +1662,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1740,7 +1674,6 @@
    {
     "index": 8,
     "role": "normal",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1753,7 +1686,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1766,7 +1698,6 @@
    {
     "index": 10,
     "role": "normal",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1955,7 +1886,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1968,7 +1898,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1981,7 +1910,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -1994,7 +1922,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2007,7 +1934,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2020,7 +1946,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2033,7 +1958,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2046,7 +1970,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2059,7 +1982,6 @@
    {
     "index": 8,
     "role": "normal",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2072,7 +1994,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2085,7 +2006,6 @@
    {
     "index": 10,
     "role": "normal",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2098,7 +2018,6 @@
    {
     "index": 11,
     "role": "normal",
-    "displayNo": "12",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2111,7 +2030,6 @@
    {
     "index": 12,
     "role": "normal",
-    "displayNo": "13",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2316,7 +2234,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2329,7 +2246,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2342,7 +2258,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2355,7 +2270,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2368,7 +2282,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2381,7 +2294,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2394,7 +2306,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2407,7 +2318,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2420,7 +2330,6 @@
    {
     "index": 8,
     "role": "normal",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2433,7 +2342,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2446,7 +2354,6 @@
    {
     "index": 10,
     "role": "normal",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2459,7 +2366,6 @@
    {
     "index": 11,
     "role": "normal",
-    "displayNo": "12",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2650,7 +2556,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2663,7 +2568,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2676,7 +2580,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2689,7 +2592,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2702,7 +2604,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2715,7 +2616,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2728,7 +2628,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2741,7 +2640,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2754,7 +2652,6 @@
    {
     "index": 8,
     "role": "normal",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2767,7 +2664,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2780,7 +2676,6 @@
    {
     "index": 10,
     "role": "normal",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2793,7 +2688,6 @@
    {
     "index": 11,
     "role": "normal",
-    "displayNo": "12",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2806,7 +2700,6 @@
    {
     "index": 12,
     "role": "normal",
-    "displayNo": "13",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2819,7 +2712,6 @@
    {
     "index": 13,
     "role": "normal",
-    "displayNo": "14",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2832,7 +2724,6 @@
    {
     "index": 14,
     "role": "normal",
-    "displayNo": "15",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2845,7 +2736,6 @@
    {
     "index": 15,
     "role": "normal",
-    "displayNo": "16",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2858,7 +2748,6 @@
    {
     "index": 16,
     "role": "normal",
-    "displayNo": "17",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2871,7 +2760,6 @@
    {
     "index": 17,
     "role": "normal",
-    "displayNo": "18",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -2884,7 +2772,6 @@
    {
     "index": 18,
     "role": "normal",
-    "displayNo": "19",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3173,7 +3060,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3186,7 +3072,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3199,7 +3084,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3212,7 +3096,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3225,7 +3108,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3238,7 +3120,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3251,7 +3132,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3264,7 +3144,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3277,7 +3156,6 @@
    {
     "index": 8,
     "role": "normal",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3290,7 +3168,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3303,7 +3180,6 @@
    {
     "index": 10,
     "role": "normal",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3316,7 +3192,6 @@
    {
     "index": 11,
     "role": "normal",
-    "displayNo": "12",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3329,7 +3204,6 @@
    {
     "index": 12,
     "role": "normal",
-    "displayNo": "13",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3342,7 +3216,6 @@
    {
     "index": 13,
     "role": "normal",
-    "displayNo": "14",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3355,7 +3228,6 @@
    {
     "index": 14,
     "role": "normal",
-    "displayNo": "15",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3368,7 +3240,6 @@
    {
     "index": 15,
     "role": "normal",
-    "displayNo": "16",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3381,7 +3252,6 @@
    {
     "index": 16,
     "role": "normal",
-    "displayNo": "17",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3674,7 +3544,6 @@
    {
     "index": 0,
     "role": "switch",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3687,7 +3556,6 @@
    {
     "index": 1,
     "role": "member",
-    "displayNo": "2",
     "depth": 1,
     "parent": {"switchIdx":0,"caseIdx":0},
     "chain": [{"switchIdx":0,"caseIdx":0,"start":1,"end":2,"color":0}],
@@ -3700,7 +3568,6 @@
    {
     "index": 2,
     "role": "member",
-    "displayNo": "3",
     "depth": 1,
     "parent": {"switchIdx":0,"caseIdx":0},
     "chain": [{"switchIdx":0,"caseIdx":0,"start":1,"end":2,"color":0}],
@@ -3713,7 +3580,6 @@
    {
     "index": 3,
     "role": "switch",
-    "displayNo": "4",
     "depth": 1,
     "parent": {"switchIdx":0,"caseIdx":1},
     "chain": [{"switchIdx":0,"caseIdx":1,"start":3,"end":5,"color":1}],
@@ -3726,7 +3592,6 @@
    {
     "index": 4,
     "role": "member",
-    "displayNo": "5",
     "depth": 2,
     "parent": {"switchIdx":3,"caseIdx":0},
     "chain": [{"switchIdx":0,"caseIdx":1,"start":3,"end":5,"color":1},{"switchIdx":3,"caseIdx":0,"start":4,"end":4,"color":0}],
@@ -3739,7 +3604,6 @@
    {
     "index": 5,
     "role": "member",
-    "displayNo": "6",
     "depth": 2,
     "parent": {"switchIdx":3,"caseIdx":1},
     "chain": [{"switchIdx":0,"caseIdx":1,"start":3,"end":5,"color":1},{"switchIdx":3,"caseIdx":1,"start":5,"end":5,"color":1}],
@@ -3752,7 +3616,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3765,7 +3628,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3778,7 +3640,6 @@
    {
     "index": 8,
     "role": "switch",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3791,7 +3652,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3804,7 +3664,6 @@
    {
     "index": 10,
     "role": "switch",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -3817,7 +3676,6 @@
    {
     "index": 11,
     "role": "normal",
-    "displayNo": "12",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4032,7 +3890,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4045,7 +3902,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4058,7 +3914,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4123,7 +3978,6 @@
    {
     "index": 0,
     "role": "normal",
-    "displayNo": "1",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4136,7 +3990,6 @@
    {
     "index": 1,
     "role": "normal",
-    "displayNo": "2",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4149,7 +4002,6 @@
    {
     "index": 2,
     "role": "normal",
-    "displayNo": "3",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4162,7 +4014,6 @@
    {
     "index": 3,
     "role": "normal",
-    "displayNo": "4",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4175,7 +4026,6 @@
    {
     "index": 4,
     "role": "normal",
-    "displayNo": "5",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4188,7 +4038,6 @@
    {
     "index": 5,
     "role": "normal",
-    "displayNo": "6",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4201,7 +4050,6 @@
    {
     "index": 6,
     "role": "normal",
-    "displayNo": "7",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4214,7 +4062,6 @@
    {
     "index": 7,
     "role": "normal",
-    "displayNo": "8",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4227,7 +4074,6 @@
    {
     "index": 8,
     "role": "normal",
-    "displayNo": "9",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4240,7 +4086,6 @@
    {
     "index": 9,
     "role": "normal",
-    "displayNo": "10",
     "depth": 0,
     "parent": null,
     "chain": [],
@@ -4253,7 +4098,6 @@
    {
     "index": 10,
     "role": "normal",
-    "displayNo": "11",
     "depth": 0,
     "parent": null,
     "chain": [],
