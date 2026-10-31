@@ -216,7 +216,7 @@
   ],
   "calls": [
    "tabs.query [{}]",
-   "tabs.create [{\"url\":\"chrome-extension://testextensionid/dbtools.html?session=abc&change=c1\"}]"
+   "tabs.create [{\"url\":\"chrome-extension://testextensionid/dbtest.html?session=abc&change=c1\"}]"
   ],
   "console": []
  },
