@@ -33,23 +33,15 @@ function showError(line, message) {
   line.hidden = !message;
 }
 
-export function renderEditor(app, { focus = null } = {}) {
-  const s = app.state;
-  const c = findCase(s, s.caseId);
-  if (!c) {
-    el.inspInner.replaceChildren(h('div', { class: 'insp-empty' },
-      h('div', null, h('div', { class: 'ic' }, '📮'), h('p', null, 'Pick a request in the list to edit and send it.'))));
-    return;
-  }
-  const id = c.id;
-  const current = () => findCase(app.state, id);
-  const patch = (fields) => app.set(updateCase(app.state, id, fields), { render: 'list' });
+// Each part below takes `ed`: { app, id, c (the case as opened), current() (as
+// it is now), patch(fields) }.
 
-  // ---- head: name, folder, Duplicate / Delete
+function headPart(ed) {
+  const { app, id, c } = ed;
   const name = h('input', { type: 'text', class: 'ac-name', value: c.name, placeholder: 'Request name', 'aria-label': 'Request name',
-    oninput: () => patch({ name: name.value }) });
+    oninput: () => ed.patch({ name: name.value }) });
   const folder = h('select', { class: 'mini-select', 'aria-label': 'Folder', onchange: () => app.moveTo([id], folder.value) },
-    ...s.folders.map((f) => h('option', { value: f.id }, f.name)));
+    ...app.state.folders.map((f) => h('option', { value: f.id }, f.name)));
   folder.value = c.folderId;
   const head = h('div', { class: 'insp-head ac-insp-head' },
     name,
@@ -58,90 +50,119 @@ export function renderEditor(app, { focus = null } = {}) {
       h('span', { class: 'ac-spacer' }),
       h('button', { class: 't-btn t-btn-sm', onclick: () => app.set(duplicateCase(app.state, id).state) }, 'Duplicate'),
       h('button', { class: 't-btn t-btn-sm', onclick: () => removeCases(app, [id]) }, 'Delete')));
+  return { head, name };
+}
 
-  // ---- request line: method + URL
+/** Method + URL + Send, and the URL's error line. `onMethod` runs after the method changes. */
+function requestPart(ed, onMethod) {
+  const { c } = ed;
   const urlError = errorLine();
   const method = h('select', { class: 'mini-select ac-method-select', 'aria-label': 'Method',
-    onchange: () => { patch({ method: method.value }); bodyNote(); } },
+    onchange: () => { ed.patch({ method: method.value }); onMethod(); } },
   ...METHODS.map((m) => h('option', { value: m }, m)));
   method.value = c.method;
   const url = h('input', { type: 'text', class: 'ac-url', value: c.url, placeholder: 'https://api.example.com/users  or  ${baseUrl}/users',
     'aria-label': 'URL', spellcheck: false,
-    oninput: () => { patch({ url: url.value }); showError(urlError, urlProblem(url.value)); } });
+    oninput: () => { ed.patch({ url: url.value }); showError(urlError, urlProblem(url.value)); } });
   if (c.url) showError(urlError, urlProblem(c.url));
-  const requestLine = h('div', { class: 'ac-request-line' }, method, url, sendButton(app, id));
+  return { line: h('div', { class: 'ac-request-line' }, method, url, sendButton(ed.app, ed.id)), urlError, url };
+}
 
-  // ---- Headers
-  const headers = h('textarea', { class: 'ac-code', rows: 7, spellcheck: false, value: c.headers, 'aria-label': 'Headers',
+function headersPane(ed) {
+  const headers = h('textarea', { class: 'ac-code', rows: 7, spellcheck: false, value: ed.c.headers, 'aria-label': 'Headers',
     placeholder: 'Content-Type: application/json\nAuthorization: Bearer ${token}',
-    oninput: () => patch({ headers: headers.value }) });
-  const headersPane = h('div', { class: 'ac-pane' }, headers,
+    oninput: () => ed.patch({ headers: headers.value }) });
+  return h('div', { class: 'ac-pane' }, headers,
     h('p', { class: 'helper' }, 'One per line, as Name: value. A line starting with # is left out. ${variables} from the Data tab work here.'));
+}
 
-  // ---- Body
+/** The body pane, and `refresh()` for when the method or body type changes. */
+function bodyPane(ed) {
+  const { c, current } = ed;
   const bodyError = errorLine();
   const note = h('p', { class: 'helper ac-note', hidden: true }, 'GET and HEAD requests are sent without a body.');
   const body = h('textarea', { class: 'ac-code', rows: 10, spellcheck: false, value: c.body, 'aria-label': 'Body',
-    oninput: () => { patch({ body: body.value }); checkBody(); } });
+    oninput: () => { ed.patch({ body: body.value }); check(); } });
   const format = h('button', { class: 't-btn t-btn-sm', title: 'Indent the JSON',
     onclick: () => {
-      try { body.value = JSON.stringify(JSON.parse(body.value), null, 2); patch({ body: body.value }); } catch { checkBody(); }
+      try { body.value = JSON.stringify(JSON.parse(body.value), null, 2); ed.patch({ body: body.value }); } catch { check(); }
     } }, 'Format');
   const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Body type' },
     ...BODY_TYPES.map((t) => h('button', { type: 'button', class: c.bodyType === t ? 'active' : '', dataset: { t },
       onclick: () => {
         seg.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.t === t));
-        patch({ bodyType: t });
-        bodyMode();
+        ed.patch({ bodyType: t });
+        refresh();
       } }, BODY_LABELS[t])));
-  function checkBody() {
+  function check() {
     showError(bodyError, current().bodyType === 'json' ? jsonProblem(body.value) : '');
   }
-  function bodyNote() {
-    note.hidden = !(current().method === 'GET' || current().method === 'HEAD') || current().bodyType === 'none';
+  function refresh() {
+    const { bodyType, method } = current();
+    body.hidden = bodyType === 'none';
+    format.hidden = bodyType !== 'json';
+    body.placeholder = BODY_HINTS[bodyType] || '';
+    note.hidden = bodyType === 'none' || !(method === 'GET' || method === 'HEAD');
+    check();
   }
-  function bodyMode() {
-    const t = current().bodyType;
-    body.hidden = t === 'none';
-    format.hidden = t !== 'json';
-    body.placeholder = BODY_HINTS[t] || '';
-    checkBody();
-    bodyNote();
-  }
-  const bodyPane = h('div', { class: 'ac-pane' }, h('div', { class: 'ac-pane-head' }, seg, format), body, bodyError, note);
-  bodyMode();
+  refresh();
+  return { pane: h('div', { class: 'ac-pane' }, h('div', { class: 'ac-pane-head' }, seg, format), body, bodyError, note), refresh };
+}
 
-  // ---- Settings
-  const timeout = h('input', { type: 'number', class: 'ac-num-input', min: 1, max: MAX_TIMEOUT_MS / 1000, step: 1,
-    value: Math.round(c.timeoutMs / 1000), 'aria-label': 'Timeout in seconds',
+function settingsPane(ed) {
+  const maxSec = MAX_TIMEOUT_MS / 1000;
+  const timeout = h('input', { type: 'number', class: 'ac-num-input', min: 1, max: maxSec, step: 1,
+    value: Math.round(ed.c.timeoutMs / 1000), 'aria-label': 'Timeout in seconds',
     onchange: () => {
-      const sec = Math.min(Math.max(Math.round(Number(timeout.value) || 30), 1), MAX_TIMEOUT_MS / 1000);
+      const sec = Math.min(Math.max(Math.round(Number(timeout.value) || 30), 1), maxSec);
       timeout.value = sec;
-      patch({ timeoutMs: sec * 1000 });
+      ed.patch({ timeoutMs: sec * 1000 });
     } });
-  const cookies = h('input', { type: 'checkbox', checked: c.cookies, onchange: () => patch({ cookies: cookies.checked }) });
-  const settingsPane = h('div', { class: 'ac-pane' },
-    h('label', { class: 'ac-setting' }, 'Timeout', timeout, h('span', { class: 'ac-unit' }, `seconds (at most ${MAX_TIMEOUT_MS / 1000})`)),
+  const cookies = h('input', { type: 'checkbox', checked: ed.c.cookies, onchange: () => ed.patch({ cookies: cookies.checked }) });
+  return h('div', { class: 'ac-pane' },
+    h('label', { class: 'ac-setting' }, 'Timeout', timeout, h('span', { class: 'ac-unit' }, `seconds (at most ${maxSec})`)),
     h('label', { class: 'check-row ac-setting' }, cookies,
       h('span', null, 'Send the site\'s cookies', h('span', { class: 'helper ac-block' },
         'The request goes out with the cookies your browser has for that site, so it is signed in as you are. A response that sets or clears cookies changes them in the browser too (a logout endpoint signs you out).'))));
+}
 
-  // ---- tabs
-  const panes = { headers: headersPane, body: bodyPane, settings: settingsPane };
-  const tabs = h('div', { class: 'ac-tabs', role: 'tablist' }, ...TABS.map(([k, label]) => h('button', {
+/** The tab strip over `panes` ({ key: pane }); the last tab chosen stays chosen. */
+function tabStrip(panes) {
+  const show = () => { for (const [k, p] of Object.entries(panes)) p.hidden = k !== tab; };
+  const strip = h('div', { class: 'ac-tabs', role: 'tablist' }, ...TABS.map(([k, label]) => h('button', {
     type: 'button', role: 'tab', class: `rtab${k === tab ? ' active' : ''}`, dataset: { k },
     onclick: () => {
       tab = k;
-      tabs.querySelectorAll('.rtab').forEach((b) => b.classList.toggle('active', b.dataset.k === k));
-      for (const [pk, p] of Object.entries(panes)) p.hidden = pk !== k;
+      strip.querySelectorAll('.rtab').forEach((b) => b.classList.toggle('active', b.dataset.k === k));
+      show();
     },
   }, label)));
-  for (const [pk, p] of Object.entries(panes)) p.hidden = pk !== tab;
+  show();
+  return strip;
+}
+
+export function renderEditor(app, { focus = null } = {}) {
+  const c = findCase(app.state, app.state.caseId);
+  if (!c) {
+    el.inspInner.replaceChildren(h('div', { class: 'insp-empty' },
+      h('div', null, h('div', { class: 'ic' }, '📮'), h('p', null, 'Pick a request in the list to edit and send it.'))));
+    return;
+  }
+  const id = c.id;
+  const ed = {
+    app, id, c,
+    current: () => findCase(app.state, id),
+    patch: (fields) => app.set(updateCase(app.state, id, fields), { render: 'list' }),
+  };
+  const { head, name } = headPart(ed);
+  const body = bodyPane(ed);
+  const request = requestPart(ed, body.refresh);
+  const panes = { headers: headersPane(ed), body: body.pane, settings: settingsPane(ed) };
 
   el.inspInner.replaceChildren(head, h('div', {
     class: 'insp-body ac-insp-body',
     onkeydown: (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendCase(app, id); } },
-  }, requestLine, urlError, tabs, headersPane, bodyPane, settingsPane, responseBox(id)));
-  if (focus === 'url') url.focus();
+  }, request.line, request.urlError, tabStrip(panes), panes.headers, panes.body, panes.settings, responseBox(id)));
+  if (focus === 'url') request.url.focus();
   else if (focus === 'name') name.select();
 }

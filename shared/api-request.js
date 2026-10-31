@@ -62,34 +62,45 @@ export function maskHeaders(headers) {
   return headers.map(([n, v]) => [n, SECRET_HEADER.test(n) ? MASK : v]);
 }
 
+/** { target: URL } for an http(s) URL, else { error, kind: 'url' }. */
+function targetUrl(url) {
+  if (!url) return { error: 'Enter a URL', kind: 'url' };
+  let target;
+  try { target = new URL(url); } catch { return { error: `Not a valid URL: ${url}`, kind: 'url' }; }
+  if (!/^https?:$/.test(target.protocol)) return { error: `Only http:// and https:// URLs can be sent: ${url}`, kind: 'url' };
+  return { target };
+}
+
+/** The body as sent, or undefined: GET and HEAD go without one, as fetch requires. */
+function requestBody(req, method, vars, missing) {
+  const type = req.bodyType || 'none';
+  if (type === 'none' || method === 'GET' || method === 'HEAD') return undefined;
+  return fill(String(req.body || ''), vars, ENCODE[type] || ENCODE.plain, missing);
+}
+
 /**
  * { url, init, timeoutMs } ready for fetch, or { error, kind } when the request
  * cannot be sent as it stands: kind 'vars' (a ${name} with no value), 'url',
- * 'headers'. GET and HEAD go without a body, as fetch requires.
+ * 'headers'.
  */
 export function buildRequest(req, vars = {}) {
   const missing = new Set();
   const method = String(req.method || 'GET').toUpperCase();
   const url = fill(String(req.url || '').trim(), vars, ENCODE.plain, missing);
   const parsed = parseHeaders(fill(String(req.headers || ''), vars, ENCODE.header, missing));
-  const bodyType = req.bodyType || 'none';
-  const withBody = bodyType !== 'none' && method !== 'GET' && method !== 'HEAD';
-  const body = withBody ? fill(String(req.body || ''), vars, ENCODE[bodyType] || ENCODE.plain, missing) : undefined;
+  const body = requestBody(req, method, vars, missing);
 
   if (missing.size) {
     const names = [...missing].map((k) => `\${${k}}`).join(', ');
     return { error: `No value for ${names} — add ${missing.size === 1 ? 'it' : 'them'} in the Data tab`, kind: 'vars' };
   }
-  if (!url) return { error: 'Enter a URL', kind: 'url' };
-  let target;
-  try { target = new URL(url); } catch { return { error: `Not a valid URL: ${url}`, kind: 'url' }; }
-  if (!/^https?:$/.test(target.protocol)) return { error: `Only http:// and https:// URLs can be sent: ${url}`, kind: 'url' };
+  const { target, ...bad } = targetUrl(url);
+  if (!target) return bad;
   if (parsed.error) return { error: parsed.error, kind: 'headers' };
 
   const headers = parsed.headers;
-  if (withBody && DEFAULT_CONTENT_TYPE[bodyType] && !headers.some(([n]) => n.toLowerCase() === 'content-type')) {
-    headers.push(['Content-Type', DEFAULT_CONTENT_TYPE[bodyType]]);
-  }
+  const contentType = body !== undefined && DEFAULT_CONTENT_TYPE[req.bodyType];
+  if (contentType && !headers.some(([n]) => n.toLowerCase() === 'content-type')) headers.push(['Content-Type', contentType]);
   try { new Headers(headers); } catch (e) { return { error: `Header not allowed: ${e.message}`, kind: 'headers' }; }
 
   return {

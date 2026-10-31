@@ -76,12 +76,12 @@ function emptyState(icon, title, sub, ...buttons) {
 }
 
 /** Drop position on a row: before it (top half) or after it. */
-function dropBefore(app, row, e) {
-  const r = row.getBoundingClientRect();
-  if (e.clientY < r.top + r.height / 2) return row.dataset.id;
+function dropBefore(app, rowEl, e) {
+  const r = rowEl.getBoundingClientRect();
+  if (e.clientY < r.top + r.height / 2) return rowEl.dataset.id;
   // After this row: before whichever case follows it in the whole list.
   const all = app.state.cases;
-  const i = all.findIndex((c) => c.id === row.dataset.id);
+  const i = all.findIndex((c) => c.id === rowEl.dataset.id);
   return all[i + 1]?.id ?? null;
 }
 

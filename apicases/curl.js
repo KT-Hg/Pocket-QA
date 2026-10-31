@@ -33,13 +33,6 @@ const SKIP_WITH_ARG = new Set([
   '--max-redirs', '-c', '--cookie-jar', '--interface', '--dns-servers', '-D', '--dump-header',
 ]);
 
-/** Options with an argument that the request uses. */
-const WITH_ARG = new Set([
-  '-X', '--request', '-H', '--header', '-d', '--data', '--data-raw', '--data-binary', '--data-ascii',
-  '--data-urlencode', '--json', '-b', '--cookie', '-u', '--user', '-A', '--user-agent', '-e', '--referer',
-  '--url', '-m', '--max-time',
-]);
-
 const NOT_SUPPORTED = {
   '-F': 'multipart/form-data (-F) is not supported yet',
   '--form': 'multipart/form-data (--form) is not supported yet',
@@ -50,75 +43,94 @@ const NOT_SUPPORTED = {
 /** Set by the browser, or not allowed in fetch: left out of a pasted request. */
 const BROWSER_HEADERS = /^(host|content-length|connection|keep-alive|accept-encoding|accept-charset|origin|referer|user-agent|dnt|te|trailer|transfer-encoding|upgrade|upgrade-insecure-requests|via|expect|date|priority|sec-.*|proxy-.*|access-control-request-.*)$/i;
 
-const ANSI_ESCAPES = { n: '\n', t: '\t', r: '\r', '\\': '\\', "'": "'", '"': '"', a: '\x07', b: '\b', e: '\x1b', f: '\f', v: '\v', '?': '?' };
+const COOKIES_INSTEAD = '(the browser\'s own cookies for the site are sent instead)';
 
-/** The words of a bash command line, or { error }. */
-export function splitWords(cmd) {
-  const words = [];
-  let word = null;
-  const add = (s) => { word = (word ?? '') + s; };
-  let i = 0;
-  while (i < cmd.length) {
-    const ch = cmd[i];
-    if (ch === '\\' && (cmd[i + 1] === '\n' || (cmd[i + 1] === '\r' && cmd[i + 2] === '\n'))) {
-      i += cmd[i + 1] === '\r' ? 3 : 2;
-      continue;
-    }
-    if (/\s/.test(ch)) {
-      if (word !== null) { words.push(word); word = null; }
-      i++;
-      continue;
-    }
-    if (ch === '\\') { add(cmd[i + 1] ?? ''); i += 2; continue; }
-    if (ch === "'") {
-      const end = cmd.indexOf("'", i + 1);
-      if (end < 0) return { error: 'A quote (\') is never closed' };
-      add(cmd.slice(i + 1, end));
-      i = end + 1;
-      continue;
-    }
-    if (ch === '$' && cmd[i + 1] === "'") {
-      let j = i + 2;
-      let out = '';
-      for (; j < cmd.length && cmd[j] !== "'"; j++) {
-        if (cmd[j] !== '\\') { out += cmd[j]; continue; }
-        const e = cmd[++j];
-        const hex = e === 'x' ? cmd.slice(j + 1, j + 3).match(/^[0-9a-fA-F]{1,2}/)?.[0]
-          : e === 'u' ? cmd.slice(j + 1, j + 5).match(/^[0-9a-fA-F]{1,4}/)?.[0]
-            : e === 'U' ? cmd.slice(j + 1, j + 9).match(/^[0-9a-fA-F]{1,8}/)?.[0] : null;
-        if (hex) { out += String.fromCodePoint(parseInt(hex, 16)); j += hex.length; } else out += ANSI_ESCAPES[e] ?? `\\${e}`;
-      }
-      if (j >= cmd.length) return { error: 'A quote ($\') is never closed' };
-      // \xHH is a byte of UTF-8 text in a hand-written $'\xc3\xa9', but a
-      // character code in what DevTools writes ($'\xe9' for é): read as UTF-8
-      // only when the bytes are valid UTF-8.
-      add(decodeBytes(out));
-      i = j + 1;
-      continue;
-    }
-    if (ch === '"') {
-      let j = i + 1;
-      let out = '';
-      for (; j < cmd.length && cmd[j] !== '"'; j++) {
-        if (cmd[j] === '\\' && '"\\$`\n'.includes(cmd[j + 1])) { if (cmd[j + 1] !== '\n') out += cmd[j + 1]; j++; } else out += cmd[j];
-      }
-      if (j >= cmd.length) return { error: 'A quote (") is never closed' };
-      add(out);
-      i = j + 1;
-      continue;
-    }
-    add(ch);
-    i++;
-  }
-  if (word !== null) words.push(word);
-  return { words };
-}
+/* ── Splitting the command line ───────────────────────────────────────────── */
+
+const ANSI_ESCAPES = { n: '\n', t: '\t', r: '\r', '\\': '\\', "'": "'", '"': '"', a: '\x07', b: '\b', e: '\x1b', f: '\f', v: '\v', '?': '?' };
+/** How many hex digits \x, \u and \U take at most. */
+const HEX_DIGITS = { x: 2, u: 4, U: 8 };
 
 /** A string whose chars below 256 may be UTF-8 bytes (from \xHH), read as UTF-8 when they are. */
 function decodeBytes(s) {
   if (!/[\x80-\xff]/.test(s) || /[^\x00-\xff]/.test(s)) return s;
   try { return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(s, (c) => c.charCodeAt(0))); } catch { return s; }
 }
+
+// Each reader takes the command and the index of the opening quote, and
+// returns [text, index after the closing quote], or null when it never closes.
+
+function readSingle(cmd, i) {
+  const end = cmd.indexOf("'", i + 1);
+  return end < 0 ? null : [cmd.slice(i + 1, end), end + 1];
+}
+
+function readAnsi(cmd, i) {
+  let out = '';
+  for (let j = i + 2; j < cmd.length; j++) {
+    if (cmd[j] === "'") {
+      // \xHH is a byte of UTF-8 text in a hand-written $'\xc3\xa9', but a
+      // character code in what DevTools writes ($'\xe9' for é): read as UTF-8
+      // only when the bytes are valid UTF-8.
+      return [decodeBytes(out), j + 1];
+    }
+    if (cmd[j] !== '\\') { out += cmd[j]; continue; }
+    const e = cmd[++j];
+    const hex = HEX_DIGITS[e] && cmd.slice(j + 1, j + 1 + HEX_DIGITS[e]).match(/^[0-9a-fA-F]+/)?.[0];
+    if (hex && parseInt(hex, 16) <= 0x10ffff) {
+      out += String.fromCodePoint(parseInt(hex, 16));
+      j += hex.length;
+    } else {
+      out += ANSI_ESCAPES[e] ?? `\\${e}`;
+    }
+  }
+  return null;
+}
+
+function readDouble(cmd, i) {
+  let out = '';
+  for (let j = i + 1; j < cmd.length; j++) {
+    if (cmd[j] === '"') return [out, j + 1];
+    if (cmd[j] === '\\' && '"\\$`\n'.includes(cmd[j + 1])) {
+      j++;
+      if (cmd[j] !== '\n') out += cmd[j];
+    } else {
+      out += cmd[j];
+    }
+  }
+  return null;
+}
+
+/** The words of a bash command line, or { error }. */
+export function splitWords(cmd) {
+  const words = [];
+  let word = null;
+  let i = 0;
+  while (i < cmd.length) {
+    const ch = cmd[i];
+    const continuation = cmd.slice(i, i + 3).match(/^\\\r?\n/);
+    if (continuation) { i += continuation[0].length; continue; }
+    if (/\s/.test(ch)) {
+      if (word !== null) words.push(word);
+      word = null;
+      i++;
+      continue;
+    }
+    let part;
+    if (ch === '\\') part = [cmd[i + 1] ?? '', i + 2];
+    else if (ch === "'") part = readSingle(cmd, i) || "'";
+    else if (ch === '$' && cmd[i + 1] === "'") part = readAnsi(cmd, i) || "$'";
+    else if (ch === '"') part = readDouble(cmd, i) || '"';
+    else part = [ch, i + 1];
+    if (typeof part === 'string') return { error: `A quote (${part}) is never closed` };
+    word = (word ?? '') + part[0];
+    i = part[1];
+  }
+  if (word !== null) words.push(word);
+  return { words };
+}
+
+/* ── Reading the options ──────────────────────────────────────────────────── */
 
 function base64Utf8(s) {
   return btoa(String.fromCharCode(...new TextEncoder().encode(s)));
@@ -128,6 +140,137 @@ function urlEncodeData(v) {
   const eq = v.indexOf('=');
   if (eq < 0) return encodeURIComponent(v);
   return `${v.slice(0, eq)}=${encodeURIComponent(v.slice(eq + 1))}`;
+}
+
+function setUrl(r, url) {
+  if (r.url !== null) return `Two URLs: ${r.url} and ${url}`;
+  r.url = url;
+  return '';
+}
+
+function addData(r, v) {
+  if (v.startsWith('@')) return `Data from a file (${v}) is not supported — paste the content instead`;
+  r.data.push(v);
+  return '';
+}
+
+/** What each option with an argument does to the command being read; a string returned is an error. */
+const OPTIONS = {
+  '-X': (r, v) => { r.method = v.toUpperCase(); },
+  '-H': (r, v) => {
+    const colon = v.indexOf(':');
+    if (colon <= 0) return `Header is not "Name: value": ${v}`;
+    r.headers.push([v.slice(0, colon).trim(), v.slice(colon + 1).trim()]);
+    return '';
+  },
+  '-d': addData,
+  '--data-raw': (r, v) => { r.data.push(v); },
+  '--data-urlencode': (r, v) => { r.data.push(urlEncodeData(v)); },
+  '--json': (r, v) => { r.data.push(v); r.json = true; },
+  '-b': (r) => { r.notes.push(`the -b cookies ${COOKIES_INSTEAD}`); },
+  '-u': (r, v) => { r.headers.push(['Authorization', `Basic ${base64Utf8(v)}`]); },
+  '-A': (r, v, name) => { r.notes.push(`${name} (the browser sets it)`); },
+  '--url': setUrl,
+  '-m': (r, v) => {
+    const sec = Number(v);
+    if (sec > 0) r.timeoutMs = Math.min(Math.round(sec * 1000), MAX_TIMEOUT_MS);
+  },
+};
+Object.assign(OPTIONS, {
+  '--request': OPTIONS['-X'], '--header': OPTIONS['-H'],
+  '--data': addData, '--data-ascii': addData, '--data-binary': addData,
+  '--cookie': OPTIONS['-b'], '--user': OPTIONS['-u'],
+  '--user-agent': OPTIONS['-A'], '-e': OPTIONS['-A'], '--referer': OPTIONS['-A'],
+  '--max-time': OPTIONS['-m'],
+});
+
+/** Flags (no argument) that change what is sent. */
+const FLAGS = {
+  '-I': (r) => { r.head = true; },
+  '--head': (r) => { r.head = true; },
+  '-G': (r) => { r.get = true; },
+  '--get': (r) => { r.get = true; },
+};
+
+/** [option, its attached value or undefined]: --name=value and -XPOST carry theirs. */
+function splitOption(w) {
+  if (w.startsWith('--') && w.includes('=')) return [w.slice(0, w.indexOf('=')), w.slice(w.indexOf('=') + 1)];
+  if (/^-[A-Za-z]./.test(w) && OPTIONS[w.slice(0, 2)]) return [w.slice(0, 2), w.slice(2)];
+  return [w, undefined];
+}
+
+/** True when `w` is a flag, or several short ones in one (-sSL), and has been applied. */
+function applyFlags(r, w) {
+  if (SKIP_FLAGS.has(w)) return true;
+  if (FLAGS[w]) { FLAGS[w](r); return true; }
+  if (!/^-[A-Za-z]{2,}$/.test(w)) return false;
+  const each = [...w.slice(1)].map((c) => `-${c}`);
+  if (!each.every((f) => SKIP_FLAGS.has(f) || FLAGS[f])) return false;
+  for (const f of each) FLAGS[f]?.(r);
+  return true;
+}
+
+/** The options of the command, or { error }. */
+function readOptions(words) {
+  const r = { method: null, head: false, get: false, url: null, timeoutMs: undefined, headers: [], data: [], json: false, notes: [] };
+  for (let i = 1; i < words.length; i++) {
+    const [name, attached] = splitOption(words[i]);
+    if (NOT_SUPPORTED[name]) return { error: NOT_SUPPORTED[name] };
+    if (applyFlags(r, name)) continue;
+    if (SKIP_WITH_ARG.has(name)) { if (attached === undefined) i++; continue; }
+    if (!name.startsWith('-') || name === '-') {
+      const err = setUrl(r, name);
+      if (err) return { error: err };
+      continue;
+    }
+    if (!OPTIONS[name]) return { error: `Option ${name} is not understood` };
+    let value = attached;
+    if (value === undefined) {
+      if (i + 1 >= words.length) return { error: `${name} needs a value` };
+      value = words[++i];
+    }
+    const err = OPTIONS[name](r, value, name);
+    if (err) return { error: err };
+  }
+  return r;
+}
+
+/* ── The request ──────────────────────────────────────────────────────────── */
+
+function parseUrl(url) {
+  const full = /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `http://${url}`;
+  let parsed;
+  try { parsed = new URL(full); } catch { return { error: `Not a valid URL: ${url}` }; }
+  if (!/^https?:$/.test(parsed.protocol)) return { error: `Only http:// and https:// URLs can be sent: ${url}` };
+  return { parsed };
+}
+
+function defaultMethod(r, body) {
+  if (r.head) return 'HEAD';
+  return body ? 'POST' : 'GET';
+}
+
+/** The headers to keep, with what was left out added to r.notes. */
+function keptHeaders(r) {
+  const has = (name) => r.headers.some(([n]) => n.toLowerCase() === name);
+  if (r.json && !has('content-type')) r.headers.push(['Content-Type', 'application/json']);
+  if (r.json && !has('accept')) r.headers.push(['Accept', 'application/json']);
+  const dropped = r.headers.filter(([n]) => BROWSER_HEADERS.test(n)).map(([n]) => n);
+  if (has('cookie')) r.notes.unshift(`the Cookie header ${COOKIES_INSTEAD}`);
+  if (dropped.length) r.notes.push(`${dropped.length} header${dropped.length === 1 ? '' : 's'} the browser sets itself (${dropped.join(', ')})`);
+  return r.headers.filter(([n]) => !BROWSER_HEADERS.test(n) && n.toLowerCase() !== 'cookie');
+}
+
+function isJsonObject(text) {
+  try { const v = JSON.parse(text); return typeof v === 'object' && v !== null; } catch { return false; }
+}
+
+/** curl sends -d as a form unless a Content-Type says otherwise. */
+function bodyTypeOf(body, contentType) {
+  if (!body) return 'none';
+  if (contentType.includes('json') || (!contentType && isJsonObject(body))) return 'json';
+  if (!contentType || contentType.includes('x-www-form-urlencoded')) return 'form';
+  return 'text';
 }
 
 /**
@@ -140,123 +283,35 @@ export function parseCurl(cmd) {
   if (/\^"|\^\r?\n/.test(text)) return { error: 'This is "Copy as cURL (cmd)". Use Copy as cURL (bash) instead.' };
   const split = splitWords(text);
   if (split.error) return split;
-  const words = split.words;
-  if (!/^curl(\.exe)?$/i.test(words[0] || '')) return { error: 'Not a curl command — it should start with curl' };
+  if (!/^curl(\.exe)?$/i.test(split.words[0] || '')) return { error: 'Not a curl command — it should start with curl' };
+  const r = readOptions(split.words);
+  if (r.error) return r;
+  if (!r.url) return { error: 'No URL in the command' };
+  const { parsed, error } = parseUrl(r.url);
+  if (error) return { error };
 
-  let method = null;
-  let head = false;
-  let get = false;
-  let url = null;
-  let timeoutMs;
-  const headers = [];
-  const data = [];
-  let json = false;
-  const notes = [];
-
-  for (let i = 1; i < words.length; i++) {
-    let w = words[i];
-    let value;
-    if (w.startsWith('--') && w.includes('=')) { value = w.slice(w.indexOf('=') + 1); w = w.slice(0, w.indexOf('=')); }
-    // -XPOST, -H'…': a short option with its argument attached.
-    else if (/^-[A-Za-z]./.test(w) && WITH_ARG.has(w.slice(0, 2))) { value = w.slice(2); w = w.slice(0, 2); }
-    // -sSL: several short flags in one.
-    else if (/^-[A-Za-z]{2,}$/.test(w) && [...w.slice(1)].every((c) => SKIP_FLAGS.has(`-${c}`) || c === 'I' || c === 'G')) {
-      if (w.includes('I')) head = true;
-      if (w.includes('G')) get = true;
-      continue;
-    }
-
-    if (NOT_SUPPORTED[w]) return { error: NOT_SUPPORTED[w] };
-    if (SKIP_FLAGS.has(w)) continue;
-    if (w === '-I' || w === '--head') { head = true; continue; }
-    if (w === '-G' || w === '--get') { get = true; continue; }
-    if (SKIP_WITH_ARG.has(w)) { if (value === undefined) i++; continue; }
-    if (WITH_ARG.has(w)) {
-      if (value === undefined) {
-        if (i + 1 >= words.length) return { error: `${w} needs a value` };
-        value = words[++i];
-      }
-    } else if (w.startsWith('-') && w !== '-') {
-      return { error: `Option ${w} is not understood` };
-    } else {
-      if (url !== null) return { error: `Two URLs: ${url} and ${w}` };
-      url = w;
-      continue;
-    }
-
-    switch (w) {
-      case '-X': case '--request': method = value.toUpperCase(); break;
-      case '-H': case '--header': {
-        const colon = value.indexOf(':');
-        if (colon <= 0) return { error: `Header is not "Name: value": ${value}` };
-        headers.push([value.slice(0, colon).trim(), value.slice(colon + 1).trim()]);
-        break;
-      }
-      case '-d': case '--data': case '--data-ascii': case '--data-binary':
-        if (value.startsWith('@')) return { error: `Data from a file (${value}) is not supported — paste the content instead` };
-        data.push(value);
-        break;
-      case '--data-raw': data.push(value); break;
-      case '--data-urlencode': data.push(urlEncodeData(value)); break;
-      case '--json': data.push(value); json = true; break;
-      case '-b': case '--cookie': notes.push('the -b cookies (the browser\'s own cookies for the site are sent instead)'); break;
-      case '-u': case '--user': headers.push(['Authorization', `Basic ${base64Utf8(value)}`]); break;
-      case '-A': case '--user-agent': case '-e': case '--referer': notes.push(`${w} (the browser sets it)`); break;
-      case '--url': if (url !== null) return { error: `Two URLs: ${url} and ${value}` }; url = value; break;
-      case '-m': case '--max-time': {
-        const sec = Number(value);
-        if (sec > 0) timeoutMs = Math.min(Math.round(sec * 1000), MAX_TIMEOUT_MS);
-        break;
-      }
-    }
-  }
-
-  if (!url) return { error: 'No URL in the command' };
-  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) url = `http://${url}`;
-  let parsed;
-  try { parsed = new URL(url); } catch { return { error: `Not a valid URL: ${url}` }; }
-  if (!/^https?:$/.test(parsed.protocol)) return { error: `Only http:// and https:// URLs can be sent: ${url}` };
-
-  let body = data.join('&');
-  if (get && data.length) {
+  let body = r.data.join('&');
+  if (r.get && body) {
     parsed.search += (parsed.search ? '&' : '?') + body;
     body = '';
   }
-  if (!method) method = head ? 'HEAD' : body ? 'POST' : 'GET';
+  const method = r.method || defaultMethod(r, body);
   if (!METHODS.includes(method)) return { error: `Method ${method} is not supported (${METHODS.join(', ')})` };
 
-  const has = (name) => headers.some(([n]) => n.toLowerCase() === name);
-  if (json) {
-    if (!has('content-type')) headers.push(['Content-Type', 'application/json']);
-    if (!has('accept')) headers.push(['Accept', 'application/json']);
-  }
-  const dropped = headers.filter(([n]) => BROWSER_HEADERS.test(n)).map(([n]) => n);
-  const cookie = headers.some(([n]) => n.toLowerCase() === 'cookie');
-  const kept = headers.filter(([n]) => !BROWSER_HEADERS.test(n) && n.toLowerCase() !== 'cookie');
-  if (cookie) notes.unshift('the Cookie header (the browser\'s own cookies for the site are sent instead)');
-  if (dropped.length) notes.push(`${dropped.length} header${dropped.length === 1 ? '' : 's'} the browser sets itself (${dropped.join(', ')})`);
-
-  const contentType = (kept.find(([n]) => n.toLowerCase() === 'content-type')?.[1] || '').toLowerCase();
-  let bodyType = 'none';
-  if (body) {
-    let isJson = false;
-    try { const v = JSON.parse(body); isJson = typeof v === 'object' && v !== null; } catch { /* not JSON */ }
-    if (contentType.includes('json') || (!contentType && isJson)) bodyType = 'json';
-    else if (contentType.includes('x-www-form-urlencoded') || !contentType) bodyType = 'form';
-    else bodyType = 'text';
-    if (bodyType === 'json' && isJson) body = JSON.stringify(JSON.parse(body), null, 2);
-  }
+  const headers = keptHeaders(r);
+  const bodyType = bodyTypeOf(body, (headers.find(([n]) => n.toLowerCase() === 'content-type')?.[1] || '').toLowerCase());
+  if (bodyType === 'json' && isJsonObject(body)) body = JSON.stringify(JSON.parse(body), null, 2);
 
   return {
     request: {
       name: `${method} ${parsed.pathname}`,
       method,
       url: parsed.href,
-      headers: kept.map(([n, v]) => `${n}: ${v}`).join('\n'),
+      headers: headers.map(([n, v]) => `${n}: ${v}`).join('\n'),
       bodyType,
       body,
-      ...(timeoutMs ? { timeoutMs } : {}),
+      ...(r.timeoutMs ? { timeoutMs: r.timeoutMs } : {}),
     },
-    notes,
+    notes: r.notes,
   };
 }
