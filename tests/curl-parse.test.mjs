@@ -95,7 +95,38 @@ test('what is refused, by name', () => {
   assert.match(parseCurl('curl -F file=@a.png https://x.test').error, /multipart/);
   assert.match(parseCurl('curl -d @body.json https://x.test').error, /from a file/);
   assert.match(parseCurl('curl https://a.test https://b.test').error, /^Two URLs/);
-  assert.match(parseCurl('curl -X OPTIONS https://a.test').error, /^Method OPTIONS is not supported/);
+  assert.match(parseCurl('curl -X TRACE https://a.test').error, /^Method TRACE is not supported/);
   assert.match(parseCurl('curl ftp://a.test/x').error, /^Only http/);
   assert.equal(parseCurl('curl -H').error, '-H needs a value');
+});
+
+test('toCurl → parseCurl gives the request back', async () => {
+  const { toCurl } = await import('../apicases/curl.js');
+  const vars = { base: 'https://api.test', name: 'Bánh "mì"' };
+  const cases = [
+    { method: 'GET', url: '${base}/users?page=2&q=a b', headers: 'Accept: application/json', bodyType: 'none', body: '' },
+    { method: 'POST', url: '${base}/users', headers: 'Authorization: Bearer t', bodyType: 'json', body: '{"name": "${name}", "note": "it\'s\\nok"}' },
+    { method: 'PUT', url: 'https://api.test/x', headers: '', bodyType: 'form', body: 'a=1&b=x%20y' },
+    { method: 'PATCH', url: 'https://api.test/x', headers: 'X-Line: one', bodyType: 'text', body: 'line 1\nline 2\ttab' },
+    { method: 'DELETE', url: 'https://api.test/x/1', headers: "X-Quote: it's", bodyType: 'none', body: '' },
+    { method: 'OPTIONS', url: 'https://api.test/x', headers: '', bodyType: 'none', body: '' },
+    { method: 'HEAD', url: 'https://api.test/x', headers: '', bodyType: 'none', body: '' },
+  ];
+  for (const c of cases) {
+    const { command, error } = toCurl(c, vars);
+    assert.equal(error, undefined);
+    const back = parseCurl(command);
+    assert.equal(back.error, undefined, `${c.method}: ${back.error}\n${command}`);
+    assert.equal(back.request.method, c.method, command);
+    assert.equal(back.request.url, new URL(c.url.replace('${base}', vars.base)).href);
+    if (c.bodyType === 'json') {
+      assert.deepEqual(JSON.parse(back.request.body), { name: 'Bánh "mì"', note: "it's\nok" });
+    } else if (c.bodyType !== 'none') {
+      assert.equal(back.request.body, c.body, command);
+      assert.equal(back.request.bodyType, c.bodyType, command);
+    }
+    for (const line of c.headers.split('\n').filter(Boolean)) assert.ok(back.request.headers.includes(line), `${line} in ${back.request.headers}`);
+  }
+  assert.match(toCurl({ method: 'GET', url: '${nope}' }).error, /No value for \$\{nope\}/);
+  assert.equal(parseCurl(`curl -X OPTIONS https://a.test`).request.method, 'OPTIONS', 'OPTIONS is a method now');
 });

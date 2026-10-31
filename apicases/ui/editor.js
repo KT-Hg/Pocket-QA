@@ -8,10 +8,11 @@
  * row shows the name, method and URL.
  */
 
+import { toCurl } from '../curl.js';
 import { BODY_TYPES, MAX_TIMEOUT_MS, METHODS, duplicateCase, findCase, jsonProblem, updateCase, urlProblem } from '../model.js';
-import { el, h } from './dom.js';
+import { el, h, toast } from './dom.js';
 import { removeCases } from './list.js';
-import { responseBox, sendButton, sendCase } from './response.js';
+import { loadVars, responseBox, sendButton, sendCase } from './response.js';
 
 const TABS = [['headers', 'Headers'], ['body', 'Body'], ['settings', 'Settings']];
 const BODY_LABELS = { none: 'None', json: 'JSON', text: 'Text', form: 'Form' };
@@ -48,9 +49,21 @@ function headPart(ed) {
     h('div', { class: 'ac-insp-sub' },
       h('label', { class: 'ac-inline' }, 'Folder', folder),
       h('span', { class: 'ac-spacer' }),
+      h('button', { class: 't-btn t-btn-sm', title: 'Copy as a curl command, variables filled in', onclick: () => copyCurl(ed) }, 'Copy cURL'),
       h('button', { class: 't-btn t-btn-sm', onclick: () => app.set(duplicateCase(app.state, id).state) }, 'Duplicate'),
       h('button', { class: 't-btn t-btn-sm', onclick: () => removeCases(app, [id]) }, 'Delete')));
   return { head, name };
+}
+
+async function copyCurl(ed) {
+  const r = toCurl(ed.current(), await loadVars());
+  if (r.error) { toast(r.error, 'error', { ms: 5000 }); return; }
+  try {
+    await navigator.clipboard.writeText(r.command);
+    toast(ed.current().cookies ? 'Copied — a terminal sends it without the browser\'s cookies' : 'Copied', 'success');
+  } catch {
+    toast('Could not copy to the clipboard', 'error');
+  }
 }
 
 /** Method + URL + Send, and the URL's error line. `onMethod` runs after the method changes. */

@@ -1,6 +1,7 @@
 /**
  * curl.js — a curl command read into a request of the API Tests page, as
- * Chrome / Edge DevTools write it with Network → Copy → Copy as cURL (bash).
+ * Chrome / Edge DevTools write it with Network → Copy → Copy as cURL (bash),
+ * and a request written back as one (toCurl, for the editor's Copy cURL).
  *
  * The command is split the way bash would split it (single quotes, $'…'
  * ANSI-C quotes, double quotes, backslashes, line continuations); nothing is
@@ -16,6 +17,7 @@
  * Pure — no chrome.*, no DOM.
  */
 
+import { base64Utf8, buildRequest } from '../shared/api-request.js';
 import { MAX_TIMEOUT_MS, METHODS } from './model.js';
 
 /** Flags that take no argument and change nothing the page sends. */
@@ -131,10 +133,6 @@ export function splitWords(cmd) {
 }
 
 /* ── Reading the options ──────────────────────────────────────────────────── */
-
-function base64Utf8(s) {
-  return btoa(String.fromCharCode(...new TextEncoder().encode(s)));
-}
 
 function urlEncodeData(v) {
   const eq = v.indexOf('=');
@@ -314,4 +312,37 @@ export function parseCurl(cmd) {
     },
     notes: r.notes,
   };
+}
+
+/* ── Writing a command (Copy as cURL) ─────────────────────────────────────── */
+
+/** One shell word: '…' as is, $'…' when it holds control characters; a ' inside closes, escapes, reopens. */
+function shellQuote(s) {
+  if (/[\x00-\x1f\x7f]/.test(s)) {
+    const esc = { '\n': '\\n', '\r': '\\r', '\t': '\\t', '\\': '\\\\', "'": "\\'" };
+    return `$'${s.replace(/[\x00-\x1f\x7f\\']/g, (c) => esc[c] ?? `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`)}'`;
+  }
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * The request as a bash curl command, variables filled in — what Send would
+ * send, minus the browser's cookies, which a terminal does not have. A text
+ * body gets the Content-Type fetch gives it. Or { error } when it cannot be
+ * built (a variable with no value…).
+ */
+export function toCurl(req, vars = {}) {
+  const built = buildRequest(req, vars);
+  if (built.error) return { error: built.error };
+  const { method, headers, body } = built.init;
+  const parts = [`curl ${shellQuote(built.url)}`];
+  if (method === 'HEAD') parts.push('--head');
+  else if (method !== 'GET') parts.push(`-X ${method}`);
+  const all = [...headers];
+  if (body !== undefined && !all.some(([n]) => n.toLowerCase() === 'content-type')) all.push(['Content-Type', 'text/plain;charset=UTF-8']);
+  for (const [n, v] of all) parts.push(`-H ${shellQuote(`${n}: ${v}`)}`);
+  if (body !== undefined) parts.push(`--data-raw ${shellQuote(body)}`);
+  // One line: the Windows clipboard turns \n into \r\n, and a "\" followed by
+  // \r no longer continues the line in bash.
+  return { command: parts.join(' ') };
 }

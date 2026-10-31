@@ -16,7 +16,7 @@ export const STATE_KEY = 'apiCasesState';
 /** The "All requests" entry of the folder list: not a folder, a view of every case. */
 export const ALL = '__all__';
 
-export const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
+export const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 export const BODY_TYPES = ['none', 'json', 'text', 'form'];
 export const DEFAULT_TIMEOUT_MS = 30_000;
 export const MAX_TIMEOUT_MS = 60_000;

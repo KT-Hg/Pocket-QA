@@ -110,6 +110,11 @@ export function buildRequest(req, vars = {}) {
   };
 }
 
+/** Base64 of the UTF-8 bytes of `s` (btoa alone takes Latin-1 only): Basic auth, `curl -u`. */
+export function base64Utf8(s) {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+}
+
 /** The body as JSON when it is JSON (by its Content-Type or its first character), else undefined. */
 function readJson(text, contentType) {
   const t = text.trimStart();
@@ -117,11 +122,33 @@ function readJson(text, contentType) {
   try { return JSON.parse(text); } catch { return undefined; }
 }
 
+/** Read as text: no Content-Type, text/*, and the JSON / XML / script / form types. Anything else is bytes. */
+const TEXT_TYPE = /^text\/|json|xml|javascript|ecmascript|x-www-form-urlencoded/i;
+
+/**
+ * The body: text (and JSON when it is JSON), or for an image, a PDF, a zip… the
+ * bytes as a Blob — read as text they would come out as replacement characters.
+ */
+async function readBody(res) {
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType || TEXT_TYPE.test(contentType)) {
+    const text = await res.text();
+    const json = readJson(text, contentType);
+    return { contentType, text, json, isJson: json !== undefined, isBinary: false };
+  }
+  const blob = await res.blob();
+  // A HEAD response, or a 204, has a type but nothing in it: show it as no body.
+  if (!blob.size) return { contentType, text: '', json: undefined, isJson: false, isBinary: false };
+  return { contentType, text: '', json: undefined, isJson: false, isBinary: true, bytes: blob.size, blob };
+}
+
 /**
  * Send it. Resolves (never rejects) to
- *   { status, statusText, url, redirected, headers: [[name, value]], text, json, isJson, ms, sent }
+ *   { status, statusText, url, redirected, headers: [[name, value]], contentType,
+ *     text, json, isJson, isBinary, bytes?, blob?, ms, sent }
  * or { error, kind, ms?, sent? } — kind 'vars' | 'url' | 'headers' (not sent), 'timeout', 'network'.
- * `sent` is { method, url } as it went out, variables filled in.
+ * A binary body (isBinary) has `bytes` and `blob`, and text ''. `sent` is
+ * { method, url } as it went out, variables filled in.
  */
 export async function sendRequest(req, vars = {}) {
   const built = buildRequest(req, vars);
@@ -133,11 +160,10 @@ export async function sendRequest(req, vars = {}) {
   const ms = () => Math.round(performance.now() - t0);
   try {
     const res = await fetch(built.url, { ...built.init, signal: ctrl.signal });
-    const text = await res.text();
-    const json = readJson(text, res.headers.get('content-type'));
+    const body = await readBody(res);
     return {
       status: res.status, statusText: res.statusText, url: res.url, redirected: res.redirected,
-      headers: [...res.headers], text, json, isJson: json !== undefined, ms: ms(), sent,
+      headers: [...res.headers], ...body, ms: ms(), sent,
     };
   } catch (e) {
     if (ctrl.signal.aborted) {

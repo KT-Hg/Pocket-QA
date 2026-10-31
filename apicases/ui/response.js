@@ -23,7 +23,7 @@ let open = { id: null, box: null, button: null };
 let tab = 'body';
 
 /** The Data tab's variables, each a plain value. */
-async function loadVars() {
+export async function loadVars() {
   const raw = await new Promise((resolve) => {
     if (typeof chrome === 'undefined' || !chrome.storage?.local) resolve({});
     else chrome.storage.local.get('variables', resolve);
@@ -76,7 +76,25 @@ function sentLine(res) {
   return res.sent ? h('div', { class: 'ac-sent' }, h('b', null, res.sent.method), ' ', res.sent.url) : null;
 }
 
+/** The object URL of the binary body on show, revoked when another response replaces it. */
+let blobUrl = null;
+
+/** "Binary · image/png · 12.3 KB", Download, and a preview when it is an image. */
+function binaryView(res) {
+  if (blobUrl) URL.revokeObjectURL(blobUrl);
+  blobUrl = URL.createObjectURL(res.blob);
+  const type = res.contentType.split(';')[0].trim();
+  const name = decodeURIComponent(new URL(res.url).pathname.split('/').pop() || '') || 'response';
+  return [
+    h('div', { class: 'ac-binary' },
+      h('span', null, `Binary · ${type} · ${bytes(res.bytes)}`),
+      h('a', { class: 't-btn t-btn-sm', href: blobUrl, download: name }, 'Download')),
+    type.startsWith('image/') ? h('img', { class: 'ac-img', src: blobUrl, alt: `Response image (${type})` }) : null,
+  ];
+}
+
 function bodyView(res) {
+  if (res.isBinary) return binaryView(res);
   const full = res.isJson ? JSON.stringify(res.json, null, 2) : res.text;
   if (!full) return h('p', { class: 'helper' }, 'The response has no body.');
   const cut = full.length > SHOW_MAX_CHARS;
@@ -109,7 +127,7 @@ function draw(id) {
     box.replaceChildren(...[title, h('div', { class: 'ac-resp-error', role: 'alert' }, res.error), sentLine(res)].filter(Boolean));
     return;
   }
-  const panes = { body: h('div', null, ...[bodyView(res)].flat()), headers: headersView(res) };
+  const panes = { body: h('div', null, ...[bodyView(res)].flat().filter(Boolean)), headers: headersView(res) };
   const tabs = h('div', { class: 'ac-tabs ac-resp-tabs', role: 'tablist' }, ...[['body', 'Body'], ['headers', `Headers (${res.headers.length})`]].map(([k, label]) =>
     h('button', { type: 'button', role: 'tab', class: `rtab${k === tab ? ' active' : ''}`, dataset: { k },
       onclick: () => {
@@ -124,7 +142,10 @@ function draw(id) {
     h('div', { class: 'ac-resp-meta' },
       h('span', { class: statusClass(res.status) }, `${res.status}${res.statusText ? ` ${res.statusText}` : ''}`),
       h('span', null, `${res.ms} ms`),
-      h('span', null, bytes(new Blob([res.text]).size))),
+      res.isBinary
+        ? h('span', null, bytes(res.bytes))
+        : h('span', { title: 'Size of the body as read — on the wire it may be smaller, when the server compresses it' },
+          `${bytes(new Blob([res.text]).size)} decoded`)),
     sentLine(res),
     res.redirected ? h('div', { class: 'helper' }, `Redirected to ${res.url}`) : null,
     tabs, panes.body, panes.headers,

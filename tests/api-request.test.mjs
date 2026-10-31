@@ -106,3 +106,31 @@ test('sendRequest: a connection that fails, and a request that cannot be built',
   assert.match(r.error, /^Could not connect to down\.test \(Failed to fetch\)/);
   assert.equal((await sendRequest(req({ url: '${nope}' }))).kind, 'vars', 'not sent at all');
 }));
+
+test('sendRequest: an image or a PDF comes back as bytes, not text', () => withFetch(async () => new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 1, 2]), { status: 200, headers: { 'Content-Type': 'image/png' } }), async () => {
+  const r = await sendRequest(req());
+  assert.equal(r.isBinary, true);
+  assert.equal(r.bytes, 7);
+  assert.equal(r.text, '');
+  assert.equal(r.contentType, 'image/png');
+  assert.deepEqual([...new Uint8Array(await r.blob.arrayBuffer())].slice(0, 4), [0x89, 0x50, 0x4e, 0x47]);
+}));
+
+test('sendRequest: text types, and a typed response with nothing in it', () => withFetch(async (url) => {
+  if (url.endsWith('/svg')) return new Response('<svg/>', { headers: { 'Content-Type': 'image/svg+xml' } });
+  if (url.endsWith('/problem')) return new Response('{"title":"x"}', { status: 400, headers: { 'Content-Type': 'application/problem+json' } });
+  if (url.endsWith('/none')) return new Response('plain', { headers: {} });
+  return new Response(null, { status: 204, headers: { 'Content-Type': 'application/octet-stream' } });
+}, async () => {
+  assert.equal((await sendRequest(req({ url: 'https://api.test/svg' }))).text, '<svg/>', 'XML types are text');
+  assert.deepEqual((await sendRequest(req({ url: 'https://api.test/problem' }))).json, { title: 'x' });
+  assert.equal((await sendRequest(req({ url: 'https://api.test/none' }))).text, 'plain', 'no Content-Type: read as text');
+  const empty = await sendRequest(req({ url: 'https://api.test/empty' }));
+  assert.equal(empty.isBinary, false, 'a binary type with no bytes is shown as no body');
+  assert.equal(empty.text, '');
+}));
+
+test('base64Utf8: UTF-8 bytes, as Basic auth needs', async () => {
+  const { base64Utf8 } = await import('../shared/api-request.js');
+  assert.equal(base64Utf8('an:pá'), 'YW46cMOh');
+});
