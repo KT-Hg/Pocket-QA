@@ -8,6 +8,7 @@ import { showFieldError } from '../record/picked-selectors.js';
 import { resetManualValueMemory } from '../record/value-memory.js';
 import { ui } from '../ui-state.js';
 import { showConfirm, showToast } from '../utils.js';
+import { setFolderFilter } from './folders.js';
 import { toggleScenarioActions } from './scenario-actions.js';
 import { loadScenarios } from './scenario-list.js';
 
@@ -22,7 +23,7 @@ function _createNamedScenario(name) {
     // and only a listed scenario can be the selected one.
     const term = (scenarioSearch?.value || "").trim().toLowerCase();
     if (term && !name.toLowerCase().includes(term)) scenarioSearch.value = "";
-    if (filterFolder?.value && filterFolder.value !== (folderId || "__none__")) filterFolder.value = "";
+    if (filterFolder?.value && filterFolder.value !== (folderId || "__none__")) setFolderFilter("");
     // loadScenarios selects whatever lastSelectedScenario names.
     chrome.storage.local.set({ lastSelectedScenario: res.id }, () => loadScenarios());
     showToast(`Created "${name}" — what you add or edit now saves into it`, "success");

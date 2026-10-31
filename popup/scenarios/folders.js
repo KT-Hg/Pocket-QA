@@ -15,7 +15,17 @@ import { loadScenarios } from './scenario-list.js';
 
 /* === FOLDERS === */
 
-export function renderFolderOptions() {
+// The Manage Scenarios folder filter, kept for the next popup as the chosen scenario is.
+export const FOLDER_FILTER_KEY = "scenarioFolderFilter";
+
+/** Shows the scenarios of `folderId` ("" all of them, "__none__" those in no folder), from now on. */
+export function setFolderFilter(folderId) {
+  filterFolder.value = folderId;
+  chrome.storage.local.set({ [FOLDER_FILTER_KEY]: filterFolder.value });
+}
+
+/** `filter`: the folder filter to show once the options are rebuilt; the one shown now by default. */
+export function renderFolderOptions(filter = filterFolder.value) {
   // Render folder options for Save Scenario
   scenarioFolder.innerHTML = '<option value="">No Folder</option>';
 
@@ -35,6 +45,10 @@ export function renderFolderOptions() {
       option2.textContent = folder.name;
       filterFolder.appendChild(option2);
     });
+  // Rebuilding the options used to drop the filter at every reload of the lists;
+  // a folder since deleted leaves no option to show, and then all are shown.
+  filterFolder.value = filter;
+  if (filterFolder.selectedIndex < 0) filterFolder.value = "";
 
   // Render options for Export Folder select
   if (exportFolderSelect) {
@@ -226,6 +240,8 @@ export function initFolders() {
 
       chrome.runtime.sendMessage({ type: "MOVE_TO_FOLDER", scenarioId, folderId }, () => {
         moveToFolderSelect.value = "";
+        // Out of the folder shown, the scenario would leave the list and stop being the chosen one.
+        if (filterFolder.value && filterFolder.value !== (folderId || "__none__")) setFolderFilter("");
         loadScenarios();
       });
     };
