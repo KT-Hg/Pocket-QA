@@ -6,6 +6,7 @@
 
 import { ALL, METHODS, addCase, deleteCases, findFolder, reorderCase, select, visibleCases } from '../model.js';
 import { el, h, toast } from './dom.js';
+import { pasteCurlButton } from './paste-curl.js';
 
 const DRAG_TYPE = 'application/x-apicases';
 
@@ -37,6 +38,7 @@ function head(app) {
     h('h2', { class: 'ac-title' }, folder ? folder.name : 'All requests'),
     h('span', { class: 'ac-head-count' }, shown === total ? `${total}` : `${shown} of ${total}`));
   const actions = h('div', { class: 'main-head-actions' },
+    pasteCurlButton(app),
     h('button', { class: 't-btn t-btn-primary', onclick: () => app.set(addCase(app.state).state, { focus: 'url' }) }, '＋ Request'));
   return [title, actions];
 }
@@ -143,7 +145,8 @@ export function renderList(app) {
   const newRequest = () => h('button', { class: 't-btn t-btn-primary', onclick: () => app.set(addCase(app.state).state, { focus: 'url' }) }, '＋ Request');
   if (!s.cases.length && !s.folders.length) {
     el.caseList.replaceChildren(emptyState('🔌', 'No API tests yet',
-      'Add a request: its method, URL, headers and body. Folders keep them in groups.', newRequest()));
+      'Add a request, or paste a cURL command copied from DevTools (Network → Copy → Copy as cURL (bash)). Folders keep them in groups.',
+      newRequest(), pasteCurlButton(app)));
     return;
   }
   const cases = visibleCases(s, v);
@@ -152,7 +155,7 @@ export function renderList(app) {
     el.caseList.replaceChildren(filtered && visibleCases(s).length
       ? emptyState('🔍', 'Nothing matches', 'No request in this view has that name, URL or method.',
         h('button', { class: 't-btn', onclick: () => { v.query = ''; v.method = ''; renderList(app); } }, 'Clear filters'))
-      : emptyState('📭', 'No requests here yet', 'Add one to this folder.', newRequest()));
+      : emptyState('📭', 'No requests here yet', 'Add one, or paste a cURL command.', newRequest(), pasteCurlButton(app)));
     return;
   }
   el.caseList.replaceChildren(h('div', { class: 'ac-rows', role: 'list' }, ...cases.map((c, i) => row(app, c, i + 1))));

@@ -206,6 +206,10 @@ pre.ac-pre {
 .ac-headers th { font-weight: 600; color: var(--muted); white-space: nowrap; width: 1%; }
 .ac-headers td { font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
 
+/* ===== Paste cURL ===== */
+.ac-curl { max-width: 680px; }
+.ac-curl-help { margin: 0 0 10px; }
+
 /* ===== Confirm dialog ===== */
 .ac-ask { max-width: 440px; }
 .ac-ask .modal-body { white-space: pre-line; }
