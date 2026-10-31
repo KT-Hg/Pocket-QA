@@ -1,25 +1,29 @@
 /**
- * ui/response.js — Send, and the response under the editor: status, time,
- * size, what was sent, then the body (JSON indented) or the headers.
+ * ui/response.js — Send, and the result under the editor: the verdict
+ * (✓ Passed / ✗ Failed / ⚠ Broken, apicases/run.js), status, time, size, what
+ * was sent, then the body or the headers. A JSON body is drawn by
+ * ui/json-view.js, its keys clickable.
  *
- * Responses are kept for this visit only, by case: going to another case and
+ * Results are kept for this visit only, by case: going to another case and
  * back shows the last one again. Variables come from the Data tab, resolved as
  * a playback resolves them ({random:…} and {pick:…} drawn once per send).
  */
 
 import { resolveRandomVars } from '../../bg/interpolate.js';
-import { sendRequest } from '../../shared/api-request.js';
 import { parseListSpec } from '../../shared/var-name.js';
+import { verdictLabel } from '../../shared/verdict.js';
 import { findCase } from '../model.js';
+import { runCase } from '../run.js';
 import { h } from './dom.js';
+import { MAX_NODES, jsonView } from './json-view.js';
 
 // A body longer than this is cut in the view; the response itself is kept whole.
 const SHOW_MAX_CHARS = 200_000;
 
-const responses = new Map();
+const results = new Map();
 const sending = new Set();
-/** The box and Send button of the case open in the editor. */
-let open = { id: null, box: null, button: null };
+/** The box, Send button and callbacks of the case open in the editor. */
+let open = { id: null, box: null, button: null, onResult: null, onKey: null };
 let tab = 'body';
 
 /** The Data tab's variables, each a plain value. */
@@ -44,7 +48,7 @@ export async function sendCase(app, id) {
   sending.add(id);
   draw(id);
   try {
-    responses.set(id, await sendRequest(c, await loadVars()));
+    results.set(id, await runCase(c, await loadVars()));
   } finally {
     sending.delete(id);
     draw(id);
@@ -57,9 +61,14 @@ export function sendButton(app, id) {
   return button;
 }
 
-export function responseBox(id) {
+/**
+ * The response box of case `id`. `onResult(result)` runs whenever it shows a
+ * result (the Checks tab marks its rows); `onKey(segs, value, button)` when a
+ * key of a JSON body is clicked.
+ */
+export function responseBox(id, { onResult = null, onKey = null } = {}) {
   const box = h('section', { class: 'ac-response', 'aria-live': 'polite' });
-  open = { ...open, id, box };
+  open = { ...open, id, box, onResult, onKey };
   draw(id);
   return box;
 }
@@ -74,6 +83,15 @@ const statusClass = (status) => `ac-status ac-s${String(status)[0]}xx`;
 
 function sentLine(res) {
   return res.sent ? h('div', { class: 'ac-sent' }, h('b', null, res.sent.method), ' ', res.sent.url) : null;
+}
+
+/** "✗ Failed · Expected status 2xx, got 500" — the verdict, with the failure that decided it. */
+function verdictLine(result) {
+  const first = result.failures[0];
+  return h('div', { class: `ac-verdict ac-v-${result.verdict}`, role: 'status' },
+    h('b', null, verdictLabel(result.verdict)),
+    first ? h('span', null, first.reason) : null,
+    result.failures.length > 1 ? h('span', { class: 'ac-more' }, `+${result.failures.length - 1} more`) : null);
 }
 
 /** The object URL of the binary body on show, revoked when another response replaces it. */
@@ -93,19 +111,60 @@ function binaryView(res) {
   ];
 }
 
-function bodyView(res) {
-  if (res.isBinary) return binaryView(res);
-  const full = res.isJson ? JSON.stringify(res.json, null, 2) : res.text;
-  if (!full) return h('p', { class: 'helper' }, 'The response has no body.');
+function textView(full, note) {
   const cut = full.length > SHOW_MAX_CHARS;
   return [
     h('pre', { class: 'ac-pre' }, cut ? full.slice(0, SHOW_MAX_CHARS) : full),
     cut ? h('p', { class: 'helper' }, `Showing the first ${bytes(SHOW_MAX_CHARS)} of ${bytes(full.length)}.`) : null,
+    note ? h('p', { class: 'helper' }, note) : null,
   ];
+}
+
+function bodyView(res) {
+  if (res.isBinary) return binaryView(res);
+  if (res.isJson && open.onKey) {
+    const tree = jsonView(res.json, open.onKey);
+    if (tree) return [tree];
+    return textView(JSON.stringify(res.json, null, 2), `Over ${MAX_NODES.toLocaleString('en')} values: keys are not clickable here — type a path in the Checks tab.`);
+  }
+  const full = res.isJson ? JSON.stringify(res.json, null, 2) : res.text;
+  return full ? textView(full) : [h('p', { class: 'helper' }, 'The response has no body.')];
 }
 
 function headersView(res) {
   return h('table', { class: 'ac-headers' }, ...res.headers.map(([n, v]) => h('tr', null, h('th', null, n), h('td', null, v))));
+}
+
+function tabsOver(panes, labels) {
+  const strip = h('div', { class: 'ac-tabs ac-resp-tabs', role: 'tablist' }, ...labels.map(([k, label]) =>
+    h('button', { type: 'button', role: 'tab', class: `rtab${k === tab ? ' active' : ''}`, dataset: { k },
+      onclick: () => {
+        tab = k;
+        strip.querySelectorAll('.rtab').forEach((b) => b.classList.toggle('active', b.dataset.k === k));
+        for (const [pk, p] of Object.entries(panes)) p.hidden = pk !== k;
+      } }, label)));
+  for (const [pk, p] of Object.entries(panes)) p.hidden = pk !== tab;
+  return strip;
+}
+
+/** What a response that came back shows: verdict, status line, what was sent, body / headers. */
+function responseParts(result) {
+  const res = result.res;
+  const panes = { body: h('div', null, ...bodyView(res).filter(Boolean)), headers: headersView(res) };
+  return [
+    verdictLine(result),
+    h('div', { class: 'ac-resp-meta' },
+      h('span', { class: statusClass(res.status) }, `${res.status}${res.statusText ? ` ${res.statusText}` : ''}`),
+      h('span', null, `${res.ms} ms`),
+      res.isBinary
+        ? h('span', null, bytes(res.bytes))
+        : h('span', { title: 'Size of the body as read — on the wire it may be smaller, when the server compresses it' },
+          `${bytes(new Blob([res.text]).size)} decoded`)),
+    sentLine(res),
+    res.redirected ? h('div', { class: 'helper' }, `Redirected to ${res.url}`) : null,
+    tabsOver(panes, [['body', 'Body'], ['headers', `Headers (${res.headers.length})`]]),
+    panes.body, panes.headers,
+  ];
 }
 
 function draw(id) {
@@ -117,37 +176,14 @@ function draw(id) {
     open.button.disabled = busy;
     open.button.textContent = busy ? 'Sending…' : 'Send';
   }
-  const box = open.box;
-  if (!box) return;
-  const res = responses.get(id);
-  const title = h('div', { class: 'pane-label ac-resp-label' }, 'Response');
-  if (busy) { box.replaceChildren(title, h('p', { class: 'helper' }, 'Waiting for the response…')); return; }
-  if (!res) { box.replaceChildren(title, h('p', { class: 'helper' }, 'Send the request (Ctrl+Enter) to see its response here.')); return; }
-  if (res.error) {
-    box.replaceChildren(...[title, h('div', { class: 'ac-resp-error', role: 'alert' }, res.error), sentLine(res)].filter(Boolean));
-    return;
-  }
-  const panes = { body: h('div', null, ...[bodyView(res)].flat().filter(Boolean)), headers: headersView(res) };
-  const tabs = h('div', { class: 'ac-tabs ac-resp-tabs', role: 'tablist' }, ...[['body', 'Body'], ['headers', `Headers (${res.headers.length})`]].map(([k, label]) =>
-    h('button', { type: 'button', role: 'tab', class: `rtab${k === tab ? ' active' : ''}`, dataset: { k },
-      onclick: () => {
-        tab = k;
-        tabs.querySelectorAll('.rtab').forEach((b) => b.classList.toggle('active', b.dataset.k === k));
-        for (const [pk, p] of Object.entries(panes)) p.hidden = pk !== k;
-      } }, label)));
-  for (const [pk, p] of Object.entries(panes)) p.hidden = pk !== tab;
+  if (!open.box) return;
+  const result = results.get(id);
+  let parts;
+  if (busy) parts = [h('p', { class: 'helper' }, 'Waiting for the response…')];
+  else if (!result) parts = [h('p', { class: 'helper' }, 'Send the request (Ctrl+Enter) to see its response here.')];
+  else if (result.res.error) parts = [verdictLine(result), sentLine(result.res)];
+  else parts = responseParts(result);
   // replaceChildren() would write a null as the text "null".
-  box.replaceChildren(...[
-    title,
-    h('div', { class: 'ac-resp-meta' },
-      h('span', { class: statusClass(res.status) }, `${res.status}${res.statusText ? ` ${res.statusText}` : ''}`),
-      h('span', null, `${res.ms} ms`),
-      res.isBinary
-        ? h('span', null, bytes(res.bytes))
-        : h('span', { title: 'Size of the body as read — on the wire it may be smaller, when the server compresses it' },
-          `${bytes(new Blob([res.text]).size)} decoded`)),
-    sentLine(res),
-    res.redirected ? h('div', { class: 'helper' }, `Redirected to ${res.url}`) : null,
-    tabs, panes.body, panes.headers,
-  ].filter(Boolean));
+  open.box.replaceChildren(h('div', { class: 'pane-label ac-resp-label' }, 'Response'), ...parts.filter(Boolean));
+  if (!busy) open.onResult?.(result || null);
 }

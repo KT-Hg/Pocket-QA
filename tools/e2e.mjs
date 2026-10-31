@@ -3774,6 +3774,90 @@ async function checkCsvZipRun(ctx) {
   }
 }
 
+/** JSON endpoints under /api/ for the API Tests page (apitest.html). */
+function apiRoute(req, reply) {
+  const url = new URL(req.url, 'http://x');
+  const json = (status, data) => { reply.writeHead(status, { 'content-type': 'application/json' }); reply.end(JSON.stringify(data)); };
+  req.resume();
+  req.on('end', () => {
+    if (url.pathname === '/api/orders/42') json(200, { data: { id: 42, status: 'PAID', items: [{ id: 'a1' }, { id: 'a2' }] } });
+    else if (url.pathname === '/api/html') { reply.writeHead(200, { 'content-type': 'text/html' }); reply.end('<p>not JSON</p>'); }
+    else if (url.pathname === '/api/fail') json(500, { error: 'boom' });
+    else json(404, { error: 'not found' });
+  });
+}
+
+/** Helpers for an apitest.html page, prepended to each evaluated script. */
+const API_PAGE_HELPERS = `
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
+  const type = (n, v) => { n.value = v; n.dispatchEvent(new Event('input', { bubbles: true })); };
+  const btn = (root, text) => [...root.querySelectorAll('button')].find((b) => b.textContent.trim().startsWith(text));
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const until = async (f, ms = 8000) => { const end = Date.now() + ms; while (Date.now() < end) { const v = f(); if (v) return v; await wait(50); } return null; };
+  const send = async () => { $('.ac-send').click(); await wait(50); return until(() => !$('.ac-send').disabled && $('.ac-verdict')); };
+  const verdict = () => $('.ac-verdict')?.textContent || '';
+  const tab = (name) => btn($('.ac-tabs'), name).click();
+  const marks = () => $$('.ac-check .ac-mark').map((m) => m.textContent).join('');
+`;
+
+async function checkApiTests(ctx) {
+  const page = await ctx.browser.openPage(ctx.extUrl('apitest.html'), { width: 1400, height: 900 });
+  const ev = (js) => page.evaluate(`(async () => { ${API_PAGE_HELPERS} ${js} })()`, 20_000);
+  try {
+    await sleep(PAGE_SETTLE_MS);
+    await ev(`btn($('#listHead'), '＋ Request').click(); await wait(50);
+      type($('.ac-url'), ${JSON.stringify(`${ctx.base}/api/orders/42`)}); await send();`);
+    check((await ev('return verdict();')).startsWith('✓ Passed'), 'a 200 with no checks passes on the default 2xx', await ev('return verdict();'));
+    check((await ev(`return $$('.ac-jkey').map((k) => k.textContent).join(',');`)) === '"data","id","status","items","id","id"', 'the JSON keys are buttons');
+
+    // A key clicked in the response becomes a check.
+    await ev(`$$('.ac-jkey')[2].click(); await wait(30); btn($('.ac-keymenu'), 'Check equals').click(); await wait(30); tab('Checks');`);
+    const row = await ev(`return { on: $('.ac-check:not(.ac-check-default) select').value, path: $('.ac-check-path').value, value: $('.ac-check-value').value, count: $('.ac-tabs [data-k="checks"] .rtab-n').textContent };`);
+    check(row.on === 'json' && row.path === 'data.status' && row.value === 'PAID' && row.count === '1', 'clicking "status" adds the check data.status = PAID', row);
+    await ev('await send();');
+    check((await ev('return verdict();')).startsWith('✓ Passed') && (await ev('return marks();')) === '✓✓', 'Send: both checks hold, each row marked ✓', await ev('return marks();'));
+
+    // Expect something else: ✗ Failed, with what came back.
+    await ev(`type($('.ac-check-value'), 'PENDING'); await wait(20);`);
+    check((await ev('return marks();')) === '✓', 'an edited check loses its mark', await ev('return marks();'));
+    await ev('await send();');
+    const failed = await ev(`return { v: verdict(), marks: marks(), note: $$('.ac-check-note').map((n) => n.textContent).join('|') };`);
+    check(failed.v.startsWith('✗ Failed') && failed.v.includes('Expected data.status = "PENDING", got "PAID"') && failed.marks === '✓✗',
+      'a false check: ✗ Failed, the row says what came back', failed);
+
+    // A JSON check on an HTML page cannot run: the test is broken, not the app.
+    await ev(`type($('.ac-url'), ${JSON.stringify(`${ctx.base}/api/html`)}); await send();`);
+    check((await ev('return verdict();')).includes('The response is not JSON'), 'a JSON check on HTML: ⚠ Test broken', await ev('return verdict();'));
+    check((await ev('return verdict();')).startsWith('⚠'), 'it is marked ⚠', await ev('return verdict();'));
+
+    // A second check, dragged above the first.
+    await ev(`btn($('.ac-pane-foot'), '＋ Add check').click(); await wait(20);
+      const sel = $$('.ac-check:not(.ac-check-default) .ac-check-line > select')[2];
+      sel.value = 'body'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(20);
+      type($$('.ac-check-value')[1], 'not JSON');
+      const dt = new DataTransfer();
+      $$('.ac-handle')[1].dispatchEvent(new DragEvent('dragstart', { dataTransfer: dt, bubbles: true }));
+      const first = $$('.ac-check:not(.ac-check-default)')[0];
+      first.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }));
+      first.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+      await wait(30);`);
+    check((await ev(`return $$('.ac-check:not(.ac-check-default) .ac-check-line > select:first-of-type').map((s) => s.value).join(',');`)) === 'body,json',
+      'dragging a check above another reorders them');
+
+    // Kept across a reload.
+    await sleep(800);
+    await page.reload();
+    await sleep(PAGE_SETTLE_MS);
+    const kept = await ev(`$$('.ac-row')[0].click(); await wait(50); tab('Checks'); return $$('.ac-check:not(.ac-check-default)').map((r) => r.querySelector('select').value + ':' + (r.querySelector('.ac-check-value')?.value ?? '')).join(',');`);
+    check(kept === 'body:not JSON,json:PENDING', 'the checks are kept when the page is opened again', kept);
+    if (page.errors().length) fail(`apitest.html errors: ${page.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('apiCasesState')`);
+    await page.close();
+  }
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -3835,6 +3919,7 @@ const CHECKS = [
   ['csv-zip-advanced', 'The ZIP\'s Advanced section in the CSV card', checkCsvZipAdvanced],
   ['csv-zip-suggest', 'Variable suggestions in the ZIP Folder name', checkCsvZipSuggest],
   ['csv-zip-run', 'A CSV run downloaded as a ZIP with named folders', checkCsvZipRun],
+  ['api-tests', 'API Tests: Send, checks from a clicked key, verdicts', checkApiTests],
 ];
 
 async function main() {
@@ -3845,6 +3930,7 @@ async function main() {
   const server = await new Promise((res) => {
     const s = createServer((req, reply) => {
       if (req.method === 'POST' && req.url === '/state') { saveExportState(req, reply); return; }
+      if (req.url.startsWith('/api/')) { apiRoute(req, reply); return; }
       reply.setHeader('content-type', 'text/html; charset=utf-8');
       // /redirect?to=<url>: a page that sends the browser on, as a login page does.
       if (req.url.startsWith('/redirect')) {

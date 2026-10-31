@@ -1,7 +1,8 @@
 /**
  * ui/editor.js — the right column: the open case's name, folder, request
- * (method, URL, headers, body, settings), Send, and the response under it
- * (ui/response.js).
+ * (method, URL, headers, body), its checks (ui/checks.js), settings, Send, and
+ * the result under it (ui/response.js). Clicking a key of a JSON response
+ * offers a check on it.
  *
  * Built once per opened case. Typing changes the state without rebuilding the
  * editor, which would take the caret away; only the list is redrawn, since its
@@ -10,11 +11,13 @@
 
 import { toCurl } from '../curl.js';
 import { BODY_TYPES, MAX_TIMEOUT_MS, METHODS, duplicateCase, findCase, jsonProblem, updateCase, urlProblem } from '../model.js';
+import { checksPane } from './checks.js';
 import { el, h, toast } from './dom.js';
+import { showMenu } from './json-view.js';
 import { removeCases } from './list.js';
 import { loadVars, responseBox, sendButton, sendCase } from './response.js';
 
-const TABS = [['headers', 'Headers'], ['body', 'Body'], ['settings', 'Settings']];
+const TABS = [['headers', 'Headers'], ['body', 'Body'], ['checks', 'Checks'], ['settings', 'Settings']];
 const BODY_LABELS = { none: 'None', json: 'JSON', text: 'Text', form: 'Form' };
 const BODY_HINTS = {
   json: '{\n  "name": "${name}",\n  "age": 30\n}',
@@ -139,9 +142,13 @@ function settingsPane(ed) {
         'The request goes out with the cookies your browser has for that site, so it is signed in as you are. A response that sets or clears cookies changes them in the browser too (a logout endpoint signs you out).'))));
 }
 
-/** The tab strip over `panes` ({ key: pane }); the last tab chosen stays chosen. */
+/**
+ * The tab strip over `panes` ({ key: pane }); the last tab chosen stays chosen.
+ * `setCount(key, n)` puts a count after a tab's name: "Checks (2)".
+ */
 function tabStrip(panes) {
   const show = () => { for (const [k, p] of Object.entries(panes)) p.hidden = k !== tab; };
+  const counts = {};
   const strip = h('div', { class: 'ac-tabs', role: 'tablist' }, ...TABS.map(([k, label]) => h('button', {
     type: 'button', role: 'tab', class: `rtab${k === tab ? ' active' : ''}`, dataset: { k },
     onclick: () => {
@@ -149,9 +156,21 @@ function tabStrip(panes) {
       strip.querySelectorAll('.rtab').forEach((b) => b.classList.toggle('active', b.dataset.k === k));
       show();
     },
-  }, label)));
+  }, label, counts[k] = h('span', { class: 'rtab-n', hidden: true }))));
   show();
-  return strip;
+  const setCount = (k, n) => {
+    counts[k].textContent = n;
+    counts[k].hidden = !n;
+  };
+  return { strip, setCount };
+}
+
+/** The menu a key of the JSON response opens. */
+function keyMenu(checks) {
+  return (segs, value, button) => showMenu(button, [{
+    label: value !== null && typeof value === 'object' ? 'Check that this exists' : 'Check equals this value',
+    run: () => checks.addFromResponse(segs, value),
+  }]);
 }
 
 export function renderEditor(app, { focus = null } = {}) {
@@ -170,12 +189,18 @@ export function renderEditor(app, { focus = null } = {}) {
   const { head, name } = headPart(ed);
   const body = bodyPane(ed);
   const request = requestPart(ed, body.refresh);
-  const panes = { headers: headersPane(ed), body: body.pane, settings: settingsPane(ed) };
+  const panes = { headers: headersPane(ed), body: body.pane, checks: null, settings: settingsPane(ed) };
+  let tabs = null;
+  const checks = checksPane(ed, { onCount: (n) => tabs?.setCount('checks', n) });
+  panes.checks = checks.pane;
+  tabs = tabStrip(panes);
+  tabs.setCount('checks', (c.checks || []).length);
 
   el.inspInner.replaceChildren(head, h('div', {
     class: 'insp-body ac-insp-body',
     onkeydown: (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendCase(app, id); } },
-  }, request.line, request.urlError, tabStrip(panes), panes.headers, panes.body, panes.settings, responseBox(id)));
+  }, request.line, request.urlError, tabs.strip, panes.headers, panes.body, panes.checks, panes.settings,
+  responseBox(id, { onResult: checks.showResults, onKey: keyMenu(checks) })));
   if (focus === 'url') request.url.focus();
   else if (focus === 'name') name.select();
 }
