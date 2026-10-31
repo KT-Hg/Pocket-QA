@@ -167,6 +167,45 @@ textarea.ac-code {
 .ac-unit { color: var(--muted); font-size: 12px; }
 .ac-block { display: block; }
 
+/* ===== Response ===== */
+.ac-send { flex: 0 0 auto; min-width: 76px; justify-content: center; }
+.ac-response { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.ac-resp-label { margin-bottom: 8px; }
+.ac-resp-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ac-status { font-weight: 700; border-radius: 5px; padding: 2px 8px; background: var(--sunken); color: var(--text); }
+.ac-s2xx { background: var(--success-soft); color: var(--success); }
+.ac-s3xx { background: var(--primary-soft); color: var(--primary); }
+.ac-s4xx { background: var(--warning-soft); color: var(--warning-text); }
+.ac-s5xx { background: var(--danger-soft); color: var(--danger); }
+.ac-sent { margin-top: 6px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; }
+.ac-resp-tabs { margin-top: 10px; }
+.ac-resp-error {
+  padding: 9px 11px;
+  border-radius: var(--r-sm);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+pre.ac-pre {
+  margin: 0;
+  max-height: 52vh;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ac-headers { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ac-headers th, .ac-headers td { text-align: left; vertical-align: top; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--border-soft); }
+.ac-headers th { font-weight: 600; color: var(--muted); white-space: nowrap; width: 1%; }
+.ac-headers td { font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+
 /* ===== Confirm dialog ===== */
 .ac-ask { max-width: 440px; }
 .ac-ask .modal-body { white-space: pre-line; }

@@ -1,6 +1,7 @@
 /**
  * ui/editor.js — the right column: the open case's name, folder, request
- * (method, URL, headers, body, settings).
+ * (method, URL, headers, body, settings), Send, and the response under it
+ * (ui/response.js).
  *
  * Built once per opened case. Typing changes the state without rebuilding the
  * editor, which would take the caret away; only the list is redrawn, since its
@@ -10,6 +11,7 @@
 import { BODY_TYPES, MAX_TIMEOUT_MS, METHODS, duplicateCase, findCase, jsonProblem, updateCase, urlProblem } from '../model.js';
 import { el, h } from './dom.js';
 import { removeCases } from './list.js';
+import { responseBox, sendButton, sendCase } from './response.js';
 
 const TABS = [['headers', 'Headers'], ['body', 'Body'], ['settings', 'Settings']];
 const BODY_LABELS = { none: 'None', json: 'JSON', text: 'Text', form: 'Form' };
@@ -67,7 +69,7 @@ export function renderEditor(app, { focus = null } = {}) {
     'aria-label': 'URL', spellcheck: false,
     oninput: () => { patch({ url: url.value }); showError(urlError, urlProblem(url.value)); } });
   if (c.url) showError(urlError, urlProblem(c.url));
-  const requestLine = h('div', { class: 'ac-request-line' }, method, url);
+  const requestLine = h('div', { class: 'ac-request-line' }, method, url, sendButton(app, id));
 
   // ---- Headers
   const headers = h('textarea', { class: 'ac-code', rows: 7, spellcheck: false, value: c.headers, 'aria-label': 'Headers',
@@ -136,8 +138,10 @@ export function renderEditor(app, { focus = null } = {}) {
   }, label)));
   for (const [pk, p] of Object.entries(panes)) p.hidden = pk !== tab;
 
-  el.inspInner.replaceChildren(head, h('div', { class: 'insp-body ac-insp-body' },
-    requestLine, urlError, tabs, headersPane, bodyPane, settingsPane));
+  el.inspInner.replaceChildren(head, h('div', {
+    class: 'insp-body ac-insp-body',
+    onkeydown: (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendCase(app, id); } },
+  }, requestLine, urlError, tabs, headersPane, bodyPane, settingsPane, responseBox(id)));
   if (focus === 'url') url.focus();
   else if (focus === 'name') name.select();
 }
