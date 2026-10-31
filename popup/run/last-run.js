@@ -18,9 +18,6 @@ import { showToast } from '../utils.js';
 
 // The endedAt of the run whose card × hid: the card comes back with the next run.
 const DISMISSED_KEY = 'lastRunDismissed';
-// How long a failure waits for its scenario's actions to be listed.
-const ROW_WAIT_MS = 3_000;
-const ROW_POLL_MS = 50;
 
 const _relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
@@ -33,19 +30,12 @@ function _ago(endedAt) {
   return hours < 24 ? _relative.format(-hours, 'hour') : _relative.format(-Math.round(hours / 24), 'day');
 }
 
-/** Mark the action at `index` once the list shows it (previewActions answers later). */
+/** Mark the action at `index` in the list just drawn. */
 function _markRow(index) {
-  const deadline = Date.now() + ROW_WAIT_MS;
-  const find = () => {
-    const li = document.querySelector(`#actions li.action[data-index="${index}"]`);
-    if (!li) {
-      if (Date.now() < deadline) setTimeout(find, ROW_POLL_MS);
-      return;
-    }
-    li.classList.add('lr-target');
-    li.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  };
-  find();
+  const li = document.querySelector(`#actions li.action[data-index="${index}"]`);
+  if (!li) return;
+  li.classList.add('lr-target');
+  li.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
 /** The failed action in the list: its scenario selected, its row marked. */
@@ -57,8 +47,9 @@ function _showAction(scenarioId, index) {
   }
   scenarioList.value = scenarioId;
   scenarioList.dispatchEvent(new Event('change', { bubbles: true }));
-  previewActions();
-  _markRow(index);
+  // Once the scenario's own rows are in: the list shown until then (another
+  // scenario's) may have a row of that number too.
+  previewActions(() => _markRow(index));
 }
 
 function _failureButton(run, f) {

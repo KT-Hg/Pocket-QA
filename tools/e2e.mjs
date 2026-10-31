@@ -23,6 +23,9 @@
  *                 name a scenario already writes is refused, nothing written. An
  *                 action half-typed in the form follows too, draft included, and
  *                 adding it brings the old name back nowhere
+ *   preview-no-flash  Disable / Enable on an action greys it out (or back) and the
+ *                 list is never left empty or on "Loading…" in between, which made
+ *                 the popup shrink and grow again
  *   switch-draft  the popup reopened on a Switch draft lists the scenarios in the
  *                 case editor; a scenario picked there survives a reload of the list
  *   background-tab  a run keeps going once its tab is sent to the background, and
@@ -651,6 +654,37 @@ async function checkVarRename(ctx) {
   const page = await play(ctx, played);
   check(page.out === 'hello' && page.big === 'hello and more', 'played, the scenario types the value of plain', page);
   await reloadTestPage(ctx);
+}
+
+async function checkPreviewNoFlash(ctx) {
+  const id = await makeScenario(ctx, 'e2e no flash', [
+    { type: 'click', selector: '#a1' }, { type: 'click', selector: '#a2' }, { type: 'click', selector: '#a3' },
+  ]);
+  await ctx.ext.evaluate(`chrome.storage.local.set({ lastSelectedScenario: ${JSON.stringify(id)} })`);
+  const popup = await openPopup(ctx);
+  // The list as each task leaves it — what the popup can paint, and size itself to.
+  await popup.evaluate(`(() => {
+    const list = document.getElementById('actions');
+    window.__shown = [];
+    new MutationObserver(() => __shown.push(list.querySelectorAll('li.action').length + (list.querySelector('.action-loading') ? ' loading' : '')))
+      .observe(list, { childList: true });
+  })()`);
+  const rows = `[...document.querySelectorAll('#actions li.action')]`;
+  const toggle = async (verb) => {
+    await popup.evaluate(`__shown = []; document.querySelector('#actions button[aria-label^="${verb} action 2:"]').click()`);
+    await sleep(SETTLE_MS);
+    return popup.evaluate(`({ shown: __shown, disabled: ${rows}.map((li) => li.classList.contains('action-disabled')),
+      button: ${rows}[1].querySelector('.btn-row button').textContent })`);
+  };
+  const off = await toggle('Disable');
+  check(off.disabled.join() === 'false,true,false' && off.button === 'Enable', 'Disable greys out that action only, its button now Enable', off);
+  check(off.shown.length > 0 && off.shown.every((s) => s === '3'), 'the list never empties or shows Loading… on the way', off.shown);
+  const { scenarios } = await ctx.send({ type: 'GET_SCENARIOS' });
+  check(scenarios[id].actions.map((a) => !!a.disabled).join() === 'false,true,false', 'the scenario has it disabled', scenarios[id].actions);
+  const on = await toggle('Enable');
+  check(on.disabled.join() === 'false,false,false' && on.button === 'Disable' && on.shown.every((s) => s === '3'), 'Enable puts it back, again without a flash', on);
+  if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  await popup.close();
 }
 
 async function checkSwitchDraft(ctx) {
@@ -3782,6 +3816,7 @@ const CHECKS = [
   ['suggest', 'Variable suggestions in the popup', checkSuggest],
   ['var-name-guard', 'A variable name already taken, or one no ${…} can reach', checkVarNameGuard],
   ['var-rename', 'A variable renamed in the Data tab, and in the scenarios using it', checkVarRename],
+  ['preview-no-flash', 'Disable / Enable an action without the list flashing', checkPreviewNoFlash],
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
   ['edit-follows-list', 'An action open in the form while its list changes', checkEditFollowsList],
   ['numbers-by-position', 'Every action numbered by its position, in a Switch block too', checkNumbersByPosition],

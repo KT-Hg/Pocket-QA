@@ -667,14 +667,17 @@ function _renderActionRows(actions, scenarioId) {
   if (structOn) _applyCollapsed();
 }
 
-export function previewActions() {
+/** `onRendered`: run once this call's rows are in — not when a later call overtakes it. */
+export function previewActions(onRendered) {
   const scenarioId = scenarioList.value || null;
   const savedScroll = actionsEl.scrollTop;
   // Increment before the async call; if another call starts before this response
   // arrives, currentRequestId will be stale and we discard the late response.
   const currentRequestId = ++ui.previewRequestId;
 
-  actionsEl.innerHTML = '<li class="action-loading">Loading…</li>';
+  // The rows shown stay until the new ones are in: emptied to "Loading…" meanwhile, the
+  // list shrank the popup and grew it back on every Disable, Copy or Delete.
+  if (!actionsEl.querySelector("li.action")) actionsEl.innerHTML = '<li class="action-loading">Loading…</li>';
 
   chrome.runtime.sendMessage(
     { type: "GET_PREVIEW_ACTIONS", scenarioId },
@@ -688,6 +691,7 @@ export function previewActions() {
         actionsEl.innerHTML = `<li class="empty">No actions recorded — use the Add Manual Action card above to add one</li>`;
         if (actionCount) actionCount.style.display = "none";
         updateUndoRedoState();
+        onRendered?.();
         return;
       }
 
@@ -730,6 +734,7 @@ export function previewActions() {
 
       actionsEl.scrollTop = savedScroll;
       updateUndoRedoState();
+      onRendered?.();
     }
   );
 }
