@@ -1,0 +1,53 @@
+/**
+ * apicases.css — API Tests page, on top of css/sqlcases.css.
+ *
+ * The shell, the theme tokens, buttons, fields, menus, the modal and the toast
+ * all come from sqlcases.css; this file only has what the API page has and the
+ * SQL page does not, and the column widths it needs: a narrow folder rail and
+ * a wide right column, since that one holds the request editor.
+ */
+
+:root { --rail: 236px; --insp: 540px; }
+
+.ac-rail-head { justify-content: space-between; padding: 10px 8px 6px 14px; }
+.ac-rail-head .pane-label { margin: 0; }
+
+.ac-main-head { padding: 12px 14px 8px; }
+.ac-title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ===== Confirm dialog ===== */
+.ac-ask { max-width: 440px; }
+.ac-ask .modal-body { white-space: pre-line; }
+.ac-ask-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.t-btn-primary.ac-danger { background: var(--danger); border-color: var(--danger); }
+.t-btn-primary.ac-danger:hover:not(:disabled) { background: var(--danger); filter: brightness(1.08); }
+
+/* ===== Toast with a button (Undo) ===== */
+.toast.ac-toast-action { display: flex; align-items: center; gap: 10px; }
+.ac-toast-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  padding: 0;
+}
+
+/* ===== Narrow screens =====
+ * sqlcases.css turns the side columns into overlays below 1240 / 900px; this
+ * page keeps the editor in view instead: narrower columns first, then the three
+ * stacked one under the other, with the page itself scrolling. */
+@media (max-width: 1500px) {
+  :root { --rail: 220px; --insp: 480px; }
+}
+@media (max-width: 1240px) {
+  :root { --rail: 200px; --insp: 420px; }
+  .app { grid-template-columns: var(--rail) minmax(0, 1fr) var(--insp); }
+  .insp { position: static; transform: none; width: auto; box-shadow: none; }
+}
+@media (max-width: 900px) {
+  body { height: auto; overflow: auto; }
+  .app { display: flex; flex-direction: column; }
+  .rail, .insp { position: static; transform: none; width: auto; box-shadow: none; border: 0; border-bottom: 1px solid var(--border); }
+  .main { overflow: visible; }
+}

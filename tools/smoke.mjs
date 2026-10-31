@@ -104,7 +104,7 @@ async function main() {
     const extUrl = (p) => `chrome-extension://${extId}/${p}`;
 
     console.log('Extension pages');
-    const pages = ['popup.html', 'sqlcases.html', 'dbtools.html', 'editor.html', 'capture-window.html'];
+    const pages = ['popup.html', 'sqlcases.html', 'apicases.html', 'dbtools.html', 'editor.html', 'capture-window.html'];
     let extPage = null;
     for (const p of pages) {
       const page = await context.newPage();
@@ -130,7 +130,7 @@ async function main() {
 
     console.log('Shared theme key');
     await extPage.evaluate(() => new Promise((res) => chrome.storage.local.set({ popupTheme: 'dark' }, res)));
-    for (const p of ['popup.html', 'sqlcases.html', 'dbtools.html', 'capture-window.html']) {
+    for (const p of ['popup.html', 'sqlcases.html', 'apicases.html', 'dbtools.html', 'capture-window.html']) {
       const page = await context.newPage();
       await page.goto(extUrl(p), { waitUntil: 'load' });
       await page.waitForTimeout(600);
@@ -206,7 +206,7 @@ async function screenshots(context, extUrl, webUrl) {
       await page.screenshot({ path: join(SHOTS, `popup-${tab}-${theme}.png`), fullPage: true, animations: 'disabled',
         mask: [page.locator('#updateInfoChecked')] });
     }
-    for (const p of ['sqlcases.html', 'dbtools.html', 'editor.html']) {
+    for (const p of ['sqlcases.html', 'apicases.html', 'dbtools.html', 'editor.html']) {
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.goto(extUrl(p), { waitUntil: 'load' });
       await page.waitForTimeout(800);

@@ -95,6 +95,7 @@ function initPageButton(buttonId, page) {
 
 function initFullPages() {
   initPageButton('openSqlCases', 'sqlcases.html');
+  initPageButton('openApiCases', 'apicases.html');
   initPageButton('openDbTools', 'dbtools.html');
   initDbGuardToggle();
   initDbStatus();

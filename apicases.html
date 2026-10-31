@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<!-- apicases.html — API Tests: keep API test cases in folders, send them, see the response.
+
+     The same three-column shell as sqlcases.html: folders on the left, the cases
+     of the chosen folder in the middle, the chosen case (its request and its
+     last response) on the right. The column contents change with every edit,
+     so apicases/ui.js builds them; only the shell is written out here. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>API Tests</title>
+  <link rel="stylesheet" href="css/sqlcases.css" />
+  <link rel="stylesheet" href="css/apicases.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <span class="topbar-title">🔌 API Tests</span>
+    <span class="topbar-sub">Keep API requests in folders, send them, check the response</span>
+    <div class="topbar-actions">
+      <button id="toggleTheme" class="t-btn t-btn-icon" title="Light / dark">🌙</button>
+    </div>
+  </header>
+
+  <div class="app" id="app">
+
+    <!-- ===== LEFT: folders ===== -->
+    <aside class="rail" id="rail">
+      <div class="rail-head ac-rail-head">
+        <span class="pane-label">Folders</span>
+        <button id="btnAddFolder" class="t-btn t-btn-sm t-btn-ghost" title="New folder">＋ Folder</button>
+      </div>
+      <div class="rail-body" id="folderList"></div>
+    </aside>
+
+    <!-- ===== CENTRE: the cases of the chosen folder ===== -->
+    <main class="main">
+      <div class="main-head ac-main-head" id="listHead"></div>
+      <div class="ac-list" id="caseList"></div>
+    </main>
+
+    <!-- ===== RIGHT: one case ===== -->
+    <aside class="insp" id="insp"><div id="inspInner"></div></aside>
+
+  </div>
+
+  <div class="modal-backdrop" id="askModal" hidden>
+    <div class="modal ac-ask" role="dialog" aria-modal="true" aria-labelledby="askText">
+      <div class="modal-body" id="askText"></div>
+      <div class="ac-ask-foot">
+        <button id="askCancel" class="t-btn">Cancel</button>
+        <button id="askOk" class="t-btn t-btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+
+  <script type="module" src="apicases/ui.js"></script>
+</body>
+</html>

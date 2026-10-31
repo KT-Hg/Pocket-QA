@@ -5,7 +5,7 @@
  *
  *   1. the service worker starts, has an onMessage listener, and answers
  *      GET_EXTENSION_STATUS / GET_SCENARIOS;
- *   2. popup / sqlcases / dbtools / editor / capture-window pages load without
+ *   2. popup / sqlcases / apicases / dbtools / editor / capture-window pages load without
  *      uncaught errors, console errors or failed requests, and follow the shared
  *      theme key;
  *   3. content.js answers PING on an http page;
@@ -102,7 +102,7 @@ async function main() {
 async function checkPages(browser, extUrl) {
   console.log('Extension pages');
   let extPage = null;
-  for (const p of ['popup.html', 'sqlcases.html', 'dbtools.html', 'editor.html', 'capture-window.html']) {
+  for (const p of ['popup.html', 'sqlcases.html', 'apicases.html', 'dbtools.html', 'editor.html', 'capture-window.html']) {
     const page = await browser.openPage(extUrl(p));
     await sleep(p === 'popup.html' ? POPUP_SETTLE_MS : PAGE_SETTLE_MS);
     // editor.html without a crop token and capture-window.html without a stream
@@ -133,7 +133,7 @@ async function checkRouter(extPage) {
 async function checkThemeKey(browser, extPage, extUrl) {
   console.log('Shared theme key');
   await extPage.evaluate(`chrome.storage.local.set({ popupTheme: 'dark' })`);
-  for (const p of ['popup.html', 'sqlcases.html', 'dbtools.html', 'capture-window.html']) {
+  for (const p of ['popup.html', 'sqlcases.html', 'apicases.html', 'dbtools.html', 'capture-window.html']) {
     const page = await browser.openPage(extUrl(p));
     await sleep(THEME_SETTLE_MS);
     const theme = await page.evaluate(`document.documentElement.getAttribute('data-theme')`);
@@ -281,7 +281,7 @@ async function screenshots(browser, popup, extUrl) {
       await sleep(TAB_SWITCH_MS);
       writeFileSync(join(SHOTS, `popup-${tab}-${theme}.png`), await popup.screenshot());
     }
-    for (const p of ['sqlcases.html', 'dbtools.html', 'editor.html']) {
+    for (const p of ['sqlcases.html', 'apicases.html', 'dbtools.html', 'editor.html']) {
       const page = await browser.openPage(extUrl(p), PAGE_VIEWPORT);
       await sleep(PAGE_SETTLE_MS);
       await page.evaluate(still);
