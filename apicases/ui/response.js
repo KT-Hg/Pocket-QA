@@ -10,10 +10,10 @@
  */
 
 import { verdictLabel } from '../../shared/verdict.js';
-import { findCase } from '../model.js';
+import { activeEnv, findCase, saveEnvValues } from '../model.js';
 import { runCase } from '../run.js';
 import { varsFor } from '../vars.js';
-import { h } from './dom.js';
+import { h, toast } from './dom.js';
 import { MAX_NODES, jsonView } from './json-view.js';
 
 // A body longer than this is cut in the view; the response itself is kept whole.
@@ -31,7 +31,13 @@ export async function sendCase(app, id) {
   sending.add(id);
   draw(id);
   try {
-    results.set(id, await runCase(c, await varsFor(app.state)));
+    const result = await runCase(c, await varsFor(app.state));
+    results.set(id, result);
+    const names = Object.keys(result.saved);
+    if (names.length) {
+      app.set(saveEnvValues(app.state, result.saved), { render: 'none' });
+      toast(`Saved ${names.join(', ')} to "${activeEnv(app.state).name}"`, 'success');
+    }
   } finally {
     sending.delete(id);
     draw(id);

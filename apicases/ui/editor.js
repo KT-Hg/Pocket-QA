@@ -13,12 +13,13 @@ import { toCurl } from '../curl.js';
 import { BODY_TYPES, MAX_TIMEOUT_MS, METHODS, duplicateCase, findCase, jsonProblem, updateCase, urlProblem } from '../model.js';
 import { varsFor } from '../vars.js';
 import { checksPane } from './checks.js';
+import { extractsPane } from './extracts.js';
 import { el, h, toast } from './dom.js';
 import { showMenu } from './json-view.js';
 import { removeCases } from './list.js';
 import { responseBox, sendButton, sendCase } from './response.js';
 
-const TABS = [['headers', 'Headers'], ['body', 'Body'], ['checks', 'Checks'], ['settings', 'Settings']];
+const TABS = [['headers', 'Headers'], ['body', 'Body'], ['checks', 'Checks'], ['extracts', 'Save values'], ['settings', 'Settings']];
 const BODY_LABELS = { none: 'None', json: 'JSON', text: 'Text', form: 'Form' };
 const BODY_HINTS = {
   json: '{\n  "name": "${name}",\n  "age": 30\n}',
@@ -166,11 +167,14 @@ function tabStrip(panes) {
   return { strip, setCount };
 }
 
-/** The menu a key of the JSON response opens. */
-function keyMenu(checks) {
+/** The menu a key of the JSON response opens: a check on it, or save it into a variable. */
+function keyMenu(checks, extracts) {
   return (segs, value, button) => showMenu(button, [{
     label: value !== null && typeof value === 'object' ? 'Check that this exists' : 'Check equals this value',
     run: () => checks.addFromResponse(segs, value),
+  }, {
+    label: 'Save as variable…',
+    run: () => extracts.addFromResponse(segs, value),
   }]);
 }
 
@@ -190,18 +194,20 @@ export function renderEditor(app, { focus = null } = {}) {
   const { head, name } = headPart(ed);
   const body = bodyPane(ed);
   const request = requestPart(ed, body.refresh);
-  const panes = { headers: headersPane(ed), body: body.pane, checks: null, settings: settingsPane(ed) };
   let tabs = null;
   const checks = checksPane(ed, { onCount: (n) => tabs?.setCount('checks', n) });
-  panes.checks = checks.pane;
+  const extracts = extractsPane(ed, { onCount: (n) => tabs?.setCount('extracts', n) });
+  const panes = { headers: headersPane(ed), body: body.pane, checks: checks.pane, extracts: extracts.pane, settings: settingsPane(ed) };
   tabs = tabStrip(panes);
   tabs.setCount('checks', (c.checks || []).length);
+  tabs.setCount('extracts', (c.extracts || []).length);
+  const onResult = (r) => { checks.showResults(r); extracts.showResults(r); };
 
   el.inspInner.replaceChildren(head, h('div', {
     class: 'insp-body ac-insp-body',
     onkeydown: (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendCase(app, id); } },
-  }, request.line, request.urlError, tabs.strip, panes.headers, panes.body, panes.checks, panes.settings,
-  responseBox(id, { onResult: checks.showResults, onKey: keyMenu(checks) })));
+  }, request.line, request.urlError, tabs.strip, ...Object.values(panes),
+  responseBox(id, { onResult, onKey: keyMenu(checks, extracts) })));
   if (focus === 'url') request.url.focus();
   else if (focus === 'name') name.select();
 }

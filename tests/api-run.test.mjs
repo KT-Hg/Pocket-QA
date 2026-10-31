@@ -44,3 +44,16 @@ test('the case and variables reach send', async () => {
   assert.equal(seen[0], c);
   assert.deepEqual(seen[1], { base: 'https://a.test' });
 });
+
+test('values to save come back, and one not found makes the turn broken', async () => {
+  const c = { checks: [], extracts: [{ varName: 'token', from: 'json', path: 'access_token' }, { varName: 'uid', from: 'json', path: 'user.id' }] };
+  const good = await runCase(c, {}, ok({ access_token: 'tok-1', user: { id: 7 } }));
+  assert.deepEqual(good.saved, { token: 'tok-1', uid: '7' });
+  assert.equal(good.verdict, 'passed');
+  const half = await runCase(c, {}, ok({ access_token: 'tok-1' }));
+  assert.deepEqual(half.saved, { token: 'tok-1' }, 'what was found is still saved');
+  assert.equal(half.verdict, 'broken');
+  assert.deepEqual(half.failures, [{ kind: 'broken', reason: 'Could not save uid: user.id not found' }]);
+  const down = await runCase(c, {}, async () => ({ error: 'x', kind: 'network' }));
+  assert.deepEqual(down.saved, {}, 'no response: nothing saved');
+});

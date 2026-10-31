@@ -66,6 +66,41 @@ export function toast(message, type, { ms = 2600, action = null } = {}) {
   toastTimer = setTimeout(() => { el.toast.hidden = true; }, action ? Math.max(ms, 6000) : ms);
 }
 
+/**
+ * A dialog asking for one line of text: resolves to what was typed (trimmed),
+ * or null on Cancel, Escape or a click outside. `check(text)` returns what is
+ * wrong with it, or '' — OK stays until it is ''.
+ */
+export function promptText({ title, label, value = '', ok = 'OK', check = () => '' }) {
+  return new Promise((resolve) => {
+    const error = h('div', { class: 'ac-field-error', role: 'alert', hidden: true });
+    const input = h('input', { type: 'text', class: 'ac-prompt-input', value, spellcheck: false, 'aria-label': label });
+    const done = (answer) => { backdrop.remove(); document.removeEventListener('keydown', onKey, true); resolve(answer); };
+    const submit = () => {
+      const problem = check(input.value.trim());
+      if (problem) { error.textContent = problem; error.hidden = false; input.focus(); return; }
+      done(input.value.trim());
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); done(null); }
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    };
+    input.addEventListener('input', () => { error.hidden = true; });
+    const backdrop = h('div', { class: 'modal-backdrop', onclick: (e) => { if (e.target === backdrop) done(null); } },
+      h('div', { class: 'modal ac-ask', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+        h('div', { class: 'modal-head' }, h('h3', null, title)),
+        h('label', { class: 'ac-prompt-label' }, label, input),
+        error,
+        h('div', { class: 'ac-ask-foot' },
+          h('button', { type: 'button', class: 't-btn', onclick: () => done(null) }, 'Cancel'),
+          h('button', { type: 'button', class: 't-btn t-btn-primary', onclick: submit }, ok))));
+    document.body.append(backdrop);
+    document.addEventListener('keydown', onKey, true);
+    input.focus();
+    input.select();
+  });
+}
+
 /** The confirm dialog: resolves true on OK, false on Cancel, Escape or a click outside. */
 export function ask(message, { ok = 'OK', danger = false } = {}) {
   el.askText.replaceChildren(...[message].flat());
