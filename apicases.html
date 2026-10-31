@@ -37,6 +37,11 @@
     <!-- ===== CENTRE: the cases of the chosen folder ===== -->
     <main class="main">
       <div class="main-head ac-main-head" id="listHead"></div>
+      <div class="ac-toolbar" id="listBar" hidden>
+        <input type="search" id="listQuery" class="ac-search" placeholder="Filter by name or URL" aria-label="Filter by name or URL" />
+        <select id="listMethod" class="mini-select" aria-label="Method"><option value="">Any method</option></select>
+        <div class="ac-bulk" id="listBulk" hidden></div>
+      </div>
       <div class="ac-list" id="caseList"></div>
     </main>
 

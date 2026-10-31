@@ -1,0 +1,211 @@
+/**
+ * model.js — the API Tests page's data: folders, the cases in them, and which
+ * folder and case are open. Kept in chrome.storage.local under STATE_KEY.
+ *
+ * Every function takes a state and returns a new one; the state passed in is
+ * never changed, so the page can keep the previous one for Undo.
+ *
+ * The order of `cases` is the order the list shows: a folder's cases are the
+ * ones whose folderId is that folder, in array order.
+ *
+ * Pure — no chrome.*, no DOM.
+ */
+
+export const STATE_KEY = 'apiCasesState';
+
+/** The "All requests" entry of the folder list: not a folder, a view of every case. */
+export const ALL = '__all__';
+
+export const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
+export const BODY_TYPES = ['none', 'json', 'text', 'form'];
+export const DEFAULT_TIMEOUT_MS = 30_000;
+export const MAX_TIMEOUT_MS = 60_000;
+
+const DEFAULT_FOLDER_NAME = 'My API tests';
+
+export function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+export function emptyState() {
+  return { folders: [], cases: [], folderId: ALL, caseId: null };
+}
+
+/** A case with every field filled in; `fields` overrides the defaults. */
+export function makeCase(fields = {}) {
+  return {
+    id: newId(),
+    folderId: null,
+    name: 'New request',
+    method: 'GET',
+    url: '',
+    headers: '',
+    bodyType: 'none',
+    body: '',
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+    cookies: true,
+    ...fields,
+  };
+}
+
+const str = (v, d = '') => (typeof v === 'string' ? v : d);
+
+function normalizeCase(c, folderIds) {
+  if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !folderIds.has(c.folderId)) return null;
+  const timeout = Number(c.timeoutMs);
+  return {
+    ...c,
+    name: str(c.name, 'Request'),
+    method: METHODS.includes(c.method) ? c.method : 'GET',
+    url: str(c.url),
+    headers: str(c.headers),
+    bodyType: BODY_TYPES.includes(c.bodyType) ? c.bodyType : 'none',
+    body: str(c.body),
+    timeoutMs: Number.isFinite(timeout) && timeout > 0 ? Math.min(timeout, MAX_TIMEOUT_MS) : DEFAULT_TIMEOUT_MS,
+    cookies: c.cookies !== false,
+  };
+}
+
+/**
+ * What was saved, made safe to render: anything not shaped like a folder or a
+ * case is dropped (a case whose folder is gone included), and the open folder
+ * and case fall back when they no longer exist.
+ */
+export function normalizeState(raw) {
+  if (!raw || typeof raw !== 'object') return emptyState();
+  const folders = (Array.isArray(raw.folders) ? raw.folders : [])
+    .filter((f) => f && typeof f.id === 'string')
+    .map((f) => ({ id: f.id, name: str(f.name, 'Folder') }));
+  const folderIds = new Set(folders.map((f) => f.id));
+  const cases = (Array.isArray(raw.cases) ? raw.cases : []).map((c) => normalizeCase(c, folderIds)).filter(Boolean);
+  const folderId = folderIds.has(raw.folderId) ? raw.folderId : ALL;
+  const caseId = cases.some((c) => c.id === raw.caseId) ? raw.caseId : null;
+  return { folders, cases, folderId, caseId };
+}
+
+export const findCase = (state, id) => state.cases.find((c) => c.id === id) || null;
+export const findFolder = (state, id) => state.folders.find((f) => f.id === id) || null;
+
+/** The open folder and case changed, nothing else. */
+export function select(state, { folderId = state.folderId, caseId = state.caseId }) {
+  return { ...state, folderId, caseId };
+}
+
+export function addFolder(state, name) {
+  const folder = { id: newId(), name: name.trim() || 'Folder' };
+  return { state: { ...state, folders: [...state.folders, folder], folderId: folder.id, caseId: null }, id: folder.id };
+}
+
+export function renameFolder(state, id, name) {
+  const n = name.trim();
+  if (!n) return state;
+  return { ...state, folders: state.folders.map((f) => (f.id === id ? { ...f, name: n } : f)) };
+}
+
+/** The folder and every case in it. */
+export function deleteFolder(state, id) {
+  const cases = state.cases.filter((c) => c.folderId !== id);
+  return {
+    folders: state.folders.filter((f) => f.id !== id),
+    cases,
+    folderId: state.folderId === id ? ALL : state.folderId,
+    caseId: cases.some((c) => c.id === state.caseId) ? state.caseId : null,
+  };
+}
+
+/**
+ * Where a new case goes: the open folder, or under "All requests" the first
+ * folder — created, as DEFAULT_FOLDER_NAME, when there is none yet.
+ */
+function targetFolder(state) {
+  if (state.folderId !== ALL) return { state, folderId: state.folderId };
+  if (state.folders.length) return { state, folderId: state.folders[0].id };
+  const { state: next, id } = addFolder(state, DEFAULT_FOLDER_NAME);
+  return { state: { ...next, folderId: ALL }, folderId: id };
+}
+
+/** A new case in the open folder, opened. */
+export function addCase(state, fields = {}) {
+  const { state: s, folderId } = targetFolder(state);
+  const c = makeCase({ ...fields, folderId });
+  return { state: { ...s, cases: [...s.cases, c], caseId: c.id }, id: c.id };
+}
+
+export function updateCase(state, id, patch) {
+  return { ...state, cases: state.cases.map((c) => (c.id === id ? { ...c, ...patch, id } : c)) };
+}
+
+/** A copy right after the original, without its run result, opened. */
+export function duplicateCase(state, id) {
+  const i = state.cases.findIndex((c) => c.id === id);
+  if (i < 0) return { state, id: null };
+  const { last: _last, ...rest } = state.cases[i];
+  const copy = { ...structuredClone(rest), id: newId(), name: `${rest.name} (copy)` };
+  const cases = [...state.cases.slice(0, i + 1), copy, ...state.cases.slice(i + 1)];
+  return { state: { ...state, cases, caseId: copy.id }, id: copy.id };
+}
+
+export function deleteCases(state, ids) {
+  const gone = new Set(ids);
+  return {
+    ...state,
+    cases: state.cases.filter((c) => !gone.has(c.id)),
+    caseId: gone.has(state.caseId) ? null : state.caseId,
+  };
+}
+
+/** Into another folder, after the cases already there. */
+export function moveCases(state, ids, folderId) {
+  if (!findFolder(state, folderId)) return state;
+  const moving = new Set(ids);
+  const moved = state.cases.filter((c) => moving.has(c.id)).map((c) => ({ ...c, folderId }));
+  return { ...state, cases: [...state.cases.filter((c) => !moving.has(c.id)), ...moved] };
+}
+
+/** Case `id` moved to just before case `beforeId`, or to the end when beforeId is null. */
+export function reorderCase(state, id, beforeId) {
+  if (id === beforeId) return state;
+  const c = findCase(state, id);
+  if (!c) return state;
+  const rest = state.cases.filter((x) => x.id !== id);
+  const at = beforeId === null ? rest.length : rest.findIndex((x) => x.id === beforeId);
+  if (at < 0) return state;
+  return { ...state, cases: [...rest.slice(0, at), c, ...rest.slice(at)] };
+}
+
+/** The cases the middle column lists: the open folder's (or all), filtered by text and method. */
+export function visibleCases(state, { query = '', method = '' } = {}) {
+  const q = query.trim().toLowerCase();
+  return state.cases.filter((c) => (state.folderId === ALL || c.folderId === state.folderId)
+    && (!method || c.method === method)
+    && (!q || c.name.toLowerCase().includes(q) || c.url.toLowerCase().includes(q)));
+}
+
+/**
+ * What is wrong with a URL as typed, or ''. One that starts with a variable
+ * (`${baseUrl}/users`) is only known once the variable is filled in.
+ */
+export function urlProblem(url) {
+  const u = url.trim();
+  if (!u) return 'Enter a URL';
+  if (u.startsWith('${')) return '';
+  let parsed;
+  try { parsed = new URL(u.replace(/\$\{[^}]*\}/g, 'x')); } catch { return 'Not a valid URL — it starts with http:// or https://'; }
+  return /^https?:$/.test(parsed.protocol) ? '' : 'Only http:// and https:// URLs can be sent';
+}
+
+/**
+ * What is wrong with a JSON body as typed, or ''. A variable stands for a value
+ * (`"${name}"` or a bare `${n}`), so each one is read as 0 for the check.
+ */
+export function jsonProblem(body) {
+  if (!body.trim()) return '';
+  try { JSON.parse(body.replace(/\$\{[^}]*\}/g, '0')); return ''; } catch (e) { return `Not valid JSON: ${e.message}`; }
+}
+
+/** { folderId: number of cases }. */
+export function folderCounts(state) {
+  const counts = Object.fromEntries(state.folders.map((f) => [f.id, 0]));
+  for (const c of state.cases) counts[c.folderId] = (counts[c.folderId] || 0) + 1;
+  return counts;
+}

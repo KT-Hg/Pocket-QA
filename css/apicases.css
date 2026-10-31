@@ -15,6 +15,158 @@
 .ac-main-head { padding: 12px 14px 8px; }
 .ac-title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
 
+input[type="number"], textarea {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+}
+
+/* ===== Folders ===== */
+.ac-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 10px;
+  margin-bottom: 2px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  color: var(--muted);
+  min-height: 34px;
+}
+.ac-folder:hover { background: var(--sunken); color: var(--text); }
+.ac-folder.is-open { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.ac-folder.is-open .rtab-n { background: var(--card); color: var(--primary); }
+.ac-folder.ac-drop { outline: 2px dashed var(--primary); outline-offset: -2px; }
+.ac-folder-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-folder-input { flex: 1 1 auto; min-width: 0; }
+.ac-folder.is-renaming { cursor: default; padding-left: 4px; }
+.ac-row-actions { display: none; gap: 0; flex: 0 0 auto; }
+.ac-row-actions .t-btn { padding: 2px 5px; }
+.ac-folder:hover .ac-row-actions, .ac-folder:focus-within .ac-row-actions { display: inline-flex; }
+.ac-rail-hint { padding: 4px 10px; }
+
+/* ===== Case list ===== */
+.ac-head-title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.ac-head-title .ac-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-head-count { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.ac-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 14px 10px; }
+.ac-search { flex: 1 1 180px; min-width: 0; max-width: 360px; }
+.ac-bulk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 3px 4px 3px 10px;
+  border-radius: var(--r);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ac-list { padding: 0 14px 16px; }
+.ac-empty-actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+
+.ac-rows { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.ac-row {
+  display: grid;
+  grid-template-columns: auto 34px 62px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.ac-row:last-child { border-bottom: 0; }
+.ac-row:hover { background: var(--sunken); }
+.ac-row.is-picked { background: var(--inner-bg); }
+.ac-row.is-open { background: var(--primary-soft); border-left-color: var(--primary); }
+.ac-row.is-dragging { opacity: 0.4; }
+.ac-row.ac-drop-before { box-shadow: inset 0 2px 0 var(--primary); }
+.ac-row.ac-drop-after { box-shadow: inset 0 -2px 0 var(--primary); }
+.ac-row input[type="checkbox"] { margin: 0; accent-color: var(--primary); cursor: pointer; }
+.ac-num { font-family: ui-monospace, Consolas, monospace; font-size: 11px; color: var(--faint); }
+.ac-row-main { display: flex; flex-direction: column; min-width: 0; }
+.ac-row-name, .ac-row-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-row-name { font-weight: 600; }
+.ac-row-url { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--muted); }
+.ac-chip {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--sunken);
+  border-radius: 100px;
+  padding: 1px 8px;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ac-method {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+  border-radius: 5px;
+  padding: 2px 0;
+  background: var(--sunken);
+  color: var(--muted);
+}
+.ac-m-get { background: var(--success-soft); color: var(--success); }
+.ac-m-post { background: var(--primary-soft); color: var(--primary); }
+.ac-m-put { background: var(--warning-soft); color: var(--warning-text); }
+.ac-m-patch { background: var(--secondary-soft); color: var(--secondary); }
+.ac-m-delete { background: var(--danger-soft); color: var(--danger); }
+
+/* ===== Editor ===== */
+.ac-insp-head { display: flex; flex-direction: column; gap: 8px; }
+/* input.ac-name, not .ac-name: it has to outrank sqlcases.css's input[type="text"]. */
+input.ac-name {
+  width: 100%;
+  font-size: 15px;
+  font-weight: 650;
+  border-color: transparent;
+  background: transparent;
+  padding: 4px 6px;
+  margin-left: -6px;
+}
+input.ac-name:hover { border-color: var(--border); }
+input.ac-name:focus { border-color: color-mix(in srgb, var(--primary) 60%, var(--border)); background: var(--card); }
+.ac-insp-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ac-inline { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.ac-inline .mini-select { max-width: 200px; }
+.ac-spacer { flex: 1 1 auto; }
+.ac-insp-body { display: flex; flex-direction: column; }
+
+.ac-request-line { display: flex; gap: 6px; align-items: center; }
+.ac-method-select { flex: 0 0 96px; font-weight: 700; font-family: ui-monospace, Consolas, monospace; }
+input.ac-url { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, Consolas, monospace; }
+.ac-field-error { margin-top: 5px; font-size: 11.5px; color: var(--danger); line-height: 1.4; }
+
+.ac-tabs { display: flex; gap: 10px; border-bottom: 1px solid var(--border-soft); margin: 14px 0 10px; }
+.ac-pane-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+textarea.ac-code {
+  width: 100%;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--code-bg);
+  color: var(--code-text);
+  resize: vertical;
+  tab-size: 2;
+}
+.ac-setting { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 12.5px; }
+.ac-setting.check-row { align-items: flex-start; }
+.ac-num-input { width: 72px; }
+.ac-unit { color: var(--muted); font-size: 12px; }
+.ac-block { display: block; }
+
 /* ===== Confirm dialog ===== */
 .ac-ask { max-width: 440px; }
 .ac-ask .modal-body { white-space: pre-line; }
