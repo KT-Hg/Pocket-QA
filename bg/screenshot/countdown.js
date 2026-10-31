@@ -9,7 +9,7 @@ import { updateBadge } from '../badge.js';
 /* ── Pre-capture countdown ──────────────────────────────────────────
  * The countdown pill is drawn by content-overlays.js, on top of content.js, which manifest.json only injects
  * into http, https and file tabs. The popup used to message that script itself,
- * so on any other tab — this extension's own pages (sqlcases.html, editor.html),
+ * so on any other tab — this extension's own pages (sqltest.html, editor.html),
  * chrome://, the Web Store — the message had no receiving end and the capture
  * never happened: with the countdown off the same button worked, with it on
  * nothing at all occurred.

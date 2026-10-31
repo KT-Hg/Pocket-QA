@@ -293,7 +293,7 @@ async function setUp(browser, base) {
   if (!sw) throw new Error('service worker did not start');
   const extUrl = (p) => `chrome-extension://${sw.extId}/${p}`;
   // Messages to the worker go from an extension page; any will do.
-  const ext = await browser.openPage(extUrl('dbtools.html'));
+  const ext = await browser.openPage(extUrl('dbtest.html'));
   const send = (msg) => ext.evaluate(`new Promise((res) => chrome.runtime.sendMessage(${JSON.stringify(msg)}, (r) => res(r ?? null)))`);
   const web = await browser.openPage(`${base}/page`, { width: 1000, height: 700 });
   await sleep(PAGE_SETTLE_MS);

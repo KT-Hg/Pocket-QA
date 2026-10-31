@@ -116,7 +116,7 @@ for (const file of jsFiles.filter((f) => !/^(tools|tests)\//.test(f))) {
   for (const s of strings) {
     if (!s.template && PAGE_LITERAL.test(s.v) && !fileSet.has(s.v)) {
       // Only extension pages are checked; generated code may name arbitrary .html files.
-      if (['popup', 'sqlcases', 'apicases', 'dbtools', 'editor', 'capture-window'].some((p) => s.v === `${p}.html`)) {
+      if (['popup', 'sqltest', 'apitest', 'dbtest', 'editor', 'capture-window'].some((p) => s.v === `${p}.html`)) {
         report(file, s.line, `page '${s.v}' not found`);
       }
     }

@@ -71,8 +71,8 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - **Export Code** — turn any saved scenario into a JS Bookmarklet, a Selenium Python script or pytest test, a Playwright Test spec, a Robot Framework test or a Selenium Java TestNG class
 - Scheduled playback at a set time — one-off, or **Repeat daily**
 - CSV data-driven runs (one scenario execution per CSV row)
-- **SQL Test Case Designer** — opens `sqlcases.html` in its own tab (see below)
-- **DB Test Session** — opens `dbtools.html`: the changes recorded in Adminer and the SQL to undo them
+- **SQL Test Case Designer** — opens `sqltest.html` in its own tab (see below)
+- **DB Test Session** — opens `dbtest.html`: the changes recorded in Adminer and the SQL to undo them
 
 ### Capture
 - Screenshot: Visible, Full Page, Scroll V/H, Segment V/H, Element, Window
@@ -514,7 +514,7 @@ The limits that remain are listed in [docs/known-issues.md](docs/known-issues.md
 
 ## SQL Test Case Designer
 
-Opened from **Data → Analyze a SQL query**, this is a standalone page (`sqlcases.html`) that parses a SQL
+Opened from **Data → Analyze a SQL query**, this is a standalone page (`sqltest.html`) that parses a SQL
 statement and derives a numbered test case list from it. Nothing is sent anywhere — tokenising, parsing and
 generation all run locally in the page.
 
@@ -925,7 +925,7 @@ and Condition range math (`switch-blocks`), the update-lock deadline (`update-lo
 through covers (`click-through`), and `CSS.escape` for the service worker, which has no `CSS` global
 (`css-escape`).
 
-`sqlcases.html` + `sqlcases/*.js` sit outside that pipeline: the SQL Test Case Designer is a self-contained
+`sqltest.html` + `sqlcases/*.js` sit outside that pipeline: the SQL Test Case Designer is a self-contained
 page that never messages the service worker or touches a tab. It is opened from the Data tab and uses
 `chrome.storage.local` only to remember the last query, the technique toggles and the shared theme.
 
@@ -939,7 +939,7 @@ dbtools/content-main.js    boots the panel; capture-*.js, rollback-commands.js, 
 dbtools/adapters/adminer.js  every assumption about Adminer's HTML, in one file
 dbtools/{params,sqlquote,undo,sqlcapture}.js   pure logic, shared with the Node selftest
 dbtools/{session,executor,rollback,panel,i18n}.js
-dbtools.html + dbtools/manager.js              the review-and-roll-back page (parts in dbtools/manager/)
+dbtest.html + dbtools/manager.js               the review-and-roll-back page (parts in dbtools/manager/)
 ```
 
 The service worker's only involvement is opening that page. Rollback is driven from the Adminer tab, because a
@@ -1087,7 +1087,7 @@ the timer**, and only delegates the display:
   the count ends — cancellable with the pill's ✕ or **Esc**. The request is pinned
   to `frameId: 0`, so a page full of iframes gets one countdown and one shot, not
   one per frame. The screenshot hotkey's countdown goes the same way.
-- **On every other tab** — this extension's own pages (`sqlcases.html`,
+- **On every other tab** — this extension's own pages (`sqltest.html`,
   `editor.html`), `chrome://`, the Web Store — there is no content script to ask,
   because `content_scripts.matches` does not cover those schemes. The count then
   runs on the **toolbar badge** and the worker takes the shot itself, reporting the

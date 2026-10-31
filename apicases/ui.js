@@ -1,5 +1,5 @@
 /**
- * ui.js — page wiring for API Tests (apicases.html).
+ * ui.js — page wiring for API Tests (apitest.html).
  *
  * Folders on the left (ui/folders.js), the cases of the open folder in the
  * middle (ui/list.js), the open case on the right (ui/editor.js). All three

@@ -78,7 +78,7 @@ function initPageButton(buttonId, page) {
   const url = chrome.runtime.getURL(page);
   btn.addEventListener('click', () => {
     // Matched without the query or hash: a page opened on one session
-    // (`dbtools.html?session=…`) is still the page, and a second copy of it is
+    // (`dbtest.html?session=…`) is still the page, and a second copy of it is
     // not what the button is for.
     chrome.tabs.query({}, (tabs) => {
       const existing = (tabs || []).find((t) => t.url && t.url.split(/[?#]/)[0] === url);
@@ -94,9 +94,9 @@ function initPageButton(buttonId, page) {
 }
 
 function initFullPages() {
-  initPageButton('openSqlCases', 'sqlcases.html');
-  initPageButton('openApiCases', 'apicases.html');
-  initPageButton('openDbTools', 'dbtools.html');
+  initPageButton('openSqlCases', 'sqltest.html');
+  initPageButton('openApiCases', 'apitest.html');
+  initPageButton('openDbTools', 'dbtest.html');
   initDbGuardToggle();
   initDbStatus();
 }
@@ -220,7 +220,7 @@ function initDbGuardToggle() {
       const guard = settings.guard || {};
       if (box.checked && !guard.key) {
         box.checked = false;
-        chrome.tabs.create({ url: chrome.runtime.getURL('dbtools.html?settings=1') });
+        chrome.tabs.create({ url: chrome.runtime.getURL('dbtest.html?settings=1') });
         window.close();
         return;
       }

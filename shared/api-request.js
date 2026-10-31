@@ -2,7 +2,7 @@
  * api-request.js — one API request: ${variables} filled in, headers read from
  * their "Name: value" lines, sent with a timeout, the response read back.
  *
- * Used by the API Tests page (apicases.html) and meant for the service worker
+ * Used by the API Tests page (apitest.html) and meant for the service worker
  * too (plan 14), so it uses fetch and nothing of chrome.*. From an extension
  * page or worker with host permission, fetch is not held to CORS and sends the
  * site's cookies with `credentials: 'include'` (checked in Edge 156, plan 13

@@ -300,7 +300,7 @@ try {
   const worker = ctx.serviceWorkers()[0] || await ctx.waitForEvent('serviceworker', { timeout: 10000 });
   const extId = new URL(worker.url()).host;
   const mgr = await ctx.newPage();
-  await mgr.goto(`chrome-extension://${extId}/dbtools.html`);
+  await mgr.goto(`chrome-extension://${extId}/dbtest.html`);
   await mgr.waitForSelector('.sess', { timeout: 8000 });
   check('the manager lists the sessions', (await mgr.locator('.sess').count()) >= 1);
   await mgr.locator('.sess').first().click();

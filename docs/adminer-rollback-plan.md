@@ -3,7 +3,7 @@
 Tài liệu thiết kế cho nhóm chức năng hỗ trợ người dùng khi thao tác dữ liệu qua **Adminer**, tập trung
 vào bài toán: *sửa dữ liệu bảng master để test, xong rollback nhanh về nguyên trạng.*
 
-Trạng thái: **Giai đoạn 1–5 đã hiện thực** (xem §8). Code nằm ở `dbtools/`, trang quản lý là `dbtools.html`.
+Trạng thái: **Giai đoạn 1–5 đã hiện thực** (xem §8). Code nằm ở `dbtools/`, trang quản lý là `dbtest.html`.
 Kiểm thử: `node dbtools/selftest.mjs` và `dbtools/e2e/` (chạy trên Adminer thật).
 
 ---
@@ -269,7 +269,7 @@ dbtools/
   sqlquote.js          # quote định danh & literal theo engine (MySQL / PostgreSQL)
   panel.js             # thanh nổi (Shadow DOM)
   selftest.mjs         # regression guard, không framework — theo mẫu sqlcases/
-dbtools.html / dbtools.js   # trang quản lý changeset (mở riêng như sqlcases.html)
+dbtest.html / dbtools.js   # trang quản lý changeset (mở riêng như sqltest.html)
 css/dbtools.css
 ```
 

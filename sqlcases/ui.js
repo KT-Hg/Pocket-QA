@@ -7,7 +7,7 @@
  * tab lands where the user left off.
  *
  * The page is three columns: a rail of inputs, a list of cases, and an
- * inspector holding one case. All three are written out in sqlcases.html and
+ * inspector holding one case. All three are written out in sqltest.html and
  * only toggled here — the query textarea has a caret and an undo stack, and
  * rebuilding it on a tab switch would throw both away. What this file builds
  * from scratch is what changes with every run: the case cards, the inspector,

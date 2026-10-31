@@ -12,7 +12,7 @@
 // lands, after the page has been moved on to another one by hand.
 export function openDbtoolsManager(request, _sender, sendResponse) {
   if (request?.type !== "dbtools-open-manager") return;
-  const base = chrome.runtime.getURL("dbtools.html");
+  const base = chrome.runtime.getURL("dbtest.html");
   const target = [
     request.sessionId ? `session=${encodeURIComponent(request.sessionId)}` : "",
     request.changeId ? `change=${encodeURIComponent(request.changeId)}` : "",

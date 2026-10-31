@@ -5,7 +5,7 @@
  * storage key still means the same thing on all three surfaces; a user who set
  * the extension to dark does not get one page in light.
  *
- * Fixed shell, same as sqlcases.html: the two column bodies scroll, the page
+ * Fixed shell, same as sqltest.html: the two column bodies scroll, the page
  * does not. A session with two hundred changes must not push the buttons that
  * act on it off the bottom of the window.
  */
@@ -51,7 +51,7 @@ html, body {
 
 body { display: flex; flex-direction: column; }
 
-/* The same bar sqlcases.html draws, for the same reason: this page is two
+/* The same bar sqltest.html draws, for the same reason: this page is two
    scrolling columns, and the platform default is a wide light-grey slab that
    takes the eye before the content does. `scrollbar-width`/`scrollbar-color` are
    deliberately left unset — Chrome ignores these pseudo-elements once either of

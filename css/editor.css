@@ -31,7 +31,7 @@
      picker swatch, number spinner, select arrow…) in dark chrome instead of
      the OS light default. Without this every native control on this page
      renders as a light box glued onto the dark theme — popup.html and
-     sqlcases.html already set this per theme; the editor never did. */
+     sqltest.html already set this per theme; the editor never did. */
   color-scheme: dark;
 }
 
