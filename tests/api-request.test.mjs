@@ -13,7 +13,7 @@ test('parseHeaders: Name: value lines, # lines and blanks left out', () => {
   assert.deepEqual(parseHeaders('Accept: application/json\n\n# X-Off: 1\n  Authorization:  Bearer a:b  ').headers,
     [['Accept', 'application/json'], ['Authorization', 'Bearer a:b']]);
   assert.match(parseHeaders('Accept application/json').error, /^Header line 1 is not "Name: value"/);
-  assert.match(parseHeaders('A: 1\n: nameless').error, /^Header line 2/);
+  assert.equal(parseHeaders('A: 1\n: nameless').error, 'A header has a value but no name (line 2: : nameless)');
 });
 
 test('maskHeaders: secret values hidden, the rest kept', () => {

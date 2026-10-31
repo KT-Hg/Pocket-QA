@@ -42,7 +42,8 @@ export function h(tag, props, ...children) {
     if (k === 'class') n.className = v;
     else if (k === 'dataset') Object.assign(n.dataset, v);
     else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
-    else if (k in n) n[k] = v;
+    // `list` (an input's datalist) is read-only as a property: it is set as an attribute.
+    else if (k in n && k !== 'list') n[k] = v;
     else n.setAttribute(k, v === true ? '' : v);
   }
   for (const c of children.flat()) {

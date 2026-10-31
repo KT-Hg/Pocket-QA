@@ -14,6 +14,7 @@ import { BODY_TYPES, MAX_TIMEOUT_MS, METHODS, duplicateCase, findCase, jsonProbl
 import { varsFor } from '../vars.js';
 import { checksPane } from './checks.js';
 import { extractsPane } from './extracts.js';
+import { headersPane } from './headers.js';
 import { el, h, toast } from './dom.js';
 import { showMenu } from './json-view.js';
 import { removeCases } from './list.js';
@@ -86,14 +87,6 @@ function requestPart(ed, onMethod) {
   return { line: h('div', { class: 'ac-request-line' }, method, url, sendButton(ed.app, ed.id)), urlError, url };
 }
 
-function headersPane(ed) {
-  const headers = h('textarea', { class: 'ac-code', rows: 7, spellcheck: false, value: ed.c.headers, 'aria-label': 'Headers',
-    placeholder: 'Content-Type: application/json\nAuthorization: Bearer ${token}',
-    oninput: () => ed.patch({ headers: headers.value }) });
-  return h('div', { class: 'ac-pane' }, headers,
-    h('p', { class: 'helper' }, 'One per line, as Name: value. A line starting with # is left out. ${variables} from the environment or the Data tab work here.'));
-}
-
 /** The body pane, and `refresh()` for when the method or body type changes. */
 function bodyPane(ed) {
   const { c, current } = ed;
@@ -122,6 +115,7 @@ function bodyPane(ed) {
     body.placeholder = BODY_HINTS[bodyType] || '';
     note.hidden = bodyType === 'none' || !(method === 'GET' || method === 'HEAD');
     check();
+    ed.onRequestChange?.();
   }
   refresh();
   return { pane: h('div', { class: 'ac-pane' }, h('div', { class: 'ac-pane-head' }, seg, format), body, bodyError, note), refresh };
@@ -136,7 +130,8 @@ function settingsPane(ed) {
       timeout.value = sec;
       ed.patch({ timeoutMs: sec * 1000 });
     } });
-  const cookies = h('input', { type: 'checkbox', checked: ed.c.cookies, onchange: () => ed.patch({ cookies: cookies.checked }) });
+  const cookies = h('input', { type: 'checkbox', checked: ed.c.cookies,
+    onchange: () => { ed.patch({ cookies: cookies.checked }); ed.onRequestChange?.(); } });
   return h('div', { class: 'ac-pane' },
     h('label', { class: 'ac-setting' }, 'Timeout', timeout, h('span', { class: 'ac-unit' }, `seconds (at most ${maxSec})`)),
     h('label', { class: 'check-row ac-setting' }, cookies,
@@ -197,9 +192,12 @@ export function renderEditor(app, { focus = null } = {}) {
   let tabs = null;
   const checks = checksPane(ed, { onCount: (n) => tabs?.setCount('checks', n) });
   const extracts = extractsPane(ed, { onCount: (n) => tabs?.setCount('extracts', n) });
-  const panes = { headers: headersPane(ed), body: body.pane, checks: checks.pane, extracts: extracts.pane, settings: settingsPane(ed) };
+  const headers = headersPane(ed, { onCount: (n) => tabs?.setCount('headers', n) });
+  ed.onRequestChange = headers.refreshAdded;
+  const panes = { headers: headers.pane, body: body.pane, checks: checks.pane, extracts: extracts.pane, settings: settingsPane(ed) };
   tabs = tabStrip(panes);
   tabs.setCount('checks', (c.checks || []).length);
+  headers.refreshAdded();
   tabs.setCount('extracts', (c.extracts || []).length);
   const onResult = (r) => { checks.showResults(r); extracts.showResults(r); };
 

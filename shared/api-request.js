@@ -51,7 +51,8 @@ export function parseHeaders(text) {
     const line = lines[i].trim();
     if (!line || line.startsWith('#')) continue;
     const colon = line.indexOf(':');
-    if (colon <= 0) return { error: `Header line ${i + 1} is not "Name: value": ${line}` };
+    if (colon === 0) return { error: `A header has a value but no name (line ${i + 1}: ${line})` };
+    if (colon < 0) return { error: `Header line ${i + 1} is not "Name: value": ${line}` };
     headers.push([line.slice(0, colon).trim(), line.slice(colon + 1).trim()]);
   }
   return { headers };

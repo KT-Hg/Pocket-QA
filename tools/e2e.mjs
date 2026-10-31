@@ -3783,6 +3783,7 @@ function apiRoute(req, reply) {
     if (url.pathname === '/api/orders/42') json(200, { data: { id: 42, status: 'PAID', items: [{ id: 'a1' }, { id: 'a2' }] } });
     else if (url.pathname === '/api/html') { reply.writeHead(200, { 'content-type': 'text/html' }); reply.end('<p>not JSON</p>'); }
     else if (url.pathname === '/api/fail') json(500, { error: 'boom' });
+    else if (url.pathname === '/api/echo') json(200, { headers: req.headers });
     else json(404, { error: 'not found' });
   });
 }
@@ -3844,6 +3845,19 @@ async function checkApiTests(ctx) {
       await wait(30);`);
     check((await ev(`return $$('.ac-check:not(.ac-check-default) .ac-check-line > select:first-of-type').map((s) => s.value).join(',');`)) === 'body,json',
       'dragging a check above another reorders them');
+
+    // Headers as a table: typed into the empty row, one unticked, one added in a click.
+    await ev(`type($('.ac-url'), ${JSON.stringify(`${ctx.base}/api/echo`)}); tab('Headers'); await wait(20);
+      // The empty row at the end, taken before typing: typing in it adds the next one.
+      const fill = (name, value) => { const i = $$('.ac-hdr-item').at(-1).querySelectorAll('input'); type(i[1], name); type(i[2], value); };
+      fill('X-Team', 'qa');
+      fill('X-Off', '1');
+      $$('.ac-hdr-item')[1].querySelector('input[type=checkbox]').click();
+      btn($('.ac-hdr-quick'), '＋ Accept JSON').click(); await wait(20);
+      await send();`);
+    const echoed = JSON.parse(await ev(`return $('pre.ac-pre').textContent;`)).headers;
+    check(echoed['x-team'] === 'qa' && echoed.accept === 'application/json' && !('x-off' in echoed),
+      'Headers table: a typed header and a one-click one are sent, an unticked one is not', echoed);
 
     // Kept across a reload.
     await sleep(800);
