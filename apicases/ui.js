@@ -2,7 +2,8 @@
  * ui.js — page wiring for API Tests (apitest.html).
  *
  * Folders on the left (ui/folders.js), the cases of the open folder in the
- * middle (ui/list.js), the open case on the right (ui/editor.js). All three
+ * middle (ui/list.js), the open case on the right (ui/editor.js), the
+ * environment picker in the top bar (ui/environments.js). All of them
  * draw from one state (model.js), kept in chrome.storage.local; `app.set()`
  * replaces it, saves it a moment later and redraws. The theme is the popup's
  * (THEME_KEY), so the page follows the light / dark choice made anywhere else
@@ -14,6 +15,7 @@ import '../shared/ui/calm-focus.js';
 import { STATE_KEY, emptyState, findFolder, moveCases, normalizeState } from './model.js';
 import { el, toast } from './ui/dom.js';
 import { renderEditor } from './ui/editor.js';
+import { initEnvironments, renderEnvSelect } from './ui/environments.js';
 import { initFolders, renderFolders } from './ui/folders.js';
 import { initList, renderList } from './ui/list.js';
 
@@ -46,17 +48,20 @@ const app = {
   view: { query: '', method: '', selected: new Set() },
 
   /**
-   * Replace the state, save it shortly, redraw. `render`: 'all', or 'list' when
-   * the editor itself made the change and must not be rebuilt under the caret.
+   * Replace the state, save it shortly, redraw. `render`: 'all'; 'list' when
+   * the editor itself made the change and must not be rebuilt under the caret;
+   * 'none' when nothing on the page shows it (the environments dialog).
    * `focus`: a field of the editor to focus once it is drawn ('url', 'name').
    */
   set(next, { render = 'all', focus = null } = {}) {
     app.state = next;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flushSave, SAVE_DEBOUNCE_MS);
+    if (render === 'none') return;
     renderList(app);
     if (render === 'all') {
       renderFolders(app);
+      renderEnvSelect(app);
       renderEditor(app, { focus });
     }
   },
@@ -78,6 +83,7 @@ function applyTheme(theme) {
 function start(saved) {
   app.state = normalizeState(saved);
   renderFolders(app);
+  renderEnvSelect(app);
   renderList(app);
   renderEditor(app);
 }
@@ -85,6 +91,7 @@ function start(saved) {
 function init() {
   initFolders(app);
   initList(app);
+  initEnvironments(app);
   el.theme.addEventListener('click', () => {
     const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     applyTheme(next);

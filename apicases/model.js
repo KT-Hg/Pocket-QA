@@ -1,6 +1,7 @@
 /**
- * model.js — the API Tests page's data: folders, the cases in them, and which
- * folder and case are open. Kept in chrome.storage.local under STATE_KEY.
+ * model.js — the API Tests page's data: folders, the cases in them, the
+ * environments (sets of variables, one of them in use), and which folder and
+ * case are open. Kept in chrome.storage.local under STATE_KEY.
  *
  * Every function takes a state and returns a new one; the state passed in is
  * never changed, so the page can keep the previous one for Undo.
@@ -10,6 +11,8 @@
  *
  * Pure — no chrome.*, no DOM.
  */
+
+import { normalizeVarName } from '../shared/var-name.js';
 
 export const STATE_KEY = 'apiCasesState';
 
@@ -27,8 +30,12 @@ export function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+/** The environment a page starts with, and gets back when its saved ones are unusable. */
+const DEFAULT_ENV_ID = 'default';
+const defaultEnv = () => ({ id: DEFAULT_ENV_ID, name: 'Default', vars: [] });
+
 export function emptyState() {
-  return { folders: [], cases: [], folderId: ALL, caseId: null };
+  return { folders: [], cases: [], environments: [defaultEnv()], envId: DEFAULT_ENV_ID, folderId: ALL, caseId: null };
 }
 
 /** A case with every field filled in; `fields` overrides the defaults. */
@@ -66,21 +73,36 @@ function normalizeCase(c, folderIds) {
   };
 }
 
+function normalizeEnvironments(raw) {
+  const envs = (Array.isArray(raw) ? raw : [])
+    .filter((e) => e && typeof e.id === 'string')
+    .map((e) => ({
+      id: e.id,
+      name: str(e.name, 'Environment'),
+      vars: (Array.isArray(e.vars) ? e.vars : []).filter((v) => v && typeof v === 'object')
+        .map((v) => ({ name: str(v.name), value: str(v.value) })),
+    }));
+  return envs.length ? envs : [defaultEnv()];
+}
+
 /**
- * What was saved, made safe to render: anything not shaped like a folder or a
- * case is dropped (a case whose folder is gone included), and the open folder
- * and case fall back when they no longer exist.
+ * What was saved, made safe to render: anything not shaped like a folder, a
+ * case or an environment is dropped (a case whose folder is gone included),
+ * there is always at least one environment, and the open folder and case and
+ * the environment in use fall back when they no longer exist.
  */
 export function normalizeState(raw) {
   if (!raw || typeof raw !== 'object') return emptyState();
   const folders = (Array.isArray(raw.folders) ? raw.folders : [])
     .filter((f) => f && typeof f.id === 'string')
-    .map((f) => ({ id: f.id, name: str(f.name, 'Folder') }));
+    .map((f) => ({ ...f, name: str(f.name, 'Folder') }));
   const folderIds = new Set(folders.map((f) => f.id));
   const cases = (Array.isArray(raw.cases) ? raw.cases : []).map((c) => normalizeCase(c, folderIds)).filter(Boolean);
+  const environments = normalizeEnvironments(raw.environments);
+  const envId = environments.some((e) => e.id === raw.envId) ? raw.envId : environments[0].id;
   const folderId = folderIds.has(raw.folderId) ? raw.folderId : ALL;
   const caseId = cases.some((c) => c.id === raw.caseId) ? raw.caseId : null;
-  return { folders, cases, folderId, caseId };
+  return { folders, cases, environments, envId, folderId, caseId };
 }
 
 export const findCase = (state, id) => state.cases.find((c) => c.id === id) || null;
@@ -106,6 +128,7 @@ export function renameFolder(state, id, name) {
 export function deleteFolder(state, id) {
   const cases = state.cases.filter((c) => c.folderId !== id);
   return {
+    ...state,
     folders: state.folders.filter((f) => f.id !== id),
     cases,
     folderId: state.folderId === id ? ALL : state.folderId,
@@ -179,6 +202,79 @@ export function visibleCases(state, { query = '', method = '' } = {}) {
   return state.cases.filter((c) => (state.folderId === ALL || c.folderId === state.folderId)
     && (!method || c.method === method)
     && (!q || c.name.toLowerCase().includes(q) || c.url.toLowerCase().includes(q)));
+}
+
+/* ── Environments ──────────────────────────────────────────────────────────── */
+
+/** The environment in use. */
+export const activeEnv = (state) => state.environments.find((e) => e.id === state.envId) || state.environments[0];
+export const findEnv = (state, id) => state.environments.find((e) => e.id === id) || null;
+
+export function useEnvironment(state, id) {
+  return findEnv(state, id) ? { ...state, envId: id } : state;
+}
+
+/** A new environment (not put in use): { state, id }. */
+export function addEnvironment(state, name, vars = []) {
+  const env = { id: newId(), name: name.trim() || 'Environment', vars: vars.map((v) => ({ name: v.name, value: v.value })) };
+  return { state: { ...state, environments: [...state.environments, env] }, id: env.id };
+}
+
+const mapEnv = (state, id, f) => ({ ...state, environments: state.environments.map((e) => (e.id === id ? f(e) : e)) });
+
+export function renameEnvironment(state, id, name) {
+  const n = name.trim();
+  return n ? mapEnv(state, id, (e) => ({ ...e, name: n })) : state;
+}
+
+/** A copy right after the original: { state, id }. */
+export function duplicateEnvironment(state, id) {
+  const i = state.environments.findIndex((e) => e.id === id);
+  if (i < 0) return { state, id: null };
+  const src = state.environments[i];
+  const copy = { id: newId(), name: `${src.name} (copy)`, vars: src.vars.map((v) => ({ ...v })) };
+  const environments = [...state.environments.slice(0, i + 1), copy, ...state.environments.slice(i + 1)];
+  return { state: { ...state, environments }, id: copy.id };
+}
+
+/** Gone, unless it is the last one; the one in use falls back to the first left. */
+export function deleteEnvironment(state, id) {
+  if (state.environments.length < 2 || !findEnv(state, id)) return state;
+  const environments = state.environments.filter((e) => e.id !== id);
+  return { ...state, environments, envId: state.envId === id ? environments[0].id : state.envId };
+}
+
+/** The variables of environment `id`, replaced: [{ name, value }]. */
+export function setEnvVars(state, id, vars) {
+  return mapEnv(state, id, (e) => ({ ...e, vars: vars.map((v) => ({ name: v.name, value: v.value })) }));
+}
+
+/** `values` ({ name: value }) written into the environment in use: a name already there is updated, a new one added. */
+export function saveEnvValues(state, values) {
+  const names = Object.keys(values || {});
+  if (!names.length) return state;
+  return mapEnv(state, activeEnv(state).id, (e) => {
+    const vars = e.vars.map((v) => (Object.hasOwn(values, v.name) ? { ...v, value: values[v.name] } : v));
+    for (const n of names) if (!vars.some((v) => v.name === n)) vars.push({ name: n, value: values[n] });
+    return { ...e, vars };
+  });
+}
+
+/**
+ * What is wrong with each variable row of an environment, by index: '' when
+ * nothing. Names follow the Data tab's rule (normalizeVarName: no "}"), and
+ * two rows may not share one.
+ */
+export function envVarProblems(vars) {
+  const seen = new Set();
+  return vars.map((v) => {
+    if (!v.name.trim()) return v.value ? 'Name this variable' : '';
+    const n = normalizeVarName(v.name);
+    if (!n) return 'A name cannot hold "}"';
+    if (seen.has(n)) return `"${n}" is already above`;
+    seen.add(n);
+    return '';
+  });
 }
 
 /**

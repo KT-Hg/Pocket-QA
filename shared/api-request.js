@@ -92,7 +92,7 @@ export function buildRequest(req, vars = {}) {
 
   if (missing.size) {
     const names = [...missing].map((k) => `\${${k}}`).join(', ');
-    return { error: `No value for ${names} — add ${missing.size === 1 ? 'it' : 'them'} in the Data tab`, kind: 'vars' };
+    return { error: `No value for ${names} — add ${missing.size === 1 ? 'it' : 'them'} to the environment or the Data tab`, kind: 'vars' };
   }
   const { target, ...bad } = targetUrl(url);
   if (!target) return bad;

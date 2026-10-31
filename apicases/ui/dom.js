@@ -12,6 +12,8 @@ const $ = (id) => document.getElementById(id);
 export const el = {
   app: $('app'),
   theme: $('toggleTheme'),
+  envSelect: $('envSelect'),
+  envManage: $('btnEnvs'),
   addFolder: $('btnAddFolder'),
   folderList: $('folderList'),
   listHead: $('listHead'),

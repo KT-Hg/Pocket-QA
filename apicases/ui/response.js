@@ -5,15 +5,14 @@
  * ui/json-view.js, its keys clickable.
  *
  * Results are kept for this visit only, by case: going to another case and
- * back shows the last one again. Variables come from the Data tab, resolved as
- * a playback resolves them ({random:…} and {pick:…} drawn once per send).
+ * back shows the last one again. Variables are the Data tab's with the
+ * environment in use on top (apicases/vars.js).
  */
 
-import { resolveRandomVars } from '../../bg/interpolate.js';
-import { parseListSpec } from '../../shared/var-name.js';
 import { verdictLabel } from '../../shared/verdict.js';
 import { findCase } from '../model.js';
 import { runCase } from '../run.js';
+import { varsFor } from '../vars.js';
 import { h } from './dom.js';
 import { MAX_NODES, jsonView } from './json-view.js';
 
@@ -26,29 +25,13 @@ const sending = new Set();
 let open = { id: null, box: null, button: null, onResult: null, onKey: null };
 let tab = 'body';
 
-/** The Data tab's variables, each a plain value. */
-export async function loadVars() {
-  const raw = await new Promise((resolve) => {
-    if (typeof chrome === 'undefined' || !chrome.storage?.local) resolve({});
-    else chrome.storage.local.get('variables', resolve);
-  });
-  const vars = resolveRandomVars(raw?.variables || {});
-  // {fallback:a|b} picks the first value that works on the page; a request has
-  // no page to try them on, so the first one is it.
-  for (const [k, v] of Object.entries(vars)) {
-    const list = parseListSpec('fallback', v);
-    if (list) vars[k] = list.find((x) => x !== '') ?? '';
-  }
-  return vars;
-}
-
 export async function sendCase(app, id) {
   const c = findCase(app.state, id);
   if (!c || sending.has(id)) return;
   sending.add(id);
   draw(id);
   try {
-    results.set(id, await runCase(c, await loadVars()));
+    results.set(id, await runCase(c, await varsFor(app.state)));
   } finally {
     sending.delete(id);
     draw(id);

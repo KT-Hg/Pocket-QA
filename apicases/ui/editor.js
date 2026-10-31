@@ -11,11 +11,12 @@
 
 import { toCurl } from '../curl.js';
 import { BODY_TYPES, MAX_TIMEOUT_MS, METHODS, duplicateCase, findCase, jsonProblem, updateCase, urlProblem } from '../model.js';
+import { varsFor } from '../vars.js';
 import { checksPane } from './checks.js';
 import { el, h, toast } from './dom.js';
 import { showMenu } from './json-view.js';
 import { removeCases } from './list.js';
-import { loadVars, responseBox, sendButton, sendCase } from './response.js';
+import { responseBox, sendButton, sendCase } from './response.js';
 
 const TABS = [['headers', 'Headers'], ['body', 'Body'], ['checks', 'Checks'], ['settings', 'Settings']];
 const BODY_LABELS = { none: 'None', json: 'JSON', text: 'Text', form: 'Form' };
@@ -59,7 +60,7 @@ function headPart(ed) {
 }
 
 async function copyCurl(ed) {
-  const r = toCurl(ed.current(), await loadVars());
+  const r = toCurl(ed.current(), await varsFor(ed.app.state));
   if (r.error) { toast(r.error, 'error', { ms: 5000 }); return; }
   try {
     await navigator.clipboard.writeText(r.command);
@@ -89,7 +90,7 @@ function headersPane(ed) {
     placeholder: 'Content-Type: application/json\nAuthorization: Bearer ${token}',
     oninput: () => ed.patch({ headers: headers.value }) });
   return h('div', { class: 'ac-pane' }, headers,
-    h('p', { class: 'helper' }, 'One per line, as Name: value. A line starting with # is left out. ${variables} from the Data tab work here.'));
+    h('p', { class: 'helper' }, 'One per line, as Name: value. A line starting with # is left out. ${variables} from the environment or the Data tab work here.'));
 }
 
 /** The body pane, and `refresh()` for when the method or body type changes. */

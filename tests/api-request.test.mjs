@@ -40,7 +40,7 @@ test('variables: URL as is, JSON escaped, form encoded, headers on one line', ()
 test('a variable with no value stops the request and names it', () => {
   const r = buildRequest(req({ url: '${base}/u/${id}', headers: 'X: ${id}' }), { base: 'https://a.test' });
   assert.equal(r.kind, 'vars');
-  assert.equal(r.error, 'No value for ${id} — add it in the Data tab');
+  assert.equal(r.error, 'No value for ${id} — add it to the environment or the Data tab');
   assert.match(buildRequest(req({ url: '${a}/${b}' })).error, /\$\{a\}, \$\{b\} — add them/);
   assert.equal(buildRequest(req({ url: 'https://a.test/${toString}' })).kind, 'vars', 'inherited names are not values');
 });
