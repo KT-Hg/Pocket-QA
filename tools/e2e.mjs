@@ -4130,6 +4130,94 @@ async function checkApiRun(ctx) {
   }
 }
 
+/**
+ * API Tests and Postman: a folder exported (a secret header left blank), imported back
+ * into an empty page and run as before; a collection written in Postman shows the hosts
+ * its requests go to before anything is added.
+ */
+async function checkApiPostman(ctx) {
+  const page = await ctx.browser.openPage(ctx.extUrl('apitest.html'), { width: 1400, height: 900 });
+  const kase = (id, name, path, more = {}) => ({
+    id, folderId: 'shop', name, method: 'GET', url: `\${e2eBase}${path}`, headers: '', bodyType: 'none', body: '',
+    timeoutMs: 10_000, cookies: false, checks: [], extracts: [], auth: { type: 'inherit' }, ...more,
+  });
+  const status = (expected) => ({ on: 'json', path: 'data.status', op: 'equals', expected });
+  const cases = [
+    kase('login', 'Login', '/api/login', { method: 'POST', auth: { type: 'none' }, bodyType: 'json', body: '{"user": "an"}',
+      extracts: [{ varName: 'e2ePmToken', from: 'json', path: 'token' }] }),
+    kase('order', 'Order paid', '/api/orders/42', { headers: 'X-Api-Key: live-key-123',
+      checks: [status('PAID'), { on: 'json', path: 'data.items[-1].id', op: 'equals', expected: 'a2' }] }),
+    kase('wrong', 'Order pending', '/api/orders/42', { checks: [status('PENDING')], timeoutMs: 5000 }),
+    kase('me', 'Me', '/api/me'),
+  ];
+  const envs = { environments: [{ id: 'dev', name: 'Dev', vars: [{ name: 'e2eBase', value: ctx.base }] }], envId: 'dev' };
+  const seed = async (state) => {
+    await page.evaluate(`new Promise((r) => chrome.storage.local.set({ apiCasesState: ${JSON.stringify(state)} }, r))`);
+    await page.reload();
+    await sleep(PAGE_SETTLE_MS);
+  };
+  const H = `${API_PAGE_HELPERS}
+    const rowMarks = () => $$('.ac-row .ac-row-mark').map((m) => m.textContent).join('');
+    const pick = async (name, text) => {
+      btn($('#listHead'), 'Import').click(); await wait(60);
+      const input = $('.ac-import input[type=file]');
+      const dt = new DataTransfer(); dt.items.add(new File([text], name, { type: 'application/json' }));
+      input.files = dt.files; input.dispatchEvent(new Event('change'));
+      await until(() => $('.ac-import-info').childElementCount || !$('.ac-import .ac-field-error').hidden, 3000);
+    };`;
+  const run = (js) => page.evaluate(`(async () => { ${H} ${js} })()`, 30_000);
+  const fixturePath = join(EXT, 'tests', 'fixtures', 'postman-sample.json');
+  try {
+    await seed({ folders: [{ id: 'shop', name: 'Shop', auth: { type: 'bearer', token: '${e2ePmToken}' } }], cases, ...envs, folderId: 'shop', caseId: null });
+    await page.bringToFront();
+
+    // Export ▾ → Postman collection: the file chrome.downloads is handed, caught here.
+    const out = await run(`let got = null;
+      chrome.downloads.download = (o, cb) => { got = o; if (cb) cb(1); };
+      btn($('#listHead'), 'Export').click(); await wait(60); $('.ac-menu button').click();
+      await until(() => got, 3000);
+      return { file: got.filename, text: await (await fetch(got.url)).text(), toast: $('#toast').textContent };`);
+    const col = JSON.parse(out.text || '{}');
+    check(out.file === 'Shop.postman_collection.json' && col.info?.schema === 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+      'Export ▾ → Postman collection saves a v2.1 collection named after the folder', { file: out.file, info: col.info });
+    check(!out.text.includes('live-key-123') && out.text.includes('{{e2ePmToken}}') && out.text.includes('{{e2eBase}}/api/login')
+      && out.toast.includes('left blank: Order paid: X-Api-Key header'), 'a secret written out is left blank and named; ${x} is {{x}}', out.toast);
+
+    // Into an empty page (the environment kept): the same folder, cases, checks and saved values; then run.
+    await seed({ folders: [], cases: [], ...envs, folderId: '__all__', caseId: null });
+    const back = await run(`await pick('Shop.postman_collection.json', ${JSON.stringify(out.text || '')});
+      return { hosts: $$('.ac-host').map((x) => x.textContent), notes: $$('.ac-import-notes li').length, env: !!$('.ac-import-env') };`);
+    check(back.hosts.join() === '${e2eBase}' && !back.notes && !back.env, 'importing an exported folder: its host, nothing left out', back);
+    await run(`btn($('.ac-import'), 'Add').click(); await wait(700);`);
+    const saved = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('apiCasesState', (x) => r(x.apiCasesState)))`);
+    const strip = (c) => ({ name: c.name, method: c.method, url: c.url, body: c.body, auth: c.auth, checks: c.checks, extracts: c.extracts, timeoutMs: c.timeoutMs, cookies: c.cookies });
+    // Keys in any order: storage does not keep the order they were written in.
+    const sortedKeys = (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v);
+    const same = (a, b) => JSON.stringify(a, sortedKeys) === JSON.stringify(b, sortedKeys);
+    check(same(saved.folders.map((f) => [f.name, f.auth]), [['Shop', { type: 'bearer', token: '${e2ePmToken}' }]]) && same(saved.cases.map(strip), cases.map(strip)),
+      'exported, then imported: the same folder, auth, requests, checks and saved values', saved.cases.map(strip));
+    const ran = await run(`btn($('#runBar'), '▶ Run folder').click(); await until(() => !$('#askModal').hidden, 3000); $('#askOk').click();
+      await until(() => /^Ran /.test($('#toast').textContent), 15000); return rowMarks();`);
+    check(ran === '✓✓✗✓', 'the imported folder runs as the exported one did: login → token → me', ran);
+
+    // A collection written in Postman: the hosts and what is left out, before Add; Cancel adds nothing.
+    if (!existsSync(fixturePath)) fail(`no ${fixturePath}`);
+    else {
+      const pm = await run(`await pick('shop.json', ${JSON.stringify(readFileSync(fixturePath, 'utf8'))});
+        const r = { hosts: $$('.ac-host').map((x) => x.textContent), notes: $$('.ac-import-notes li').length, summary: $('.ac-import-info p').textContent };
+        btn($('.ac-import'), 'Cancel').click(); await wait(60); r.folders = $$('.ac-folder').length; return r;`);
+      check(pm.hosts.join() === 'shop.example.com,auth.partner.test,admin.shop.example.com' && pm.notes === 7 && pm.summary === 'Shop API — 4 folders, 7 requests',
+        'a Postman collection shows where its requests go and what is left out before Add', pm);
+      check(pm.folders === 2, 'Cancel adds nothing (All requests and Shop only)', pm.folders);
+    }
+    const errors = page.errors().filter((e) => !e.includes('/api/'));
+    if (errors.length) fail(`apitest.html errors: ${errors.join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('apiCasesState')`);
+    await page.close();
+  }
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -4194,6 +4282,7 @@ const CHECKS = [
   ['api-tests', 'API Tests: Send, checks from a clicked key, verdicts', checkApiTests],
   ['api-vars', 'API Tests: environments, a saved token, folder auth', checkApiVars],
   ['api-run', 'API Tests: run a folder, ask before writes, Stop, results kept', checkApiRun],
+  ['api-postman', 'API Tests: Postman export, import back and run, a Postman collection\'s hosts', checkApiPostman],
 ];
 
 async function main() {
