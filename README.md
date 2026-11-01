@@ -20,6 +20,7 @@ A Chrome Manifest V3 extension that records browser interactions and replays the
 | **Highlight** | Select text on any page to highlight it in 5 colours with notes; auto-restored on revisit, scoped by URL patterns |
 | **CSV Run** | Run a scenario once per row; export results to XLSX / HTML / ZIP with screenshots and a **Run Result** per row |
 | **SQL Test Cases** | Vietnamese/English. Parse a SELECT/INSERT/UPDATE/DELETE statement and derive a test case list — EP + BVA, decision table / MC-DC, NULL & 3-valued logic, JOIN cardinality, grouping and paging — with one panel for editing the sample values every case draws on, exported as CSV or JSON |
+| **API Tests** | Keep API requests in folders, send them (paste a cURL from DevTools), check the response — status, JSON path, header, body, time — with environments, values saved from a response (a login token) and auth set on a folder; run a folder one request at a time; Postman Collection v2.1 export (for Newman in CI) and import; results as CSV |
 | **DB Test Session** | Records every row changed through **Adminer** — edit form, grid edits, bulk delete, `INSERT`, and hand-written SQL — and rolls a whole test run back, with a preview of the exact SQL and a drift check per row. (Whole-table snapshots, backup tables and rollback after Playback are built but temporarily hidden.) |
 | **Export** | Scenario JSON, folder JSON, full backup/restore, JS Bookmarklet, Selenium Python (script or pytest), Playwright Test, Robot Framework, Selenium Java (TestNG) |
 | **UI** | Dark/light theme, 5 drag-to-reorder tabs, collapsible cards, hotkeys |
@@ -652,6 +653,104 @@ that each per-table CSV comes out square.
 
 ---
 
+## API Tests
+
+Opened from **Data → API Tests → Manage API tests**, a full-tab page (`apitest.html`) that keeps API requests in
+folders, sends them and checks what comes back. Requests go out with `fetch` from the extension page, so CORS
+does not apply and the browser's cookies for the site go along (a request's **Settings** tab turns that off).
+Nothing runs on its own: a request is sent on **Send** or **Run**.
+
+### From a cURL to a run in CI
+
+1. In DevTools → Network, right-click the login request → **Copy → Copy as cURL (bash)**. On the page:
+   **Paste cURL → Add request**. Method, URL, headers and body are filled in; the `Cookie` header is left out,
+   since the browser sends its own.
+2. Write the host as a variable — `${baseUrl}/auth/login` — and in the top bar **Manage** an environment
+   `Dev` with `baseUrl = https://shop.example.com`.
+3. **Save values**: `token` from JSON `token`. **Send** writes the value into the environment in use.
+4. On the folder, **Auth → Bearer** `${token}`; the login request sets its own Auth to **None** (it runs
+   before there is a token).
+5. **＋ Request** `GET ${baseUrl}/orders/42`, **Checks**: `data.status` equals `PAID` (or click `status` in
+   the JSON response).
+6. **▶ Run folder**: the login, then the order, one at a time; each row shows ✓, ✗ or ⚠.
+7. **Export ▾ → Postman collection**, then in CI:
+
+   ```bash
+   npx newman run Shop.postman_collection.json --env-var baseUrl=https://shop.example.com
+   ```
+
+### Checks and the verdict
+
+| Check | On | Example |
+|---|---|---|
+| `status` | the status | `201`, `2xx`, `200,201`, `not5xx` |
+| `json` | a JSON path: `data.items[0].id`, `items[-1]`, `["x.y"]`, `items.length` | equals, contains, exists, does not exist, `>`, `<` |
+| `header` | a header (any case) | exists, equals, contains |
+| `body` | the body text | contains, does not contain |
+| `time` | the total time | `< 1000` ms |
+
+A request with no status check must answer **2xx**, so a 500 never passes unnoticed. An expected value may
+hold `${variables}`. The verdict follows the popup's run result:
+
+- **✓ Passed** — every check holds.
+- **✗ Failed** — a check is false: the API is wrong.
+- **⚠ Broken** — no response, a timeout, a body that is not JSON for a JSON check, a value to save not found,
+  a `${variable}` with no value: the test is wrong.
+
+### Environments, saved values, auth
+
+- `${name}` is filled from the Data tab's variables, then from the **environment** in use, which wins on a
+  name both have.
+- **Save values** takes a value from the response — a JSON path, a header, the status, the body or part of it
+  (an Extract pattern, as Read DOM's) — and writes it into the environment in use, where it stays across
+  visits, as `pm.environment.set` would.
+- **Auth** — None, Bearer, Basic or API key (header or query) — is set on a folder and inherited by its
+  requests, or set on one request. A header row of the same name wins over it.
+
+### Running many
+
+**▶ Run folder** (Run all under All requests, `Run N shown` while the list is filtered), **▶ Run selected**,
+or ▶ on one row. Requests are sent one at a time, so a token one request saves is there for the next. A run
+with POST, PUT, PATCH or DELETE asks first and names the hosts; **⏹ Stop** sends no more once the request on
+its way is back. Each request keeps its last result — verdict, status, time, the URL sent (secret query
+values masked) and the first 2 KB of the body (secret JSON keys masked) — and the list filters by it.
+**Export ▾ → Results** saves them as CSV: UTF-8 with BOM, CRLF, a row per request, `Not run` for the
+others.
+
+### Postman
+
+- **Export** — the open folder (or all) as a Postman Collection v2.1. `${x}` becomes `{{x}}`. Checks and saved
+  values become each request's test script, `pm.test(…)` and `pm.environment.set(…)` written to pass and fail
+  as the page does (the default 2xx check included, and a test for a timeout of its own, since Postman has no
+  timeout per request). Its first line, `// pocket-qa: {…}`, keeps them as the page has them, so a file that
+  went through Postman imports back whole. Tokens, passwords, API keys and secret headers written out in full
+  are left blank, and listed, unless **Include secret values** is ticked; `${variables}` are always kept.
+- **Import** — a Collection v2.0 / v2.1 or a Postman environment file, up to 5 MB. Before **Add**, the dialog
+  shows the hosts the requests go to and everything left out or changed. Folders inside folders become
+  `Parent / Child`; a folder takes the auth Postman would give it; the collection's variables become an
+  environment (offered, not put in use). Postman's own scripts are never run. Form-data and file bodies,
+  OAuth 2 and other auth types the page does not have are named in the notes; GraphQL becomes a JSON body. A
+  v1 collection is refused with what to do instead.
+
+### Limits of a browser
+
+- Headers a page may not set — `Cookie`, `Origin`, `Host`, `Referer`, `User-Agent` — are not sent, so there
+  is one identity: the browser's cookies.
+- A request other than GET carries `Origin: chrome-extension://…`; a server that guards against CSRF by Origin
+  may answer 403.
+- `Set-Cookie` lands in the browser: calling logout logs you out for real.
+- No turning off SSL checks, no client certificate, no proxy; redirects are always followed.
+- The time is the total only; the size is the bytes after decompression.
+- A **Backup** holds the cases and environments (`apiCasesState`) — tokens too, when written out or saved from
+  a response.
+
+### Tests
+
+`node --test "tests/api-*.test.mjs"` (requests, responses, runs, Postman both ways, the results CSV) and the
+e2e checks `api-tests`, `api-vars`, `api-run` and `api-postman` (`node tools/e2e.mjs --only api-postman`).
+
+---
+
 ## DB Test Session & Rollback (Adminer)
 
 Testing against master data means changing it: a flag here, a rate there, twenty rows of a lookup table. Putting
@@ -976,6 +1075,7 @@ chrome.storage.local (10 MB, 5 MB before Chrome 114 — device-local)
   updateStatus, updateAvailableSince, lastUpdateAt, remoteConfig (version check + lock)
   Pending context flags (pick, drag-drop, form draft)
   activatedTabs whitelist
+  apiCasesState (API Tests: folders, requests with their last results, environments)
   dbtoolsSessions / dbtoolsActive / dbtoolsPending / dbtoolsKeyCols / dbtoolsSettings
     (Adminer test sessions: the changeset, which session is recording per
      connection, a capture awaiting confirmation, and the key columns per table)
