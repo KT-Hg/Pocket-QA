@@ -1,12 +1,14 @@
 /**
  * ui/exports.js — the Export ▾ menu over the list: the open folder (or every
  * folder, under All requests) as a Postman collection, secret values left
- * blank unless "Include secret values" is ticked.
+ * blank unless "Include secret values" is ticked; or the last results of its
+ * requests as a CSV file.
  */
 
 import { downloadText } from '../../shared/file-export.js';
-import { ALL, findFolder } from '../model.js';
+import { ALL, findFolder, visibleCases } from '../model.js';
 import { collectionFileName, toPostman } from '../postman-export.js';
+import { resultsCsv, resultsFileName } from '../results-csv.js';
 import { h, toast } from './dom.js';
 
 /** Ticked for this visit only: a file with credentials in it is never the default. */
@@ -33,6 +35,15 @@ function exportPostman(app) {
   toast(`Exported ${file} — left blank: ${removedSecrets.join('; ')}. Use \${variables} for them, or tick "Include secret values".`, 'warn', { ms: 9000 });
 }
 
+function exportResults(app) {
+  closeMenu();
+  const s = app.state;
+  const file = resultsFileName(s, s.folderId);
+  downloadText(resultsCsv(s, s.folderId), file, 'text/csv');
+  const n = visibleCases(s).length;
+  toast(`Saved the results of ${n} request${n === 1 ? '' : 's'} to ${file}`, 'success');
+}
+
 export function exportMenu(app) {
   const s = app.state;
   const scope = s.folderId === ALL ? 'every folder' : `"${findFolder(s, s.folderId)?.name}"`;
@@ -44,7 +55,10 @@ export function exportMenu(app) {
     h('button', { role: 'menuitem', title: `${scope} as a Postman Collection v2.1, checks as test scripts — for Postman or Newman`, onclick: () => exportPostman(app) },
       h('span', { class: 'i' }, '📦'), h('span', null, 'Postman collection'), h('small', null, '.json')),
     h('label', { class: 'ac-menu-check', title: 'Tokens, passwords and API keys written out in full go into the file too. Values that are ${variables} always do.' },
-      secrets, 'Include secret values'));
+      secrets, 'Include secret values'),
+    h('hr'),
+    h('button', { role: 'menuitem', disabled: !visibleCases(s).length, title: `The last result of each request of ${scope}: passed, failed, broken or not run`, onclick: () => exportResults(app) },
+      h('span', { class: 'i' }, '📊'), h('span', null, 'Results'), h('small', null, '.csv')));
   const wrap = h('div', { class: 'menu-wrap' }, button, menu);
   const show = () => {
     closeMenu();
