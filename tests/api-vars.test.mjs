@@ -81,3 +81,16 @@ test('deleting a folder keeps the environments', () => {
   s = M.addEnvironment(s, 'Dev').state;
   assert.equal(M.deleteFolder(s, s.folders[0].id).environments.length, 2);
 });
+
+test('varEntries: the environment first, then names cases save; secret-looking values hidden', async () => {
+  const { varEntries } = await import('../apicases/ui/var-suggest.js');
+  let s = M.setEnvVars(M.emptyState(), 'default', [{ name: 'baseUrl', value: 'https://a.test' }, { name: 'apiToken', value: 't' }, { name: '', value: 'x' }]);
+  s = M.addCase(s, { name: 'Login', extracts: [{ varName: 'token', from: 'json', path: 'access_token' }, { from: 'body', path: 'id=${userId};' }] }).state;
+  const entries = await varEntries(s);
+  assert.deepEqual(entries.map((e) => `${e.kind}:${e.name}:${e.detail.text}`), [
+    'e:baseUrl:Default: https://a.test',
+    'e:apiToken:Default: ••••',
+    'w:token:saved by Login',
+    'w:userId:saved by Login',
+  ]);
+});

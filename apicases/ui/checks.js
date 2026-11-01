@@ -11,6 +11,7 @@
 
 import { DEFAULT_STATUS_CHECK, checkLabel, parsePath, pathOf, statusMatches } from '../../shared/api-response.js';
 import { h, toast } from './dom.js';
+import { suggestVars } from './var-suggest.js';
 
 const ON = [['status', 'Status'], ['json', 'JSON'], ['header', 'Header'], ['body', 'Body'], ['time', 'Time']];
 const OPS = {
@@ -92,6 +93,7 @@ function checkRow(p, c, i) {
     spellcheck: false, 'aria-label': c.on === 'json' ? 'JSON path' : 'Header name', oninput: edit('path') });
   const value = !NO_VALUE.has(c.op) && h('input', { type: 'text', class: 'ac-check-value', value: c.expected ?? '',
     placeholder: VALUE_HINT[c.on], spellcheck: false, 'aria-label': 'Expected value', oninput: edit('expected') });
+  if (value) suggestVars(value, p.app);
   const handle = h('span', { class: 'ac-handle', draggable: true, title: 'Drag to reorder', 'aria-hidden': 'true' }, '⋮⋮');
   const changeOn = (on) => p.save(withField(p, i, {
     on, op: OPS[on][0][0], path: PATH_HINT[on] ? c.path ?? '' : '', expected: on === c.on ? c.expected : '',
@@ -144,6 +146,7 @@ export function checksPane(ed, { onCount }) {
     },
     resultFor: (c) => results.find((r) => r.check === c),
     drag: { from: null },
+    app: ed.app,
   };
 
   function render() {
@@ -159,7 +162,7 @@ export function checksPane(ed, { onCount }) {
   const pane = h('div', { class: 'ac-pane' }, list,
     h('div', { class: 'ac-pane-foot' },
       h('button', { type: 'button', class: 't-btn t-btn-sm', onclick: addOne }, '＋ Add check'),
-      h('span', { class: 'helper' }, 'Or click a key in the response. ${variables} work in the values.')));
+      h('span', { class: 'helper' }, 'Or click a key in the response. Type ${ in a value to pick a variable.')));
   render();
 
   return {

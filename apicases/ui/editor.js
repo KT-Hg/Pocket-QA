@@ -15,6 +15,7 @@ import { varsFor } from '../vars.js';
 import { checksPane } from './checks.js';
 import { extractsPane } from './extracts.js';
 import { headersPane } from './headers.js';
+import { suggestVars } from './var-suggest.js';
 import { el, h, toast } from './dom.js';
 import { showMenu } from './json-view.js';
 import { removeCases } from './list.js';
@@ -80,10 +81,11 @@ function requestPart(ed, onMethod) {
     onchange: () => { ed.patch({ method: method.value }); onMethod(); } },
   ...METHODS.map((m) => h('option', { value: m }, m)));
   method.value = c.method;
-  const url = h('input', { type: 'text', class: 'ac-url', value: c.url, placeholder: 'https://api.example.com/users  or  ${baseUrl}/users',
+  const url = h('input', { type: 'text', class: 'ac-url', value: c.url, placeholder: 'https://api.example.com/users — type ${ for a variable',
     'aria-label': 'URL', spellcheck: false,
     oninput: () => { ed.patch({ url: url.value }); showError(urlError, urlProblem(url.value)); } });
   if (c.url) showError(urlError, urlProblem(c.url));
+  suggestVars(url, ed.app);
   return { line: h('div', { class: 'ac-request-line' }, method, url, sendButton(ed.app, ed.id)), urlError, url };
 }
 
@@ -94,6 +96,7 @@ function bodyPane(ed) {
   const note = h('p', { class: 'helper ac-note', hidden: true }, 'GET and HEAD requests are sent without a body.');
   const body = h('textarea', { class: 'ac-code', rows: 10, spellcheck: false, value: c.body, 'aria-label': 'Body',
     oninput: () => { ed.patch({ body: body.value }); check(); } });
+  suggestVars(body, ed.app);
   const format = h('button', { class: 't-btn t-btn-sm', title: 'Indent the JSON',
     onclick: () => {
       try { body.value = JSON.stringify(JSON.parse(body.value), null, 2); ed.patch({ body: body.value }); } catch { check(); }

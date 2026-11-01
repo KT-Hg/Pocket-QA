@@ -10,11 +10,12 @@
  * adding or removing a row redraws.
  */
 
-import { pathOf } from '../../shared/api-response.js';
+import { extractNames, pathOf } from '../../shared/api-response.js';
 import { patternVarNames } from '../../shared/text-pattern.js';
 import { normalizeVarName } from '../../shared/var-name.js';
 import { activeEnv, saveEnvValues } from '../model.js';
 import { h, promptText, toast } from './dom.js';
+import { suggestVars } from './var-suggest.js';
 
 const FROM = [['json', 'JSON path'], ['header', 'Header'], ['status', 'Status'], ['body', 'Body']];
 const PATH_HINT = { json: 'access_token', header: 'X-Request-Id', body: 'whole body, or token=${token};' };
@@ -32,17 +33,10 @@ function valueView(name, value) {
   }, '👁'));
 }
 
-/** The names a row writes: its variable, or for a body pattern each ${name} in it. */
-function rowNames(x) {
-  if (x.from === 'body' && patternVarNames(x.path || '').length) return patternVarNames(x.path);
-  const n = normalizeVarName(x.varName);
-  return n ? [n] : [];
-}
-
 /** After a Send: what row `x` saved, or why it could not. */
 function resultView(x, result) {
   if (!result || result.res?.error) return null;
-  const names = rowNames(x);
+  const names = extractNames(x);
   const problem = result.problems.find((p) => names.includes(p.varName) || p.varName === names.join(', ') || (!names.length && !p.varName));
   if (problem) return h('div', { class: 'ac-check-note ac-warn' }, `⚠ ${problem.reason}`);
   const got = names.filter((n) => Object.hasOwn(result.saved, n));
@@ -69,6 +63,7 @@ export function extractsPane(ed, { onCount }) {
     };
     const name = h('input', { type: 'text', class: 'ac-check-value', value: x.varName ?? '', placeholder: 'token', spellcheck: false,
       'aria-label': 'Variable name', oninput: edit('varName'), hidden: x.from === 'body' && patternVarNames(x.path || '').length > 0 });
+    suggestVars(name, ed.app, 'name');
     const from = h('select', { class: 'mini-select', 'aria-label': 'Where the value comes from',
       onchange: () => save(rows().map((r, k) => (k === i ? { ...r, from: from.value } : r))) },
     ...FROM.map(([v, t]) => h('option', { value: v }, t)));

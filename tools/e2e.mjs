@@ -3805,6 +3805,8 @@ const API_PAGE_HELPERS = `
 async function checkApiTests(ctx) {
   const page = await ctx.browser.openPage(ctx.extUrl('apitest.html'), { width: 1400, height: 900 });
   const ev = (js) => page.evaluate(`(async () => { ${API_PAGE_HELPERS} ${js} })()`, 20_000);
+  // The Data tab's variables, put back afterwards: this check adds one.
+  const dataVars = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('variables', (x) => r(x.variables || null)))`);
   try {
     await sleep(PAGE_SETTLE_MS);
     await ev(`btn($('#listHead'), '＋ Request').click(); await wait(50);
@@ -3859,6 +3861,16 @@ async function checkApiTests(ctx) {
     check(echoed['x-team'] === 'qa' && echoed.accept === 'application/json' && !('x-off' in echoed),
       'Headers table: a typed header and a one-click one are sent, an unticked one is not', echoed);
 
+    // Variable suggestions: ${ in the URL lists the Data tab's variables, Enter writes one.
+    await page.evaluate(`new Promise((r) => chrome.storage.local.set({ variables: { ...(${JSON.stringify(dataVars || {})}), e2eApiBase: ${JSON.stringify(ctx.base)} } }, r))`);
+    await page.bringToFront();
+    const picked = await ev(`const u = $('.ac-url'); u.focus(); await wait(60); u.select();
+      document.execCommand('insertText', false, '\${e2eApi'); await wait(100);
+      const offered = [...document.querySelectorAll('#varSuggest:not([hidden]) .vs-name')].map((n) => n.textContent).join(',');
+      u.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await wait(60);
+      return { offered, url: u.value };`);
+    check(picked.offered === 'e2eApiBase' && picked.url === '${e2eApiBase}', 'typing ${ in the URL offers the variable and Enter writes it', picked);
+
     // Kept across a reload.
     await sleep(800);
     await page.reload();
@@ -3868,6 +3880,7 @@ async function checkApiTests(ctx) {
     if (page.errors().length) fail(`apitest.html errors: ${page.errors().join(' | ')}`);
   } finally {
     await ctx.ext.evaluate(`chrome.storage.local.remove('apiCasesState')`);
+    await ctx.ext.evaluate(dataVars ? `chrome.storage.local.set({ variables: ${JSON.stringify(dataVars)} })` : `chrome.storage.local.remove('variables')`);
     await page.close();
   }
 }

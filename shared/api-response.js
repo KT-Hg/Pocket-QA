@@ -275,6 +275,14 @@ export function runChecks(res, checks = [], vars = {}) {
 
 /* ── Saving values into variables ──────────────────────────────────────────── */
 
+/** The variables an extract writes: its varName, or for a body pattern each ${name} in it. */
+export function extractNames(x) {
+  const pattern = x?.from === 'body' ? String(x.path ?? '').trim() : '';
+  if (pattern && patternVarNames(pattern).length) return patternVarNames(pattern);
+  const n = normalizeVarName(x?.varName);
+  return n ? [n] : [];
+}
+
 /** A value as a variable holds it: strings as they are, anything else as JSON. */
 const asText = (v) => (typeof v === 'string' ? v : JSON.stringify(v));
 

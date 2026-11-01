@@ -1,6 +1,7 @@
 /**
  * var-suggest.css — the variable kind badges (.vt-i: S / R / P / F, # for a
- * step, C for a CSV column) and the list of variable names under a field
+ * step or a saved value, C for a CSV column, E for an environment) and the
+ * list of variable names under a field
  * (popup/ui/var-suggest.js).
  *
  * Shared by the popup and the API Tests page (apitest.html). The colours are
@@ -30,6 +31,8 @@
 /* Variable suggestions only: written by an earlier step, a CSV column */
 .vt-i.w { background: rgba(167,139,250,.2); color: #a78bfa; }
 .vt-i.c { background: rgba(34,197,94,.2);   color: #22c55e; }
+/* An environment of the API Tests page */
+.vt-i.e { background: rgba(244,114,182,.2); color: #ec4899; }
 
 /* === Variable suggestions — popup/ui/var-suggest.js === */
 .var-suggest {

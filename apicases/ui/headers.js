@@ -12,6 +12,7 @@
 
 import { NAME_SUGGESTIONS, addedHeaders, parseRows, rowProblem, rowsText, valueSuggestions } from '../headers.js';
 import { h } from './dom.js';
+import { suggestVars } from './var-suggest.js';
 
 /** 'table' or 'bulk', kept from one case to the next. */
 let mode = 'table';
@@ -68,6 +69,7 @@ function rowEl(p, r) {
     } });
   const value = h('input', { type: 'text', value: r.value, placeholder: 'Value', list: valuesId, spellcheck: false, 'aria-label': 'Header value',
     oninput: () => { r.value = value.value; changed(); } });
+  suggestVars(value, p.app);
   parts.del = h('button', { type: 'button', class: 't-btn t-btn-sm t-btn-ghost', hidden: last, title: 'Remove this header', 'aria-label': 'Remove this header',
     onclick: () => { p.rows.splice(p.rows.indexOf(r), 1); p.save(); p.redraw(); } }, '✕');
   const el = h('div', { class: `ac-hdr-item${r.on ? '' : ' is-off'}` },
@@ -95,10 +97,12 @@ export function headersPane(ed, { onCount = () => {} } = {}) {
   const bulk = h('textarea', { class: 'ac-code', rows: 7, spellcheck: false, 'aria-label': 'Headers as text',
     placeholder: 'Accept: application/json\nAuthorization: Bearer ${token}\n# X-Debug: 1   ← a # line is not sent',
     oninput: () => { ed.patch({ headers: bulk.value }); refreshAdded(); } });
+  suggestVars(bulk, ed.app);
   const p = {
     rows: [],
     table,
     namesId: `ac-hdr-names-${++uid}`,
+    app: ed.app,
     save: () => { ed.patch({ headers: rowsText(p.rows) }); refreshAdded(); },
     redraw: () => drawTable(),
   };
@@ -131,7 +135,7 @@ export function headersPane(ed, { onCount = () => {} } = {}) {
     toggle.textContent = isTable ? 'Bulk edit' : 'Table';
     toggle.title = isTable ? 'Edit as text — to paste many headers at once' : 'Back to one row per header';
     help.textContent = isTable
-      ? 'Untick a header to keep it without sending it. ${variables} from the environment or the Data tab work in values.'
+      ? 'Untick a header to keep it without sending it. Type ${ in a value to pick a variable (from the environment or the Data tab).'
       : 'One per line, as Name: value. A line starting with # is not sent.';
   }
 

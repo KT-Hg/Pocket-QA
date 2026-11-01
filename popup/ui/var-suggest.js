@@ -30,8 +30,9 @@ const EDGE = 4;
 // The list is never squeezed shorter than this; it scrolls instead.
 const MIN_HEIGHT = 80;
 // Badge per kind: the Variables tab's S / R / P / F, a step that writes the
-// variable (#), a column of the loaded CSV (C).
-const BADGE = { s: 'S', r: 'R', p: 'P', f: 'F', w: '#', c: 'C' };
+// variable (#), a column of the loaded CSV (C), an environment of the API Tests
+// page (E).
+const BADGE = { s: 'S', r: 'R', p: 'P', f: 'F', w: '#', c: 'C', e: 'E' };
 // A Blank Pick / Fallback entry, named as the Variables tab names it.
 const BLANK_TEXT = '∅ blank';
 
