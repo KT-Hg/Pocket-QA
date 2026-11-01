@@ -67,7 +67,8 @@ export function renderFolders(app) {
       class: `ac-folder${s.folderId === id ? ' is-open' : ''}`,
       dataset: { id },
       tabIndex: 0,
-      onclick: () => { if (s.folderId !== id) app.set(select(s, { folderId: id, caseId: null })); },
+      // app.state, not `s`: what was typed since this list was drawn stays.
+      onclick: () => { if (app.state.folderId !== id) app.set(select(app.state, { folderId: id, caseId: null })); },
       onkeydown: (e) => { if (e.key === 'Enter' && e.target === r) r.click(); },
     }, ...[name].flat(), h('span', { class: 'rtab-n' }, count), ...extra);
     return r;

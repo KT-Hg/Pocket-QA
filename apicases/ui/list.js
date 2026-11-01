@@ -97,7 +97,8 @@ function row(app, c, n) {
   const r = h('div', {
     class: `ac-row${s.caseId === c.id ? ' is-open' : ''}${v.selected.has(c.id) ? ' is-picked' : ''}`,
     dataset: { id: c.id }, draggable: true, tabIndex: 0,
-    onclick: () => { if (s.caseId !== c.id) app.set(select(s, { caseId: c.id })); },
+    // app.state, not `s`: a value saved or an environment picked since this row was drawn stays.
+    onclick: () => { if (app.state.caseId !== c.id) app.set(select(app.state, { caseId: c.id })); },
     onkeydown: (e) => { if (e.key === 'Enter' && e.target === r) r.click(); },
   },
   check,
