@@ -4199,6 +4199,15 @@ async function checkApiPostman(ctx) {
     const ran = await run(`btn($('#runBar'), '▶ Run folder').click(); await until(() => !$('#askModal').hidden, 3000); $('#askOk').click();
       await until(() => /^Ran /.test($('#toast').textContent), 15000); return rowMarks();`);
     check(ran === '✓✓✗✓', 'the imported folder runs as the exported one did: login → token → me', ran);
+    const csv = await run(`let got = null;
+      chrome.downloads.download = (o, cb) => { got = o; if (cb) cb(1); };
+      btn($('#listHead'), 'Export').click(); await wait(60); $$('.ac-menu button').at(-1).click();
+      await until(() => got, 3000);
+      return { file: got.filename, text: await (await fetch(got.url)).text() };`);
+    const lines = csv.text.split('\r\n');
+    check(/^Shop results \d{4}-\d\d-\d\d\.csv$/.test(csv.file) && lines[0].endsWith('"Folder","Name","Method","URL","Result","Status","Time (ms)","Failed checks","Ran at"')
+      && lines.length === 6 && lines[1].startsWith('"Shop","Login","POST"') && lines[1].includes('"Passed","200"') && lines[3].includes('"Failed","200"')
+      && !csv.text.includes(apiToken), 'Export ▾ → Results saves a CSV: a row per request with its last result, no token', { file: csv.file, text: csv.text.slice(0, 400) });
 
     // A collection written in Postman: the hosts and what is left out, before Add; Cancel adds nothing.
     if (!existsSync(fixturePath)) fail(`no ${fixturePath}`);
