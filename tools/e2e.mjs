@@ -3775,6 +3775,9 @@ async function checkCsvZipRun(ctx) {
 }
 
 /** JSON endpoints under /api/ for the API Tests page (apitest.html). */
+/** The token /api/login gave last: /api/me takes only that one. */
+let apiToken = null;
+
 function apiRoute(req, reply) {
   const url = new URL(req.url, 'http://x');
   const json = (status, data) => { reply.writeHead(status, { 'content-type': 'application/json' }); reply.end(JSON.stringify(data)); };
@@ -3783,8 +3786,12 @@ function apiRoute(req, reply) {
     if (url.pathname === '/api/orders/42') json(200, { data: { id: 42, status: 'PAID', items: [{ id: 'a1' }, { id: 'a2' }] } });
     else if (url.pathname === '/api/html') { reply.writeHead(200, { 'content-type': 'text/html' }); reply.end('<p>not JSON</p>'); }
     else if (url.pathname === '/api/fail') json(500, { error: 'boom' });
-    else if (url.pathname === '/api/echo') json(200, { headers: req.headers });
-    else json(404, { error: 'not found' });
+    else if (url.pathname === '/api/echo') json(200, { headers: req.headers, url: req.url });
+    else if (url.pathname === '/api/login') json(200, { token: (apiToken = `tok-${Math.random().toString(36).slice(2, 8)}`) });
+    else if (url.pathname === '/api/me') {
+      if (apiToken && req.headers.authorization === `Bearer ${apiToken}`) json(200, { user: 'an' });
+      else json(401, { error: 'sign in first' });
+    } else json(404, { error: 'not found' });
   });
 }
 
@@ -3910,6 +3917,110 @@ async function checkApiTests(ctx) {
   }
 }
 
+/** API Tests: two environments, a token login saves and the folder's Bearer auth sends, the other auth kinds. */
+async function checkApiVars(ctx) {
+  const page = await ctx.browser.openPage(ctx.extUrl('apitest.html'), { width: 1400, height: 900 });
+  const ev = (js) => page.evaluate(`(async () => { ${API_PAGE_HELPERS} ${js} })()`, 20_000);
+  const other = ctx.base.replace('127.0.0.1', 'localhost');
+  const kase = (id, name, method, path, more = {}) => ({
+    id, folderId: 'f1', name, method, url: `\${e2eBase}${path}`, headers: '', bodyType: 'none', body: '',
+    timeoutMs: 10_000, cookies: false, checks: [], extracts: [], auth: { type: 'inherit' }, ...more,
+  });
+  const state = {
+    folders: [{ id: 'f1', name: 'Users', auth: { type: 'none' } }],
+    cases: [
+      // Login runs before the token exists: it does not take the folder's auth.
+      kase('login', 'Login', 'POST', '/api/login', { auth: { type: 'none' }, extracts: [{ varName: 'e2eToken', from: 'json', path: 'token' }] }),
+      kase('me', 'Me', 'GET', '/api/me'),
+      kase('echo', 'Echo', 'GET', '/api/echo?a=1'),
+    ],
+    environments: [
+      { id: 'dev', name: 'Dev', vars: [{ name: 'e2eBase', value: ctx.base }] },
+      { id: 'stg', name: 'Staging', vars: [{ name: 'e2eBase', value: other }] },
+    ],
+    envId: 'dev', folderId: 'f1', caseId: 'echo',
+  };
+  const open = (name) => `$$('.ac-row').find((r) => r.textContent.includes(${JSON.stringify(name)})).click(); await wait(60);`;
+  const echoed = async () => JSON.parse(await ev(`await send(); return $('pre.ac-pre').textContent;`));
+  const pickAuth = (type) => `tab('Auth'); const sel = $('.ac-auth select'); sel.value = '${type}'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(20);`;
+  const field = (label, value) => `type($('.ac-auth input[aria-label="${label}"]'), ${JSON.stringify(value)});`;
+  const useEnv = (id) => ev(`const s = $('#envSelect'); s.value = '${id}'; s.dispatchEvent(new Event('change', { bubbles: true })); await wait(30);`);
+  try {
+    await page.evaluate(`new Promise((r) => chrome.storage.local.set({ apiCasesState: ${JSON.stringify(state)} }, r))`);
+    await page.reload();
+    await sleep(PAGE_SETTLE_MS);
+    await page.bringToFront();
+
+    // One request, two environments: the same ${e2eBase} goes to another host.
+    const dev = (await echoed()).headers.host;
+    await useEnv('stg');
+    const stg = (await echoed()).headers.host;
+    await useEnv('dev');
+    check(dev === new URL(ctx.base).host && stg === new URL(other).host, 'switching the environment sends the request to the other host', { dev, stg });
+
+    // A name typed in the editor stays when another folder is clicked: the
+    // folder list, drawn before the typing, must not put its older state back.
+    const renamed = await ev(`type($('.ac-name'), 'Echo back'); await wait(20);
+      $$('.ac-folder')[0].click(); await wait(60); $$('.ac-folder')[1].click(); await wait(60);
+      return $$('.ac-row-name').map((n) => n.textContent).join(',');`);
+    check(renamed === 'Login,Me,Echo back', 'what was typed stays when another folder is clicked', renamed);
+
+    // The folder signs in with Bearer ${e2eToken}; login saves the token, /me inherits the auth.
+    await ev(`btn($('#listHead'), '🔑 Auth').click(); await wait(30);
+      const d = $('.ac-auth-dialog'); const sel = d.querySelector('select');
+      sel.value = 'bearer'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(20);
+      type(d.querySelector('input[aria-label="Token"]'), '\${e2eToken}');
+      btn(d, '✕').click(); await wait(60);`);
+    const flow = await ev(`const label = btn($('#listHead'), '🔑 Auth').textContent;
+      ${open('Login')} await send(); const login = verdict();
+      ${open('Me')} await send(); const me = verdict();
+      tab('Auth'); const inherit = $('.ac-auth select').selectedOptions[0].textContent;
+      return { label, login, me, inherit };`);
+    check(flow.label === '🔑 Auth: Bearer' && flow.inherit === 'Inherit from folder (Users: Bearer)', 'the folder\'s auth is set in its dialog and shown on its requests', flow);
+    check(flow.login.startsWith('✓ Passed') && flow.me.startsWith('✓ Passed'), 'login saves ${e2eToken}; /me is sent with it through the folder\'s Bearer auth', flow);
+
+    // Copy cURL writes the folder's auth too.
+    const copied = await ev(`let text = ''; navigator.clipboard.writeText = async (t) => { text = t; };
+      btn($('.ac-insp-sub'), 'Copy cURL').click(); await wait(60); return text;`);
+    check(/-H 'Authorization: Bearer tok-\w+'/.test(copied), 'Copy cURL has the folder\'s Bearer auth', copied);
+
+    // A case set to None is sent without it.
+    await ev(`${pickAuth('none')} await send();`);
+    check((await ev('return verdict();')).startsWith('✗ Failed'), 'a case whose Auth is None is sent without the folder\'s: 401', await ev('return verdict();'));
+
+    // Basic, UTF-8: an / pá.
+    await ev(`${open('Echo')} ${pickAuth('basic')} ${field('Username', 'an')} ${field('Password', 'pá')}`);
+    const basic = (await echoed()).headers.authorization;
+    check(basic === 'Basic YW46cMOh', 'Basic an / pá is sent as Basic YW46cMOh', basic);
+
+    // An API key in the query, after the query the URL has.
+    await ev(`${pickAuth('apikey')} ${field('Name', 'api_key')} ${field('Value', 'k 1')}
+      const where = $('.ac-auth select[aria-label="Add to"]'); where.value = 'query'; where.dispatchEvent(new Event('change', { bubbles: true }));`);
+    const key = (await echoed()).url;
+    check(key === '/api/echo?a=1&api_key=k%201', 'an API key in the query is added to the URL\'s', key);
+
+    // A header written in the Headers tab wins, and the Auth tab says so.
+    await ev(`${pickAuth('bearer')} ${field('Token', 'theirs')} tab('Headers');
+      const [, n, v] = $$('.ac-hdr-item').at(-1).querySelectorAll('input'); type(n, 'Authorization'); type(v, 'Bearer mine'); await wait(20);`);
+    const note = await ev(`tab('Auth'); const n = $('.ac-auth-note'); return n.hidden ? '' : n.textContent;`);
+    const mine = (await echoed()).headers.authorization;
+    check(mine === 'Bearer mine' && note.startsWith('The Headers tab sets Authorization'), 'a header written by hand wins over the auth, and the Auth tab says so', { mine, note });
+
+    // Kept across a reload.
+    await sleep(800);
+    await page.reload();
+    await sleep(PAGE_SETTLE_MS);
+    const kept = await ev(`return btn($('#listHead'), '🔑 Auth')?.textContent;`);
+    check(kept === '🔑 Auth: Bearer', 'the folder\'s auth is kept when the page is opened again', kept);
+    // The 401 of /me sent without auth is logged by the browser; it is meant.
+    const errors = page.errors().filter((e) => !e.includes('/api/me'));
+    if (errors.length) fail(`apitest.html errors: ${errors.join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('apiCasesState')`);
+    await page.close();
+  }
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -3972,6 +4083,7 @@ const CHECKS = [
   ['csv-zip-suggest', 'Variable suggestions in the ZIP Folder name', checkCsvZipSuggest],
   ['csv-zip-run', 'A CSV run downloaded as a ZIP with named folders', checkCsvZipRun],
   ['api-tests', 'API Tests: Send, checks from a clicked key, verdicts', checkApiTests],
+  ['api-vars', 'API Tests: environments, a saved token, folder auth', checkApiVars],
 ];
 
 async function main() {
