@@ -3862,14 +3862,22 @@ async function checkApiTests(ctx) {
       'Headers table: a typed header and a one-click one are sent, an unticked one is not', echoed);
 
     // Variable suggestions: ${ in the URL lists the Data tab's variables, Enter writes one.
-    await page.evaluate(`new Promise((r) => chrome.storage.local.set({ variables: { ...(${JSON.stringify(dataVars || {})}), e2eApiBase: ${JSON.stringify(ctx.base)} } }, r))`);
+    // e2eApiPin is stored as the Data tab stores a Random: a config object, not text.
+    await page.evaluate(`new Promise((r) => chrome.storage.local.set({ variables: { ...(${JSON.stringify(dataVars || {})}),
+      e2eApiBase: ${JSON.stringify(ctx.base)}, e2eApiPin: { activeType: 'r', r: { type: 'numeric', length: 4 } } } }, r))`);
+    const listed = await ev(`$('#btnEnvs').click(); await wait(150);
+      const row = $$('.ac-env-data-row').find((r) => r.querySelector('code').textContent === 'e2eApiPin');
+      const text = row?.querySelector('.ac-env-data-value')?.textContent ?? row?.textContent;
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await wait(30);
+      return text;`);
+    check(listed === 'R4 digits', 'the Environments dialog shows a Data tab Random as "4 digits", not [object Object]', listed);
     await page.bringToFront();
     const picked = await ev(`const u = $('.ac-url'); u.focus(); await wait(60); u.select();
       document.execCommand('insertText', false, '\${e2eApi'); await wait(100);
       const offered = [...document.querySelectorAll('#varSuggest:not([hidden]) .vs-name')].map((n) => n.textContent).join(',');
       u.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); await wait(60);
       return { offered, url: u.value };`);
-    check(picked.offered === 'e2eApiBase' && picked.url === '${e2eApiBase}', 'typing ${ in the URL offers the variable and Enter writes it', picked);
+    check(picked.offered === 'e2eApiBase,e2eApiPin' && picked.url === '${e2eApiBase}', 'typing ${ in the URL offers the variables and Enter writes the first', picked);
 
     // Kept across a reload.
     await sleep(800);
