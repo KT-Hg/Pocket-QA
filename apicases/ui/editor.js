@@ -1,6 +1,6 @@
 /**
  * ui/editor.js — the right column: the open case's name, folder, request
- * (method, URL, headers, body), its checks (ui/checks.js), settings, Send, and
+ * (method, URL, headers, auth (ui/auth.js), body), its checks (ui/checks.js), settings, Send, and
  * the result under it (ui/response.js). Clicking a key of a JSON response
  * offers a check on it.
  *
@@ -10,8 +10,9 @@
  */
 
 import { toCurl } from '../curl.js';
-import { BODY_TYPES, MAX_TIMEOUT_MS, METHODS, duplicateCase, findCase, jsonProblem, updateCase, urlProblem } from '../model.js';
+import { BODY_TYPES, MAX_TIMEOUT_MS, METHODS, duplicateCase, findCase, jsonProblem, requestOf, updateCase, urlProblem } from '../model.js';
 import { varsFor } from '../vars.js';
+import { authPane } from './auth.js';
 import { checksPane } from './checks.js';
 import { extractsPane } from './extracts.js';
 import { headersPane } from './headers.js';
@@ -21,7 +22,7 @@ import { showMenu } from './json-view.js';
 import { removeCases } from './list.js';
 import { responseBox, sendButton, sendCase } from './response.js';
 
-const TABS = [['headers', 'Headers'], ['body', 'Body'], ['checks', 'Checks'], ['extracts', 'Save values'], ['settings', 'Settings']];
+const TABS = [['headers', 'Headers'], ['auth', 'Auth'], ['body', 'Body'], ['checks', 'Checks'], ['extracts', 'Save values'], ['settings', 'Settings']];
 const BODY_LABELS = { none: 'None', json: 'JSON', text: 'Text', form: 'Form' };
 const BODY_HINTS = {
   json: '{\n  "name": "${name}",\n  "age": 30\n}',
@@ -63,7 +64,7 @@ function headPart(ed) {
 }
 
 async function copyCurl(ed) {
-  const r = toCurl(ed.current(), await varsFor(ed.app.state));
+  const r = toCurl(requestOf(ed.app.state, ed.current()), await varsFor(ed.app.state));
   if (r.error) { toast(r.error, 'error', { ms: 5000 }); return; }
   try {
     await navigator.clipboard.writeText(r.command);
@@ -195,9 +196,10 @@ export function renderEditor(app, { focus = null } = {}) {
   let tabs = null;
   const checks = checksPane(ed, { onCount: (n) => tabs?.setCount('checks', n) });
   const extracts = extractsPane(ed, { onCount: (n) => tabs?.setCount('extracts', n) });
-  const headers = headersPane(ed, { onCount: (n) => tabs?.setCount('headers', n) });
+  const auth = authPane(ed);
+  const headers = headersPane(ed, { onCount: (n) => { tabs?.setCount('headers', n); auth.refresh(); } });
   ed.onRequestChange = headers.refreshAdded;
-  const panes = { headers: headers.pane, body: body.pane, checks: checks.pane, extracts: extracts.pane, settings: settingsPane(ed) };
+  const panes = { headers: headers.pane, auth: auth.pane, body: body.pane, checks: checks.pane, extracts: extracts.pane, settings: settingsPane(ed) };
   tabs = tabStrip(panes);
   tabs.setCount('checks', (c.checks || []).length);
   headers.refreshAdded();

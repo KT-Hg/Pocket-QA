@@ -134,3 +134,29 @@ test('base64Utf8: UTF-8 bytes, as Basic auth needs', async () => {
   const { base64Utf8 } = await import('../shared/api-request.js');
   assert.equal(base64Utf8('an:pá'), 'YW46cMOh');
 });
+
+test('auth: Bearer, Basic (UTF-8), an API key in a header or the query, variables filled in', () => {
+  const vars = { token: 'T1', user: 'an' };
+  const sent = (auth, fields) => buildRequest(req({ auth, ...fields }), vars);
+  const header = (r, n) => r.init.headers.find(([k]) => k === n)?.[1];
+  assert.equal(header(sent({ type: 'bearer', token: '${token}' }), 'Authorization'), 'Bearer T1');
+  assert.equal(header(sent({ type: 'basic', username: '${user}', password: 'pá' }), 'Authorization'), 'Basic YW46cMOh');
+  assert.equal(header(sent({ type: 'apikey', key: 'X-Key', value: '${token}', in: 'header' }), 'X-Key'), 'T1');
+  assert.equal(sent({ type: 'apikey', key: 'api_key', value: 'k 1&', in: 'query' }, { url: 'https://api.test/x?a=1' }).url,
+    'https://api.test/x?a=1&api_key=k%201%26', 'added to the query the URL has');
+  assert.equal(sent({ type: 'apikey', key: 'api_key', value: 'k', in: 'query' }).url, 'https://api.test/x?api_key=k');
+  for (const type of ['none', 'inherit']) assert.deepEqual(sent({ type, token: 't' }).init.headers, [], `${type} adds nothing`);
+  assert.deepEqual(sent({ type: 'bearer', token: '' }).init.headers, [], 'an empty token adds nothing');
+});
+
+test('auth: what the Headers tab or the URL sets wins; a missing variable is named', () => {
+  const mine = buildRequest(req({ headers: 'authorization: Bearer mine', auth: { type: 'bearer', token: 'theirs' } }));
+  assert.deepEqual(mine.init.headers, [['authorization', 'Bearer mine']]);
+  assert.equal(buildRequest(req({ url: 'https://api.test/x?api_key=mine', auth: { type: 'apikey', key: 'api_key', value: 'theirs', in: 'query' } })).url,
+    'https://api.test/x?api_key=mine');
+  assert.equal(buildRequest(req({ auth: { type: 'bearer', token: '${token}' } }), {}).error,
+    'No value for ${token} (used by the auth) — add it to the environment or the Data tab, or set this request\'s Auth to None');
+  assert.equal(buildRequest(req({ url: '${base}/x', auth: { type: 'bearer', token: '${token}' } }), {}).error,
+    'No value for ${base}, ${token} — add them to the environment or the Data tab', 'not only the auth: the usual message');
+  assert.equal(buildRequest(req({ auth: { type: 'apikey', key: 'bad key', value: 'v', in: 'header' } })).kind, 'headers');
+});

@@ -8,12 +8,13 @@
  * site's cookies with `credentials: 'include'` (checked in Edge 156, plan 13
  * Task 1).
  *
- * A request is { method, url, headers, bodyType, body, timeoutMs, cookies } as
- * the page stores it (apicases/model.js).
+ * A request is { method, url, headers, bodyType, body, timeoutMs, cookies, auth }
+ * as the page stores it (apicases/model.js), its auth resolved: a case that
+ * inherits its folder's is given that one first (requestOf).
  */
 
 /** Header names whose values are never written into a saved result or an export. */
-const SECRET_HEADER = /^(authorization|proxy-authorization|cookie|set-cookie|x-api-key)$|token|secret|passw/i;
+const SECRET_HEADER = /^(authorization|proxy-authorization|cookie|set-cookie)$|api[-_]?key|token|secret|passw/i;
 
 export const MASK = '••••';
 
@@ -72,6 +73,50 @@ function targetUrl(url) {
   return { target };
 }
 
+/**
+ * What the auth adds, its ${variables} filled in: { header: [name, value] } or
+ * { query: [key, value] }, or {} — for none, inherit (not resolved), or an
+ * empty token / key.
+ */
+function authPart(auth, vars, missing) {
+  const f = (k) => fill(String(auth?.[k] ?? ''), vars, ENCODE.header, missing);
+  if (auth?.type === 'bearer') {
+    const token = f('token').trim();
+    return token ? { header: ['Authorization', `Bearer ${token}`] } : {};
+  }
+  if (auth?.type === 'basic') {
+    const user = f('username');
+    const pass = f('password');
+    return user || pass ? { header: ['Authorization', `Basic ${base64Utf8(`${user}:${pass}`)}`] } : {};
+  }
+  const key = auth?.type === 'apikey' ? f('key').trim() : '';
+  return key ? { [auth.in === 'query' ? 'query' : 'header']: [key, f('value')] } : {};
+}
+
+/** `auth` added to the headers and URL — unless a header of that name, or that query key, is set already. */
+function addAuth({ header, query }, headers, target) {
+  if (header && !headers.some(([n]) => n.toLowerCase() === header[0].toLowerCase())) headers.push(header);
+  if (query && !target.searchParams.has(query[0])) {
+    // Appended as is: rewriting through searchParams would re-encode the query the URL has.
+    target.search = `${target.search ? `${target.search}&` : ''}${query.map(encodeURIComponent).join('=')}`;
+  }
+}
+
+/**
+ * The error for ${names} with no value. When only the auth lacks one, it says
+ * so: a login request inheriting its folder's ${token} auth runs before the
+ * token exists, and is meant to be sent with Auth None.
+ */
+function missingError(missing, authMissing) {
+  const all = new Set([...missing, ...authMissing]);
+  const names = [...all].map((k) => `\${${k}}`).join(', ');
+  const onlyAuth = !missing.size;
+  return {
+    error: `No value for ${names}${onlyAuth ? ' (used by the auth)' : ''} — add ${all.size === 1 ? 'it' : 'them'} to the environment or the Data tab${onlyAuth ? ', or set this request\'s Auth to None' : ''}`,
+    kind: 'vars',
+  };
+}
+
 /** The body as sent, or undefined: GET and HEAD go without one, as fetch requires. */
 function requestBody(req, method, vars, missing) {
   const type = req.bodyType || 'none';
@@ -90,16 +135,16 @@ export function buildRequest(req, vars = {}) {
   const url = fill(String(req.url || '').trim(), vars, ENCODE.plain, missing);
   const parsed = parseHeaders(fill(String(req.headers || ''), vars, ENCODE.header, missing));
   const body = requestBody(req, method, vars, missing);
+  const authMissing = new Set();
+  const auth = authPart(req.auth, vars, authMissing);
 
-  if (missing.size) {
-    const names = [...missing].map((k) => `\${${k}}`).join(', ');
-    return { error: `No value for ${names} — add ${missing.size === 1 ? 'it' : 'them'} to the environment or the Data tab`, kind: 'vars' };
-  }
+  if (missing.size || authMissing.size) return missingError(missing, authMissing);
   const { target, ...bad } = targetUrl(url);
   if (!target) return bad;
   if (parsed.error) return { error: parsed.error, kind: 'headers' };
 
   const headers = parsed.headers;
+  addAuth(auth, headers, target);
   const contentType = body !== undefined && DEFAULT_CONTENT_TYPE[req.bodyType];
   if (contentType && !headers.some(([n]) => n.toLowerCase() === 'content-type')) headers.push(['Content-Type', contentType]);
   try { new Headers(headers); } catch (e) { return { error: `Header not allowed: ${e.message}`, kind: 'headers' }; }
@@ -111,7 +156,7 @@ export function buildRequest(req, vars = {}) {
   };
 }
 
-/** Base64 of the UTF-8 bytes of `s` (btoa alone takes Latin-1 only): Basic auth, `curl -u`. */
+/** Base64 of the UTF-8 bytes of `s` (btoa alone takes Latin-1 only): Basic auth. */
 export function base64Utf8(s) {
   return btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 }

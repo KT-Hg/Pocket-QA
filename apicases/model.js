@@ -51,11 +51,35 @@ export function makeCase(fields = {}) {
     body: '',
     timeoutMs: DEFAULT_TIMEOUT_MS,
     cookies: true,
+    auth: { type: 'inherit' },
     ...fields,
   };
 }
 
 const str = (v, d = '') => (typeof v === 'string' ? v : d);
+
+/** Auth of a case ('inherit' takes its folder's) or a folder (never 'inherit'). */
+export const AUTH_TYPES = ['inherit', 'none', 'bearer', 'basic', 'apikey'];
+
+/** An auth made safe: a known type (else `fallback`), string fields, `in` header or query. */
+export function normalizeAuth(a, fallback) {
+  let type = AUTH_TYPES.includes(a?.type) ? a.type : fallback;
+  if (type === 'inherit' && fallback === 'none') type = 'none';
+  const out = { type };
+  for (const k of ['token', 'username', 'password', 'key', 'value']) if (typeof a?.[k] === 'string') out[k] = a[k];
+  if (type === 'apikey') out.in = a?.in === 'query' ? 'query' : 'header';
+  return out;
+}
+
+/** The case as it is sent (shared/api-request.js): with its folder's auth when it inherits. */
+export function requestOf(state, c) {
+  if (c.auth?.type !== 'inherit') return c;
+  return { ...c, auth: state.folders.find((f) => f.id === c.folderId)?.auth || { type: 'none' } };
+}
+
+export function setFolderAuth(state, id, auth) {
+  return { ...state, folders: state.folders.map((f) => (f.id === id ? { ...f, auth: normalizeAuth(auth, 'none') } : f)) };
+}
 
 function normalizeCase(c, folderIds) {
   if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !folderIds.has(c.folderId)) return null;
@@ -70,6 +94,7 @@ function normalizeCase(c, folderIds) {
     body: str(c.body),
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? Math.min(timeout, MAX_TIMEOUT_MS) : DEFAULT_TIMEOUT_MS,
     cookies: c.cookies !== false,
+    auth: normalizeAuth(c.auth, 'inherit'),
   };
 }
 
@@ -95,7 +120,7 @@ export function normalizeState(raw) {
   if (!raw || typeof raw !== 'object') return emptyState();
   const folders = (Array.isArray(raw.folders) ? raw.folders : [])
     .filter((f) => f && typeof f.id === 'string')
-    .map((f) => ({ ...f, name: str(f.name, 'Folder') }));
+    .map((f) => ({ ...f, name: str(f.name, 'Folder'), auth: normalizeAuth(f.auth, 'none') }));
   const folderIds = new Set(folders.map((f) => f.id));
   const cases = (Array.isArray(raw.cases) ? raw.cases : []).map((c) => normalizeCase(c, folderIds)).filter(Boolean);
   const environments = normalizeEnvironments(raw.environments);
@@ -114,7 +139,7 @@ export function select(state, { folderId = state.folderId, caseId = state.caseId
 }
 
 export function addFolder(state, name) {
-  const folder = { id: newId(), name: name.trim() || 'Folder' };
+  const folder = { id: newId(), name: name.trim() || 'Folder', auth: { type: 'none' } };
   return { state: { ...state, folders: [...state.folders, folder], folderId: folder.id, caseId: null }, id: folder.id };
 }
 

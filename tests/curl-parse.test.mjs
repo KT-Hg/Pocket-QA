@@ -62,7 +62,9 @@ test('form bodies: by Content-Type, or -d without one', () => {
 test('-X, -u, -m, combined flags; -G puts the data in the URL', () => {
   const r = parseCurl(`curl -sSL -X put -u 'an:pá' -m 5 https://x.test/a`);
   assert.equal(r.request.method, 'PUT');
-  assert.equal(r.request.headers, `Authorization: Basic ${Buffer.from('an:pá').toString('base64')}`);
+  assert.equal(r.request.headers, '', '-u is the Basic auth of the case, not a header');
+  assert.deepEqual(r.request.auth, { type: 'basic', username: 'an', password: 'pá' });
+  assert.deepEqual(parseCurl('curl -u an https://x.test').request.auth, { type: 'basic', username: 'an', password: '' });
   assert.equal(r.request.timeoutMs, 5000);
 
   const g = parseCurl(`curl -G https://x.test/s?a=0 -d q=1 --data-urlencode 'name=A B&C'`);
@@ -128,5 +130,7 @@ test('toCurl → parseCurl gives the request back', async () => {
     for (const line of c.headers.split('\n').filter(Boolean)) assert.ok(back.request.headers.includes(line), `${line} in ${back.request.headers}`);
   }
   assert.match(toCurl({ method: 'GET', url: '${nope}' }).error, /No value for \$\{nope\}/);
+  assert.match(toCurl({ method: 'GET', url: 'https://api.test/me', auth: { type: 'bearer', token: '${t}' } }, { t: 'x1' }).command,
+    /-H 'Authorization: Bearer x1'/, 'the auth goes in as its header');
   assert.equal(parseCurl(`curl -X OPTIONS https://a.test`).request.method, 'OPTIONS', 'OPTIONS is a method now');
 });

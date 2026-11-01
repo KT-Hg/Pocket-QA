@@ -5,6 +5,7 @@
  */
 
 import { ALL, METHODS, addCase, deleteCases, findFolder, reorderCase, select, visibleCases } from '../model.js';
+import { folderAuthButton } from './auth.js';
 import { el, h, toast } from './dom.js';
 import { pasteCurlButton } from './paste-curl.js';
 
@@ -38,6 +39,7 @@ function head(app) {
     h('h2', { class: 'ac-title' }, folder ? folder.name : 'All requests'),
     h('span', { class: 'ac-head-count' }, shown === total ? `${total}` : `${shown} of ${total}`));
   const actions = h('div', { class: 'main-head-actions' },
+    folder ? folderAuthButton(app, folder) : null,
     pasteCurlButton(app),
     h('button', { class: 't-btn t-btn-primary', onclick: () => app.set(addCase(app.state).state, { focus: 'url' }) }, '＋ Request'));
   return [title, actions];

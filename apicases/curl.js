@@ -17,7 +17,7 @@
  * Pure — no chrome.*, no DOM.
  */
 
-import { base64Utf8, buildRequest } from '../shared/api-request.js';
+import { buildRequest } from '../shared/api-request.js';
 import { MAX_TIMEOUT_MS, METHODS } from './model.js';
 
 /** Flags that take no argument and change nothing the page sends. */
@@ -166,7 +166,10 @@ const OPTIONS = {
   '--data-urlencode': (r, v) => { r.data.push(urlEncodeData(v)); },
   '--json': (r, v) => { r.data.push(v); r.json = true; },
   '-b': (r) => { r.notes.push(`the -b cookies ${COOKIES_INSTEAD}`); },
-  '-u': (r, v) => { r.headers.push(['Authorization', `Basic ${base64Utf8(v)}`]); },
+  '-u': (r, v) => {
+    const colon = v.indexOf(':');
+    r.auth = colon < 0 ? { type: 'basic', username: v, password: '' } : { type: 'basic', username: v.slice(0, colon), password: v.slice(colon + 1) };
+  },
   '-A': (r, v, name) => { r.notes.push(`${name} (the browser sets it)`); },
   '--url': setUrl,
   '-m': (r, v) => {
@@ -273,7 +276,7 @@ function bodyTypeOf(body, contentType) {
 
 /**
  * { request, notes } — request has name, method, url, headers (text), bodyType,
- * body and, with -m, timeoutMs; notes say what was left out. Or { error }.
+ * body and, with -m, timeoutMs, with -u, a Basic auth; notes say what was left out. Or { error }.
  */
 export function parseCurl(cmd) {
   const text = String(cmd || '').trim();
@@ -308,10 +311,15 @@ export function parseCurl(cmd) {
       headers: headers.map(([n, v]) => `${n}: ${v}`).join('\n'),
       bodyType,
       body,
-      ...(r.timeoutMs ? { timeoutMs: r.timeoutMs } : {}),
+      ...optionFields(r),
     },
     notes: r.notes,
   };
+}
+
+/** timeoutMs (-m) and auth (-u), only when the command sets them: the case keeps its defaults otherwise. */
+function optionFields(r) {
+  return { ...(r.timeoutMs ? { timeoutMs: r.timeoutMs } : {}), ...(r.auth ? { auth: r.auth } : {}) };
 }
 
 /* ── Writing a command (Copy as cURL) ─────────────────────────────────────── */

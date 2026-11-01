@@ -132,7 +132,7 @@ test('normalizeState: a saved state made safe to render', () => {
     folderId: 'gone',
     caseId: 'c2',
   });
-  assert.deepEqual(s.folders, [{ id: 'f1', name: 'A' }]);
+  assert.deepEqual(s.folders, [{ id: 'f1', name: 'A', auth: { type: 'none' } }]);
   assert.deepEqual(s.cases.map((c) => c.id), ['c1', 'c3']);
   assert.equal(s.cases[0].timeoutMs, M.MAX_TIMEOUT_MS);
   assert.deepEqual(s.cases[0].checks, [{ on: 'status' }], 'fields of later versions are kept');
@@ -142,4 +142,23 @@ test('normalizeState: a saved state made safe to render', () => {
   assert.equal(s.cases[1].cookies, false);
   assert.equal(s.folderId, M.ALL);
   assert.equal(s.caseId, null);
+});
+
+test('auth: a case inherits its folder\'s, sets its own, or sends none', () => {
+  let { s, A, a1, a2, b1 } = sample();
+  assert.deepEqual(M.findCase(s, a1).auth, { type: 'inherit' });
+  assert.deepEqual(M.findFolder(s, A).auth, { type: 'none' });
+  s = M.setFolderAuth(s, A, { type: 'bearer', token: '${token}' });
+  s = M.updateCase(s, a2, { auth: { type: 'none' } });
+  assert.deepEqual(M.requestOf(s, M.findCase(s, a1)).auth, { type: 'bearer', token: '${token}' }, 'inherits the folder\'s');
+  assert.deepEqual(M.requestOf(s, M.findCase(s, a2)).auth, { type: 'none' }, 'its own None wins');
+  assert.deepEqual(M.requestOf(s, M.findCase(s, b1)).auth, { type: 'none' }, 'a folder with no auth');
+  assert.equal(M.findCase(s, a1).auth.type, 'inherit', 'the case itself is unchanged');
+});
+
+test('normalizeAuth: a known type, string fields, header or query; a folder never inherits', () => {
+  assert.deepEqual(M.normalizeAuth({ type: 'apikey', key: 'k', value: 1, in: 'cookie' }, 'inherit'), { type: 'apikey', key: 'k', in: 'header' });
+  assert.deepEqual(M.normalizeAuth({ type: 'oauth2' }, 'inherit'), { type: 'inherit' });
+  assert.deepEqual(M.normalizeAuth({ type: 'inherit' }, 'none'), { type: 'none' });
+  assert.deepEqual(M.normalizeAuth(undefined, 'none'), { type: 'none' });
 });
