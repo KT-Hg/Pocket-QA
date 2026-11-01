@@ -3777,13 +3777,17 @@ async function checkCsvZipRun(ctx) {
 /** JSON endpoints under /api/ for the API Tests page (apitest.html). */
 /** The token /api/login gave last: /api/me takes only that one. */
 let apiToken = null;
+/** The paths requested under /api/, in order: which requests a run sent. */
+const apiHits = [];
 
 function apiRoute(req, reply) {
   const url = new URL(req.url, 'http://x');
   const json = (status, data) => { reply.writeHead(status, { 'content-type': 'application/json' }); reply.end(JSON.stringify(data)); };
+  apiHits.push(url.pathname);
   req.resume();
   req.on('end', () => {
-    if (url.pathname === '/api/orders/42') json(200, { data: { id: 42, status: 'PAID', items: [{ id: 'a1' }, { id: 'a2' }] } });
+    if (url.pathname === '/api/slow') setTimeout(() => json(200, { slow: true }), 1500);
+    else if (url.pathname === '/api/orders/42') json(200, { data: { id: 42, status: 'PAID', items: [{ id: 'a1' }, { id: 'a2' }] } });
     else if (url.pathname === '/api/html') { reply.writeHead(200, { 'content-type': 'text/html' }); reply.end('<p>not JSON</p>'); }
     else if (url.pathname === '/api/fail') json(500, { error: 'boom' });
     else if (url.pathname === '/api/echo') json(200, { headers: req.headers, url: req.url });
@@ -4021,6 +4025,111 @@ async function checkApiVars(ctx) {
   }
 }
 
+/** API Tests: a folder run, asked first when it writes; Stop; Run selected; ▶ on a row; results kept. */
+async function checkApiRun(ctx) {
+  const page = await ctx.browser.openPage(ctx.extUrl('apitest.html'), { width: 1400, height: 900 });
+  const kase = (id, name, path, more = {}) => ({
+    id, folderId: 'shop', name, method: 'GET', url: `\${e2eBase}${path}`, headers: '', bodyType: 'none', body: '',
+    timeoutMs: 10_000, cookies: false, checks: [], extracts: [], auth: { type: 'inherit' }, ...more,
+  });
+  const status = (expected) => ({ on: 'json', path: 'data.status', op: 'equals', expected });
+  const state = {
+    folders: [{ id: 'shop', name: 'Shop', auth: { type: 'bearer', token: '${e2eRunToken}' } }, { id: 'slow', name: 'Slow', auth: { type: 'none' } }],
+    cases: [
+      kase('login', 'Login', '/api/login', { method: 'POST', auth: { type: 'none' }, extracts: [{ varName: 'e2eRunToken', from: 'json', path: 'token' }] }),
+      kase('order', 'Order paid', '/api/orders/42', { checks: [status('PAID')] }),
+      kase('wrong', 'Order pending', '/api/orders/42', { checks: [status('PENDING')] }),
+      // Sent on its own before login: it does not take the folder's ${e2eRunToken}.
+      kase('fail', 'Server error', '/api/fail', { auth: { type: 'none' } }),
+      kase('timeout', 'Too slow', '/api/slow', { timeoutMs: 300 }),
+      kase('html', 'Not JSON', '/api/html', { checks: [{ on: 'json', path: 'id', op: 'exists' }] }),
+      kase('me', 'Me', '/api/me'),
+      kase('s1', 'Slow one', '/api/slow', { folderId: 'slow' }),
+      kase('s2', 'Slow two', '/api/slow', { folderId: 'slow',
+        last: { at: 1000, verdict: 'failed', status: 500, ms: 9, failures: [{ kind: 'assert', reason: 'Expected status 2xx, got 500' }], bodyHead: '', sent: null } }),
+    ],
+    environments: [{ id: 'dev', name: 'Dev', vars: [{ name: 'e2eBase', value: ctx.base }] }],
+    envId: 'dev', folderId: 'shop', caseId: 'order',
+  };
+  const H = `${API_PAGE_HELPERS}
+    const rowMarks = () => $$('.ac-row .ac-row-mark').map((m) => m.textContent).join('');
+    // A run that started ends with a toast: "Ran 7: …" or "Stopped after …".
+    const finished = () => until(() => !$('#toast').hidden && /^(Ran|Stopped)/.test($('#toast').textContent), 20000);
+    const start = (button) => { $('#toast').hidden = true; button.click(); };
+    const asking = () => !$('#askModal').hidden;
+    const row = (name) => $$('.ac-row').find((r) => r.querySelector('.ac-row-name').textContent === name);`;
+  const run = (js) => page.evaluate(`(async () => { ${H} ${js} })()`, 30_000);
+  const hits = () => apiHits.splice(0);
+  try {
+    await page.evaluate(`new Promise((r) => chrome.storage.local.set({ apiCasesState: ${JSON.stringify(state)} }, r))`);
+    await page.reload();
+    await sleep(PAGE_SETTLE_MS);
+    await page.bringToFront();
+    hits();
+
+    // The folder has a POST: asked first, naming it and its host; Cancel sends nothing.
+    const asked = await run(`btn($('#runBar'), '▶ Run folder').click(); await until(asking, 3000);
+      const text = $('#askText').textContent; $('#askCancel').click(); await wait(100); return { text, marks: rowMarks() };`);
+    check(asked.text.startsWith(`Send 1 POST to ${new URL(ctx.base).host}?`) && asked.marks === '·······' && !hits().length,
+      'a folder with a POST is asked about first; Cancel sends nothing', asked);
+
+    // ▶ on a row sends that one from the list, without asking or opening it.
+    const one = await run(`row('Server error').querySelector('.ac-row-run').click();
+      await until(() => rowMarks() !== '·······'); return { marks: rowMarks(), open: $('.ac-name').value, asked: asking() };`);
+    check(one.marks === '···✗···' && one.open === 'Order paid' && !one.asked && hits().join() === '/api/fail',
+      '▶ on a row sends it, shows its ✗ in the list, and the open request stays open', one);
+
+    // OK: one at a time, in order; login's token reaches /me through the folder's Bearer auth.
+    const ran = await run(`const seen = [];
+      const mo = new MutationObserver(() => { const t = $('#runBar .ac-stop') && $('#runBar .ac-run-text')?.textContent; if (t && seen.at(-1) !== t) seen.push(t); });
+      mo.observe($('#runBar'), { childList: true, subtree: true });
+      start(btn($('#runBar'), '▶ Run folder')); await until(asking, 3000); $('#askOk').click(); await finished(); mo.disconnect();
+      return { during: seen, marks: rowMarks(), bar: $('#runBar .ac-run-text').textContent, verdict: verdict(),
+        fail: row('Server error').querySelector('.ac-row-fail')?.textContent, toast: $('#toast').textContent };`);
+    check(ran.during[0] === 'Running 1 of 7' && ran.during.includes('Running 7 of 7 · 2 passed · 2 failed · 2 broken'), 'the bar says how far the run is', ran.during);
+    check(ran.marks === '✓✓✗✗⚠⚠✓', 'a folder run: right, wrong check, 500, timeout, JSON check on HTML, login → me come to ✓ ✓ ✗ ✗ ⚠ ⚠ ✓', ran);
+    check(hits().join() === '/api/login,/api/orders/42,/api/orders/42,/api/fail,/api/slow,/api/html,/api/me', 'the requests are sent in list order');
+    check(/^Last run \S+.* · 3 passed · 2 failed · 2 broken$/.test(ran.bar) && ran.toast === 'Ran 7: 3 passed · 2 failed · 2 broken',
+      'the bar sums up the last run; a toast when it ends', ran);
+    check(ran.verdict.startsWith('✓ Passed') && ran.fail === 'Expected status 2xx, got 500', 'the open request shows its result; a row shows its first failure', ran);
+
+    // Filtered by result.
+    const failed = await run(`const s = $('#listResult'); s.value = 'failed'; s.dispatchEvent(new Event('change')); await wait(30);
+      const names = $$('.ac-row-name').map((n) => n.textContent).join(','); const label = btn($('#runBar'), '▶').textContent;
+      s.value = ''; s.dispatchEvent(new Event('change')); await wait(30); return { names, label };`);
+    check(failed.names === 'Order pending,Server error' && failed.label === '▶ Run 2 shown', 'the list filters by last result; Run then runs the ones shown', failed);
+
+    // Run selected: only the ticked ones, in list order, and GETs are not asked about.
+    const picked = await run(`row('Me').querySelector('input[type=checkbox]').click(); row('Order paid').querySelector('input[type=checkbox]').click(); await wait(20);
+      start(btn($('#listBulk'), '▶ Run selected')); await wait(50); const askedNow = asking(); await finished(); return { askedNow, marks: rowMarks() };`);
+    check(!picked.askedNow && picked.marks === '✓✓✗✗⚠⚠✓' && hits().join() === '/api/orders/42,/api/me', 'Run selected sends only the ticked requests, GETs without asking', picked);
+
+    // A GET-only folder runs without asking; ⏹ lets the request on its way finish and sends no more.
+    const stopped = await run(`$$('.ac-folder')[2].click(); await wait(60); start(btn($('#runBar'), '▶ Run folder')); await wait(300);
+      const askedNow = asking(); btn($('#runBar'), '⏹ Stop').click(); await wait(20); const stopping = $('#runBar .ac-stop')?.textContent;
+      await finished(); return { askedNow, stopping, marks: rowMarks(), toast: $('#toast').textContent };`);
+    check(!stopped.askedNow && stopped.stopping === 'Stopping…' && stopped.marks === '✓✗' && hits().join() === '/api/slow'
+      && stopped.toast.startsWith('Stopped after 1 of 2'), '⏹ Stop: the request on its way finishes, the next keeps its old result', stopped);
+
+    // Kept across a reload: marks, the bar, the start of a body — secret values masked.
+    await sleep(800);
+    await page.reload();
+    await sleep(PAGE_SETTLE_MS);
+    const kept = await run(`$$('.ac-folder')[1].click(); await wait(60); row('Login').click(); await wait(60);
+      return { marks: rowMarks(), bar: $('#runBar .ac-run-text').textContent, meta: $('.ac-resp-meta').textContent, body: $('.ac-response pre')?.textContent || '' };`);
+    check(kept.marks === '✓✓✗✗⚠⚠✓' && kept.bar.endsWith('· 3 passed · 2 failed · 2 broken'), 'the results and the bar are kept when the page is opened again', kept);
+    check(kept.meta.startsWith('200') && kept.meta.includes('Last run') && kept.body.includes('"token": "••••"'), 'the last result shows the start of its body, the token masked', kept);
+    const saved = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('apiCasesState', (x) => r(JSON.stringify(x.apiCasesState.cases.map((c) => c.last)))))`);
+    check(apiToken && !saved.includes(apiToken), 'no token value in the kept results', saved.slice(0, 200));
+    // The 500 and the request aborted on its timeout are logged by the browser; they are meant.
+    const errors = page.errors().filter((e) => !e.includes('/api/'));
+    if (errors.length) fail(`apitest.html errors: ${errors.join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('apiCasesState')`);
+    await page.close();
+  }
+}
+
 const CHECKS = [
   ['dropdown', 'Dropdown', checkDropdown],
   ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
@@ -4084,6 +4193,7 @@ const CHECKS = [
   ['csv-zip-run', 'A CSV run downloaded as a ZIP with named folders', checkCsvZipRun],
   ['api-tests', 'API Tests: Send, checks from a clicked key, verdicts', checkApiTests],
   ['api-vars', 'API Tests: environments, a saved token, folder auth', checkApiVars],
+  ['api-run', 'API Tests: run a folder, ask before writes, Stop, results kept', checkApiRun],
 ];
 
 async function main() {
