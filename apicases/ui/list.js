@@ -9,6 +9,7 @@
 import { ALL, METHODS, addCase, deleteCases, findFolder, reorderCase, select, visibleCases } from '../model.js';
 import { folderAuthButton } from './auth.js';
 import { el, h, toast, whenText } from './dom.js';
+import { exportMenu } from './exports.js';
 import { pasteCurlButton } from './paste-curl.js';
 import { sendCase } from './response.js';
 import { isRunning, renderRunBar, runCases } from './run-bar.js';
@@ -47,6 +48,7 @@ function head(app) {
   const actions = h('div', { class: 'main-head-actions' },
     folder ? folderAuthButton(app, folder) : null,
     pasteCurlButton(app),
+    exportMenu(app),
     h('button', { class: 't-btn t-btn-primary', onclick: () => app.set(addCase(app.state).state, { focus: 'url' }) }, '＋ Request'));
   return [title, actions];
 }

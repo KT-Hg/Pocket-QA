@@ -303,6 +303,11 @@ input.ac-check-path { flex-grow: 1.6; }
 .ac-curl { max-width: 680px; }
 .ac-curl-help { margin: 0 0 10px; }
 
+/* ===== Export menu ===== */
+.ac-menu { min-width: 240px; }
+.ac-menu-check { display: flex; align-items: center; gap: 8px; padding: 6px 9px 7px 33px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.ac-menu-check input { margin: 0; }
+
 /* ===== Headers table ===== */
 .ac-pane-head .helper { margin: 0; flex: 1 1 auto; }
 .ac-hdr-table { display: flex; flex-direction: column; gap: 4px; }
