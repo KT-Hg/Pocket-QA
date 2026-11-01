@@ -10,13 +10,17 @@
  * in it adds another, without redrawing the row being typed in.
  */
 
+import { attachVarSuggest } from '../../popup/ui/var-suggest.js';
 import { NAME_SUGGESTIONS, addedHeaders, parseRows, rowProblem, rowsText, valueSuggestions } from '../headers.js';
 import { h } from './dom.js';
 import { suggestVars } from './var-suggest.js';
 
+// The page's own list under the field, not a <datalist>: the browser draws
+// that one where it likes (off to the side at some zoom levels).
+const NAME_ENTRIES = NAME_SUGGESTIONS.map((name) => ({ name }));
+
 /** 'table' or 'bulk', kept from one case to the next. */
 let mode = 'table';
-let uid = 0;
 
 const QUICK = [
   ['Accept JSON', 'Accept', 'application/json'],
@@ -26,10 +30,6 @@ const QUICK = [
 
 const blankRow = () => ({ on: true, name: '', value: '' });
 
-function datalist(id, values) {
-  return h('datalist', { id }, ...values.map((v) => h('option', { value: v })));
-}
-
 /** "Add: ＋ Accept JSON ＋ Bearer token …" — `add(name, value)` on a click. */
 function quickBar(add) {
   return h('div', { class: 'ac-hdr-quick' }, h('span', { class: 'helper' }, 'Add:'),
@@ -38,15 +38,13 @@ function quickBar(add) {
 
 /**
  * One row of the table. `p` is the table's state: { rows (the array shown, the
- * last one empty), table (its element), save(), redraw(), namesId }. `r` is
+ * last one empty), table (its element), save(), redraw(), app }. `r` is
  * changed in place as it is typed in.
  */
 function rowEl(p, r) {
   const last = r === p.rows[p.rows.length - 1];
   const note = h('div', { class: 'ac-field-error' });
   const showNote = () => { note.textContent = rowProblem(r); note.hidden = !note.textContent; };
-  const valuesId = `ac-hdr-v-${++uid}`;
-  let values = datalist(valuesId, valueSuggestions(r.name));
   const parts = {};
   const grow = () => {
     // Typing in the empty last row makes it a header; a new empty row goes under it.
@@ -59,21 +57,16 @@ function rowEl(p, r) {
   const changed = () => { grow(); showNote(); p.save(); };
   parts.tick = h('input', { type: 'checkbox', checked: r.on, disabled: last, title: 'Send this header', 'aria-label': 'Send this header',
     onchange: (e) => { r.on = e.target.checked; el.classList.toggle('is-off', !r.on); p.save(); } });
-  const name = h('input', { type: 'text', value: r.name, placeholder: 'Name', list: p.namesId, spellcheck: false, 'aria-label': 'Header name',
-    oninput: () => {
-      r.name = name.value;
-      const fresh = datalist(valuesId, valueSuggestions(r.name));
-      values.replaceWith(fresh);
-      values = fresh;
-      changed();
-    } });
-  const value = h('input', { type: 'text', value: r.value, placeholder: 'Value', list: valuesId, spellcheck: false, 'aria-label': 'Header value',
+  const name = h('input', { type: 'text', value: r.name, placeholder: 'Name', spellcheck: false, 'aria-label': 'Header name',
+    oninput: () => { r.name = name.value; changed(); } });
+  attachVarSuggest(name, { mode: 'name', getEntries: () => NAME_ENTRIES });
+  const value = h('input', { type: 'text', value: r.value, placeholder: 'Value', spellcheck: false, 'aria-label': 'Header value',
     oninput: () => { r.value = value.value; changed(); } });
-  suggestVars(value, p.app);
+  suggestVars(value, p.app, 'ref', () => valueSuggestions(r.name));
   parts.del = h('button', { type: 'button', class: 't-btn t-btn-sm t-btn-ghost', hidden: last, title: 'Remove this header', 'aria-label': 'Remove this header',
     onclick: () => { p.rows.splice(p.rows.indexOf(r), 1); p.save(); p.redraw(); } }, '✕');
   const el = h('div', { class: `ac-hdr-item${r.on ? '' : ' is-off'}` },
-    h('div', { class: 'ac-hdr-row' }, parts.tick, name, value, parts.del), note, values);
+    h('div', { class: 'ac-hdr-row' }, parts.tick, name, value, parts.del), note);
   showNote();
   return el;
 }
@@ -101,7 +94,6 @@ export function headersPane(ed, { onCount = () => {} } = {}) {
   const p = {
     rows: [],
     table,
-    namesId: `ac-hdr-names-${++uid}`,
     app: ed.app,
     save: () => { ed.patch({ headers: rowsText(p.rows) }); refreshAdded(); },
     redraw: () => drawTable(),
@@ -142,8 +134,7 @@ export function headersPane(ed, { onCount = () => {} } = {}) {
   show();
   refreshAdded();
   return {
-    pane: h('div', { class: 'ac-pane' }, h('datalist', { id: p.namesId }, ...NAME_SUGGESTIONS.map((n) => h('option', { value: n }))),
-      h('div', { class: 'ac-pane-head' }, help, toggle), tableView, bulk, added),
+    pane: h('div', { class: 'ac-pane' }, h('div', { class: 'ac-pane-head' }, help, toggle), tableView, bulk, added),
     refreshAdded,
   };
 }

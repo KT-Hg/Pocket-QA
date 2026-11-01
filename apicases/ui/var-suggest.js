@@ -42,9 +42,10 @@ export async function varEntries(state) {
 
 /**
  * Suggestions on `el`. `mode` 'ref' (the default): a field of text with
- * ${name} in it; 'name': a field that takes a bare variable name.
+ * ${name} in it; 'name': a field that takes a bare variable name. `getValues`
+ * (a 'ref' field): plain values offered away from a ${, e.g. a header's.
  */
-export function suggestVars(el, app, mode = 'ref') {
-  attachVarSuggest(el, { mode, getEntries: () => varEntries(app.state) });
+export function suggestVars(el, app, mode = 'ref', getValues = undefined) {
+  attachVarSuggest(el, { mode, getEntries: () => varEntries(app.state), getValues });
   return el;
 }

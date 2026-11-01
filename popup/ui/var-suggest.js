@@ -7,7 +7,11 @@
  *   mode 'name'  the field takes a variable name only: the list opens when the
  *                field is focused or typed in, and writes the bare name.
  * getEntries() gives [{ name, kind, detail }] (or a promise of it); it is asked
- * each time the field gets focus. shared/var-suggest.js decides what fits.
+ * each time the field gets focus. shared/var-suggest.js decides what fits. An
+ * entry with no `kind` is a plain suggestion: its row is the name alone.
+ * getValues(), optional, gives plain values (strings) for a 'ref' field: away
+ * from a `${`, the list offers them for the field's whole text, as a 'name'
+ * field offers names — a header's value, say, with ${variables} in it too.
  * `detail` is what the row shows on its right: `{ chips, more, chain }` (a
  * Data tab value as varValueDetail reads it) or `{ text }`, and `spec` for the
  * row's tooltip.
@@ -131,42 +135,51 @@ function _render() {
     const li = document.createElement('li');
     li.id = `${LIST_ID}-${k}`;
     li.dataset.k = String(k);
-    li.className = `k-${m.kind}`;
     li.setAttribute('role', 'option');
+    if (!m.kind) {
+      li.append(_span('vs-name', m.name));
+      return li;
+    }
+    li.className = `k-${m.kind}`;
     if (m.detail?.spec) li.title = m.detail.spec;
     const badge = _span(`vt-i ${m.kind}`, BADGE[m.kind] || '?');
     badge.setAttribute('aria-hidden', 'true');
     li.append(badge, _span('vs-name', m.name), _detail(m.detail));
     return li;
   }));
+  ul.setAttribute('aria-label', cur.matches[0].kind ? 'Variables' : 'Suggestions');
   ul.hidden = false;
   if (cur.st.el.tagName === 'INPUT') cur.st.el.setAttribute('aria-expanded', 'true');
   _mark();
   _place();
 }
 
-/** What fits the field as it reads now; opens the list only when `open`. */
-function _update(st, { open = false, pickFirst = st.mode === 'ref' } = {}) {
+/** What the field offers as it reads now: { token, matches }, or null. */
+function _offer(st) {
   const { el } = st;
+  const token = st.mode === 'ref' ? findVarToken(el.value, el.selectionStart) : null;
+  // Away from a ${, a field with plain values offers them for its whole text.
+  const plain = !token && st.values;
+  if (st.mode === 'ref' && !token && !plain) return null;
+  let query = nameQuery(el.value);
+  if (token) query = token.query;
+  else if (plain) query = el.value.trim();
+  const matches = rankVarNames(query, plain || st.entries);
+  // Nothing to offer, or only the one already written in full.
+  const done = matches.length === 1 && matches[0].name === query && (!token || token.closed);
+  return matches.length && !done ? { token, matches } : null;
+}
+
+/** What fits the field as it reads now; opens the list only when `open`. */
+function _update(st, { open = false, pickFirst } = {}) {
   const isOpen = cur?.st === st;
-  if (document.activeElement !== el) { if (isOpen) _close(); return; }
+  if (document.activeElement !== st.el) { if (isOpen) _close(); return; }
   if (!isOpen && !open) return;
-  let token = null;
-  let query;
-  if (st.mode === 'ref') {
-    token = findVarToken(el.value, el.selectionStart);
-    if (!token) { if (isOpen) _close(); return; }
-    query = token.query;
-  } else {
-    query = nameQuery(el.value);
-  }
-  const matches = rankVarNames(query, st.entries);
-  // Nothing to offer, or only the name already written in full.
-  const done = matches.length === 1 && matches[0].name === query && (st.mode === 'name' || token.closed);
-  if (!matches.length || done) { if (isOpen) _close(); return; }
-  // A reference is being typed, so the first name is ready to take; a name
-  // field waits for ↓, so Enter keeps what was typed.
-  cur = { st, token, matches, active: pickFirst ? 0 : -1 };
+  const offer = _offer(st);
+  if (!offer) { if (isOpen) _close(); return; }
+  // A reference is being typed, so the first name is ready to take; a name or
+  // a value waits for ↓, so Enter keeps what was typed.
+  cur = { st, ...offer, active: (pickFirst ?? !!offer.token) ? 0 : -1 };
   _render();
 }
 
@@ -187,7 +200,7 @@ function _choose(k) {
   _close();
   writing = true;
   try {
-    if (st.mode === 'ref') {
+    if (token) {
       const ref = insertVarRef('', { start: 0, end: 0 }, m.name).text;
       _type(el, ref, token.start, token.end);
     } else {
@@ -198,18 +211,20 @@ function _choose(k) {
   }
 }
 
-function _onKey(st, e) {
-  if (cur?.st !== st) {
-    if (e.key === ' ' && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
-      e.preventDefault();
-      if (st.mode === 'ref') _type(st.el, '${', st.el.selectionStart, st.el.selectionEnd); // its input opens the list
-      else _update(st, { open: true });
-    } else if (st.mode === 'name' && e.key === 'ArrowDown' && !e.altKey) {
-      e.preventDefault();
-      _update(st, { open: true, pickFirst: true });
-    }
-    return;
+/** A key while the field's list is closed: Ctrl+Space opens it, ↓ too in a name or value field. */
+function _onKeyClosed(st, e) {
+  if (e.key === ' ' && e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+    e.preventDefault();
+    if (st.mode === 'ref') _type(st.el, '${', st.el.selectionStart, st.el.selectionEnd); // its input opens the list
+    else _update(st, { open: true });
+  } else if ((st.mode === 'name' || st.values) && e.key === 'ArrowDown' && !e.altKey) {
+    e.preventDefault();
+    _update(st, { open: true, pickFirst: true });
   }
+}
+
+function _onKey(st, e) {
+  if (cur?.st !== st) { _onKeyClosed(st, e); return; }
   const n = cur.matches.length;
   if (e.key === 'ArrowDown') cur.active = (cur.active + 1) % n;
   else if (e.key === 'ArrowUp') cur.active = cur.active <= 0 ? n - 1 : cur.active - 1;
@@ -232,9 +247,9 @@ function _onKey(st, e) {
   _mark();
 }
 
-export function attachVarSuggest(el, { mode, getEntries }) {
+export function attachVarSuggest(el, { mode, getEntries, getValues }) {
   if (!el) return;
-  const st = { el, mode, entries: [], loading: Promise.resolve() };
+  const st = { el, mode, entries: [], values: null, loading: Promise.resolve() };
   el.setAttribute('aria-autocomplete', 'list');
   el.setAttribute('aria-controls', LIST_ID);
   if (el.tagName === 'INPUT') {
@@ -242,10 +257,11 @@ export function attachVarSuggest(el, { mode, getEntries }) {
     el.setAttribute('aria-expanded', 'false');
   }
   el.addEventListener('focus', () => {
+    st.values = getValues ? getValues().map((name) => ({ name })) : null;
     st.loading = Promise.resolve()
       .then(getEntries)
       .then((entries) => { st.entries = entries || []; }, () => { st.entries = []; });
-    if (mode === 'name') st.loading.then(() => _update(st, { open: true }));
+    if (mode === 'name' || st.values) st.loading.then(() => _update(st, { open: true }));
   });
   el.addEventListener('blur', () => { if (cur?.st === st) _close(); });
   el.addEventListener('input', () => {
