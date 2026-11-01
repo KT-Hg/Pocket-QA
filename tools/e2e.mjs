@@ -3861,6 +3861,23 @@ async function checkApiTests(ctx) {
     check(echoed['x-team'] === 'qa' && echoed.accept === 'application/json' && !('x-off' in echoed),
       'Headers table: a typed header and a one-click one are sent, an unticked one is not', echoed);
 
+    // Header names and values offered in the page's own list, right under the
+    // field — a <datalist> was drawn off to the side by the browser.
+    await page.bringToFront();
+    const offer = await ev(`const list = () => { const l = $('#varSuggest'); return l && !l.hidden ? l : null; };
+      const names = () => [...(list()?.querySelectorAll('.vs-name') || [])].map((n) => n.textContent).join(',');
+      const key = (n, k) => n.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+      const [, name, value] = $$('.ac-hdr-item').at(-1).querySelectorAll('input');
+      name.focus(); await wait(60); document.execCommand('insertText', false, 'acc'); await wait(60);
+      const offeredNames = names(); key(name, 'ArrowDown'); key(name, 'Enter'); await wait(30);
+      value.focus(); await wait(60);
+      const a = value.getBoundingClientRect(); const b = list()?.getBoundingClientRect();
+      const out = { offeredNames, name: name.value, offeredValues: names(), dx: b && Math.round(b.left - a.left), dy: b && Math.round(b.top - a.bottom) };
+      key(value, 'Escape'); btn(name.closest('.ac-hdr-row'), '✕').click(); await wait(20);
+      return out;`);
+    check(offer.offeredNames === 'Accept,Accept-Language' && offer.name === 'Accept' && offer.offeredValues.startsWith('application/json,*/*')
+      && offer.dx === 0 && offer.dy === 2, 'Headers: names and values are offered in a list right under the field', offer);
+
     // Variable suggestions: ${ in the URL lists the Data tab's variables, Enter writes one.
     // e2eApiPin is stored as the Data tab stores a Random: a config object, not text.
     await page.evaluate(`new Promise((r) => chrome.storage.local.set({ variables: { ...(${JSON.stringify(dataVars || {})}),
