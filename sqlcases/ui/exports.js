@@ -2,8 +2,9 @@
  * ui/exports.js — the Export menu (CSV, JSON, test data, verification SQL).
  */
 
+import { downloadText } from '../../shared/file-export.js';
 import { fixturesToCsv, verifyFor } from '../datagen.js';
-import { downloadText, suggestFilename, toCsv, toJson } from '../export.js';
+import { suggestFilename, toCsv, toJson } from '../export.js';
 import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { activeSql } from './run.js';

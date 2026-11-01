@@ -1,12 +1,13 @@
 /**
  * export.js — CSV and JSON serialisation of a generated case list.
  *
- * CSV is written for Excel: a UTF-8 BOM so accented text and the ⋈/≠ symbols
- * in case titles survive a double-click open on Windows, CRLF line endings,
- * and every field quoted so a comma or newline inside a description cannot
- * shift the columns.
+ * CSV is written for Excel (shared/file-export.js): a UTF-8 BOM so accented
+ * text and the ⋈/≠ symbols in case titles survive a double-click open on
+ * Windows, CRLF line endings, and every field quoted so a comma or newline
+ * inside a description cannot shift the columns.
  */
 
+import { csvText } from '../shared/file-export.js';
 import { toJSON as valueBookJson } from './valuebook.js';
 import { t, getLang } from './i18n.js';
 
@@ -28,21 +29,14 @@ const CSV_COLUMNS = [
   ['csv.impact', c => (c.impact ? t('ui.impact' + c.impact[0].toUpperCase() + c.impact.slice(1)) : '')]
 ];
 
-function csvField(value) {
-  const s = value === null || value === undefined ? '' : String(value);
-  return `"${s.replace(/"/g, '""')}"`;
-}
-
 /**
  * @param {Array} cases
  * @param {{bom?: boolean}} options
  * @returns {string} CSV text
  */
 export function toCsv(cases, options = {}) {
-  const rows = [CSV_COLUMNS.map(([h]) => csvField(t(h))).join(',')];
-  cases.forEach(c => rows.push(CSV_COLUMNS.map(([, get]) => csvField(get(c))).join(',')));
-  const body = rows.join('\r\n') + '\r\n';
-  return options.bom === false ? body : '﻿' + body;
+  const head = CSV_COLUMNS.map(([h]) => t(h));
+  return csvText([head, ...cases.map(c => CSV_COLUMNS.map(([, get]) => get(c)))], options);
 }
 
 /**
@@ -104,30 +98,4 @@ export function suggestFilename(result, ext) {
   const safe = String(table).replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || 'query';
   const stamp = new Date().toISOString().slice(0, 10);
   return `testcases_${safe}_${stamp}.${ext}`;
-}
-
-/**
- * Hand a generated file to the user.
- *
- * `chrome.downloads` is used where it exists (the extension page) so the file
- * lands in the browser's download folder with a proper name; the anchor
- * fallback keeps the module usable when loaded outside the extension.
- */
-export function downloadText(text, filename, mime) {
-  const blob = new Blob([text], { type: `${mime};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const REVOKE_DELAY_MS = 60_000; // the save dialog may stay open a while
-  const revoke = () => setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
-
-  if (typeof chrome !== 'undefined' && chrome.downloads?.download) {
-    chrome.downloads.download({ url, filename, saveAs: true }, () => revoke());
-    return;
-  }
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  revoke();
 }
