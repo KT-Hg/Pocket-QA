@@ -335,7 +335,7 @@ export async function cleanup() {
       body,
       answer: (value) => resolve(value === true),
       buttons: (close) => {
-        go = makeButton('', () => close(true), 'danger');
+        go = makeButton('', () => close(true), 't-btn-danger');
         return [makeButton(t('rollback.cancel'), () => close(false)), go];
       },
     });

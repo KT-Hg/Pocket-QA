@@ -152,6 +152,12 @@ export const EN = {
   'op.insert': 'INSERT',
 
   'mgr.title': 'Test sessions & rollback',
+  'mgr.subtitle': 'See what a test changed in the database, then roll it back',
+  'mgr.langTip': 'Switch language',
+  'mgr.themeTip': 'Toggle theme',
+  'mgr.railToggle': 'Show or hide the left column',
+  'mgr.railCollapse': 'Collapse the left column',
+  'mgr.railReopen': 'Sessions ›',
   'mgr.sessions': 'Sessions',
   'mgr.empty': 'No test session yet.',
   'mgr.open': 'Recording',

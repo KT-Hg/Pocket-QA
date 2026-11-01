@@ -16,6 +16,7 @@
  */
 
 import { THEME_KEY } from '../shared/storage-keys.js';
+import { initRail } from '../shared/ui/rail.js';
 import { getLang, setLang, t } from './i18n.js';
 import { cleanup, exportJson, exportSql, openSettings, redoSelected, removeSession, rename, rollbackSelected, toggleOpen } from './manager/actions.js';
 import { render, renderRail } from './manager/render.js';
@@ -31,8 +32,9 @@ async function init() {
     'sessionList', 'detailHead', 'sessName', 'sessMeta', 'sessState', 'changeList', 'changeHead',
     'changeCount', 'chkAll', 'report', 'btnRollback', 'btnRedo', 'btnExportSql', 'btnExportJson', 'btnRename',
     'btnToggleOpen', 'btnDelete', 'btnSettings', 'btnLang', 'langLabel', 'settingsDlg', 'toast', 'extras',
-    'railFilter', 'btnCleanup',
+    'railFilter', 'btnCleanup', 'toggleTheme',
   ]) ui[id] = el(id);
+  initRail('dbTestRail');
 
   managerState.settings = await store.getSettings();
   setLang(managerState.settings.lang);
@@ -64,20 +66,33 @@ async function init() {
 /**
  * The popup's theme, read the way the popup reads it (popup/theme.js): unset is
  * light, not the OS's choice, or this page came up dark beside a light popup.
- * Toggling it in the popup repaints an open manager tab straight away.
+ * Toggling it in the popup repaints an open manager tab straight away; the 🌙
+ * here writes the same key, as it does on sqltest.html and apitest.html.
  */
 function applyTheme() {
-  const paint = (value) => document.documentElement.setAttribute('data-theme', value === 'dark' ? 'dark' : 'light');
+  const paint = (value) => {
+    const theme = value === 'dark' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    ui.toggleTheme.textContent = theme === 'dark' ? '☀️' : '🌙';
+  };
   chrome.storage.local.get([THEME_KEY], (res) => paint(res[THEME_KEY]));
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes[THEME_KEY]) paint(changes[THEME_KEY].newValue);
   });
+  ui.toggleTheme.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    paint(next);
+    chrome.storage.local.set({ [THEME_KEY]: next });
+  });
 }
 
-/** Fill every `data-i18n` node — the page ships with empty ones. */
+/** Fill every `data-i18n` node — the page ships with empty ones — and every `data-i18n-title` tooltip. */
 function paintStatic() {
   for (const node of document.querySelectorAll('[data-i18n]')) {
     node.textContent = t(node.dataset.i18n);
+  }
+  for (const node of document.querySelectorAll('[data-i18n-title]')) {
+    node.title = t(node.dataset.i18nTitle);
   }
   ui.langLabel.textContent = getLang().toUpperCase();
   ui.railFilter.placeholder = t('mgr.filter');

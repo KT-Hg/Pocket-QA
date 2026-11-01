@@ -107,7 +107,7 @@ export function applyStaticText() {
 
   // The toggle is the one button certain to be under the cursor when the
   // language changes, so it holds the widest code rather than its own: EN is
-  // 5px wider than VI, and the two buttons after it would jump by that much
+  // 5px wider than VI, and the buttons beside it would jump by that much
   // under the pointer that had just been clicked.
   const active = LANGUAGES.find(l => l.code === getLang()) || LANGUAGES[0];
   el.langLabel.textContent = active.short;

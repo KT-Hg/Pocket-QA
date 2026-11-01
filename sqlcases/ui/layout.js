@@ -3,8 +3,8 @@
  * panes, density, the command bar height.
  */
 
-import { t } from '../i18n.js';
-import { INSIGHT_PANES, RAIL_PANES, el, node } from './dom.js';
+import { initRail } from '../../shared/ui/rail.js';
+import { INSIGHT_PANES, RAIL_PANES, el } from './dom.js';
 import { renderTriage } from './filters.js';
 import { renderInspector } from './inspector.js';
 import { renderList } from './list.js';
@@ -13,13 +13,12 @@ import { UI_KEY, storageSet } from './storage.js';
 import { valueCount } from './values-panel.js';
 
 export function saveUi() {
-  storageSet({ [UI_KEY]: { railTab: view.railTab, railOpen: view.railOpen, inspOpen: view.inspOpen, insightTab: view.insightTab, insightOpen: view.insightOpen, density: view.density } });
+  storageSet({ [UI_KEY]: { railTab: view.railTab, inspOpen: view.inspOpen, insightTab: view.insightTab, insightOpen: view.insightOpen, density: view.density } });
 }
 
 export function applyUiState(state) {
   if (!state) return;
   if (RAIL_PANES[state.railTab]) view.railTab = state.railTab;
-  if (typeof state.railOpen === 'boolean') view.railOpen = state.railOpen;
   if (typeof state.inspOpen === 'boolean') view.inspOpen = state.inspOpen;
   if (INSIGHT_PANES[state.insightTab]) view.insightTab = state.insightTab;
   if (typeof state.insightOpen === 'boolean') view.insightOpen = state.insightOpen;
@@ -97,30 +96,18 @@ export function renderInsight() {
 }
 
 /**
- * Apply the two column toggles.
+ * Apply the inspector's toggle. (The rail's is shared/ui/rail.js.)
  *
  * `insp-open` is separate from `insp-off` because below 1240px the inspector
  * stops being a column and becomes an overlay: there it must slide in only
  * when there is a case to show, or it would cover the list it was opened from.
  */
 export function applyLayout() {
-  el.app.classList.toggle('rail-off', !view.railOpen);
   el.app.classList.toggle('insp-off', !view.inspOpen);
   el.app.classList.toggle('insp-open', view.inspOpen && !!view.selectedId);
   // Mirrored onto <body> too: the topbar sits above .app, not inside it, and
   // needs the same closed-panel gutter (see .topbar rules in sqlcases.css).
-  document.body.classList.toggle('rail-off', !view.railOpen);
   document.body.classList.toggle('insp-off', !view.inspOpen);
-
-  const existing = el.app.querySelector('.rail-reopen');
-  if (existing) existing.remove();
-  if (!view.railOpen) {
-    const b = node('button', 'rail-reopen');
-    b.type = 'button';
-    b.textContent = t('ui.railReopen');
-    b.addEventListener('click', () => { view.railOpen = true; saveUi(); applyLayout(); });
-    el.app.append(b);
-  }
 
   // Opening a column narrows the middle one, which is what wraps the technique
   // pills onto another line. Saying so here rather than waiting to be told is
@@ -130,9 +117,8 @@ export function applyLayout() {
 }
 
 export function initLayoutControls() {
-  const toggleRail = () => { view.railOpen = !view.railOpen; saveUi(); applyLayout(); };
-  el.railToggle.addEventListener('click', toggleRail);
-  el.railClose.addEventListener('click', toggleRail);
+  // Shutting the rail widens the middle column, which rewraps the command bar.
+  initRail('sqlCasesRail', scheduleCmdHeight);
 
   el.inspToggle.addEventListener('click', () => {
     view.inspOpen = !view.inspOpen;

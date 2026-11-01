@@ -36,15 +36,14 @@ export const view = {
   // ---- layout state ----------------------------------------------------
 
   /**
-   * Which of the two collapsible columns are open, which tab each tabbed block
-   * is on, and how tall a case card is.
+   * Whether the inspector is open, which tab each tabbed block is on, and how
+   * tall a case card is. (The rail's open / shut is shared/ui/rail.js's.)
    *
-   * Persisted, because all six are decisions about how the user wants to work
-   * rather than about one query: someone who runs on a laptop with the rail shut
-   * and the list dense wants that back tomorrow, not a fresh three-column page.
+   * Persisted, because all five are decisions about how the user wants to work
+   * rather than about one query: someone who runs on a laptop with the list
+   * dense wants that back tomorrow, not a fresh three-column page.
    */
   railTab: 'sql',
-  railOpen: true,
   inspOpen: true,
   insightTab: '',
   insightOpen: false,

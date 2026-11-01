@@ -187,7 +187,7 @@ function renderExtras(session) {
           }
         }),
         smallButton(t('mgr.drop'), () => askTab(session,
-          { type: 'dbtools-backup-drop', sessionId: session.id, backupId: bk.id }), 'danger-outline'),
+          { type: 'dbtools-backup-drop', sessionId: session.id, backupId: bk.id }), 't-btn-danger-outline'),
       ],
     ))));
   }
@@ -217,12 +217,12 @@ function extraRow(name, meta, actions) {
 }
 
 function smallButton(label, onClick, cls = '') {
-  return makeButton(label, onClick, `small ${cls}`.trim());
+  return makeButton(label, onClick, `t-btn-sm ${cls}`.trim());
 }
 
 export function makeButton(label, onClick, cls = '') {
   const b = document.createElement('button');
-  b.className = `btn ${cls}`.trim();
+  b.className = `t-btn ${cls}`.trim();
   b.textContent = label;
   b.addEventListener('click', onClick);
   return b;
@@ -286,7 +286,7 @@ function renderChange(change) {
   // top. A change that cannot be undone gets no button to press for nothing.
   if (!reason) {
     const undo = document.createElement('button');
-    undo.className = 'btn small undo-one';
+    undo.className = 't-btn t-btn-sm undo-one';
     undo.textContent = change.undone ? t('mgr.againOne') : t('mgr.undoOne');
     undo.title = change.undone ? t('mgr.againOneHint') : t('mgr.undoOneHint');
     undo.addEventListener('click', (e) => {
@@ -302,7 +302,7 @@ function renderChange(change) {
   // rolled back, which is the only time there is anything to re-apply.
   if (change.undone && !redoBlockingReason(change)) {
     const again = document.createElement('button');
-    again.className = 'btn small redo-one';
+    again.className = 't-btn t-btn-sm redo-one';
     again.textContent = t('mgr.redoOne');
     again.title = t('mgr.redoOneHint');
     again.addEventListener('click', (e) => {

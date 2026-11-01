@@ -1,12 +1,10 @@
 /**
- * sqlcases.css — SQL Test Case Designer page.
+ * sqlcases.css — SQL Test Case Designer page, on top of css/tool-base.css.
  *
  * Standalone rather than an extension of css/popup/: those files are built around
- * a 480px popup body, and this page is a full tab. The theme variables keep
- * the names css/popup/ uses so the shared `popupTheme` storage key still means
- * the same thing on both surfaces; the extra tokens below (--sunken, --faint,
- * the soft tints, the shadows) exist only here, where a three-column shell
- * needs more than one surface colour to separate its columns.
+ * a 480px popup body, and this page is a full tab. The tokens, buttons, fields,
+ * top bar, modal and toast come from tool-base.css; this sheet has the
+ * three-column shell (which apitest.html reuses) and everything SQL-only.
  *
  * The page is a fixed shell: nothing scrolls except the three column bodies.
  * A run that produces findings, a coverage card and a diff must not push the
@@ -15,195 +13,11 @@
  */
 
 :root {
-  --primary: #2f6df6;
-  --primary-dark: #1d4ed8;
-  --primary-soft: rgba(47, 109, 246, 0.10);
-  --danger: #dc2626;
-  --danger-soft: rgba(220, 38, 38, 0.10);
-  --warning: #c2740a;
-  --warning-text: #c2740a;
-  --warning-soft: rgba(217, 132, 17, 0.13);
-  --success: #0f9d63;
-  --success-soft: rgba(15, 157, 99, 0.12);
-  --secondary: #7c3aed;
-  --secondary-soft: rgba(124, 58, 237, 0.10);
-  /* Text colour to pair with --danger/--warning as a *solid* toast
-     background — the soft-tint pairing used elsewhere (e.g. --warning on
-     --warning-soft) doesn't apply here, and which text colour reads depends
-     on how saturated each colour is in this theme vs. the dark one below. */
-  --toast-err-fg: #ffffff;
-  --toast-warn-fg: #1a1305;
-
-  --bg: #f4f6f9;
-  --card: #ffffff;
-  --raised: #ffffff;
-  --sunken: #eef1f6;
-  --border: #e0e5ec;
-  --border-soft: #eceff4;
-  --border-strong: #cfd6e0;
-  --text: #0f1729;
-  --muted: #5b6a80;
-  --faint: #8b98ab;
-  --inner-bg: rgba(15, 23, 42, 0.035);
-  --code-bg: #f7f9fc;
-  --code-text: #243044;
-  --modal-backdrop: rgba(15, 23, 42, 0.52);
-
-  --kw: #1d4ed8;
-  --str: #0f9d63;
-  --num: #b45309;
-  --par: #7c3aed;
-  --cmt: #8b98ab;
-
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 2px 4px rgba(15, 23, 42, 0.05), 0 12px 28px -14px rgba(15, 23, 42, 0.28);
-  --shadow-lg: 0 4px 8px rgba(15, 23, 42, 0.07), 0 24px 60px -20px rgba(15, 23, 42, 0.34);
-
-  --rail: 352px;
   --insp: 400px;
   /* Height of the docked command bar, rewritten by ui.js as the technique
      pills wrap. Declared here so the sheet stands on its own before any
      script has run. */
   --cmd-h: 0px;
-  --r-sm: 6px;
-  --r: 9px;
-  --r-lg: 13px;
-}
-
-[data-theme="dark"] {
-  --primary: #5b9bff;
-  --primary-dark: #3b82f6;
-  --primary-soft: rgba(91, 155, 255, 0.14);
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.14);
-  --warning: #fbbf24;
-  --warning-text: #fbbf24;
-  --warning-soft: rgba(251, 191, 36, 0.14);
-  --success: #34d399;
-  --success-soft: rgba(52, 211, 153, 0.13);
-  --secondary: #a78bfa;
-  --secondary-soft: rgba(167, 139, 250, 0.14);
-  /* --danger/--warning are pastel in this theme, so the toast needs dark
-     text on top of them rather than the white that light mode's saturated
-     versions need. */
-  --toast-err-fg: #2a0605;
-  --toast-warn-fg: #241a02;
-
-  --bg: #070d18;
-  --card: #0e1624;
-  --raised: #141f31;
-  --sunken: #0a1120;
-  --border: #1f2c3f;
-  --border-soft: #182334;
-  --border-strong: #2c3d54;
-  --text: #e7eef8;
-  --muted: #93a4bb;
-  --faint: #63768d;
-  --inner-bg: rgba(255, 255, 255, 0.05);
-  --code-bg: #0a1120;
-  --code-text: #c3d1e3;
-  --modal-backdrop: rgba(0, 0, 0, 0.66);
-
-  --kw: #7dabff;
-  --str: #4ade80;
-  --num: #fbbf24;
-  --par: #c4b5fd;
-  --cmt: #5a6b81;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 14px 32px -16px rgba(0, 0, 0, 0.85);
-  --shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.5), 0 28px 64px -22px rgba(0, 0, 0, 0.95);
-  color-scheme: dark;
-}
-
-* { box-sizing: border-box; }
-
-/* Several rules below set display:flex/grid on a class, which outranks the UA
-   sheet's [hidden] rule — without this the help modal, the toast and every
-   inactive pane would render on load. Keep this ahead of every layout rule. */
-[hidden] { display: none !important; }
-
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 13px;
-  line-height: 1.5;
-  background: var(--bg);
-  color: var(--text);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  -webkit-font-smoothing: antialiased;
-}
-code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, Menlo, monospace; }
-
-::-webkit-scrollbar { width: 9px; height: 9px; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 9px; }
-::-webkit-scrollbar-thumb:hover { background: var(--faint); }
-::-webkit-scrollbar-track { background: transparent; }
-
-/* ===== Buttons & controls ===== */
-button { font-family: inherit; font-size: 13px; cursor: pointer; color: var(--text); }
-
-.t-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  border-radius: var(--r);
-  padding: 6px 11px;
-  font-size: 12.5px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: background 0.13s, border-color 0.13s, color 0.13s;
-}
-.t-btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--sunken); }
-.t-btn:disabled { opacity: 0.45; cursor: default; }
-.t-btn-sm { padding: 4px 8px; font-size: 12px; border-radius: var(--r-sm); }
-.t-btn-icon { padding: 6px; width: 30px; height: 30px; justify-content: center; }
-.t-btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
-.t-btn-ghost:hover:not(:disabled) { background: var(--sunken); color: var(--text); }
-.t-btn-primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-  font-weight: 600;
-}
-.t-btn-primary:hover:not(:disabled) { background: var(--primary-dark); border-color: var(--primary-dark); }
-
-.primary-gradient {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: #fff;
-  border: none;
-  border-radius: var(--r);
-  font-weight: 600;
-  font-size: 12.5px;
-  padding: 7px 14px;
-  white-space: nowrap;
-}
-.primary-gradient:hover:not(:disabled) { filter: brightness(1.08); }
-
-.mini-select, select, input[type="search"], input[type="text"] {
-  font-family: inherit;
-  font-size: 12.5px;
-  padding: 5px 8px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--text);
-}
-/* The border alone shows focus: the ring that came with it read as the field
-   staying highlighted. Checkboxes have no border to tint, so keyboard focus
-   keeps a ring there. */
-select:focus, input:focus, textarea:focus {
-  outline: none;
-  border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
-}
-input:is([type="checkbox"], [type="radio"]):focus-visible {
-  outline: 2px solid var(--primary-soft);
-  outline-offset: 1px;
 }
 
 /* Segmented control — density, and anything else with two exclusive states. */
@@ -310,63 +124,21 @@ span[data-i18n-alt] { display: inline-block; }
 .pane-head .mini-select { min-width: 0; flex: 1 1 100px; text-overflow: ellipsis; }
 .opt-row .mini-select { flex: 0 0 auto; width: auto; min-width: 156px; max-width: 100%; }
 
-/* ===== Top bar ===== */
-.topbar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 10px 14px;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  transition: padding 0.18s ease;
-}
-.topbar-title { font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
-.topbar-sub {
-  font-size: 12px;
-  color: var(--faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.topbar-actions { margin-left: auto; display: flex; gap: 6px; flex: 0 0 auto; }
 
-/* ===== The three-column shell ===== */
-.app {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: grid;
-  position: relative;
-  grid-template-columns: var(--rail) minmax(0, 1fr) var(--insp);
-  transition: grid-template-columns 0.18s ease;
-}
-.app.rail-off { grid-template-columns: 0 minmax(0, 1fr) var(--insp); }
+/* ===== The inspector's side of the shell =====
+ * .app, the rail and the main column are tool-base.css's; the inspector and
+ * its toggle are this page's (apitest.html borrows the column). Its gutter is
+ * keyed only on its own toggle, as the rail's is — so opening the other panel
+ * never shrinks it back to 0. ui.js mirrors insp-off onto <body>. */
 .app.insp-off { grid-template-columns: var(--rail) minmax(0, 1fr) 0; }
 .app.rail-off.insp-off { grid-template-columns: 0 minmax(0, 1fr) 0; }
-/* A closed panel's border used to frame that edge of the content; without
-   it the topbar and case list run straight into the window edge. Each side
-   gets its own gutter, keyed only on that side's own toggle — so opening
-   the other panel never shrinks it back to 0. ui.js mirrors rail-off/
-   insp-off onto <body> too, since the topbar sits above .app rather than
-   inside it. */
-body.rail-off .topbar, .app.rail-off .main { padding-left: 24px; }
 body.insp-off .topbar, .app.insp-off .main { padding-right: 24px; }
 
 /* ===== Left rail ===== */
-.rail {
-  min-width: 0;
-  background: var(--card);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.rail-head { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 8px 8px 0 12px; }
-/* Four tabs plus their badges do not always fit 352px — and at the 1500px
-   breakpoint the rail is 320px. Clipping the last tab makes it unreachable, so
-   the strip scrolls instead; the scrollbar is hidden because a 2px-tall bar
-   under a tab row reads as damage rather than as an affordance. */
+/* Four tabs plus their badges do not always fit the rail's width. Clipping the
+   last tab makes it unreachable, so the strip scrolls instead; the scrollbar is
+   hidden because a 2px-tall bar under a tab row reads as damage rather than as
+   an affordance. */
 .rail-tabs { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .rail-tabs::-webkit-scrollbar { display: none; }
 .rtab {
@@ -398,21 +170,8 @@ body.insp-off .topbar, .app.insp-off .main { padding-right: 24px; }
 }
 .rtab.active .rtab-n { background: var(--primary-soft); color: var(--primary); }
 
-/*
- * `overflow-y: auto` makes the other axis compute to `auto` too, so a single
- * row that is one pixel too wide gives the whole rail a horizontal scrollbar
- * and starts clipping labels. Every row below therefore wraps rather than
- * overflowing, and the monospace names break mid-token if they have to — so
- * this stays hidden as a guarantee, not as a way of hiding a real overflow.
- */
-.rail-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 12px;
-}
-/* A qualified column name has no spaces to break at, and is the one string
+/* .rail-body hides its horizontal overflow (tool-base.css), so every row below
+   wraps rather than overflowing. A qualified column name has no spaces to break at, and is the one string
    here long enough to need breaking anywhere. */
 .vb-name, .vb-group-name, .sc-name { overflow-wrap: anywhere; min-width: 0; }
 .rail-pane { display: flex; flex-direction: column; }
@@ -431,37 +190,8 @@ body.insp-off .topbar, .app.insp-off .main { padding-right: 24px; }
 }
 .rail-foot .status { font-size: 11.5px; color: var(--muted); flex: 1; min-width: 0; line-height: 1.35; }
 
-/* The collapsed rail leaves a tab behind rather than only the ☰ in the top
-   bar: the column it hides is where the query lives, and a page with no
-   visible way back to its own input reads as broken. */
-.rail-reopen {
-  position: absolute;
-  left: 0;
-  top: 24px;
-  z-index: 20;
-  border: 1px solid var(--border);
-  border-left: 0;
-  background: var(--card);
-  border-radius: 0 var(--r) var(--r) 0;
-  padding: 16px 5px;
-  box-shadow: var(--shadow-md);
-  writing-mode: vertical-rl;
-  font-size: 11.5px;
-  color: var(--muted);
-  letter-spacing: 0.03em;
-}
-
 .pane-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 9px; }
 .pane-head #modeToggle { flex-wrap: nowrap; }
-.pane-label {
-  display: block;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--faint);
-  margin-bottom: 5px;
-}
 #sqlAfterCard .pane-label { margin-top: 11px; }
 .pane-sum { font-size: 11.5px; color: var(--muted); margin-bottom: 9px; }
 
@@ -725,7 +455,7 @@ body.insp-off .topbar, .app.insp-off .main { padding-right: 24px; }
 
 /* ===== Centre column ===== */
 /*
- * The centre column scrolls as a whole.
+ * The centre column (.main, tool-base.css) scrolls as a whole.
  *
  * The alternative — pinning the metrics, the triage boxes, the insight block
  * and the command bar, and letting only the list scroll underneath them — was
@@ -734,16 +464,6 @@ body.insp-off .topbar, .app.insp-off .main { padding-right: 24px; }
  * So everything scrolls, and the one band you need while scanning a long list
  * is docked instead (see .cmdbar-dock).
  */
-.main {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  overflow-y: auto;
-  overflow-x: hidden;
-  transition: padding 0.18s ease;
-}
 .main-head {
   flex: 0 0 auto;
   padding: 11px 14px 0;
@@ -1504,32 +1224,6 @@ body.insp-off .topbar, .app.insp-off .main { padding-right: 24px; }
 .fx-exp { margin-top: 7px; font-size: 12px; line-height: 1.5; display: flex; gap: 7px; }
 .fx-exp b { flex: 0 0 auto; color: var(--success); }
 
-/* ===== Modal ===== */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--modal-backdrop);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-  padding: 24px;
-}
-.modal {
-  background: var(--card);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
-  max-width: 760px;
-  width: 100%;
-  max-height: 86vh;
-  overflow-y: auto;
-  padding: 18px 22px 22px;
-}
-.modal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.modal-head h3 { margin: 0; font-size: 15px; }
-.modal-head > button { margin-left: auto; }
-.modal-body { font-size: 13px; line-height: 1.65; color: var(--text); }
 
 /* ===== Database diagram =====
  *
@@ -1671,37 +1365,16 @@ body.insp-off .topbar, .app.insp-off .main { padding-right: 24px; }
   padding: 1px 5px;
 }
 
-/* ===== Toast =====
- * .toast-success is the original look (an inverted chip: dark-on-light or
- * light-on-dark depending on theme) — kept as the default so a confirmation
- * still reads as "neutral good news". .toast-error/.toast-warn switch to a
- * solid --danger/--warning fill so a failure is distinguishable from a
- * success at a glance and not just by the words, which auto-dismiss in
- * 2.2s. */
-.toast {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 9px 18px;
-  border-radius: 100px;
-  font-size: 12.5px;
-  font-weight: 500;
-  box-shadow: var(--shadow-lg);
-  z-index: 300;
-}
-.toast-success { background: var(--text); color: var(--bg); }
-.toast-error { background: var(--danger); color: var(--toast-err-fg); }
-.toast-warn { background: var(--warning); color: var(--toast-warn-fg); }
 
 /* ===== Narrow screens =====
  *
  * Below 1240px the inspector stops being a column and becomes an overlay; below
- * 900px so does the rail. Both keep their toggles, so nothing becomes
- * unreachable — the columns simply stop competing for a width that is not there.
+ * 900px so does the rail (tool-base.css). Both keep their toggles, so nothing
+ * becomes unreachable — the columns simply stop competing for a width that is
+ * not there.
  */
 @media (max-width: 1500px) {
-  :root { --rail: 320px; --insp: 372px; }
+  :root { --insp: 372px; }
 }
 @media (max-width: 1240px) {
   .app, .app.insp-off { grid-template-columns: var(--rail) minmax(0, 1fr) 0; }
@@ -1722,19 +1395,5 @@ body.insp-off .topbar, .app.insp-off .main { padding-right: 24px; }
 }
 @media (max-width: 900px) {
   .app, .app.rail-off, .app.insp-off { grid-template-columns: 0 minmax(0, 1fr) 0; }
-  .rail {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: min(360px, 92vw);
-    z-index: 80;
-    box-shadow: var(--shadow-lg);
-    transform: translateX(-101%);
-    transition: transform 0.2s ease;
-  }
-  .app:not(.rail-off) .rail { transform: none; }
-  .rail-reopen { display: none; }
   .metrics { overflow-x: auto; }
-  .topbar-sub { display: none; }
 }

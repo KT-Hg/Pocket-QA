@@ -10,6 +10,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>API Tests</title>
+  <link rel="stylesheet" href="css/tool-base.css" />
   <link rel="stylesheet" href="css/sqlcases.css" />
   <link rel="stylesheet" href="css/apicases.css" />
   <link rel="stylesheet" href="css/var-suggest.css" />
@@ -17,6 +18,7 @@
 <body>
 
   <header class="topbar">
+    <button id="btnRail" class="t-btn t-btn-icon" title="Show or hide the left column">☰</button>
     <span class="topbar-title">🔌 API Tests</span>
     <span class="topbar-sub">Keep API requests in folders, send them, check the response</span>
     <div class="topbar-actions">
@@ -31,9 +33,10 @@
 
     <!-- ===== LEFT: folders ===== -->
     <aside class="rail" id="rail">
-      <div class="rail-head ac-rail-head">
+      <div class="rail-head">
         <span class="pane-label">Folders</span>
         <button id="btnAddFolder" class="t-btn t-btn-sm t-btn-ghost" title="New folder">＋ Folder</button>
+        <button id="btnRailClose" class="t-btn t-btn-icon t-btn-ghost" title="Collapse the left column">⟨</button>
       </div>
       <div class="rail-body" id="folderList"></div>
     </aside>
@@ -59,6 +62,8 @@
 
     <!-- ===== RIGHT: one case ===== -->
     <aside class="insp" id="insp"><div id="inspInner"></div></aside>
+
+    <button type="button" id="railReopen" class="rail-reopen" hidden>Folders ›</button>
 
   </div>
 

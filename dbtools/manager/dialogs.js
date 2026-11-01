@@ -26,7 +26,7 @@ import { ui } from './state.js';
  */
 export function openDialog({ title, body, answer, buttons }) {
   const dlg = document.createElement('dialog');
-  dlg.className = 'dlg';
+  dlg.className = 'modal dlg';
   const wrap = document.createElement('div');
   wrap.className = 'dlg-body';
   const heading = document.createElement('h2');
@@ -71,7 +71,7 @@ export function askDialog({ title, label, value = '', confirmLabel }) {
       answer: (text) => resolve(text === undefined ? null : text),
       buttons: (close) => [
         makeButton(t('rollback.cancel'), () => close(undefined)),
-        makeButton(confirmLabel, () => close(input.value), 'primary'),
+        makeButton(confirmLabel, () => close(input.value), 't-btn-primary'),
       ],
     });
     input.addEventListener('keydown', (e) => {
@@ -97,7 +97,7 @@ export function confirmDialog({ title, text, confirmLabel }) {
       answer: (value) => resolve(value === true),
       buttons: (close) => [
         makeButton(t('rollback.cancel'), () => close(false)),
-        makeButton(confirmLabel, () => close(true), 'danger'),
+        makeButton(confirmLabel, () => close(true), 't-btn-danger'),
       ],
     });
   });
@@ -110,7 +110,7 @@ export function showReport(text, kind, action) {
   ui.report.className = `report ${kind || ''}`;
   ui.report.replaceChildren(document.createTextNode(text));
   if (action) {
-    const b = makeButton(action.label, () => action.onClick(), 'small report-action');
+    const b = makeButton(action.label, () => action.onClick(), 't-btn-sm report-action');
     ui.report.append(b);
   }
 }

@@ -168,9 +168,6 @@ function init() {
   restoreState((firstVisit) => {
     applyStaticText();
     el.density.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.d === view.density));
-    // A rail that starts shut on a narrow window is the same call the CSS
-    // makes at that width; making it here too keeps the toggle honest.
-    if (window.innerWidth < 900) view.railOpen = false;
     run();
     el.sql.focus();
     // After applyStaticText(), or the note would be in whatever language the

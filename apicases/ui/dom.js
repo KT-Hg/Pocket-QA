@@ -114,7 +114,7 @@ export function promptText({ title, label, value = '', ok = 'OK', check = () => 
 export function ask(message, { ok = 'OK', danger = false } = {}) {
   el.askText.replaceChildren(...[message].flat());
   el.askOk.textContent = ok;
-  el.askOk.classList.toggle('ac-danger', danger);
+  el.askOk.classList.toggle('t-btn-danger', danger);
   el.askModal.hidden = false;
   el.askOk.focus();
   return new Promise((resolve) => {

@@ -23,6 +23,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SQL Test Case Designer</title>
+  <link rel="stylesheet" href="css/tool-base.css" />
   <link rel="stylesheet" href="css/sqlcases.css" />
 </head>
 <body>
@@ -32,8 +33,8 @@
     <span class="topbar-title">🧪 <span data-i18n="ui.title"></span></span>
     <span class="topbar-sub" data-i18n="ui.subtitle"></span>
     <div class="topbar-actions">
-      <button id="toggleLang" class="t-btn" data-i18n-title="ui.langTip">🌐 <span id="langLabel">VI</span></button>
       <button id="btnHelp" class="t-btn"><span data-i18n="ui.help"></span></button>
+      <button id="toggleLang" class="t-btn" data-i18n-title="ui.langTip">🌐 <span id="langLabel">VI</span></button>
       <button id="toggleTheme" class="t-btn t-btn-icon" data-i18n-title="ui.themeTip">🌙</button>
     </div>
   </header>
@@ -297,6 +298,8 @@
 
     <!-- ===== RIGHT: one case at a time ===== -->
     <aside class="insp" id="insp"><div id="inspInner"></div></aside>
+
+    <button type="button" id="railReopen" class="rail-reopen" data-i18n="ui.railReopen" hidden></button>
 
   </div>
   <!-- Help overlay -->

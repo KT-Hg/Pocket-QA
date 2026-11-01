@@ -153,6 +153,12 @@ export const VI = {
   'op.insert': 'INSERT',
 
   'mgr.title': 'Phiên test & Rollback',
+  'mgr.subtitle': 'Xem test đã thay đổi gì trong database, rồi rollback',
+  'mgr.langTip': 'Đổi ngôn ngữ',
+  'mgr.themeTip': 'Đổi giao diện sáng/tối',
+  'mgr.railToggle': 'Ẩn/hiện cột trái',
+  'mgr.railCollapse': 'Thu gọn cột trái',
+  'mgr.railReopen': 'Các phiên ›',
   'mgr.sessions': 'Các phiên',
   'mgr.empty': 'Chưa có phiên test nào.',
   'mgr.open': 'Đang ghi',

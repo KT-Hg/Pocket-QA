@@ -12,6 +12,7 @@
 
 import { THEME_KEY } from '../shared/storage-keys.js';
 import '../shared/ui/calm-focus.js';
+import { initRail } from '../shared/ui/rail.js';
 import { STATE_KEY, emptyState, findFolder, moveCases, normalizeState } from './model.js';
 import { el, toast } from './ui/dom.js';
 import { renderEditor } from './ui/editor.js';
@@ -89,6 +90,7 @@ function start(saved) {
 }
 
 function init() {
+  initRail('apiTestsRail');
   initFolders(app);
   initList(app);
   initEnvironments(app);

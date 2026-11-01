@@ -11,8 +11,6 @@ export const el = {
   // rail
   rail: $('rail'),
   railTabs: $('railTabs'),
-  railClose: $('btnRailClose'),
-  railToggle: $('btnRail'),
   railTabSqlLabel: $('railTabSqlLabel'),
   railTechCount: $('railTechCount'),
   railValuesCount: $('railValuesCount'),

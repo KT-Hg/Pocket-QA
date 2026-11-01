@@ -16,28 +16,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Test Sessions &amp; Rollback</title>
+  <link rel="stylesheet" href="css/tool-base.css" />
   <link rel="stylesheet" href="css/dbtools.css" />
 </head>
 <body>
 
   <header class="topbar">
-    <span class="topbar-title">↺ <span data-i18n="mgr.title"></span></span>
-    <div class="spacer"></div>
-    <button id="btnLang" class="btn">🌐 <span id="langLabel">VI</span></button>
-    <button id="btnSettings" class="btn" data-i18n="mgr.settings"></button>
+    <button id="btnRail" class="t-btn t-btn-icon" data-i18n-title="mgr.railToggle">☰</button>
+    <span class="topbar-title">🗄️ <span data-i18n="mgr.title"></span></span>
+    <span class="topbar-sub" data-i18n="mgr.subtitle"></span>
+    <div class="topbar-actions">
+      <button id="btnSettings" class="t-btn" data-i18n="mgr.settings"></button>
+      <button id="btnLang" class="t-btn" data-i18n-title="mgr.langTip">🌐 <span id="langLabel">VI</span></button>
+      <button id="toggleTheme" class="t-btn t-btn-icon" data-i18n-title="mgr.themeTip">🌙</button>
+    </div>
   </header>
 
-  <main class="shell">
+  <div class="app" id="app">
     <aside class="rail">
       <div class="rail-head">
-        <h2 data-i18n="mgr.sessions"></h2>
-        <button id="btnCleanup" class="btn small" data-i18n="mgr.cleanup"></button>
+        <span class="pane-label" data-i18n="mgr.sessions"></span>
+        <button id="btnCleanup" class="t-btn t-btn-sm t-btn-ghost" data-i18n="mgr.cleanup"></button>
+        <button id="btnRailClose" class="t-btn t-btn-icon t-btn-ghost" data-i18n-title="mgr.railCollapse">⟨</button>
       </div>
-      <input id="railFilter" class="rail-filter" type="search" hidden />
-      <div id="sessionList" class="session-list"></div>
+      <div class="rail-body">
+        <input id="railFilter" class="rail-filter" type="search" hidden />
+        <div id="sessionList" class="session-list"></div>
+      </div>
     </aside>
 
-    <section class="detail">
+    <main class="main">
       <div id="detailHead" class="detail-head" hidden>
         <div class="detail-title">
           <span id="sessName" class="sess-name"></span>
@@ -45,13 +53,13 @@
         </div>
         <div id="sessMeta" class="meta"></div>
         <div class="row">
-          <button id="btnRollback" class="btn danger" data-i18n="mgr.rollbackSelected"></button>
-          <button id="btnRedo"       class="btn" data-i18n="mgr.redoSelected"></button>
-          <button id="btnExportSql"  class="btn" data-i18n="mgr.exportSql"></button>
-          <button id="btnExportJson" class="btn" data-i18n="mgr.exportJson"></button>
-          <button id="btnRename"     class="btn" data-i18n="mgr.rename"></button>
-          <button id="btnToggleOpen" class="btn"></button>
-          <button id="btnDelete"     class="btn danger-outline" data-i18n="mgr.delete"></button>
+          <button id="btnRollback" class="t-btn t-btn-danger" data-i18n="mgr.rollbackSelected"></button>
+          <button id="btnRedo"       class="t-btn" data-i18n="mgr.redoSelected"></button>
+          <button id="btnExportSql"  class="t-btn" data-i18n="mgr.exportSql"></button>
+          <button id="btnExportJson" class="t-btn" data-i18n="mgr.exportJson"></button>
+          <button id="btnRename"     class="t-btn" data-i18n="mgr.rename"></button>
+          <button id="btnToggleOpen" class="t-btn"></button>
+          <button id="btnDelete"     class="t-btn t-btn-danger-outline" data-i18n="mgr.delete"></button>
         </div>
         <div id="report" class="report" hidden></div>
       </div>
@@ -66,10 +74,12 @@
       <div id="changeList" class="change-list">
         <p class="empty" data-i18n="mgr.noPreview"></p>
       </div>
-    </section>
-  </main>
+    </main>
 
-  <dialog id="settingsDlg" class="dlg">
+    <button type="button" id="railReopen" class="rail-reopen" data-i18n="mgr.railReopen" hidden></button>
+  </div>
+
+  <dialog id="settingsDlg" class="modal dlg">
     <form method="dialog" class="dlg-body">
       <h2 data-i18n="mgr.settings"></h2>
       <label class="check"><input type="checkbox" id="setEnabled" /> <span data-i18n="mgr.enabled"></span></label>
@@ -98,11 +108,11 @@
         <label class="field"><span data-i18n="mgr.guardTables"></span><input type="text" id="setGuardTables" placeholder="m_generic, m_config" /></label>
         <label class="check"><input type="checkbox" id="setGuardAuto" /> <span data-i18n="mgr.guardAuto"></span></label>
       </fieldset>
-      <div class="dlg-foot"><button id="setOk" class="btn primary" value="close">OK</button></div>
+      <div class="dlg-foot"><button id="setOk" class="t-btn t-btn-primary" value="close">OK</button></div>
     </form>
   </dialog>
 
-  <div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast toast-success" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
   <script type="module" src="dbtools/manager.js"></script>
 </body>

@@ -1,0 +1,389 @@
+/**
+ * tool-base.css — what every full-tab tool page shares: sqltest.html,
+ * apitest.html and dbtest.html.
+ *
+ * The theme tokens, the reset, buttons, fields, the top bar, the pane label,
+ * the column shell with its rail, the modal and the toast. Each page links this
+ * first and its own sheet
+ * after it, so a page sheet only holds what that page has and the others do
+ * not. Change a shared piece here and all three pages follow; restyle it in a
+ * page sheet and that page drifts away from the other two.
+ *
+ * The theme variables keep the names css/popup/ uses so the shared
+ * `popupTheme` storage key means the same thing on every surface.
+ */
+
+:root {
+  --primary: #2f6df6;
+  --primary-dark: #1d4ed8;
+  --primary-soft: rgba(47, 109, 246, 0.10);
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.10);
+  --warning: #c2740a;
+  --warning-text: #c2740a;
+  --warning-soft: rgba(217, 132, 17, 0.13);
+  --success: #0f9d63;
+  --success-soft: rgba(15, 157, 99, 0.12);
+  --secondary: #7c3aed;
+  --secondary-soft: rgba(124, 58, 237, 0.10);
+  /* Text colour to pair with --danger/--warning as a *solid* toast
+     background — the soft-tint pairing used elsewhere (e.g. --warning on
+     --warning-soft) doesn't apply here, and which text colour reads depends
+     on how saturated each colour is in this theme vs. the dark one below. */
+  --toast-err-fg: #ffffff;
+  --toast-warn-fg: #1a1305;
+
+  --bg: #f4f6f9;
+  --card: #ffffff;
+  --raised: #ffffff;
+  --sunken: #eef1f6;
+  --border: #e0e5ec;
+  --border-soft: #eceff4;
+  --border-strong: #cfd6e0;
+  --text: #0f1729;
+  --muted: #5b6a80;
+  --faint: #8b98ab;
+  --inner-bg: rgba(15, 23, 42, 0.035);
+  --code-bg: #f7f9fc;
+  --code-text: #243044;
+  --modal-backdrop: rgba(15, 23, 42, 0.52);
+
+  --kw: #1d4ed8;
+  --str: #0f9d63;
+  --num: #b45309;
+  --par: #7c3aed;
+  --cmt: #8b98ab;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 2px 4px rgba(15, 23, 42, 0.05), 0 12px 28px -14px rgba(15, 23, 42, 0.28);
+  --shadow-lg: 0 4px 8px rgba(15, 23, 42, 0.07), 0 24px 60px -20px rgba(15, 23, 42, 0.34);
+
+  --r-sm: 6px;
+  --r: 9px;
+  --r-lg: 13px;
+  --mono: ui-monospace, "Cascadia Code", Consolas, Menlo, monospace;
+}
+
+[data-theme="dark"] {
+  --primary: #5b9bff;
+  --primary-dark: #3b82f6;
+  --primary-soft: rgba(91, 155, 255, 0.14);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+  --warning: #fbbf24;
+  --warning-text: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.14);
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.13);
+  --secondary: #a78bfa;
+  --secondary-soft: rgba(167, 139, 250, 0.14);
+  /* --danger/--warning are pastel in this theme, so the toast needs dark
+     text on top of them rather than the white that light mode's saturated
+     versions need. */
+  --toast-err-fg: #2a0605;
+  --toast-warn-fg: #241a02;
+
+  --bg: #070d18;
+  --card: #0e1624;
+  --raised: #141f31;
+  --sunken: #0a1120;
+  --border: #1f2c3f;
+  --border-soft: #182334;
+  --border-strong: #2c3d54;
+  --text: #e7eef8;
+  --muted: #93a4bb;
+  --faint: #63768d;
+  --inner-bg: rgba(255, 255, 255, 0.05);
+  --code-bg: #0a1120;
+  --code-text: #c3d1e3;
+  --modal-backdrop: rgba(0, 0, 0, 0.66);
+
+  --kw: #7dabff;
+  --str: #4ade80;
+  --num: #fbbf24;
+  --par: #c4b5fd;
+  --cmt: #5a6b81;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 14px 32px -16px rgba(0, 0, 0, 0.85);
+  --shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.5), 0 28px 64px -22px rgba(0, 0, 0, 0.95);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+/* Several rules below set display:flex/grid on a class, which outranks the UA
+   sheet's [hidden] rule — without this the help modal, the toast and every
+   inactive pane would render on load. Keep this ahead of every layout rule. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+code, pre { font-family: var(--mono); }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 9px; }
+::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ===== Buttons & controls ===== */
+button { font-family: inherit; font-size: 13px; cursor: pointer; color: var(--text); }
+
+.t-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: var(--r);
+  padding: 6px 11px;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
+}
+.t-btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--sunken); }
+.t-btn:disabled { opacity: 0.45; cursor: default; }
+.t-btn-sm { padding: 4px 8px; font-size: 12px; border-radius: var(--r-sm); }
+.t-btn-icon { padding: 6px; width: 30px; height: 30px; justify-content: center; }
+.t-btn-ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.t-btn-ghost:hover:not(:disabled) { background: var(--sunken); color: var(--text); }
+.t-btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+.t-btn-primary:hover:not(:disabled) { background: var(--primary-dark); border-color: var(--primary-dark); }
+
+/* Solid for the one action that destroys something, outlined for the ones
+   that only start down that road. The text pairs with --danger the way the
+   error toast does: white on the saturated light-theme red, dark on the
+   pastel dark-theme one. */
+.t-btn-danger { background: var(--danger); border-color: var(--danger); color: var(--toast-err-fg); font-weight: 600; }
+.t-btn-danger:hover:not(:disabled) { background: var(--danger); border-color: var(--danger); filter: brightness(1.08); }
+.t-btn-danger-outline { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.t-btn-danger-outline:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+
+.primary-gradient {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  border: none;
+  border-radius: var(--r);
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 7px 14px;
+  white-space: nowrap;
+}
+.primary-gradient:hover:not(:disabled) { filter: brightness(1.08); }
+
+.mini-select, select, input[type="search"], input[type="text"], input[type="number"] {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+}
+/* The border alone shows focus: the ring that came with it read as the field
+   staying highlighted. Checkboxes have no border to tint, so keyboard focus
+   keeps a ring there, and so does a button — in the tinted colour rather than
+   the browser's black one, which a dialog's first button wears on opening. */
+select:focus, input:focus, textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+}
+input:is([type="checkbox"], [type="radio"]):focus-visible, .t-btn:focus-visible {
+  outline: 2px solid var(--primary-soft);
+  outline-offset: 1px;
+}
+
+/* ===== Top bar ===== */
+.topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 14px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  transition: padding 0.18s ease;
+}
+.topbar-title { font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.topbar-sub {
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.topbar-actions { margin-left: auto; display: flex; gap: 6px; flex: 0 0 auto; }
+
+/* ===== Pane label — the small caps heading over a column or a block ===== */
+.pane-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 5px;
+}
+
+/* ===== The column shell =====
+ * Under the top bar every page is .app: the rail on the left, the main column,
+ * and an inspector on the right on the pages that have one (--insp stays 0 on
+ * the others). The rail is the same on all three — its width, its head, its
+ * body, and how it is shut and reopened (shared/ui/rail.js) — so a page sets
+ * only --insp. */
+:root { --rail: 320px; --insp: 0px; }
+.app {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  position: relative;
+  grid-template-columns: var(--rail) minmax(0, 1fr) var(--insp);
+  transition: grid-template-columns 0.18s ease;
+}
+.app.rail-off { grid-template-columns: 0 minmax(0, 1fr) var(--insp); }
+/* A shut rail's border used to frame that edge of the content; without it the
+   top bar and the main column run straight into the window edge, under the
+   reopen tab. rail.js mirrors rail-off onto <body>, since the top bar sits
+   above .app rather than in it. */
+body.rail-off .topbar, .app.rail-off .main { padding-left: 24px; }
+
+.rail {
+  min-width: 0;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Tabs (sqltest.html) or a label and its buttons (apitest, dbtest), then ⟨ —
+   one height for both, so every rail's body starts on the same line. */
+.rail-head { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 8px 0 14px; }
+.rail-head > .pane-label { margin: 0 auto 0 0; }
+/* `overflow-y: auto` makes the other axis compute to `auto` too, so a single
+   row one pixel too wide would give the whole rail a horizontal scrollbar.
+   Rows wrap instead, and this stays hidden as a guarantee, not as a way of
+   hiding a real overflow. */
+.rail-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 12px; }
+
+/* A shut rail leaves a tab behind rather than only the ☰ in the top bar: a page
+   with no visible way back to its own left column reads as broken. */
+.rail-reopen {
+  position: absolute;
+  left: 0;
+  top: 24px;
+  z-index: 20;
+  border: 1px solid var(--border);
+  border-left: 0;
+  background: var(--card);
+  border-radius: 0 var(--r) var(--r) 0;
+  padding: 16px 5px;
+  box-shadow: var(--shadow-md);
+  writing-mode: vertical-rl;
+  font-size: 11.5px;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+.rail-reopen:hover { color: var(--text); }
+
+.main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: padding 0.18s ease;
+}
+
+/* ===== Modal ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+.modal {
+  background: var(--card);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  max-width: 760px;
+  width: 100%;
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 18px 22px 22px;
+}
+.modal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.modal-head h3 { margin: 0; font-size: 15px; }
+.modal-head > button { margin-left: auto; }
+.modal-body { font-size: 13px; line-height: 1.65; color: var(--text); }
+/* A native <dialog class="modal"> (dbtest.html) is the same box; the browser
+   draws its backdrop as ::backdrop instead of a .modal-backdrop wrapper. */
+dialog.modal { color: var(--text); }
+dialog.modal::backdrop { background: var(--modal-backdrop); }
+
+/* ===== Toast =====
+ * .toast-success is the original look (an inverted chip: dark-on-light or
+ * light-on-dark depending on theme) — kept as the default so a confirmation
+ * still reads as "neutral good news". .toast-error/.toast-warn switch to a
+ * solid --danger/--warning fill so a failure is distinguishable from a
+ * success at a glance and not just by the words, which auto-dismiss in
+ * 2.2s. */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 9px 18px;
+  border-radius: 100px;
+  font-size: 12.5px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  z-index: 300;
+}
+.toast-success { background: var(--text); color: var(--bg); }
+.toast-error { background: var(--danger); color: var(--toast-err-fg); }
+.toast-warn { background: var(--warning); color: var(--toast-warn-fg); }
+
+/* Below 900px the rail stops being a column and slides over the page instead,
+   shut until ☰ opens it — rail.js starts it shut at this width. */
+@media (max-width: 900px) {
+  .topbar-sub { display: none; }
+  .app, .app.rail-off { grid-template-columns: 0 minmax(0, 1fr) var(--insp); }
+  .rail {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: min(var(--rail), 92vw);
+    z-index: 80;
+    box-shadow: var(--shadow-lg);
+    transform: translateX(-101%);
+    transition: transform 0.2s ease;
+  }
+  .app:not(.rail-off) .rail { transform: none; }
+  .rail-reopen { display: none; }
+}
