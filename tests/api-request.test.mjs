@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { buildRequest, maskHeaders, parseHeaders, sendRequest, MASK } = await import('../shared/api-request.js');
+const { buildRequest, maskHeaders, maskUrl, parseHeaders, sendRequest, MASK } = await import('../shared/api-request.js');
 
 const req = (fields) => ({ method: 'GET', url: 'https://api.test/x', headers: '', bodyType: 'none', body: '', timeoutMs: 30_000, cookies: true, ...fields });
 
@@ -14,6 +14,13 @@ test('parseHeaders: Name: value lines, # lines and blanks left out', () => {
     [['Accept', 'application/json'], ['Authorization', 'Bearer a:b']]);
   assert.match(parseHeaders('Accept application/json').error, /^Header line 1 is not "Name: value"/);
   assert.equal(parseHeaders('A: 1\n: nameless').error, 'A header has a value but no name (line 2: : nameless)');
+});
+
+test('maskUrl: secret query values hidden, the URL otherwise as written', () => {
+  assert.equal(maskUrl('https://a.test/x?id=1&token=t%201&API_KEY=k&key=z&q=a%20b#top'), `https://a.test/x?id=1&token=${MASK}&API_KEY=${MASK}&key=${MASK}&q=a%20b#top`);
+  assert.equal(maskUrl('https://a.test/x'), 'https://a.test/x');
+  assert.equal(maskUrl('https://a.test/x?token=&secret'), 'https://a.test/x?token=&secret', 'nothing to hide');
+  assert.equal(maskUrl('https://a.test/x?bad%=1&access_token=t'), `https://a.test/x?bad%=1&access_token=${MASK}`, 'a name that does not decode is kept');
 });
 
 test('maskHeaders: secret values hidden, the rest kept', () => {

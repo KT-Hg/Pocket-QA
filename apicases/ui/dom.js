@@ -17,9 +17,11 @@ export const el = {
   addFolder: $('btnAddFolder'),
   folderList: $('folderList'),
   listHead: $('listHead'),
+  runBar: $('runBar'),
   listBar: $('listBar'),
   listQuery: $('listQuery'),
   listMethod: $('listMethod'),
+  listResult: $('listResult'),
   listBulk: $('listBulk'),
   caseList: $('caseList'),
   inspInner: $('inspInner'),
@@ -50,6 +52,13 @@ export function h(tag, props, ...children) {
     n.append(c instanceof Node ? c : String(c));
   }
   return n;
+}
+
+/** "10:42" for a time today, else the date too. */
+export function whenText(at) {
+  const d = new Date(at);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString()} ${time}`;
 }
 
 let toastTimer = null;

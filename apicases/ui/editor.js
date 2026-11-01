@@ -210,7 +210,7 @@ export function renderEditor(app, { focus = null } = {}) {
     class: 'insp-body ac-insp-body',
     onkeydown: (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendCase(app, id); } },
   }, request.line, request.urlError, tabs.strip, ...Object.values(panes),
-  responseBox(id, { onResult, onKey: keyMenu(checks, extracts) })));
+  responseBox(id, { onResult, onKey: keyMenu(checks, extracts), last: c.last })));
   if (focus === 'url') request.url.focus();
   else if (focus === 'name') name.select();
 }

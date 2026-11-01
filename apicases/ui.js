@@ -45,7 +45,7 @@ function flushSave() {
 const app = {
   state: emptyState(),
   /** List filters and the cases ticked in it — this visit only. */
-  view: { query: '', method: '', selected: new Set() },
+  view: { query: '', method: '', result: '', selected: new Set() },
 
   /**
    * Replace the state, save it shortly, redraw. `render`: 'all'; 'list' when

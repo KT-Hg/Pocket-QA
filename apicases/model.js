@@ -81,11 +81,24 @@ export function setFolderAuth(state, id, auth) {
   return { ...state, folders: state.folders.map((f) => (f.id === id ? { ...f, auth: normalizeAuth(auth, 'none') } : f)) };
 }
 
-function normalizeCase(c, folderIds) {
-  if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !folderIds.has(c.folderId)) return null;
+/** The verdicts a case's last result (apicases/run.js lastOf) can have. */
+export const VERDICTS = ['passed', 'failed', 'broken'];
+
+/** A saved last result made safe to render, or null when it is not one. */
+function normalizeLast(l) {
+  if (!l || typeof l !== 'object' || !VERDICTS.includes(l.verdict)) return null;
+  const failures = (Array.isArray(l.failures) ? l.failures : []).filter((f) => typeof f?.reason === 'string');
+  return { ...l, failures, bodyHead: str(l.bodyHead) };
+}
+
+function normalizeCase(raw, folderIds) {
+  if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !folderIds.has(raw.folderId)) return null;
+  const { last: rawLast, ...c } = raw;
+  const last = normalizeLast(rawLast);
   const timeout = Number(c.timeoutMs);
   return {
     ...c,
+    ...(last ? { last } : {}),
     name: str(c.name, 'Request'),
     method: METHODS.includes(c.method) ? c.method : 'GET',
     url: str(c.url),
@@ -221,11 +234,15 @@ export function reorderCase(state, id, beforeId) {
   return { ...state, cases: [...rest.slice(0, at), c, ...rest.slice(at)] };
 }
 
-/** The cases the middle column lists: the open folder's (or all), filtered by text and method. */
-export function visibleCases(state, { query = '', method = '' } = {}) {
+/**
+ * The cases the middle column lists: the open folder's (or all), filtered by
+ * text, method and last result (a verdict, or 'none' for not run yet).
+ */
+export function visibleCases(state, { query = '', method = '', result = '' } = {}) {
   const q = query.trim().toLowerCase();
   return state.cases.filter((c) => (state.folderId === ALL || c.folderId === state.folderId)
     && (!method || c.method === method)
+    && (!result || (c.last?.verdict || 'none') === result)
     && (!q || c.name.toLowerCase().includes(q) || c.url.toLowerCase().includes(q)));
 }
 

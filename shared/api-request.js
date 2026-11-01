@@ -13,10 +13,12 @@
  * inherits its folder's is given that one first (requestOf).
  */
 
-/** Header names whose values are never written into a saved result or an export. */
-const SECRET_HEADER = /^(authorization|proxy-authorization|cookie|set-cookie)$|api[-_]?key|token|secret|passw/i;
+/** Names (of a header, a query key, a JSON key) whose values are never written into a saved result or an export. */
+const SECRET_NAME = /^(authorization|proxy-authorization|cookie|set-cookie|key|sig|signature)$|api[-_]?key|token|secret|passw/i;
 
 export const MASK = '••••';
+
+export const isSecretName = (name) => SECRET_NAME.test(String(name));
 
 /**
  * How a variable's value is written into each part of a request: escaped
@@ -61,7 +63,19 @@ export function parseHeaders(text) {
 
 /** The same headers with the values of secret ones (Authorization, Cookie, *token*…) masked. */
 export function maskHeaders(headers) {
-  return headers.map(([n, v]) => [n, SECRET_HEADER.test(n) ? MASK : v]);
+  return headers.map(([n, v]) => [n, isSecretName(n) ? MASK : v]);
+}
+
+/** The URL with the values of secret query keys (token, key, api_key, secret…) masked; the rest as it was. */
+export function maskUrl(url) {
+  const [base, ...rest] = String(url).split('?');
+  if (!rest.length) return base;
+  const query = rest.join('?').replace(/(^|&)([^=&#]+)=([^&#]*)/g, (part, sep, name, value) => {
+    let n = name;
+    try { n = decodeURIComponent(name); } catch { /* kept as written */ }
+    return value && isSecretName(n) ? `${sep}${name}=${MASK}` : part;
+  });
+  return `${base}?${query}`;
 }
 
 /** { target: URL } for an http(s) URL, else { error, kind: 'url' }. */

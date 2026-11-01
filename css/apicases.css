@@ -54,6 +54,10 @@ input[type="number"], textarea {
 .ac-head-title .ac-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ac-head-count { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+.ac-runbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0 14px 10px; }
+.ac-runbar .ac-num-input { width: 64px; }
+.ac-run-text { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
 .ac-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 14px 10px; }
 .ac-search { flex: 1 1 180px; min-width: 0; max-width: 360px; }
 .ac-bulk {
@@ -74,7 +78,7 @@ input[type="number"], textarea {
 .ac-rows { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
 .ac-row {
   display: grid;
-  grid-template-columns: auto 34px 62px minmax(0, 1fr) auto;
+  grid-template-columns: auto 34px 62px minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 8px;
   padding: 8px 12px 8px 10px;
@@ -95,6 +99,14 @@ input[type="number"], textarea {
 .ac-row-name, .ac-row-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ac-row-name { font-weight: 600; }
 .ac-row-url { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--muted); }
+.ac-row-fail { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-last { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ac-row-mark { display: inline-block; min-width: 1.2em; margin-right: 2px; text-align: center; color: var(--faint); }
+.ac-l-passed .ac-row-mark { color: var(--success); }
+.ac-l-failed .ac-row-mark, .ac-row-fail.ac-l-failed { color: var(--danger); }
+.ac-l-broken .ac-row-mark, .ac-row-fail.ac-l-broken { color: var(--warning-text); }
+.ac-row-run { visibility: hidden; padding: 2px 6px; }
+.ac-row:hover .ac-row-run, .ac-row:focus-within .ac-row-run { visibility: visible; }
 .ac-chip {
   font-size: 11px;
   color: var(--muted);

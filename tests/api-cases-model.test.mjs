@@ -156,6 +156,24 @@ test('auth: a case inherits its folder\'s, sets its own, or sends none', () => {
   assert.equal(M.findCase(s, a1).auth.type, 'inherit', 'the case itself is unchanged');
 });
 
+test('last result: kept when it is one, dropped when not; the list filters by it', () => {
+  const last = (verdict, more = {}) => ({ verdict, at: 1, status: 200, failures: [], bodyHead: '{}', ...more });
+  const s = M.normalizeState({
+    folders: [{ id: 'f1', name: 'A' }],
+    cases: [
+      { id: 'p', folderId: 'f1', name: 'p', last: last('passed') },
+      { id: 'f', folderId: 'f1', name: 'f', last: last('failed', { failures: [{ kind: 'assert', reason: 'x' }, null, 'junk'], bodyHead: 3 }) },
+      { id: 'b', folderId: 'f1', name: 'b', last: last('stopped') },
+      { id: 'n', folderId: 'f1', name: 'n', last: 'junk' },
+    ],
+  });
+  assert.deepEqual(s.cases[0].last, last('passed'));
+  assert.deepEqual(s.cases[1].last, last('failed', { failures: [{ kind: 'assert', reason: 'x' }], bodyHead: '' }));
+  assert.ok(!('last' in s.cases[2]) && !('last' in s.cases[3]), 'not a result: as if never run');
+  assert.deepEqual(names(s, { result: 'failed' }), ['f']);
+  assert.deepEqual(names(s, { result: 'none' }), ['b', 'n']);
+});
+
 test('normalizeAuth: a known type, string fields, header or query; a folder never inherits', () => {
   assert.deepEqual(M.normalizeAuth({ type: 'apikey', key: 'k', value: 1, in: 'cookie' }, 'inherit'), { type: 'apikey', key: 'k', in: 'header' });
   assert.deepEqual(M.normalizeAuth({ type: 'oauth2' }, 'inherit'), { type: 'inherit' });

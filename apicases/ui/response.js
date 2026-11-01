@@ -5,15 +5,17 @@
  * ui/json-view.js, its keys clickable.
  *
  * Results are kept for this visit only, by case: going to another case and
- * back shows the last one again. Variables are the Data tab's with the
- * environment in use on top (apicases/vars.js).
+ * back shows the last one again. What is kept of it after that is the case's
+ * `last` (apicases/run.js lastOf), shown until the case is sent again.
+ * Variables are the Data tab's with the environment in use on top
+ * (apicases/vars.js).
  */
 
 import { verdictLabel } from '../../shared/verdict.js';
-import { activeEnv, findCase, requestOf, saveEnvValues } from '../model.js';
-import { runCase } from '../run.js';
+import { activeEnv, findCase, requestOf, saveEnvValues, updateCase } from '../model.js';
+import { BODY_HEAD, lastOf, runCase } from '../run.js';
 import { varsFor } from '../vars.js';
-import { h, toast } from './dom.js';
+import { h, toast, whenText } from './dom.js';
 import { MAX_NODES, jsonView } from './json-view.js';
 
 // A body longer than this is cut in the view; the response itself is kept whole.
@@ -21,9 +23,20 @@ const SHOW_MAX_CHARS = 200_000;
 
 const results = new Map();
 const sending = new Set();
-/** The box, Send button and callbacks of the case open in the editor. */
-let open = { id: null, box: null, button: null, onResult: null, onKey: null };
+/** The box, Send button, callbacks and saved last result of the case open in the editor. */
+let open = { id: null, box: null, button: null, onResult: null, onKey: null, last: null };
 let tab = 'body';
+
+/**
+ * A result of case `id` (a Send, or one of a run) taken in: shown under the
+ * editor, kept as the case's `last`, the values it saved written into the
+ * environment in use.
+ */
+export function recordResult(app, id, result) {
+  results.set(id, result);
+  app.set(updateCase(saveEnvValues(app.state, result.saved), id, { last: lastOf(result) }), { render: 'list' });
+  draw(id);
+}
 
 export async function sendCase(app, id) {
   const c = findCase(app.state, id);
@@ -32,12 +45,9 @@ export async function sendCase(app, id) {
   draw(id);
   try {
     const result = await runCase(requestOf(app.state, c), await varsFor(app.state));
-    results.set(id, result);
+    recordResult(app, id, result);
     const names = Object.keys(result.saved);
-    if (names.length) {
-      app.set(saveEnvValues(app.state, result.saved), { render: 'none' });
-      toast(`Saved ${names.join(', ')} to "${activeEnv(app.state).name}"`, 'success');
-    }
+    if (names.length) toast(`Saved ${names.join(', ')} to "${activeEnv(app.state).name}"`, 'success');
   } finally {
     sending.delete(id);
     draw(id);
@@ -53,11 +63,12 @@ export function sendButton(app, id) {
 /**
  * The response box of case `id`. `onResult(result)` runs whenever it shows a
  * result (the Checks tab marks its rows); `onKey(segs, value, button)` when a
- * key of a JSON body is clicked.
+ * key of a JSON body is clicked. `last` is the case's saved last result, shown
+ * until it is sent in this visit.
  */
-export function responseBox(id, { onResult = null, onKey = null } = {}) {
+export function responseBox(id, { onResult = null, onKey = null, last = null } = {}) {
   const box = h('section', { class: 'ac-response', 'aria-live': 'polite' });
-  open = { ...open, id, box, onResult, onKey };
+  open = { ...open, id, box, onResult, onKey, last };
   draw(id);
   return box;
 }
@@ -156,6 +167,22 @@ function responseParts(result) {
   ];
 }
 
+/** What is shown of a last result kept from an earlier visit: verdict, status, when, what was sent, the start of the body. */
+function lastParts(last) {
+  return [
+    verdictLine(last),
+    h('div', { class: 'ac-resp-meta' },
+      last.status !== null && last.status !== undefined ? h('span', { class: statusClass(last.status) }, String(last.status)) : null,
+      typeof last.ms === 'number' ? h('span', null, `${last.ms} ms`) : null,
+      h('span', null, `Last run ${whenText(last.at)}`)),
+    sentLine(last),
+    last.bodyHead ? h('pre', { class: 'ac-pre' }, last.bodyHead) : null,
+    h('p', { class: 'helper' }, last.bodyHead
+      ? `The first ${BODY_HEAD / 1024} KB of the body, secret values hidden — Send to see the whole response.`
+      : 'Send to see the whole response.'),
+  ];
+}
+
 function draw(id) {
   if (open.id !== id) return;
   // `open` is replaced each time the editor is built, so these are the case's
@@ -169,6 +196,7 @@ function draw(id) {
   const result = results.get(id);
   let parts;
   if (busy) parts = [h('p', { class: 'helper' }, 'Waiting for the response…')];
+  else if (!result && open.last) parts = lastParts(open.last);
   else if (!result) parts = [h('p', { class: 'helper' }, 'Send the request (Ctrl+Enter) to see its response here.')];
   else if (result.res.error) parts = [verdictLine(result), sentLine(result.res)];
   else parts = responseParts(result);

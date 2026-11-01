@@ -57,3 +57,72 @@ test('values to save come back, and one not found makes the turn broken', async 
   const down = await runCase(c, {}, async () => ({ error: 'x', kind: 'network' }));
   assert.deepEqual(down.saved, {}, 'no response: nothing saved');
 });
+
+const { runAll, writePlan, lastOf, runTally, BODY_HEAD } = await import('../apicases/run.js');
+
+test('runAll: in order, each case sent with the variables as they are just before it', async () => {
+  const vars = { base: 'https://a.test' };
+  const sent = [];
+  const seen = [];
+  const cases = [
+    { id: 'login', checks: [], extracts: [{ varName: 'token', from: 'json', path: 'token' }] },
+    { id: 'me', checks: [] },
+  ];
+  const n = await runAll(cases, {
+    getVars: async () => ({ ...vars }),
+    send: async (c, v) => { sent.push([c.id, v.token]); return ok({ token: 'tok-1' })(); },
+    onResult: async (c, r) => { await new Promise((res) => setTimeout(res, 5)); Object.assign(vars, r.saved); seen.push(c.id); },
+  });
+  assert.equal(n, 2);
+  assert.deepEqual(sent, [['login', undefined], ['me', 'tok-1']], 'the token login saved reaches the request after it');
+  assert.deepEqual(seen, ['login', 'me']);
+});
+
+test('runAll: stop lets the request on its way finish and sends no other; a delay between requests', async () => {
+  let stop = false;
+  const sent = [];
+  const waits = [];
+  const n = await runAll([{ id: 1, checks: [] }, { id: 2, checks: [] }, { id: 3, checks: [] }], {
+    getVars: () => ({}),
+    send: async (c) => { sent.push(c.id); if (c.id === 2) stop = true; return ok({})(); },
+    onResult: () => {},
+    shouldStop: () => stop,
+    delayMs: 200,
+    wait: async (ms) => { waits.push(ms); },
+  });
+  assert.equal(n, 2);
+  assert.deepEqual(sent, [1, 2]);
+  assert.deepEqual(waits, [200, 200], 'between requests, not before the first');
+});
+
+test('writePlan: requests that write, counted by method, with their host', () => {
+  const get = { method: 'GET', url: 'https://a.test/x' };
+  assert.equal(writePlan([get, { method: 'HEAD', url: 'https://a.test' }]), '', 'reads only: nothing to ask');
+  const cases = [get, { method: 'DELETE', url: '${base}/u/1' }, { method: 'POST', url: '${base}/u' }, { method: 'POST', url: 'https://b.test/u' }];
+  assert.equal(writePlan(cases, { base: 'https://a.test' }), 'Send 2 POST, 1 DELETE to a.test, b.test?');
+  assert.equal(writePlan([{ method: 'PUT', url: '${later}/x' }]), 'Send 1 PUT?', 'a URL not filled in yet: no host');
+});
+
+test('lastOf: a summary to keep — body cut, secret values masked, no header', () => {
+  const res = {
+    status: 200, ms: 12, isJson: true, isBinary: false, json: { token: 'tok-9', user: { id: 7, password: 'pw' }, list: ['x'.repeat(3000)] },
+    headers: [['set-cookie', 'sid=1']], sent: { method: 'GET', url: 'https://a.test/x?id=1&api_key=k1&token=t' },
+  };
+  const last = lastOf({ res, verdict: 'passed', failures: [] }, 5);
+  assert.equal(last.at, 5);
+  assert.equal(last.bodyHead.length, BODY_HEAD);
+  assert.ok(last.bodyHead.startsWith('{\n  "token": "••••",\n  "user": {\n    "id": 7,\n    "password": "••••"'), last.bodyHead.slice(0, 80));
+  assert.deepEqual(last.sent, { method: 'GET', url: 'https://a.test/x?id=1&api_key=••••&token=••••' });
+  assert.ok(!JSON.stringify(last).includes('sid=1') && !JSON.stringify(last).includes('tok-9'));
+
+  const down = lastOf({ res: { error: 'No response within 0.3 s', kind: 'timeout', ms: 300, sent: { method: 'GET', url: 'https://a.test' } },
+    verdict: 'broken', failures: [{ kind: 'broken', reason: 'No response within 0.3 s' }] }, 6);
+  assert.deepEqual(down, { at: 6, verdict: 'broken', status: null, ms: 300, failures: [{ kind: 'broken', reason: 'No response within 0.3 s' }],
+    bodyHead: '', sent: { method: 'GET', url: 'https://a.test' } });
+  assert.equal(lastOf({ res: { status: 200, isBinary: true, bytes: 9 }, verdict: 'passed', failures: [] }).bodyHead, '', 'bytes are not kept');
+});
+
+test('runTally: last results counted, with the latest time', () => {
+  const t = runTally([{ last: { verdict: 'passed', at: 3 } }, { last: { verdict: 'failed', at: 9 } }, { last: { verdict: 'passed', at: 1 } }, {}]);
+  assert.deepEqual(t, { passed: 2, failed: 1, broken: 0, notRun: 1, at: 9 });
+});
