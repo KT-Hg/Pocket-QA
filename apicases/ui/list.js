@@ -10,6 +10,7 @@ import { ALL, METHODS, addCase, deleteCases, findFolder, reorderCase, select, vi
 import { folderAuthButton } from './auth.js';
 import { el, h, toast, whenText } from './dom.js';
 import { exportMenu } from './exports.js';
+import { importButton } from './import.js';
 import { pasteCurlButton } from './paste-curl.js';
 import { sendCase } from './response.js';
 import { isRunning, renderRunBar, runCases } from './run-bar.js';
@@ -48,6 +49,7 @@ function head(app) {
   const actions = h('div', { class: 'main-head-actions' },
     folder ? folderAuthButton(app, folder) : null,
     pasteCurlButton(app),
+    importButton(app),
     exportMenu(app),
     h('button', { class: 't-btn t-btn-primary', onclick: () => app.set(addCase(app.state).state, { focus: 'url' }) }, '＋ Request'));
   return [title, actions];
@@ -173,8 +175,8 @@ export function renderList(app) {
   const newRequest = () => h('button', { class: 't-btn t-btn-primary', onclick: () => app.set(addCase(app.state).state, { focus: 'url' }) }, '＋ Request');
   if (!s.cases.length && !s.folders.length) {
     el.caseList.replaceChildren(emptyState('🔌', 'No API tests yet',
-      'Add a request, or paste a cURL command copied from DevTools (Network → Copy → Copy as cURL (bash)). Folders keep them in groups.',
-      newRequest(), pasteCurlButton(app)));
+      'Add a request, paste a cURL command copied from DevTools (Network → Copy → Copy as cURL (bash)), or import a Postman collection. Folders keep them in groups.',
+      newRequest(), pasteCurlButton(app), importButton(app)));
     return;
   }
   const cases = visibleCases(s, v);

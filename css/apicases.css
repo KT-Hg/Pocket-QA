@@ -308,6 +308,19 @@ input.ac-check-path { flex-grow: 1.6; }
 .ac-menu-check { display: flex; align-items: center; gap: 8px; padding: 6px 9px 7px 33px; font-size: 12px; color: var(--muted); cursor: pointer; }
 .ac-menu-check input { margin: 0; }
 
+/* ===== Import ===== */
+.ac-import { max-width: 600px; }
+.ac-file { display: block; margin: 4px 0 8px; font-size: 12.5px; }
+.ac-import-info p { margin: 8px 0; }
+.ac-import-sect { margin-top: 12px; }
+.ac-import-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint); margin-bottom: 5px; }
+.ac-hosts { display: flex; flex-wrap: wrap; gap: 5px; }
+.ac-host { padding: 2px 7px; border-radius: var(--r-sm); background: var(--sunken); border: 1px solid var(--border-soft); font-size: 12px; overflow-wrap: anywhere; }
+.ac-import-sect .helper { margin: 6px 0 0; }
+.ac-import-notes { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); max-height: 160px; overflow: auto; }
+.ac-import-notes li { margin: 2px 0; overflow-wrap: anywhere; }
+.ac-import-env { margin-top: 12px; }
+
 /* ===== Headers table ===== */
 .ac-pane-head .helper { margin: 0; flex: 1 1 auto; }
 .ac-hdr-table { display: flex; flex-direction: column; gap: 4px; }

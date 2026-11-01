@@ -1,0 +1,140 @@
+{
+  "info": {
+    "_postman_id": "5e0a1c2d-0000-4000-8000-000000000001",
+    "name": "Shop API",
+    "description": "Written by hand the way Postman exports a collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["console.log('collection');"] } }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://shop.example.com/api" },
+    { "key": "token", "value": "" },
+    { "key": "old", "value": "x", "disabled": true }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/health", "auth": { "type": "noauth" } }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.environment.set(\"token\", pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Debug", "value": "1", "disabled": true }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"user\": \"{{user}}\",\n  \"password\": \"{{password}}\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Partner token",
+          "request": {
+            "auth": {
+              "type": "oauth2",
+              "oauth2": [{ "key": "grantType", "value": "client_credentials", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "https://auth.partner.test/oauth/token"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "auth": {
+        "type": "apikey",
+        "apikey": [
+          { "key": "key", "value": "X-Api-Key", "type": "string" },
+          { "key": "value", "value": "{{apiKey}}", "type": "string" }
+        ]
+      },
+      "item": [
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "Refund",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    { "key": "order", "value": "{{orderId}}", "type": "text" },
+                    { "key": "reason", "value": "đổi ý", "type": "text" },
+                    { "key": "dry", "value": "1", "type": "text", "disabled": true }
+                  ]
+                },
+                "url": {
+                  "protocol": "https",
+                  "host": ["admin", "shop", "example", "com"],
+                  "path": ["refunds"],
+                  "query": [{ "key": "notify", "value": "0" }]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload invoice",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "file", "type": "file", "src": "invoice.pdf" }]
+            },
+            "url": "{{baseUrl}}/orders/42/invoice"
+          }
+        },
+        {
+          "name": "Search",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "graphql",
+              "graphql": { "query": "query { orders(status: \"{{status}}\") { id } }", "variables": "{\"first\": 10}" }
+            },
+            "url": "{{baseUrl}}/graphql"
+          }
+        },
+        {
+          "name": "Purge cache",
+          "request": { "method": "PURGE", "header": [], "url": "{{baseUrl}}/cache" }
+        }
+      ]
+    }
+  ]
+}

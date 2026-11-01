@@ -192,3 +192,101 @@ test('toPostman: one folder; a folder with None has no auth', () => {
   assert.ok(!('auth' in collection.item[0]));
   assert.equal(X.collectionFileName({ info: { name: 'Shop: v2 / beta' } }), 'Shop_ v2 _ beta.postman_collection.json');
 });
+
+/* ── Import (apicases/postman-import.js) ──────────────────────────────────── */
+
+const I = await import('../apicases/postman-import.js');
+const { readFileSync } = await import('node:fs');
+const { emptyState } = await import('../apicases/model.js');
+
+/** The fields a case is compared on after a trip through Postman. */
+const fields = (c) => {
+  const { id: _id, folderId: _folderId, last: _last, ...rest } = c;
+  return rest;
+};
+
+test('round trip: exported, then imported into an empty page, gives back the folders and cases', () => {
+  const before = shopState();
+  const { collection } = X.toPostman(before, { includeSecrets: true });
+  const parsed = I.fromPostman(JSON.parse(JSON.stringify(collection)));
+  assert.deepEqual(parsed.notes, [], 'nothing left out');
+  const after = I.importInto(emptyState(), parsed);
+  assert.deepEqual(after.folders.map((f) => [f.name, f.auth]), before.folders.map((f) => [f.name, f.auth]));
+  assert.equal(after.folderId, after.folders[0].id, 'the first imported folder is opened');
+  const byName = Object.fromEntries(after.cases.map((c) => [c.name, fields(c)]));
+  for (const c of before.cases) {
+    const want = fields(c);
+    if (c.method === 'GET') Object.assign(want, { bodyType: 'none', body: '' }); // a GET goes without one
+    if (c.bodyType === 'form') want.body = 'a=1%202&b=%C3%A9&c=${x}'; // the same form, encoded the standard way
+    assert.deepEqual(byName[c.name], { checks: [], extracts: [], ...want }, c.name);
+  }
+  assert.equal(after.cases.find((c) => c.name === 'Login').timeoutMs, 5000, 'the timeout comes back from the pocket-qa line');
+  assert.equal(after.cases.find((c) => c.name === 'Login').cookies, false);
+});
+
+test('a collection written in Postman: flattened folders, inherited auth, and a note for each thing left out', () => {
+  const parsed = I.fromPostman(JSON.parse(readFileSync(new URL('./fixtures/postman-sample.json', import.meta.url), 'utf8')));
+  assert.equal(parsed.kind, 'collection');
+  assert.deepEqual(parsed.folders.map((f) => [f.name, f.auth.type, f.cases.map((c) => c.name)]), [
+    ['Shop API', 'bearer', ['Health']],
+    ['Auth', 'bearer', ['Login', 'Partner token']],
+    ['Orders', 'apikey', ['Upload invoice', 'Search', 'Purge cache']],
+    ['Orders / Admin', 'apikey', ['Refund']],
+  ]);
+  assert.deepEqual(parsed.folders[1].auth, { type: 'bearer', token: '${token}' }, 'the collection\'s, {{x}} as ${x}');
+  assert.deepEqual(parsed.folders[3].auth, { type: 'apikey', key: 'X-Api-Key', value: '${apiKey}', in: 'header' }, 'the parent folder\'s');
+  const c = Object.fromEntries(parsed.folders.flatMap((f) => f.cases).map((x) => [x.name, x]));
+  assert.deepEqual(c.Health.auth, { type: 'none' });
+  assert.equal(c.Login.auth.type, 'none');
+  assert.equal(c.Login.headers, 'Content-Type: application/json\n# X-Debug: 1');
+  assert.equal(c.Login.bodyType, 'json', 'raw with a JSON Content-Type');
+  assert.equal(c.Login.body, '{\n  "user": "${user}",\n  "password": "${password}"\n}');
+  assert.deepEqual(c.Login.checks, [], 'a script of Postman\'s is not turned into checks');
+  assert.equal(c['Partner token'].auth.type, 'none');
+  assert.equal(c.Refund.url, 'https://admin.shop.example.com/refunds?notify=0');
+  assert.equal(c.Refund.body, `order=\${orderId}&reason=${encodeURIComponent('đổi ý')}`);
+  assert.equal(c['Upload invoice'].bodyType, 'none');
+  assert.deepEqual(JSON.parse(c.Search.body), { query: 'query { orders(status: "${status}") { id } }', variables: { first: 10 } });
+  assert.equal(c['Purge cache'].method, 'GET');
+  assert.deepEqual(parsed.notes, [
+    'pre-request script not run: Shop API (collection)',
+    'test script not run: Login',
+    'oauth2 auth set to None: Partner token',
+    'turned-off form fields left out: Refund',
+    'form-data body (fields and files) left out: Upload invoice',
+    'GraphQL body sent as JSON { query, variables }: Search',
+    'PURGE sent as GET: Purge cache',
+  ]);
+  assert.deepEqual(parsed.environment, { name: 'Shop API variables', vars: [{ name: 'baseUrl', value: 'https://shop.example.com/api' }, { name: 'token', value: '' }] });
+  assert.deepEqual(I.hostsOf(parsed), ['shop.example.com', 'auth.partner.test', 'admin.shop.example.com']);
+});
+
+test('importInto: names already taken get (2), the environment only when asked', () => {
+  const parsed = I.fromPostman(JSON.parse(readFileSync(new URL('./fixtures/postman-sample.json', import.meta.url), 'utf8')));
+  const once = I.importInto(emptyState(), parsed);
+  assert.equal(once.cases.length, 7);
+  assert.deepEqual(once.environments.map((e) => e.name), ['Default', 'Shop API variables']);
+  assert.ok(once.cases.every((c) => once.folders.some((f) => f.id === c.folderId)));
+  const twice = I.importInto(once, parsed, { environment: false });
+  assert.deepEqual(twice.folders.map((f) => f.name).slice(4), ['Shop API (2)', 'Auth (2)', 'Orders (2)', 'Orders / Admin (2)']);
+  assert.equal(twice.environments.length, 2);
+  assert.equal(new Set(twice.cases.map((x) => x.id)).size, 14, 'every case has its own id');
+});
+
+test('a Postman environment file is an environment; anything else is an error and adds nothing', () => {
+  const env = I.fromPostman({ name: 'Staging', _postman_variable_scope: 'environment',
+    values: [{ key: 'baseUrl', value: 'https://st.test', enabled: true }, { key: 'off', value: '1', enabled: false }, { key: 'ref', value: '{{baseUrl}}/v2' }] });
+  assert.deepEqual(env, { kind: 'environment', name: 'Staging', folders: [], environment: { name: 'Staging', vars: [{ name: 'baseUrl', value: 'https://st.test' }, { name: 'ref', value: '${baseUrl}/v2' }] }, notes: [] });
+  assert.deepEqual(I.importInto(emptyState(), env).environments.map((e) => e.name), ['Default', 'Staging']);
+  assert.match(I.fromPostman({ id: 'x', name: 'old', order: [], requests: [] }).error, /Collection v1/);
+  assert.match(I.fromPostman({ info: { name: 'x', schema: 'https://schema.getpostman.com/json/collection/v1.0.0/collection.json' }, item: [] }).error, /v1/);
+  assert.match(I.fromPostman({ info: { name: 'x', schema: 'https://example.test/collection/v3.0.0/collection.json' }, item: [] }).error, /v3\.0\.0 is not read/);
+  for (const junk of [null, 42, [], { hello: 1 }, { info: {} }]) assert.match(I.fromPostman(junk).error, /^Not a Postman/);
+});
+
+test('a pocket-qa line that is not JSON is a script like any other', () => {
+  const parsed = I.fromPostman({ info: { name: 'c', schema: X.SCHEMA }, item: [
+    { name: 'r', request: 'https://a.test/x', event: [{ listen: 'test', script: { exec: `${X.MARKER}{broken` } }] }] });
+  assert.equal(parsed.folders[0].cases[0].url, 'https://a.test/x');
+  assert.deepEqual(parsed.notes, ['test script not run: r']);
+});
