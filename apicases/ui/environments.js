@@ -8,11 +8,13 @@
  * variables, read-only, so a name both have is seen to be overridden.
  */
 
+import { variableType } from '../../shared/var-order.js';
+import { varValueDetail } from '../../shared/var-suggest.js';
 import {
   activeEnv, addEnvironment, deleteEnvironment, duplicateEnvironment, envVarProblems, findEnv,
   renameEnvironment, setEnvVars, useEnvironment,
 } from '../model.js';
-import { loadDataVars } from '../vars.js';
+import { envVarObject, loadDataVars } from '../vars.js';
 import { el, h, toast } from './dom.js';
 
 export function renderEnvSelect(app) {
@@ -57,17 +59,33 @@ function varsTable(app, id) {
   return table;
 }
 
+/**
+ * A Data tab value as the popup shows it: its kind badge (S / R / P / F) and its
+ * value — a Random as "6 digits", a Pick or Fallback as its values. A variable
+ * is stored as a config object, not as text.
+ */
+function dataValue(v) {
+  const kind = variableType(v);
+  const d = varValueDetail(v);
+  const text = d.chips ? d.chips.map((c) => (c === '' ? '∅' : c)).join(d.chain ? ' → ' : ' | ') + (d.more ? ` +${d.more}` : '') : d.text;
+  return h('span', { class: 'ac-env-data-value', title: d.spec || '' },
+    h('i', { class: `vt-i ${kind}`, 'aria-hidden': 'true' }, kind.toUpperCase()), h('span', null, text || '(empty)'));
+}
+
 /** The Data tab's variables, read-only, marked where this environment overrides them. */
 async function dataTabList(app, id) {
   const data = await loadDataVars();
-  const mine = new Set((findEnv(app.state, id)?.vars || []).map((v) => v.name.trim()));
+  const mine = new Set(Object.keys(envVarObject(findEnv(app.state, id))));
   const names = Object.keys(data);
+  // Same columns as the table above, so a name and its value sit under that table's.
   return h('div', { class: 'ac-env-data' },
     h('div', { class: 'pane-label' }, 'From the Data tab'),
     h('p', { class: 'helper' }, 'Used when this environment does not set the name. Change them in the popup\'s Data tab.'),
     names.length
-      ? h('div', { class: 'ac-env-data-list' }, ...names.map((n) => h('div', { class: `ac-env-data-row${mine.has(n) ? ' is-over' : ''}` },
-        h('code', null, n), h('span', null, String(data[n])), mine.has(n) ? h('em', null, 'set here') : null)))
+      ? h('div', { class: 'ac-env-data-list' }, ...names.map((n) => h('div', { class: `ac-env-row ac-env-data-row${mine.has(n) ? ' is-over' : ''}` },
+        h('span', { class: 'ac-env-data-name' }, h('code', null, n), mine.has(n) ? h('em', null, 'set here') : null),
+        dataValue(data[n]),
+        h('span'))))
       : h('p', { class: 'helper' }, 'None.'));
 }
 

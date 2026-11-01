@@ -354,10 +354,14 @@ input.ac-env-name { flex: 1 1 auto; font-size: 14px; font-weight: 650; }
 .ac-env-data { border-top: 1px solid var(--border-soft); padding-top: 10px; }
 .ac-env-data .helper { margin: 0 0 6px; }
 .ac-env-data-list { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
-.ac-env-data-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto; gap: 8px; color: var(--muted); overflow-wrap: anywhere; }
+/* The rows take .ac-env-row's columns, and their text is inset as an input's is,
+   so names and values line up under the table above whatever a row holds. */
+.ac-env-data-row { color: var(--muted); padding: 2px 0; }
+.ac-env-data-name, .ac-env-data-value { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 9px; overflow-wrap: anywhere; }
+.ac-env-data-row code, .ac-env-data-value > span { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
 .ac-env-data-row code { color: var(--text); }
-.ac-env-data-row.is-over code, .ac-env-data-row.is-over span { text-decoration: line-through; opacity: 0.6; }
-.ac-env-data-row em { font-style: normal; font-size: 11px; color: var(--primary); }
+.ac-env-data-row.is-over code, .ac-env-data-row.is-over .ac-env-data-value > span { text-decoration: line-through; opacity: 0.6; }
+.ac-env-data-row em { font-style: normal; font-size: 11px; color: var(--primary); white-space: nowrap; }
 @media (max-width: 900px) {
   .ac-envs-body { grid-template-columns: 1fr; }
   .ac-env-list { border-right: 0; padding-right: 0; border-bottom: 1px solid var(--border-soft); padding-bottom: 10px; }
