@@ -325,7 +325,8 @@
 
         <h4>Bảng quyết định + độ phủ</h4>
         <p>Mệnh đề WHERE là một biểu thức logic, nên các luật của nó chính là một bảng quyết định: mỗi điều kiện
-           một cột, mỗi tổ hợp một dòng. Trong ngưỡng cấu hình, bạn nhận đủ bảng 2ⁿ. Vượt ngưỡng, công cụ chuyển
+           một cột, mỗi tổ hợp một dòng. Trong ngưỡng cấu hình, bạn nhận đủ bảng 2ⁿ. Vượt ngưỡng, tới 8 điều
+           kiện là bảng <b>pairwise</b> phủ mọi cặp điều kiện; nhiều hơn nữa thì công cụ chuyển
            sang <b>MC/DC</b> — với mỗi điều kiện, một cặp luật giống hệt nhau ngoại trừ điều kiện đó, và việc lật
            riêng nó làm đổi kết quả chung. Điều kiện nào không tìm được cặp như vậy sẽ bị báo cáo: nó không thể
            tác động độc lập lên kết quả, thường nghĩa là thừa hoặc sai logic. Biểu thức <b>CASE</b> được phủ theo
@@ -358,7 +359,8 @@
 
         <h4>Những giới hạn nên biết</h4>
         <ul>
-          <li>Chỉ câu lệnh ngoài cùng được phân tích. Hãy dán riêng từng CTE hoặc subquery để có bộ case riêng.</li>
+          <li>Câu lệnh ngoài cùng và các CTE của nó được phân tích — case của CTE có tiền tố
+              <code>CTE · tên ·</code>. Hãy dán riêng subquery lồng bên trong để có bộ case riêng.</li>
           <li>Không có lược đồ bảng, nên kiểu cột được suy từ giá trị so sánh trước, tên cột sau. Khi cả hai đều
               không quyết định được, giá trị biên chỉ là chỗ điền tạm và case sẽ nói rõ điều đó.</li>
           <li>Kết quả mong đợi mô tả điều mà ngữ nghĩa SQL bắt buộc, không phải điều dữ liệu hiện tại của bạn đang có.</li>
@@ -378,7 +380,8 @@
 
         <h4>Decision Table + Coverage</h4>
         <p>The WHERE clause is a boolean expression, so its rules are a decision table: one column per condition,
-           one row per combination. Up to the configured limit you get the full 2ⁿ table. Past it, the tool switches
+           one row per combination. Up to the configured limit you get the full 2ⁿ table. Past it, up to 8
+           conditions, a <b>pairwise</b> table covers every pair of conditions; beyond that the tool switches
            to <b>MC/DC</b> — for each condition, a pair of otherwise-identical rules where flipping only that
            condition flips the result. A condition with no such pair is reported: it cannot independently affect the
            outcome, which usually means it is redundant or the logic is wrong. <b>CASE</b> expressions get branch
@@ -410,7 +413,8 @@
 
         <h4>Limits worth knowing</h4>
         <ul>
-          <li>Only the outer statement is analysed. Paste a CTE or a subquery separately for its own cases.</li>
+          <li>The outer statement and its CTEs are analysed — a CTE's cases carry a <code>CTE · name ·</code>
+              prefix. Paste a nested subquery separately for its own cases.</li>
           <li>There is no schema, so column types are inferred from comparison literals first and column names
               second. When neither settles it, the boundary value is a placeholder and the case says so.</li>
           <li>Expected results describe what the SQL semantics require, not what your data currently contains.</li>

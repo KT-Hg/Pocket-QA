@@ -548,7 +548,7 @@ becomes the scroller.
 | Technique | What it produces |
 |---|---|
 | **EP + BVA** | One representative value per equivalence class of each predicate, plus the boundary and its two neighbours. Step size follows the inferred type — `1` for an integer, `0.01` for money, a day for a date, a second for a timestamp. String columns get length / empty / whitespace boundaries instead. |
-| **Decision Table + Coverage** | The full 2ⁿ rule table while the condition count stays under the configured limit, then **MC/DC** — one rule pair per condition. Reports conditions that cannot independently affect the outcome, and gives `CASE` expressions branch coverage including the implicit NULL branch of a missing `ELSE`. |
+| **Decision Table + Coverage** | The full 2ⁿ rule table up to the configured limit (4 conditions by default), then **pairwise** — every pair of conditions — up to 8, then **MC/DC** — one rule pair per condition. Reports conditions that cannot independently affect the outcome, and gives `CASE` expressions branch coverage including the implicit NULL branch of a missing `ELSE`. |
 | **NULL & 3-valued logic** | The specific NULL behind each behaviour: `<>` dropping NULL rows, `NOT IN` returning nothing on a NULL subquery result, `COUNT(col)` vs `COUNT(*)`, NULL join keys never matching, NULL grouping keys collapsing into one group, engine-specific NULL placement in `ORDER BY`, nullability of written columns. |
 | **JOIN / GROUP BY / ORDER-LIMIT** | Every join at 1:1, orphan and 1:n cardinality; a `WHERE` predicate on an outer-joined table silently turning it into an inner join; empty / single / multiple groups; ties in `ORDER BY`; pages at, below and beyond the row count. |
 
@@ -644,7 +644,8 @@ that each per-table CSV comes out square.
 
 ### Limits
 
-- Only the outer statement is analysed. CTEs and subqueries are flagged; paste each one separately for its own cases.
+- The outer statement and its CTEs are analysed — a CTE's cases carry a `CTE · name ·` prefix. A subquery nested
+  in it is only flagged; paste it separately for its own cases.
 - There is no schema, so column types are inferred from comparison literals first and column names second.
   When neither settles it, the boundary value is a placeholder and the case says so.
 - Expected results state what SQL semantics require, not what the current data contains.
