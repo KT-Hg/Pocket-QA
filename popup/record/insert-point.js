@@ -143,40 +143,52 @@ function _note(text) {
     + `<button type="button" class="insert-point-x" title="Add at the end instead" aria-label="Add at the end instead">✕</button>`;
 }
 
+/** The dummy row put at `point` (last when none); false when that place is gone from the list. */
+function _putRow(row, point) {
+  if (!point) {
+    const paste = actionsEl.querySelector("li.action-paste-li");
+    if (paste) paste.before(row); else actionsEl.appendChild(row);
+    return true;
+  }
+  const el = _elementOf(point);
+  if (el === undefined) return false;
+  if (el === null) actionsEl.prepend(row); else el.after(row);
+  return true;
+}
+
+/** What the dummy row shows: the form's action, faded, and where it goes. */
+function _rowHtml(action, at, place) {
+  const type = action.type;
+  let value = type ? getActionDisplayValue(action).replace(/ \[skip \d+\]$/, "") : "";
+  if (!value || /^\(no /.test(value)) value = action.label || value;
+  const main = type ? value || "(nothing filled in yet)" : "Choose an action type below";
+  const btn = (g, text, title) => `<button type="button" class="secondary" data-g="${g}" title="${title}" aria-label="${title}">${text}</button>`;
+  return `<span class="index">＋</span>`
+    + `<span class="type">${getActionIcon(type)}${escHtml(type || "new")}</span>`
+    + `<span class="value"><span class="value-main">${escHtml(main)}</span>`
+    + `<span class="value-sub">New action goes in at #${at + 1}${place ? ` · ${escHtml(place)}` : ""}</span></span>`
+    + `<div class="btn-row">${btn("up", "↑", "Move the insertion point up")}${btn("down", "↓", "Move the insertion point down")}`
+    + `${btn("end", "✕", "Add at the end instead")}</div>`;
+}
+
 /** The dummy row and the Add card's line, as the form and the place are now. */
 export function renderInsertPoint() {
-  const ghost = _ghostRow();
-  ghost.remove();
+  const row = _ghostRow();
+  row.remove();
   const type = manualActionType.value;
   const point = insertAnchor();
-  const sid = scenarioList.value || null;
-  if (ui.editing || (!type && !point) || swCtx.scenarioId !== sid) { _note(null); return; }
+  if (ui.editing || (!type && !point) || swCtx.scenarioId !== (scenarioList.value || null)) { _note(null); return; }
   // A Switch whose cases run actions of the list goes in front of them, wherever the place is.
   if (type === "switch" && (ui._switchCases || []).some(isBlockCase)) {
     _note(point ? "↳ A new Switch goes in front of the actions its cases run" : null);
     return;
   }
-  const el = point ? _elementOf(point) : undefined;
-  if (point && el === undefined) { ui.insertPoint = null; renderInsertPoint(); return; }
-  if (!point) {
-    const paste = actionsEl.querySelector("li.action-paste-li");
-    if (paste) paste.before(ghost); else actionsEl.appendChild(ghost);
-  } else if (el === null) actionsEl.prepend(ghost);
-  else el.after(ghost);
-
+  if (!_putRow(row, point)) { ui.insertPoint = null; renderInsertPoint(); return; }
   const action = _formAction(type);
   const { actions: list, index: at } = insertActions(swCtx.actions, [action], point);
-  applyPlacement(ghost, list, at);
+  applyPlacement(row, list, at);
   const place = placeText(list, at);
-  let value = type ? getActionDisplayValue(action).replace(/ \[skip \d+\]$/, "") : "";
-  if (!value || /^\(no /.test(value)) value = action.label || value;
-  const btn = (g, text, title) => `<button type="button" class="secondary" data-g="${g}" title="${title}" aria-label="${title}">${text}</button>`;
-  ghost.innerHTML = `<span class="index">＋</span>`
-    + `<span class="type">${getActionIcon(type)}${escHtml(type || "new")}</span>`
-    + `<span class="value"><span class="value-main">${escHtml(type ? value || "(nothing filled in yet)" : "Choose an action type below")}</span>`
-    + `<span class="value-sub">New action goes in at #${at + 1}${place ? ` · ${escHtml(place)}` : ""}</span></span>`
-    + `<div class="btn-row">${btn("up", "↑", "Move the insertion point up")}${btn("down", "↓", "Move the insertion point down")}`
-    + `${btn("end", "✕", "Add at the end instead")}</div>`;
+  row.innerHTML = _rowHtml(action, at, place);
   _note(point ? `↳ Insert at #${at + 1}${place ? ` · ${place}` : ""}` : null);
 }
 
