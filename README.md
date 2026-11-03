@@ -13,6 +13,7 @@ A Chrome Manifest V3 extension that records browser interactions and replays the
 | **Recording** | `click` and `input` events (input debounced to one action per field). All other action types are added manually. |
 | **Playback** | Single scenario, sequence, loop N×, scheduled (one-off or daily), CSV data-driven; runs inside iframes and resumes after a mid-playback page reload |
 | **Actions** | 17 action types including upload file, conditions, assertions, switch branching, readDOM, JS script |
+| **Action list** | Drag to reorder (a Switch or Condition takes the actions under it along), **＋** in the gap between rows to add an action right there, Copy / Paste a Switch or Condition with the actions under it, Undo / Redo |
 | **Run result** | Every run ends with a verdict — ✓ Passed / ✗ Failed / ⚠ Test broken / ⏹ Stopped — in its notification, on the badge and on the popup's **Last run** card, with a **bug report** (Markdown + screenshot) to paste into an issue |
 | **Variables** | 4 types: Static, Random (alpha/numeric/alphanumeric/datetime), Pick, Fallback — `${varName}` substitution across selectors, values, URLs, and scripts |
 | **Upload File** | Inject local files into `<input type="file">` or drag-and-drop zones; supports multiple files and `${variable}` filenames |
