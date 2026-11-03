@@ -5,7 +5,7 @@ import {
   getSwitchLayout, validateSwitch, conditionSkipTarget, resumeSegments,
   remapAfterRemove, remapAfterReorder, planDrop, continueIndex, blockEnd, isAlwaysSwitch,
   addIndex, remapAfterInsert, remapDraftSwitch, nestedBlockErrors, SWITCH_SELF,
-  actionUnit, appendUnit, getConditionLayout,
+  actionUnit, appendUnit, getConditionLayout, insertActions,
 } from '../shared/switch-blocks.js';
 
 const act = (label) => ({ type: 'click', selector: `#${label}`, label });
@@ -429,4 +429,50 @@ test('actionUnit: a plain action alone; cases running another scenario untouched
   assert.deepEqual(out[3].cases[1], other);
   assert.deepEqual([out[3].cases[0].startAt, out[3].cases[0].endAt], [5, 5]);
   assert.deepEqual(actionUnit(list, 9), []);
+});
+
+/* ── insertActions: a new action (or a pasted unit) where a row dropped at the anchor lands ── */
+
+const labels = (list) => list.map((a) => a.label || a.type);
+const caseSpans = (a) => a.cases.map((c) => `${c.startAt}-${c.endAt}`).join(' ');
+
+test('insertActions: after a row in a case — next to it, in that case', () => {
+  const { actions, index } = insertActions(sample(), [act('X')], { kind: 'after', index: 1 });
+  assert.equal(index, 2);
+  assert.deepEqual(labels(actions), ['switch', 'A', 'X', 'B', 'C', 'D', 'E']);
+  assert.equal(caseSpans(actions[0]), '2-4 5-6');
+  noErrors(actions, 0);
+});
+
+test('insertActions: first in a case, after the block, at the top', () => {
+  const head = insertActions(sample(), [act('X')], { kind: 'caseHead', switchIdx: 0, caseIdx: 1 });
+  assert.deepEqual([head.index, caseSpans(head.actions[0])], [3, '2-3 4-6']);
+  const out = insertActions(sample(), [act('X')], { kind: 'outside', switchIdx: 0 });
+  assert.deepEqual([out.index, labels(out.actions)[5], caseSpans(out.actions[0])], [5, 'X', '2-3 4-5']);
+  const top = insertActions(sample(), [act('X')], { kind: 'top' });
+  assert.deepEqual([top.index, caseSpans(top.actions[1])], [0, '3-4 5-6']);
+  noErrors(top.actions, 1);
+});
+
+test('insertActions: a Condition put in the middle guards the actions after it', () => {
+  const { actions, index } = insertActions([act('A'), act('B'), act('C'), act('D')], [cond(2)], { kind: 'after', index: 0 });
+  assert.equal(index, 1);
+  const r = getConditionLayout(actions, getSwitchLayout(actions))[1].range;
+  assert.deepEqual([r.start, r.end], [2, 3]);
+});
+
+test('insertActions: a pasted Switch unit in the middle — it and every other Switch valid', () => {
+  const list = nested();
+  const items = appendUnit(list, actionUnit(list, 1)).slice(list.length);
+  const { actions, index } = insertActions(list, items, { kind: 'after', index: 0 });
+  assert.equal(index, 1);
+  assert.equal(actions.length, 14);
+  [1, 5, 7, 11].forEach((s) => noErrors(actions, s));
+  assert.deepEqual(places(actions).slice(0, 8), ['-', '-', '2.1', '2.1', '2.1', '2.1', '2.1 6.1', '-']);
+});
+
+test('insertActions: no anchor, or one at the very end — added last', () => {
+  assert.equal(insertActions(sample(), [act('X')], null).index, 6);
+  assert.equal(insertActions(sample(), [act('X')], { kind: 'after', index: 5 }).index, 6);
+  assert.equal(insertActions(sample(), [act('X')], { kind: 'nonsense' }).index, 6);
 });

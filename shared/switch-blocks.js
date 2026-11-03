@@ -729,6 +729,20 @@ export function appendUnit(actions, unit) {
 }
 
 /**
+ * `items` — numbered as if added at the end of `actions` (a new action from the
+ * form, or what appendUnit adds) — put where a row dragged to `anchor` lands
+ * (planDrop: the case it joins and the Conditions guarding it). No anchor, or
+ * one that would not move them: at the end. { actions, index of the first item }.
+ */
+export function insertActions(actions, items, anchor) {
+  const list = Array.isArray(actions) ? actions : [];
+  const all = [...list, ...(items || [])];
+  const plan = anchor && items?.length ? planDrop(all, list.length, anchor) : null;
+  if (!plan) return { actions: all, index: list.length };
+  return { actions: plan.actions, index: plan.newOrder.indexOf(list.length) };
+}
+
+/**
  * The action list reordered by `newOrder` (new position → old index), with the
  * Switch references rewritten.
  *

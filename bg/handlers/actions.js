@@ -9,7 +9,7 @@
 
 import { state } from '../state.js';
 import { getScenarios, setScenarios, getStack, pushUndo, mutateScenarioActions, runExclusive } from '../storage.js';
-import { appendUnit, remapAfterInsert, remapAfterRemove, remapAfterReorder, toggleDisabled } from '../../shared/switch-blocks.js';
+import { appendUnit, insertActions, remapAfterInsert, remapAfterRemove, remapAfterReorder, toggleDisabled } from '../../shared/switch-blocks.js';
 
 /**
  * Index sanity check for the action-mutation handlers.
@@ -97,14 +97,18 @@ export const actionsHandlers = {
       sendResponse({ success: false });
       return;
     }
-    // Added last, or at `insertAt`: a new Switch goes in front of the actions its
-    // cases run (addIndex), the references to them shifted in the same step.
-    // `index` tells the popup where it went.
+    // Added at the insertion point `anchor` (as a row dropped there), last, or at
+    // `insertAt`: a new Switch goes in front of the actions its cases run
+    // (addIndex), the references to them shifted in the same step. `index` tells
+    // the popup where it went.
     let index = -1;
+    const anchor = request.anchor && typeof request.anchor === 'object' ? request.anchor : null;
     const add = (a) => {
-      if (unit) {
-        index = a.length;
-        return appendUnit(a, unit);
+      if (unit || anchor) {
+        const items = unit ? appendUnit(a, unit).slice(a.length) : [request.action];
+        const placed = insertActions(a, items, anchor);
+        index = placed.index;
+        return placed.actions;
       }
       if (_validIndex(request.insertAt, a.length)) {
         index = request.insertAt;
