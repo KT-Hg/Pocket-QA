@@ -513,7 +513,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true}
+   {"success":true,"index":2}
   ],
   "calls": [
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[],[{\"type\":\"hover\",\"selector\":\"#r1\",\"delay\":500}],[{\"type\":\"hover\",\"selector\":\"#r1\",\"delay\":500},{\"type\":\"input\",\"selector\":\"#r2\",\"value\":\"v\",\"delay\":0}]],\"redo\":[]}}}]"
@@ -1240,7 +1240,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true}
+   {"success":true,"index":4}
   ],
   "calls": [
    "storage.local.get [[\"scenarios\"]]",
@@ -3639,7 +3639,7 @@
   ],
   "responses": [
    {"success":true},
-   {"success":true}
+   {"success":true,"index":0}
   ],
   "calls": [
    "storage.local.get [[\"scenarios\"]]",
