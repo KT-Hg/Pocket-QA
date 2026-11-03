@@ -138,6 +138,9 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+/* The fixed header (.sticky-header; --header-h from init.js) covers the top of
+   the page: scrollIntoView stops below it, not under it. */
+html { scroll-padding-top: calc(var(--header-h, 72px) + 8px); }
 body:has(#tabHighlight.active) {
   overflow: hidden;
 }

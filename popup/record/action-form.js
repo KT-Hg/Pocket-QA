@@ -710,13 +710,14 @@ export function initActionForm() {
     autoCreateMissingVariables(action);
 
     // The list shows the action it saved, flashing; the card, which shrank back,
-    // is brought back into view instead of leaving the page on the next card.
+    // is brought back into view instead of leaving the page on the next card —
+    // once the list is drawn again: its new rows move the card down, and a
+    // scroll aimed before that stopped short by their height.
     const onDone = (index) => {
       clearEditState();
       chrome.storage.local.remove("manualFormDraft");
-      previewActions(() => revealAction(index));
+      previewActions(() => { revealAction(index); _showCard(); });
       updateUndoRedoState();
-      _showCard();
     };
 
     if (ui.editing) {

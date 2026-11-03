@@ -859,34 +859,48 @@ async function checkPasteEmpty(ctx) {
   }
 }
 
+/**
+ * Add Action on scenario `id` with the page scrolled past the top of the card, as
+ * after filling a long form: where the card and the new row (`last`) end up.
+ */
+async function addFromBelow(popup, id, last) {
+  await showScenario(popup, id);
+  await popup.evaluate(`(() => {
+    document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+    const type = document.getElementById('manualActionType'); type.value = 'click'; type.dispatchEvent(new Event('change'));
+    document.getElementById('manualSelector').value = '#added';
+    const card = document.getElementById('addManualActionCard');
+    // body's overflow goes to the viewport: the document scrolls, not body.
+    document.scrollingElement.scrollTop += card.getBoundingClientRect().top + 250;
+  })()`);
+  await sleep(SETTLE_MS);
+  const before = await popup.evaluate(`Math.round(document.getElementById('addManualActionCard').getBoundingClientRect().top)`);
+  await popup.evaluate(`document.getElementById('addManualAction').click()`);
+  await sleep(POPUP_SETTLE_MS);
+  return popup.evaluate(`(() => {
+    const card = document.getElementById('addManualActionCard').getBoundingClientRect();
+    const list = document.getElementById('actions');
+    const row = list.querySelector('li.action[data-index="${last}"]')?.getBoundingClientRect();
+    const box = list.getBoundingClientRect();
+    // The fixed header covers the top of the page: "in view" is below it.
+    const bar = Math.round(document.querySelector('.sticky-header').getBoundingClientRect().bottom);
+    return { before: ${before}, bar, cardTop: Math.round(card.top), rowShown: !!row && row.top >= box.top - 1 && row.bottom <= box.bottom + 1, listScroll: list.scrollTop };
+  })()`);
+}
+
 async function checkFormScroll(ctx) {
   const click = (i) => ({ type: 'click', selector: `#row${i}`, selectors: { css: `#row${i}` } });
-  const id = await makeScenario(ctx, 'e2e form scroll', Array.from({ length: 30 }, (_, i) => click(i + 1)));
+  const long = await makeScenario(ctx, 'e2e form scroll', Array.from({ length: 30 }, (_, i) => click(i + 1)));
+  const short = await makeScenario(ctx, 'e2e form scroll short', [click(1), click(2), click(3)]);
   const popup = await openPopup(ctx, { width: 480, height: 600 });
   try {
-    await showScenario(popup, id);
-    // The page scrolled down past the top of the card, as after filling a long form.
-    await popup.evaluate(`(() => {
-      document.getElementById('addManualActionCard')?.classList.remove('collapsed');
-      const type = document.getElementById('manualActionType'); type.value = 'click'; type.dispatchEvent(new Event('change'));
-      document.getElementById('manualSelector').value = '#added';
-      const card = document.getElementById('addManualActionCard');
-      // body's overflow goes to the viewport: the document scrolls, not body.
-      document.scrollingElement.scrollTop += card.getBoundingClientRect().top + 250;
-    })()`);
-    await sleep(SETTLE_MS);
-    const before = await popup.evaluate(`document.getElementById('addManualActionCard').getBoundingClientRect().top`);
-    await popup.evaluate(`document.getElementById('addManualAction').click()`);
-    await sleep(POPUP_SETTLE_MS);
-    const after = await popup.evaluate(`(() => {
-      const card = document.getElementById('addManualActionCard').getBoundingClientRect();
-      const list = document.getElementById('actions');
-      const row = list.querySelector('li.action[data-index="30"]')?.getBoundingClientRect();
-      const box = list.getBoundingClientRect();
-      return { cardTop: Math.round(card.top), rowShown: !!row && row.top >= box.top - 1 && row.bottom <= box.bottom + 1, listScroll: list.scrollTop };
-    })()`);
-    check(before < 0 && after.cardTop >= 0 && after.cardTop < 600, 'Add Action brings the Add Manual Action card back into view', { before, after });
-    check(after.rowShown && after.listScroll > 0, 'the list scrolls to the action just added', after);
+    const a = await addFromBelow(popup, long, 30);
+    check(a.before < 0 && a.cardTop >= a.bar && a.cardTop < 600, 'Add Action brings the Add Manual Action card back into view, below the header', a);
+    check(a.rowShown && a.listScroll > 0, 'the list scrolls to the action just added', a);
+    // A short list grows by the new row: the page scrolls once that row is in, so
+    // the card still lands at the top rather than as far below as the row is tall.
+    const b = await addFromBelow(popup, short, 3);
+    check(b.before < 0 && b.cardTop >= b.bar && b.cardTop <= b.bar + 12, 'with a short list growing by the new row, the card lands right below the header', b);
     if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   } finally {
     await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
