@@ -5,6 +5,7 @@ import {
   getSwitchLayout, validateSwitch, conditionSkipTarget, resumeSegments,
   remapAfterRemove, remapAfterReorder, planDrop, continueIndex, blockEnd, isAlwaysSwitch,
   addIndex, remapAfterInsert, remapDraftSwitch, nestedBlockErrors, SWITCH_SELF,
+  actionUnit, appendUnit, getConditionLayout,
 } from '../shared/switch-blocks.js';
 
 const act = (label) => ({ type: 'click', selector: `#${label}`, label });
@@ -373,4 +374,59 @@ test('isAlwaysSwitch: no variable, one default case playing another scenario', (
   assert.equal(isAlwaysSwitch(always({ cases: [] })), false);
   assert.equal(isAlwaysSwitch({ type: 'click' }), false);
   assert.equal(isAlwaysSwitch(null), false);
+});
+
+/* ── actionUnit / appendUnit: Copy and Paste take a Switch's block along ── */
+
+const cond = (skipCount) => ({ type: 'condition', conditionType: 'elementExists', selector: '#x', skipCount });
+// #2 Switch "admin" → #3..#7: B, If (guards C), C, #6 Switch "pro" → #7 (D); then E.
+const nested = () => [act('A'), sw([blk('admin', 3, 7)]), act('B'), cond(1), act('C'), sw([blk('pro', 7, 7)]), act('D'), act('E')];
+const noErrors = (list, s) => assert.deepEqual(validateSwitch(list, s).errors, [], `Switch #${s + 1}`);
+
+test('actionUnit: a Switch takes its block, references counted from the unit', () => {
+  const list = nested();
+  const before = JSON.stringify(list);
+  const unit = actionUnit(list, 1);
+  assert.deepEqual(unit.map((a) => a.label || a.type), ['switch', 'B', 'condition', 'C', 'switch', 'D']);
+  assert.deepEqual([unit[0].cases[0].startAt, unit[0].cases[0].endAt], [2, 6]);
+  assert.deepEqual([unit[4].cases[0].startAt, unit[4].cases[0].endAt], [6, 6]);
+  assert.equal(JSON.stringify(list), before, 'the list is not changed');
+  unit[1].label = 'changed';
+  assert.equal(list[2].label, 'B', 'the unit is a copy');
+});
+
+test('appendUnit: a copied block pasted at the end is valid, and so is everything else', () => {
+  const list = nested();
+  const out = appendUnit(list, actionUnit(list, 1));
+  assert.equal(out.length, 14);
+  [1, 5, 8, 12].forEach((s) => noErrors(out, s));
+  assert.deepEqual(places(out).slice(8), ['-', '9.1', '9.1', '9.1', '9.1', '9.1 13.1']);
+  const r = getConditionLayout(out, getSwitchLayout(out))[10].range;
+  assert.deepEqual([r.start, r.end], [11, 11], 'the copied If guards the copied C');
+});
+
+test('appendUnit: into an empty list', () => {
+  const out = appendUnit([], actionUnit(nested(), 1));
+  noErrors(out, 0);
+  noErrors(out, 4);
+  assert.deepEqual(places(out), ['-', '1.1', '1.1', '1.1', '1.1', '1.1 5.1']);
+});
+
+test('actionUnit: a Condition takes what it guards, a Switch block too', () => {
+  const list = [cond(1), sw([blk('x', 3, 3)]), act('A'), act('B')];
+  const unit = actionUnit(list, 0);
+  assert.deepEqual(unit.map((a) => a.label || a.type), ['condition', 'switch', 'A']);
+  const out = appendUnit(list, unit);
+  noErrors(out, 5);
+  assert.deepEqual([out[5].cases[0].startAt, out[5].cases[0].endAt], [7, 7]);
+});
+
+test('actionUnit: a plain action alone; cases running another scenario untouched', () => {
+  assert.deepEqual(actionUnit(nested(), 0), [act('A')]);
+  const other = { value: 'guest', scenarioId: 'sc_2', scenarioName: 'Guest', startAt: 2, endAt: 4 };
+  const list = [act('A'), sw([blk('admin', 3, 3), other]), act('B')];
+  const out = appendUnit(list, actionUnit(list, 1));
+  assert.deepEqual(out[3].cases[1], other);
+  assert.deepEqual([out[3].cases[0].startAt, out[3].cases[0].endAt], [5, 5]);
+  assert.deepEqual(actionUnit(list, 9), []);
 });

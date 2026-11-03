@@ -683,6 +683,51 @@ export function remapDraftSwitch(sw, n, change) {
   return out;
 }
 
+/** Last index of what moves with action `i`: a Switch's block, a Condition's guarded actions, else `i`. */
+function _unitEnd(list, i, lay, cl) {
+  if (hasBlock(list[i])) return lay[i].block?.end ?? i;
+  if (cl[i]?.range) return Math.max(i, cl[i].range.end);
+  return i;
+}
+
+/** Every `__self__` reference of the Switches in `list` moved by `by` actions (a new array). */
+function _shiftRefs(list, by) {
+  return list.map((a) => {
+    if (a?.type !== 'switch' || !Array.isArray(a.cases)) return a;
+    const cases = a.cases.map((c) => {
+      if (c?.scenarioId !== SWITCH_SELF || c.empty) return c;
+      const out = { ...c, startAt: (_int(c.startAt) ?? 1) + by };
+      if (_int(c.endAt) != null) out.endAt = _int(c.endAt) + by;
+      return out;
+    });
+    const out = { ...a, cases };
+    if (_int(a.continueAt) != null) out.continueAt = _int(a.continueAt) + by;
+    return out;
+  });
+}
+
+/**
+ * What a Copy of action `i` takes — what a drag of it takes: a Switch with its
+ * block, a Condition with the actions it guards, else the action alone. Deep
+ * copies, with the Switch references counted from the unit's own first action,
+ * so the unit can go into any list (appendUnit). A reference out of the unit (an
+ * old-style jump, a hand-set continueAt) moves with it; the preview flags it if
+ * it no longer fits where the unit lands.
+ */
+export function actionUnit(actions, i) {
+  const list = Array.isArray(actions) ? actions : [];
+  if (!(i >= 0 && i < list.length)) return [];
+  const lay = getSwitchLayout(list);
+  const end = _unitEnd(list, i, lay, getConditionLayout(list, lay));
+  return _shiftRefs(JSON.parse(JSON.stringify(list.slice(i, end + 1))), -i);
+}
+
+/** `unit` (from actionUnit) added at the end of `actions`, its references counted from there. */
+export function appendUnit(actions, unit) {
+  const list = Array.isArray(actions) ? actions : [];
+  return [...list, ..._shiftRefs(JSON.parse(JSON.stringify(unit || [])), list.length)];
+}
+
 /**
  * The action list reordered by `newOrder` (new position → old index), with the
  * Switch references rewritten.
@@ -803,10 +848,7 @@ export function planDrop(actions, dragged, anchor) {
   if (!(dragged >= 0 && dragged < list.length) || !anchor) return null;
   const lay = getSwitchLayout(list);
   const cl = getConditionLayout(list, lay);
-  let unitEnd;
-  if (hasBlock(list[dragged])) unitEnd = lay[dragged].block?.end ?? dragged;
-  else if (cl[dragged].range) unitEnd = Math.max(dragged, cl[dragged].range.end);
-  else unitEnd = dragged;
+  const unitEnd = _unitEnd(list, dragged, lay, cl);
   const unit = [];
   for (let j = dragged; j <= unitEnd; j++) unit.push(j);
   const inUnit = (j) => j >= dragged && j <= unitEnd;
