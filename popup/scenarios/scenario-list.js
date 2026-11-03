@@ -10,7 +10,7 @@ import { refreshSwitchScenarioSelect } from '../record/switch-case-builder.js';
 import { renderScheduleScenarioSelect } from '../run/schedule.js';
 import { ui } from '../ui-state.js';
 import { debounce } from '../utils.js';
-import { renderExportScenarioSelect, renderFolderOptions, renderFoldersManagementUI, renderMoveToFolderSelect } from './folders.js';
+import { FOLDER_FILTER_KEY, renderExportScenarioSelect, renderFolderOptions, renderFoldersManagementUI, renderMoveToFolderSelect, setFolderFilter } from './folders.js';
 import { toggleScenarioActions } from './scenario-actions.js';
 
 /* === LOAD SCENARIOS === */
@@ -170,17 +170,22 @@ function renderSequenceScenarioList() {
   });
 }
 
+// Whether the folder filter saved by the last popup was put back (the first load does it).
+let _filterRestored = false;
+
 export function loadScenarios() {
   // Fetch scenarios and folders in parallel, then render everything once
   Promise.all([
     new Promise(r => chrome.runtime.sendMessage({ type: "GET_SCENARIOS" }, r)),
     new Promise(r => chrome.runtime.sendMessage({ type: "GET_FOLDERS" }, r)),
-  ]).then(([sRes, fRes]) => {
+    _filterRestored ? {} : chrome.storage.local.get(FOLDER_FILTER_KEY),
+  ]).then(([sRes, fRes, saved]) => {
     ui.scenariosCache = sRes?.scenarios || {};
     ui.foldersCache = fRes?.folders || {};
+    _filterRestored = true;
 
     // Render all UI once (no double-render)
-    renderFolderOptions();
+    renderFolderOptions(saved[FOLDER_FILTER_KEY]);
     renderMoveToFolderSelect();
     renderFoldersManagementUI();
     renderScenarioOptions();
@@ -212,7 +217,7 @@ export function initScenarioList() {
   // Debounce search input to avoid rendering on every keystroke
   if (scenarioSearch) scenarioSearch.oninput = debounce(renderScenarioOptions, 250);
   if (scenarioSort) scenarioSort.onchange = renderScenarioOptions;
-  if (filterFolder) filterFolder.onchange = renderScenarioOptions;
+  if (filterFolder) filterFolder.onchange = () => { setFolderFilter(filterFolder.value); renderScenarioOptions(); };
   // Update Move to Folder select when scenario is changed
   if (scenarioList) {
     scenarioList.onchange = () => {
