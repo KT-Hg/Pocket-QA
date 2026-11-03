@@ -836,6 +836,90 @@ async function checkNumbersByPosition(ctx) {
   }
 }
 
+/** Scenario `id`'s actions as stored. */
+const storedActions = (popup, id) => popup.evaluate(`new Promise((r) => chrome.storage.local.get(['scenarios'], (x) => r(x.scenarios[${JSON.stringify(id)}].actions)))`);
+
+async function checkPasteEmpty(ctx) {
+  const from = await makeScenario(ctx, 'e2e paste from', [{ type: 'click', selector: '#a', selectors: { css: '#a' } }]);
+  const { id: to } = await ctx.send({ type: 'CREATE_SCENARIO', name: 'e2e paste into empty' });
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, from);
+    await rowButton(popup, 0, 2);
+    await showScenario(popup, to);
+    const shown = await popup.evaluate(`({ paste: !!document.querySelector('#actions .action-paste-btn'), empty: document.querySelector('#actions li.empty')?.textContent })`);
+    check(shown.paste && /card below/.test(shown.empty || ''), 'an empty scenario shows the Paste row, and the card it points to is below', shown);
+    await popup.evaluate(`document.querySelector('#actions .action-paste-btn')?.click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const acts = await storedActions(popup, to);
+    check(acts.length === 1 && acts[0].selector === '#a', 'Paste into the empty scenario adds the copied action', acts);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await popup.close();
+  }
+}
+
+async function checkFormScroll(ctx) {
+  const click = (i) => ({ type: 'click', selector: `#row${i}`, selectors: { css: `#row${i}` } });
+  const id = await makeScenario(ctx, 'e2e form scroll', Array.from({ length: 30 }, (_, i) => click(i + 1)));
+  const popup = await openPopup(ctx, { width: 480, height: 600 });
+  try {
+    await showScenario(popup, id);
+    // The page scrolled down past the top of the card, as after filling a long form.
+    await popup.evaluate(`(() => {
+      document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+      const type = document.getElementById('manualActionType'); type.value = 'click'; type.dispatchEvent(new Event('change'));
+      document.getElementById('manualSelector').value = '#added';
+      const card = document.getElementById('addManualActionCard');
+      // body's overflow goes to the viewport: the document scrolls, not body.
+      document.scrollingElement.scrollTop += card.getBoundingClientRect().top + 250;
+    })()`);
+    await sleep(SETTLE_MS);
+    const before = await popup.evaluate(`document.getElementById('addManualActionCard').getBoundingClientRect().top`);
+    await popup.evaluate(`document.getElementById('addManualAction').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const after = await popup.evaluate(`(() => {
+      const card = document.getElementById('addManualActionCard').getBoundingClientRect();
+      const list = document.getElementById('actions');
+      const row = list.querySelector('li.action[data-index="30"]')?.getBoundingClientRect();
+      const box = list.getBoundingClientRect();
+      return { cardTop: Math.round(card.top), rowShown: !!row && row.top >= box.top - 1 && row.bottom <= box.bottom + 1, listScroll: list.scrollTop };
+    })()`);
+    check(before < 0 && after.cardTop >= 0 && after.cardTop < 600, 'Add Action brings the Add Manual Action card back into view', { before, after });
+    check(after.rowShown && after.listScroll > 0, 'the list scrolls to the action just added', after);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
+async function checkSwitchOtherCase(ctx) {
+  const guest = await makeScenario(ctx, 'e2e guest', [{ type: 'click', selector: '#g', selectors: { css: '#g' } }]);
+  const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` } });
+  // #2 Switch: "admin" runs #3, "guest" runs another scenario; then #4.
+  const id = await makeScenario(ctx, 'e2e switch other case', [
+    click('a'),
+    { type: 'switch', switchVar: '${role}', cases: [{ value: 'admin', scenarioId: '__self__', scenarioName: '↻ This scenario (jump)', startAt: 3, endAt: 3 },
+      { value: 'guest', scenarioId: guest, scenarioName: 'e2e guest' }] },
+    click('b'), click('c'),
+  ]);
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    const head = await popup.evaluate(`document.querySelector('#actions li.sw-case-other')?.textContent || ''`);
+    check(head.includes('case "guest"') && head.includes('runs scenario “e2e guest”'), 'a case running another scenario has its own row in the block', head);
+    const under = await dragRow(popup, 3, 'sw-case-head');
+    await sleep(POPUP_SETTLE_MS);
+    const order = (await storedActions(popup, id)).map((a) => a.selector || a.type).join(' ');
+    const toast = await popup.evaluate(`document.getElementById('toast').textContent`);
+    check(order === '#a switch #b #c' && /another scenario/.test(toast), 'an action dropped under that case stays where it was', { under, order, toast });
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await popup.close();
+  }
+}
+
 async function checkNewSwitchOverActions(ctx) {
   // #1 Switch: default runs #2..#3; then #4 and #5. A new Switch is to run #5.
   const wait = (label) => ({ type: 'wait', delay: 100, label });
@@ -4323,6 +4407,9 @@ const CHECKS = [
   ['switch-insert', 'A new Switch over actions already in the list', checkNewSwitchOverActions],
   ['switch-draft-follows', 'A new Switch in the form while its list changes', checkDraftSwitchFollows],
   ['switch-nested-check', 'A Switch whose case would cross the block of a Switch in it', checkNestedBlockCheck],
+  ['paste-empty', 'Paste into a scenario with no actions', checkPasteEmpty],
+  ['form-scroll', 'After Add Action: the card back in view, the list on the new action', checkFormScroll],
+  ['switch-other-case', 'A Switch case running another scenario: listed, never dropped into', checkSwitchOtherCase],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],

@@ -16,7 +16,7 @@ import { CONDITION_FORM_TYPES, DEFAULT_DELAY_MS, TYPES_CHILD_CONDITION, TYPES_NO
 import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, clickThroughOff, fillField, setClickThrough, showClickThroughFor } from './form-table.js';
 import { clearPickedSelectorsPanel, selectorIsPicked, showFieldError, updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
-import { conditionCandidate, renderConditionRunTo, previewActions } from './preview.js';
+import { conditionCandidate, renderConditionRunTo, previewActions, revealAction } from './preview.js';
 import { alwaysSwitchError, candidateActions, checkPlacedSwitch, commitPendingCase, newActionIndex, refreshSwitchContext, refreshSwitchForm, resetCaseEditor, swCtx, populateSwitchScenarioSelect, renderSwitchCaseList } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 import { applyValueBox, resetManualValueMemory, seedManualValueMemory } from './value-memory.js';
@@ -545,6 +545,11 @@ function _applyFollowed(sw, stash, cond) {
   saveDraft();
 }
 
+/** The Add Manual Action card back in view — "nearest" leaves it alone when it already is. */
+function _showCard() {
+  document.getElementById("addManualActionCard")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
 /** ADD_MANUAL_ACTION's `insertAt` when the new action does not go last (newActionIndex). */
 function _placeOfNew(action) {
   const at = newActionIndex(action);
@@ -696,28 +701,33 @@ export function initActionForm() {
 
     autoCreateMissingVariables(action);
 
-    const onDone = () => {
+    // The list shows the action it saved, flashing; the card, which shrank back,
+    // is brought back into view instead of leaving the page on the next card.
+    const onDone = (index) => {
       clearEditState();
       chrome.storage.local.remove("manualFormDraft");
-      previewActions();
+      previewActions(() => revealAction(index));
       updateUndoRedoState();
+      _showCard();
     };
 
     if (ui.editing) {
+      const index = ui.editing.index;
       chrome.runtime.sendMessage({
         type: "UPDATE_ACTION",
         scenarioId: ui.editing.scenarioId,
-        index: ui.editing.index,
+        index,
         action,
-      }, onDone);
+      }, () => onDone(index));
     } else {
       const scenarioId = scenarioList.value || null;
-      chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action, scenarioId, ..._placeOfNew(action) }, onDone);
+      chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action, scenarioId, ..._placeOfNew(action) }, (res) => onDone(res?.index));
     }
   });
   cancelEdit.addEventListener('click', () => {
     clearEditState();
     chrome.storage.local.remove("manualFormDraft");
+    _showCard();
   });
 
   // Navigate: the URL of the tab the popup was opened on.

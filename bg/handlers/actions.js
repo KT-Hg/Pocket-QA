@@ -94,19 +94,26 @@ export const actionsHandlers = {
     }
     // Added last, or at `insertAt`: a new Switch goes in front of the actions its
     // cases run (addIndex), the references to them shifted in the same step.
-    const add = (a) => (_validIndex(request.insertAt, a.length)
-      ? remapAfterInsert(a, request.insertAt, request.action)
-      : [...a, request.action]);
+    // `index` tells the popup where it went.
+    let index = -1;
+    const add = (a) => {
+      if (_validIndex(request.insertAt, a.length)) {
+        index = request.insertAt;
+        return remapAfterInsert(a, request.insertAt, request.action);
+      }
+      index = a.length;
+      return [...a, request.action];
+    };
     if (request.scenarioId) {
       mutateScenarioActions(request.scenarioId, add)
-        .then(() => sendResponse({ success: true }))
+        .then(() => sendResponse({ success: true, index }))
         .catch(() => sendResponse({ success: false }));
       return true;
     }
     pushUndo("current", [...state.currentActions]);
     // In place: everything else holding the array sees the new action.
     state.currentActions.splice(0, state.currentActions.length, ...add(state.currentActions));
-    sendResponse({ success: true });
+    sendResponse({ success: true, index });
     return;
   },
 

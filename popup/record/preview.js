@@ -308,6 +308,34 @@ function _caseHeadLi(s, k, actions, layout, empty) {
   return li;
 }
 
+/**
+ * A case with no actions in the block — it runs another scenario, or jumps (old
+ * style): shown with the block's cases, so every case is in the list, but never
+ * a drop target (_dropAnchor: "denied").
+ */
+function _otherCaseLi(s, k, actions, layout) {
+  const li = document.createElement("li");
+  li.className = "sw-case-head sw-case-other";
+  li.dataset.switch = s;
+  li.dataset.case = k;
+  const sw = layout[s];
+  _applyBlockStyle(li, sw.depth + 1 + _condsOf(s).length, k % CASE_COLORS);
+  const keys = _blockKeys(sw.chain);
+  li.dataset.blocks = _withConds(`${keys.blocks} ${s}`.trim(), _condsOf(s));
+  if (keys.cases) li.dataset.cases = keys.cases;
+  const c = actions[s].cases[k];
+  const self = c.scenarioId === SWITCH_SELF;
+  const name = c.scenarioName || c.scenarioId || "?";
+  const where = self ? `↪ jumps to${switchStartSuffix(c)}` : `↗ runs scenario “${name}”${switchStartSuffix(c)}`;
+  li.innerHTML = `<span class="sw-case-head-label">case ${escHtml(caseLabel(c))}</span>`
+    + `<span class="sw-case-other-to">${escHtml(where)}</span>`
+    + `<span class="sw-case-head-rule"></span>`;
+  li.title = self
+    ? "This case jumps to another action of this scenario — no action can be dropped into it"
+    : `This case runs the scenario "${name}" — its actions are there, so no action can be dropped into it`;
+  return li;
+}
+
 function _outsideLi(s, layout) {
   const li = document.createElement("li");
   li.className = "sw-outside";
@@ -545,10 +573,13 @@ function createActionListItem(a, i, scenarioId, view = null) {
     li.classList.remove("dragging");
     actionsEl.classList.remove("sw-dragging");
     actionsEl.querySelectorAll(".drop-target").forEach(el => el.classList.remove("drop-target"));
-    // Released outside the list (e.g. just below its last row): no drop fired,
-    // so nothing was saved — put the rows back instead of leaving the row
-    // where the last dragover moved it.
-    if (!ui._actionDropped) previewActions();
+    // Released outside the list (e.g. just below its last row), or under a case
+    // that refuses it: no drop fired, so nothing was saved — put the rows back
+    // instead of leaving the row where the last dragover moved it.
+    if (!ui._actionDropped) {
+      if (li.classList.contains("drop-denied")) _deniedToast();
+      previewActions();
+    }
     document.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
   });
 
@@ -659,12 +690,54 @@ function _renderActionRows(actions, scenarioId) {
       .forEach(({ s, c }) => {
         if (c != null) { actionsEl.appendChild(_condOutsideLi(c, layout)); return; }
         layout[s].block.cases.forEach((cc) => {
-          if (cc.isBlock && cc.start == null) actionsEl.appendChild(_caseHeadLi(s, cc.caseIdx, actions, layout, true));
+          if (!cc.isBlock) actionsEl.appendChild(_otherCaseLi(s, cc.caseIdx, actions, layout));
+          else if (cc.start == null) actionsEl.appendChild(_caseHeadLi(s, cc.caseIdx, actions, layout, true));
         });
         actionsEl.appendChild(_outsideLi(s, layout));
       });
   });
   if (structOn) _applyCollapsed();
+}
+
+/** Scroll the list — not the page — to action `i` and flash it. */
+export function revealAction(i) {
+  const li = Number.isInteger(i) ? actionsEl.querySelector(`li.action[data-index="${i}"]`) : null;
+  if (!li || !li.getClientRects().length) return;
+  const row = li.getBoundingClientRect();
+  const box = actionsEl.getBoundingClientRect();
+  if (row.top < box.top) actionsEl.scrollTop += row.top - box.top - 4;
+  else if (row.bottom > box.bottom) actionsEl.scrollTop += row.bottom - box.bottom + 4;
+  li.classList.add("sw-flash");
+  li.addEventListener("animationend", () => li.classList.remove("sw-flash"), { once: true });
+}
+
+/** The "📋 Paste" row under the list, when something was copied. */
+function _appendPasteRow() {
+  if (!ui.actionClipboard) return;
+  const pasteLi = document.createElement("li");
+  pasteLi.className = "action-navigate action-paste-li";
+  const pasteBtn = document.createElement("button");
+  pasteBtn.textContent = `📋 Paste: ${ui.actionClipboard.type}${ui.actionClipboard.label ? ` (${ui.actionClipboard.label})` : ""}`;
+  pasteBtn.className = "secondary action-paste-btn";
+  pasteBtn.addEventListener("click", () => {
+    const newAction = JSON.parse(JSON.stringify(ui.actionClipboard));
+    delete newAction.disabled;
+    const sid = scenarioList.value || null;
+    chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action: newAction, scenarioId: sid }, () => {
+      showToast("Action pasted", "success");
+      previewActions();
+      updateUndoRedoState();
+    });
+  });
+  const clearClipboardBtn = document.createElement("button");
+  clearClipboardBtn.textContent = "✕";
+  clearClipboardBtn.className = "secondary action-paste-btn";
+  clearClipboardBtn.title = "Clear clipboard";
+  clearClipboardBtn.style.opacity = "0.65";
+  clearClipboardBtn.addEventListener("click", () => { ui.actionClipboard = null; previewActions(); });
+  pasteLi.appendChild(pasteBtn);
+  pasteLi.appendChild(clearClipboardBtn);
+  actionsEl.appendChild(pasteLi);
 }
 
 /** `onRendered`: run once this call's rows are in — not when a later call overtakes it. */
@@ -688,7 +761,9 @@ export function previewActions(onRendered) {
 
       if (!res?.actions?.length) {
         setSwitchContext(scenarioId, []);
-        actionsEl.innerHTML = `<li class="empty">No actions recorded — use the Add Manual Action card above to add one</li>`;
+        actionsEl.innerHTML = `<li class="empty">No actions recorded — use the Add Manual Action card below to add one</li>`;
+        // An empty scenario takes a paste too: it is the quickest way to start one.
+        _appendPasteRow();
         if (actionCount) actionCount.style.display = "none";
         updateUndoRedoState();
         onRendered?.();
@@ -697,34 +772,7 @@ export function previewActions(onRendered) {
 
       setSwitchContext(scenarioId, res.actions);
       _renderActionRows(res.actions, scenarioId);
-
-      // Paste button — shown when clipboard has data
-      if (ui.actionClipboard) {
-        const pasteLi = document.createElement("li");
-        pasteLi.className = "action-navigate action-paste-li";
-        const pasteBtn = document.createElement("button");
-        pasteBtn.textContent = `📋 Paste: ${ui.actionClipboard.type}${ui.actionClipboard.label ? ` (${ui.actionClipboard.label})` : ""}`;
-        pasteBtn.className = "secondary action-paste-btn";
-        pasteBtn.addEventListener("click", () => {
-          const newAction = JSON.parse(JSON.stringify(ui.actionClipboard));
-          delete newAction.disabled;
-          const sid = scenarioList.value || null;
-          chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action: newAction, scenarioId: sid }, () => {
-            showToast("Action pasted", "success");
-            previewActions();
-            updateUndoRedoState();
-          });
-        });
-        const clearClipboardBtn = document.createElement("button");
-        clearClipboardBtn.textContent = "✕";
-        clearClipboardBtn.className = "secondary action-paste-btn";
-        clearClipboardBtn.title = "Clear clipboard";
-        clearClipboardBtn.style.opacity = "0.65";
-        clearClipboardBtn.addEventListener("click", () => { ui.actionClipboard = null; previewActions(); });
-        pasteLi.appendChild(pasteBtn);
-        pasteLi.appendChild(clearClipboardBtn);
-        actionsEl.appendChild(pasteLi);
-      }
+      _appendPasteRow();
 
       const count = res.actions?.length || 0;
       if (actionCount) {
@@ -768,12 +816,18 @@ function _previewDropPlacement(dragging) {
   dragging.style.removeProperty("--sw-color");
   if (e) _applyBlockStyle(dragging, e.depth + conds.length, innerCond > innerSw ? "cond" : e.color);
 
-  actionsEl.querySelectorAll(".drop-target").forEach(el => el.classList.remove("drop-target"));
+  actionsEl.querySelectorAll(".drop-target, .drop-denied").forEach(el => el.classList.remove("drop-target", "drop-denied"));
   const prev = dragging.previousElementSibling;
-  if (prev && (prev.classList.contains("sw-outside") || prev.classList.contains("sw-case-head"))) {
+  if (anchor.kind === "denied") {
+    // Under a case that runs another scenario: red, and the "no drop" cursor (dragover).
+    dragging.classList.add("drop-denied");
+    prev?.classList.add("drop-denied");
+  } else if (prev && (prev.classList.contains("sw-outside") || prev.classList.contains("sw-case-head"))) {
     prev.classList.add("drop-target");
   }
 }
+
+const _deniedToast = () => showToast("This case runs another scenario — drop the action somewhere else", "info");
 
 /**
  * Where the dragged row landed, from the visible row right above it — see
@@ -786,6 +840,8 @@ function _dropAnchor(dragging) {
     prev = prev.previousElementSibling;
   }
   if (!prev) return { kind: "top" };
+  // planDrop knows no "denied": the drop is refused.
+  if (prev.classList.contains("sw-case-other")) return { kind: "denied", switchIdx: Number(prev.dataset.switch), caseIdx: Number(prev.dataset.case) };
   if (prev.classList.contains("sw-case-head")) {
     return { kind: "caseHead", switchIdx: Number(prev.dataset.switch), caseIdx: Number(prev.dataset.case) };
   }
@@ -811,7 +867,11 @@ function updateActionOrderFromDOM() {
   // A dragged Switch / Condition takes its block along, and where a row lands
   // decides which case and which Conditions it joins — worked out by planDrop.
   const plan = planDrop(swCtx.actions, ui.dragFromIndex, anchor);
-  if (!plan) { previewActions(); return; }
+  if (!plan) {
+    if (anchor?.kind === "denied") _deniedToast();
+    previewActions();
+    return;
+  }
 
   const follow = followListEdit(scenarioId, { order: plan.newOrder, move: plan.move });
   chrome.runtime.sendMessage(
@@ -849,6 +909,7 @@ export function initPreview() {
       ? dragging !== actionsEl.lastElementChild && (actionsEl.appendChild(dragging), true)
       : dragging.nextElementSibling !== afterElement && (actionsEl.insertBefore(dragging, afterElement), true);
     if (moved || _dragAnchorKey == null) _previewDropPlacement(dragging);
+    if (e.dataTransfer) e.dataTransfer.dropEffect = dragging.classList.contains("drop-denied") ? "none" : "move";
   });
   actionsEl.addEventListener("drop", (e) => {
     e.preventDefault();

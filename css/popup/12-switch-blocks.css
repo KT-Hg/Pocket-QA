@@ -33,6 +33,12 @@
 .actions li.sw-case-head-click:hover .sw-toggle { color: var(--text); background: var(--secondary-bg); }
 .actions li.sw-case-head-click:hover .sw-case-head-label { text-decoration: underline; }
 .sw-case-count { color: var(--muted); font-weight: 500; font-style: italic; }
+/* A case running another scenario (or jumping): listed, never dropped into. */
+.sw-case-other-to { color: var(--muted); font-weight: 500; font-style: italic; }
+.actions li.sw-case-other.drop-denied,
+.actions li.sw-case-other.drop-denied .sw-case-other-to { color: var(--danger); }
+.actions li.sw-case-other.drop-denied { border-left-color: var(--danger) !important; }
+#actions li.dragging.drop-denied { outline-color: var(--danger); }
 .sw-case-count:empty { display: none; }
 /* A collapsed Switch: the hidden count takes the case summary's place. */
 .actions li.sw-collapsed .sw-summary { display: none; }
