@@ -894,6 +894,31 @@ async function checkFormScroll(ctx) {
   }
 }
 
+async function checkCopySwitchBlock(ctx) {
+  const id = await makeScenario(ctx, 'e2e copy switch block', switchBlockActions());
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    await rowButton(popup, 3, 2);
+    const label = await popup.evaluate(`document.querySelector('#actions .action-paste-btn')?.textContent`);
+    await popup.evaluate(`document.querySelector('#actions .action-paste-btn').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const acts = await storedActions(popup, id);
+    const shape = acts.map((a) => (a.type === 'switch' ? `switch ${a.cases.map((c) => `${c.startAt}–${c.endAt}`).join(' ')}` : a.selector)).join(' | ');
+    const invalid = await popup.evaluate(`document.querySelectorAll('#actions li.sw-invalid, #actions .sw-warn').length`);
+    check(label === '📋 Paste: switch + 3 actions' && invalid === 0
+      && shape === '#a | #b | #c | switch 5–6 7–7 | #menu | #settings | #profile | #logout | #new | switch 11–12 13–13 | #menu | #settings | #profile',
+    'Copy on a Switch takes its block; pasted, the new Switch runs its own copies', { label, invalid, shape });
+    await popup.evaluate(`document.getElementById('undoAction').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const undone = (await storedActions(popup, id)).length;
+    check(undone === 9, 'one Undo takes the whole pasted block away', undone);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await popup.close();
+  }
+}
+
 async function checkSwitchOtherCase(ctx) {
   const guest = await makeScenario(ctx, 'e2e guest', [{ type: 'click', selector: '#g', selectors: { css: '#g' } }]);
   const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` } });
@@ -4410,6 +4435,7 @@ const CHECKS = [
   ['paste-empty', 'Paste into a scenario with no actions', checkPasteEmpty],
   ['form-scroll', 'After Add Action: the card back in view, the list on the new action', checkFormScroll],
   ['switch-other-case', 'A Switch case running another scenario: listed, never dropped into', checkSwitchOtherCase],
+  ['copy-switch-block', 'Copy and Paste a Switch with its block', checkCopySwitchBlock],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],

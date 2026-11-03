@@ -9,7 +9,7 @@
 
 import { state } from '../state.js';
 import { getScenarios, setScenarios, getStack, pushUndo, mutateScenarioActions, runExclusive } from '../storage.js';
-import { remapAfterInsert, remapAfterRemove, remapAfterReorder, toggleDisabled } from '../../shared/switch-blocks.js';
+import { appendUnit, remapAfterInsert, remapAfterRemove, remapAfterReorder, toggleDisabled } from '../../shared/switch-blocks.js';
 
 /**
  * Index sanity check for the action-mutation handlers.
@@ -88,7 +88,12 @@ export const actionsHandlers = {
 
   /* --- Manual action editing --- */
   ADD_MANUAL_ACTION(request, sender, sendResponse) {
-    if (!request.action || typeof request.action !== 'object') {
+    // `action`: one action; `actions`: a copied unit (actionUnit), pasted in one step.
+    const unit = Array.isArray(request.actions) ? request.actions : null;
+    const valid = unit
+      ? unit.length > 0 && unit.every((a) => a && typeof a === 'object')
+      : !!request.action && typeof request.action === 'object';
+    if (!valid) {
       sendResponse({ success: false });
       return;
     }
@@ -97,6 +102,10 @@ export const actionsHandlers = {
     // `index` tells the popup where it went.
     let index = -1;
     const add = (a) => {
+      if (unit) {
+        index = a.length;
+        return appendUnit(a, unit);
+      }
       if (_validIndex(request.insertAt, a.length)) {
         index = request.insertAt;
         return remapAfterInsert(a, request.insertAt, request.action);

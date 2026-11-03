@@ -3,7 +3,7 @@
  * Conditions with their numbering, collapsing, drag & drop and row buttons.
  */
 
-import { CASE_COLORS, SWITCH_SELF, anyBlocks, anyConditions, caseLabel, conditionChoices, conditionSkip, getConditionLayout, getSwitchLayout, isAlwaysSwitch, isBlockCase, planDrop, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
+import { CASE_COLORS, SWITCH_SELF, actionUnit, anyBlocks, anyConditions, caseLabel, conditionChoices, conditionSkip, getConditionLayout, getSwitchLayout, isAlwaysSwitch, isBlockCase, planDrop, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef } from '../../shared/var-name.js';
 import { actionCount, actionsEl, conditionSkipCount, preview, runListDisplay, scenarioList } from '../dom.js';
 import { updateRunListDisplay } from '../run/playback-controls.js';
@@ -642,10 +642,14 @@ function createActionListItem(a, i, scenarioId, view = null) {
   const copyBtn = document.createElement("button");
   copyBtn.textContent = "Copy";
   copyBtn.className = "secondary";
-  copyBtn.setAttribute("aria-label", `Copy action ${no}: ${actionLabel}`);
+  copyBtn.setAttribute("aria-label", `Copy action ${no}: ${actionLabel}${nestedText}`);
   copyBtn.addEventListener("click", () => {
-    ui.actionClipboard = JSON.parse(JSON.stringify(a));
-    showToast("Action copied", "success");
+    // A Switch takes its block, a Condition what it guards: the clipboard is a unit.
+    ui.actionClipboard = actionUnit(view?.actions || [a], view ? i : 0);
+    const n = ui.actionClipboard.length - 1;
+    showToast(n
+      ? `Copied the ${a.type === "switch" ? "Switch" : "Condition"} and the ${n} action${n === 1 ? "" : "s"} ${a.type === "switch" ? "in its block" : "it guards"}`
+      : "Action copied", "success");
     previewActions();
   });
 
@@ -713,19 +717,23 @@ export function revealAction(i) {
 
 /** The "📋 Paste" row under the list, when something was copied. */
 function _appendPasteRow() {
-  if (!ui.actionClipboard) return;
+  const clip = ui.actionClipboard;
+  if (!clip?.length) return;
+  const head = clip[0];
+  const more = clip.length - 1;
   const pasteLi = document.createElement("li");
   pasteLi.className = "action-navigate action-paste-li";
   const pasteBtn = document.createElement("button");
-  pasteBtn.textContent = `📋 Paste: ${ui.actionClipboard.type}${ui.actionClipboard.label ? ` (${ui.actionClipboard.label})` : ""}`;
+  pasteBtn.textContent = `📋 Paste: ${head.type}${head.label ? ` (${head.label})` : ""}${more ? ` + ${more} action${more === 1 ? "" : "s"}` : ""}`;
   pasteBtn.className = "secondary action-paste-btn";
   pasteBtn.addEventListener("click", () => {
-    const newAction = JSON.parse(JSON.stringify(ui.actionClipboard));
-    delete newAction.disabled;
+    const unit = JSON.parse(JSON.stringify(clip));
+    // Pasted switched on — and the actions under it, if switching it off took them along.
+    if (head.disabled) unit.forEach((x) => delete x.disabled);
     const sid = scenarioList.value || null;
-    chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action: newAction, scenarioId: sid }, () => {
-      showToast("Action pasted", "success");
-      previewActions();
+    chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", actions: unit, scenarioId: sid }, (res) => {
+      showToast(more ? `Pasted ${clip.length} actions` : "Action pasted", "success");
+      previewActions(() => revealAction(res?.index));
       updateUndoRedoState();
     });
   });
