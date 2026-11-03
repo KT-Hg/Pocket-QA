@@ -919,6 +919,56 @@ async function checkCopySwitchBlock(ctx) {
   }
 }
 
+async function checkInsertPoint(ctx) {
+  const id = await makeScenario(ctx, 'e2e insert point', switchBlockActions());
+  const popup = await openPopup(ctx);
+  const note = () => popup.evaluate(`(() => { const n = document.getElementById('insertPointNote'); return n.hidden ? '' : n.textContent.trim(); })()`);
+  const fill = (type, selector) => popup.evaluate(`(() => {
+    const t = document.getElementById('manualActionType'); t.value = ${JSON.stringify(type)}; t.dispatchEvent(new Event('change'));
+    document.getElementById('manualSelector').value = ${JSON.stringify(selector)};
+  })()`);
+  const add = async () => { await popup.evaluate(`document.getElementById('addManualAction').click()`); await sleep(POPUP_SETTLE_MS); };
+  const shape = async () => (await storedActions(popup, id)).map((a) => {
+    if (a.type === 'switch') return `switch ${a.cases.map((c) => `${c.startAt}–${c.endAt}`).join(' ')}`;
+    return a.type === 'condition' ? `if ${a.skipCount}` : a.selector;
+  }).join(' | ');
+  try {
+    await showScenario(popup, id);
+    await popup.evaluate(`document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+      document.querySelector('#actions li.action[data-index="4"] .ins-gap').click()`);
+    await sleep(SETTLE_MS);
+    const ghost = await popup.evaluate(`(() => { const g = document.querySelector('#actions li.action-ghost');
+      return { after: g?.previousElementSibling?.dataset.index, depth: g?.style.getPropertyValue('--sw-depth'), sub: g?.querySelector('.value-sub')?.textContent }; })()`);
+    const picked = await note();
+    check(ghost.after === '4' && ghost.depth === '1' && /#6 · Switch 4 › case "admin"/.test(ghost.sub || '') && /Insert at #6/.test(picked),
+      '+ under row 5 puts the dummy row right under it, in case "admin"', { ghost, picked });
+    await fill('click', '#x1'); await add();
+    await fill('click', '#x2'); await add();
+    const two = await shape();
+    check(two === '#a | #b | #c | switch 5–8 9–9 | #menu | #x1 | #x2 | #settings | #profile | #logout | #new',
+      'two adds in a row go in at the place, one after the other, inside the case', two);
+    await fill('condition', '#guard');
+    await sleep(POPUP_SETTLE_MS);
+    const runTo = await popup.evaluate(`[...document.getElementById('conditionRunTo').options].map((o) => o.textContent)`);
+    check(runTo.includes('Only the next action'), 'a Condition at the place counts the actions after the place', runTo);
+    await popup.evaluate(`(() => { const r = document.getElementById('conditionRunTo'); r.value = '1'; r.dispatchEvent(new Event('change')); })()`);
+    await add();
+    await rowButton(popup, 0, 2);
+    await popup.evaluate(`document.querySelector('#actions .action-paste-btn').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const pasted = await shape();
+    check(pasted === '#a | #b | #c | switch 5–10 11–11 | #menu | #x1 | #x2 | if 2 | #a | #settings | #profile | #logout | #new',
+      'the Condition guards the action after the place; Paste goes in at the place, under it', pasted);
+    await popup.evaluate(`document.getElementById('undoAction').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    check(await note() === '' && !(await popup.evaluate(`!!document.querySelector('#actions li.action-ghost')`)), 'Undo drops the insertion point', await note());
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
 async function checkSwitchOtherCase(ctx) {
   const guest = await makeScenario(ctx, 'e2e guest', [{ type: 'click', selector: '#g', selectors: { css: '#g' } }]);
   const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` } });
@@ -4436,6 +4486,7 @@ const CHECKS = [
   ['form-scroll', 'After Add Action: the card back in view, the list on the new action', checkFormScroll],
   ['switch-other-case', 'A Switch case running another scenario: listed, never dropped into', checkSwitchOtherCase],
   ['copy-switch-block', 'Copy and Paste a Switch with its block', checkCopySwitchBlock],
+  ['insert-point', 'The + between rows: the dummy row, adds and a paste at that place', checkInsertPoint],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],

@@ -12,6 +12,7 @@ import { ui } from '../ui-state.js';
 import { debounce, isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
 import { addVariableRow, newVariableConfig } from '../variables.js';
 import { saveDraft } from './draft.js';
+import { clearInsertPoint, insertAnchor, moveInsertPoint } from './insert-point.js';
 import { CONDITION_FORM_TYPES, DEFAULT_DELAY_MS, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, clickThroughOff, fillField, setClickThrough, showClickThroughFor } from './form-table.js';
@@ -292,6 +293,7 @@ function buildActionFromForm(type, selector, value, delayVal) {
 
 export function startEdit(index, action) {
   clearEditState();
+  clearInsertPoint();
   manualSelector.value = action.selector || "";
   manualActionType.value = action.type || "";
 
@@ -550,8 +552,14 @@ function _showCard() {
   document.getElementById("addManualActionCard")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
-/** ADD_MANUAL_ACTION's `insertAt` when the new action does not go last (newActionIndex). */
+/**
+ * Where ADD_MANUAL_ACTION puts the new action: at the insertion point
+ * (`anchor`), or `insertAt` when it does not go last (newActionIndex) — a
+ * Switch whose cases run actions of the list goes in front of them either way.
+ */
 function _placeOfNew(action) {
+  const anchor = insertAnchor();
+  if (anchor && !(action.type === "switch" && (action.cases || []).some(isBlockCase))) return { anchor };
   const at = newActionIndex(action);
   return at < swCtx.actions.length ? { insertAt: at } : {};
 }
@@ -721,12 +729,18 @@ export function initActionForm() {
       }, () => onDone(index));
     } else {
       const scenarioId = scenarioList.value || null;
-      chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action, scenarioId, ..._placeOfNew(action) }, (res) => onDone(res?.index));
+      const place = _placeOfNew(action);
+      chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", action, scenarioId, ...place }, (res) => {
+        // The next action goes right after this one: a run of adds stays in order.
+        if (place.anchor && res?.success) moveInsertPoint({ kind: "after", index: res.index });
+        onDone(res?.index);
+      });
     }
   });
   cancelEdit.addEventListener('click', () => {
     clearEditState();
     chrome.storage.local.remove("manualFormDraft");
+    clearInsertPoint();
     _showCard();
   });
 

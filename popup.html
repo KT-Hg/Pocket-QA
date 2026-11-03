@@ -170,6 +170,9 @@
     <div class="card collapsible" id="addManualActionCard">
       <h3 role="button" tabindex="0" aria-expanded="true" style="display:flex;align-items:center;"><span id="manualCardTitle">Add Manual Action</span> <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="addManual" title="Manual action guide" style="margin-left:auto;">?</button></h3>
 
+      <!-- Where the action goes, once a + in the list picked a place (record/insert-point.js) -->
+      <div id="insertPointNote" class="insert-point-note" role="status" hidden></div>
+
       <!-- Action Type — always first -->
       <div class="step-label">Action Type</div>
       <select id="manualActionType">

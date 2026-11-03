@@ -5,6 +5,7 @@
 import { redoAction, scenarioList, undoAction } from '../dom.js';
 import { ui } from '../ui-state.js';
 import { showToast } from '../utils.js';
+import { clearInsertPoint } from './insert-point.js';
 import { previewActions } from './preview.js';
 
 /* === UNDO/REDO === */
@@ -35,7 +36,7 @@ export function initUndoRedo() {
       const scenarioId = scenarioList?.value || null;
       if (_editOpen(scenarioId)) return;
       chrome.runtime.sendMessage({ type: "UNDO_ACTION", scenarioId }, (res) => {
-        if (res?.success) { previewActions(); updateUndoRedoState(); }
+        if (res?.success) { clearInsertPoint(); previewActions(); updateUndoRedoState(); }
       });
     });
   }
@@ -44,7 +45,7 @@ export function initUndoRedo() {
       const scenarioId = scenarioList?.value || null;
       if (_editOpen(scenarioId)) return;
       chrome.runtime.sendMessage({ type: "REDO_ACTION", scenarioId }, (res) => {
-        if (res?.success) { previewActions(); updateUndoRedoState(); }
+        if (res?.success) { clearInsertPoint(); previewActions(); updateUndoRedoState(); }
       });
     });
   }

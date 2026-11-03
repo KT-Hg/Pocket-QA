@@ -3,7 +3,7 @@
  * Conditions with their numbering, collapsing, drag & drop and row buttons.
  */
 
-import { CASE_COLORS, SWITCH_SELF, actionUnit, anyBlocks, anyConditions, caseLabel, conditionChoices, conditionSkip, getConditionLayout, getSwitchLayout, isAlwaysSwitch, isBlockCase, planDrop, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
+import { CASE_COLORS, SWITCH_SELF, actionUnit, anyBlocks, anyConditions, caseLabel, conditionChoices, conditionSkip, getConditionLayout, getSwitchLayout, insertActions, isAlwaysSwitch, isBlockCase, planDrop, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef } from '../../shared/var-name.js';
 import { actionCount, actionsEl, conditionSkipCount, preview, runListDisplay, scenarioList } from '../dom.js';
 import { updateRunListDisplay } from '../run/playback-controls.js';
@@ -11,6 +11,7 @@ import { ui } from '../ui-state.js';
 import { escHtml, getActionIcon, getDragAfterElement, showConfirm, showToast } from '../utils.js';
 import { followListEdit, startEdit } from './action-form.js';
 import { debouncedSaveDraft } from './draft.js';
+import { anchorAfterUnit, clearInsertPoint, insertAnchor, moveInsertPoint, pickInsertAfter, renderInsertPoint } from './insert-point.js';
 import { candidateActions, noOf, setSwitchContext, swCtx, switchSelfIdx, switchStartSuffix } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 
@@ -189,10 +190,13 @@ export function conditionCandidate() {
 export function renderConditionRunTo() {
   const sel = document.getElementById("conditionRunTo");
   if (!sel || !conditionSkipCount) return;
-  const self = switchSelfIdx();
   const cand = conditionCandidate();
   const cur  = cand.empty ? 0 : cand.skipCount;
-  const list = candidateActions(cand);
+  // A new Condition counts the actions after the place it will go (insert-point.js).
+  const anchor = !ui.editing && insertAnchor();
+  const placed = anchor ? insertActions(swCtx.actions, [cand], anchor) : null;
+  const self = placed ? placed.index : switchSelfIdx();
+  const list = placed ? placed.actions : candidateActions(cand);
   const layout = getSwitchLayout(list);
   const ends = conditionChoices(list, self, layout);
   // Counted in actions; a Switch's block is in its unit, so counts can jump.
@@ -305,7 +309,20 @@ function _caseHeadLi(s, k, actions, layout, empty) {
     li.title = "Click to collapse / expand this case · drop an action here to put it first in the case";
     li.addEventListener("click", onToggle);
   }
+  li.appendChild(_gapBtn(li, `Insert an action as the first of case ${caseLabel(c)}`));
   return li;
+}
+
+/** The "+" in the gap under a row or a case header: the next action goes right below it. */
+function _gapBtn(li, title) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "ins-gap";
+  b.textContent = "+";
+  b.title = title;
+  b.setAttribute("aria-label", title);
+  b.addEventListener("click", (ev) => { ev.stopPropagation(); pickInsertAfter(li); });
+  return b;
 }
 
 /**
@@ -632,6 +649,7 @@ function createActionListItem(a, i, scenarioId, view = null) {
       : "Delete this action?";
     showConfirm(msg, () => {
       const follow = followListEdit(scenarioId, { removed: i });
+      clearInsertPoint();
       chrome.runtime.sendMessage(
         { type: "REMOVE_ACTION", scenarioId, index: i },
         (res) => { if (res?.success) follow(); previewActions(); updateUndoRedoState(); }
@@ -658,6 +676,7 @@ function createActionListItem(a, i, scenarioId, view = null) {
   btnRow.appendChild(editBtn);
   btnRow.appendChild(delBtn);
   li.appendChild(btnRow);
+  li.appendChild(_gapBtn(li, `Insert an action below action ${no}`));
   return li;
 }
 
@@ -731,8 +750,11 @@ function _appendPasteRow() {
     // Pasted switched on — and the actions under it, if switching it off took them along.
     if (head.disabled) unit.forEach((x) => delete x.disabled);
     const sid = scenarioList.value || null;
-    chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", actions: unit, scenarioId: sid }, (res) => {
+    // At the insertion point, when one is picked — and the next paste goes after this one.
+    const anchor = insertAnchor();
+    chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", actions: unit, scenarioId: sid, anchor }, (res) => {
       showToast(more ? `Pasted ${clip.length} actions` : "Action pasted", "success");
+      if (anchor && res?.success) moveInsertPoint(anchorAfterUnit(res.index, unit));
       previewActions(() => revealAction(res?.index));
       updateUndoRedoState();
     });
@@ -766,12 +788,15 @@ export function previewActions(onRendered) {
       if (currentRequestId !== ui.previewRequestId) return;
 
       actionsEl.innerHTML = "";
+      // An insertion point is a place in one list.
+      if (ui.insertPoint && ui.insertPoint.scenarioId !== scenarioId) ui.insertPoint = null;
 
       if (!res?.actions?.length) {
         setSwitchContext(scenarioId, []);
         actionsEl.innerHTML = `<li class="empty">No actions recorded — use the Add Manual Action card below to add one</li>`;
         // An empty scenario takes a paste too: it is the quickest way to start one.
         _appendPasteRow();
+        renderInsertPoint();
         if (actionCount) actionCount.style.display = "none";
         updateUndoRedoState();
         onRendered?.();
@@ -781,6 +806,7 @@ export function previewActions(onRendered) {
       setSwitchContext(scenarioId, res.actions);
       _renderActionRows(res.actions, scenarioId);
       _appendPasteRow();
+      renderInsertPoint();
 
       const count = res.actions?.length || 0;
       if (actionCount) {
@@ -803,6 +829,28 @@ export function previewActions(onRendered) {
  */
 let _dragAnchorKey = null;
 
+/** Indent and colour row `el` as action `at` of `list` sits: its Switch cases and Conditions. */
+export function applyPlacement(el, list, at) {
+  const lay  = getSwitchLayout(list);
+  const e    = lay[at];
+  const conds = getConditionLayout(list, lay)[at]?.conds || [];
+  // The innermost structure (the later-starting one) gives the colour.
+  const innerCond = conds.length ? conds[conds.length - 1] : -1;
+  const innerSw = e?.chain?.length ? e.chain[e.chain.length - 1].switchIdx : -1;
+  el.classList.remove("sw-in-block");
+  el.style.removeProperty("--sw-depth");
+  el.style.removeProperty("--sw-color");
+  if (e) _applyBlockStyle(el, e.depth + conds.length, innerCond > innerSw ? "cond" : e.color);
+}
+
+/** 'Switch 6 › case "admin" › If 8': the cases and Conditions action `at` of `list` is in. */
+export function placeText(list, at) {
+  const lay = getSwitchLayout(list);
+  const parts = (lay[at]?.chain || []).map((c) => ({ at: c.switchIdx, text: _placeOf([c], list) }));
+  for (const c of getConditionLayout(list, lay)[at]?.conds || []) parts.push({ at: c, text: `If ${c + 1}` });
+  return parts.sort((x, y) => x.at - y.at).map((p) => p.text).join(" › ");
+}
+
 function _previewDropPlacement(dragging) {
   if (ui.dragFromIndex == null) return;
   const anchor = _dropAnchor(dragging);
@@ -813,16 +861,7 @@ function _previewDropPlacement(dragging) {
   const plan = planDrop(swCtx.actions, ui.dragFromIndex, anchor);
   const list = plan ? plan.actions : swCtx.actions;
   const at   = plan ? plan.newOrder.indexOf(ui.dragFromIndex) : ui.dragFromIndex;
-  const lay  = getSwitchLayout(list);
-  const e    = lay[at];
-  const conds = getConditionLayout(list, lay)[at]?.conds || [];
-  const innerCond = conds.length ? conds[conds.length - 1] : -1;
-  const innerSw = e?.chain?.length ? e.chain[e.chain.length - 1].switchIdx : -1;
-
-  dragging.classList.remove("sw-in-block");
-  dragging.style.removeProperty("--sw-depth");
-  dragging.style.removeProperty("--sw-color");
-  if (e) _applyBlockStyle(dragging, e.depth + conds.length, innerCond > innerSw ? "cond" : e.color);
+  applyPlacement(dragging, list, at);
 
   actionsEl.querySelectorAll(".drop-target, .drop-denied").forEach(el => el.classList.remove("drop-target", "drop-denied"));
   const prev = dragging.previousElementSibling;
@@ -844,9 +883,17 @@ const _deniedToast = () => showToast("This case runs another scenario — drop t
 function _dropAnchor(dragging) {
   let prev = dragging.previousElementSibling;
   while (prev && (prev.getClientRects().length === 0 || prev.classList.contains("action-paste-li")
-    || prev.classList.contains("action-loading"))) {
+    || prev.classList.contains("action-loading") || prev.classList.contains("action-ghost"))) {
     prev = prev.previousElementSibling;
   }
+  return anchorOf(prev);
+}
+
+/**
+ * What putting an action right after `prev` — a row, a case header, a "move
+ * out" zone; null: the top — means to planDrop. The insertion point uses it too.
+ */
+export function anchorOf(prev) {
   if (!prev) return { kind: "top" };
   // planDrop knows no "denied": the drop is refused.
   if (prev.classList.contains("sw-case-other")) return { kind: "denied", switchIdx: Number(prev.dataset.switch), caseIdx: Number(prev.dataset.case) };
@@ -882,6 +929,7 @@ function updateActionOrderFromDOM() {
   }
 
   const follow = followListEdit(scenarioId, { order: plan.newOrder, move: plan.move });
+  clearInsertPoint();
   chrome.runtime.sendMessage(
     {
       type: "REORDER_ACTIONS",

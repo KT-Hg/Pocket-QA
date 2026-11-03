@@ -21,7 +21,9 @@ export const ui = {
   // while the selector is still the picked one, so it plays in that iframe.
   currentPickedFrameId: null,
   currentPickedDragdropTargetSelectors: null,
-  actionClipboard: null,
+  actionClipboard: null, // a copied unit: [action, …the actions under it] (actionUnit)
+  // Where Add Action / Paste put the next action: { scenarioId, anchor } (record/insert-point.js).
+  insertPoint: null,
   pickerMode: false,
   _switchCases: [], // [{ value, scenarioId, scenarioName, startAt?, endAt?, empty? }]
   // continueAt of the Switch in the form: null = automatic (right after its block).

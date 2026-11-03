@@ -23,6 +23,7 @@ import { initUndoRedo } from './record/undo-redo.js';
 import { initPreview } from './record/preview.js';
 import { initValueMemory } from './record/value-memory.js';
 import { initActionForm } from './record/action-form.js';
+import { initInsertPoint } from './record/insert-point.js';
 import { initDraft } from './record/draft.js';
 import { initVarSuggestions } from './record/var-suggestions.js';
 import { initSave } from './scenarios/save.js';
@@ -64,6 +65,7 @@ export function initMain() {
   initPreview();
   initValueMemory();
   initActionForm();
+  initInsertPoint();
   initDraft();
   initVarSuggestions();
   initSave();

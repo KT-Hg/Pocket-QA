@@ -561,3 +561,106 @@
   .actions li.sw-case-head.drop-target { outline: 1px dashed var(--sw-color); outline-offset: -1px; }
 }
 
+
+/* === Insert point (record/insert-point.js): the + in the gap under a row, the
+   dummy row standing where the new action will go, and the Add card's line === */
+/* Room under the last row for its +. */
+#actions { padding-bottom: 10px; }
+#actions li .ins-gap {
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px !important;
+  height: 18px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 2px solid var(--card);
+  border-radius: 50% !important;
+  background: var(--primary-fill);
+  color: #fff;
+  font-size: 13px !important;
+  line-height: 1;
+  opacity: 0;
+}
+#actions li .ins-gap:hover { background: var(--primary-fill-hover); }
+#actions li:hover > .ins-gap,
+#actions li > .ins-gap:focus-visible { opacity: 1; }
+/* The gap the + inserts into. */
+#actions li.action:hover::after,
+#actions li.sw-case-head:hover::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -2px;
+  z-index: 3;
+  border-top: 2px solid var(--primary);
+  opacity: 0.55;
+  pointer-events: none;
+}
+#actions.sw-dragging .ins-gap,
+#actions.sw-dragging li::after,
+#actions.sw-dragging li.action-ghost { display: none; }
+
+/* The dummy row: a dashed outline, its content faded. */
+#actions li.action-ghost {
+  box-sizing: border-box;
+  height: 40px;
+  cursor: default;
+  border: 1px dashed var(--primary);
+  border-left: 4px solid var(--primary);
+  background: transparent;
+}
+#actions li.action-ghost::before { content: none; }
+#actions li.action-ghost:hover { background: transparent; }
+#actions li.action-ghost > .index,
+#actions li.action-ghost > .type,
+#actions li.action-ghost > .value { opacity: 0.55; }
+#actions li.action-ghost .index { font-size: 12px; font-weight: 700; color: var(--primary); }
+#actions li.action-ghost .value-main { font-style: italic; }
+#actions li.action-ghost .value-sub { color: var(--primary); font-weight: 600; }
+#actions li.action-ghost .btn-row button { width: 20px !important; padding: 0 !important; font-size: 11px !important; }
+/* In a Switch block: as short as the rows around it. */
+#actions li.action-ghost.sw-in-block { height: 30px; padding-top: 2px; padding-bottom: 2px; gap: 5px; border-left-color: var(--sw-color) !important; }
+#actions li.action-ghost.sw-in-block .type { font-size: 9px; }
+#actions li.action-ghost.sw-in-block .value-main { font-size: 9px; line-height: 12px; }
+#actions li.action-ghost.sw-in-block .value-sub { font-size: 8px; line-height: 11px; }
+#actions li.action-ghost.sw-in-block .btn-row button { height: 16px !important; width: 18px !important; font-size: 9px !important; }
+
+.insert-point-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 6px;
+  padding: 2px 3px 2px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+.insert-point-note[hidden] { display: none; }
+.insert-point-note span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insert-point-note .insert-point-x {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--primary);
+  font-size: 10px;
+}
+.insert-point-note .insert-point-x:hover:not(:disabled) { background: var(--secondary-bg); }
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .insert-point-note { background: var(--secondary-bg); }
+}
