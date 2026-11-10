@@ -235,13 +235,21 @@ function resubmit(form, submitter) {
 /**
  * Wrap a form submit in an async capture, with a watchdog so a slow or broken
  * capture can never hold somebody's edit hostage.
+ *
+ * A submit is held while a session is recording, or when `hold()` asks for it —
+ * the SQL page does, for a statement that changes a whole table. `capture` is
+ * called as `(submitter, { recording, pause })`. `pause()` stops the watchdog
+ * before a question is put to the person, so their answer alone decides; it
+ * returns false when the watchdog has already sent the form. A capture that
+ * resolves `false` cancels the submit.
  */
-export function interceptSubmit(form, capture) {
+export function interceptSubmit(form, capture, hold = () => false) {
   form.addEventListener('submit', (event) => {
     if (form.dataset.frpDbtools === 'go') return;   // our own re-submit
     const submitter = event.submitter || null;
     if (!state.on) return;
-    if (!state.session || state.session.closedAt) return;
+    const recording = Boolean(state.session && !state.session.closedAt);
+    if (!recording && !hold()) return;
 
     event.preventDefault();
     let done = false;
@@ -251,9 +259,11 @@ export function interceptSubmit(form, capture) {
       resubmit(form, submitter);
     };
     const watchdog = setTimeout(go, SUBMIT_WATCHDOG_MS);
+    const pause = () => { clearTimeout(watchdog); return !done; };
 
     Promise.resolve()
-      .then(() => capture(submitter))
+      .then(() => capture(submitter, { recording, pause }))
+      .then((verdict) => { if (verdict === false) done = true; })
       .catch((err) => state.panel.log(t('panel.captureFailed', { reason: String(err && err.message || err) }), 'err'))
       .finally(() => { clearTimeout(watchdog); go(); });
   }, true);

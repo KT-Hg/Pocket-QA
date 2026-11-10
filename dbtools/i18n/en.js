@@ -147,6 +147,15 @@ export const EN = {
   'reason.parse-error': 'the statement could not be parsed',
   'reason.not-a-write': 'not a writing statement',
 
+  'risk.title': 'This statement may change a whole table',
+  'risk.noWhere': 'no WHERE — every row of the table is hit',
+  'risk.everyRow': 'the WHERE matches all {n} rows of the table',
+  'risk.tooMany': 'hits more than {n} rows — not snapshotted, so it cannot be rolled back',
+  'risk.note': 'Cancel and nothing runs; the statement stays in the editor to fix.',
+  'risk.cancel': 'Cancel and fix it',
+  'risk.run': 'Run anyway',
+  'risk.cancelled': 'Cancelled — the statement did not run.',
+
   'op.update': 'UPDATE',
   'op.delete': 'DELETE',
   'op.insert': 'INSERT',

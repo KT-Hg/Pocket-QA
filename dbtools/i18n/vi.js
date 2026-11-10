@@ -148,6 +148,15 @@ export const VI = {
   'reason.parse-error': 'không phân tích được câu lệnh',
   'reason.not-a-write': 'không phải câu lệnh ghi',
 
+  'risk.title': 'Câu lệnh này có thể sửa cả bảng',
+  'risk.noWhere': 'không có WHERE — mọi dòng của bảng đều bị đụng',
+  'risk.everyRow': 'WHERE khớp toàn bộ {n} dòng của bảng',
+  'risk.tooMany': 'đụng hơn {n} dòng — không chụp được nên không rollback được',
+  'risk.note': 'Huỷ thì câu lệnh chưa chạy và vẫn nằm trong ô soạn để sửa lại.',
+  'risk.cancel': 'Huỷ, để sửa lại',
+  'risk.run': 'Vẫn chạy',
+  'risk.cancelled': 'Đã huỷ — câu lệnh chưa chạy.',
+
   'op.update': 'UPDATE',
   'op.delete': 'DELETE',
   'op.insert': 'INSERT',
