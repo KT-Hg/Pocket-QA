@@ -247,7 +247,9 @@ the Assert after it fail too, and that is a broken test, not a failing app.
 
 The last Play or Resume (`lastRun`) shows at the top of Record & Play: its verdict, scenario, loops, how long ago it
 ended, and one line per failure (`✗ #2 Toast — Expected text "Saved", got "Error"`). A failure selects its scenario and
-marks its action in the list. × hides the card until the next run. A Sequence or a CSV run leaves no card.
+marks its action in the list. × hides the card until the next run. A Sequence or a CSV run leaves no card. While a
+run is on — paused on a failed step too — the card is hidden: it would tell the run before; it comes back with this
+run's result.
 
 ### Bug report
 

@@ -1637,6 +1637,40 @@ async function checkNoChecks(ctx) {
   check(off?.status === 'passed' && off?.checks === 0, 'a disabled Assert checks nothing', off);
 }
 
+async function checkLastRunLive(ctx) {
+  const click = (sel) => ({ type: 'click', selector: sel, selectors: { css: sel } });
+  await reloadTestPage(ctx);
+  await play(ctx, await makeScenario(ctx, 'e2e live before', [click('#bg1')]));
+  const stuck = await makeScenario(ctx, 'e2e live stuck', [click('#bg1'), click('#gone'), click('#bg2')]);
+  const cardState = `(() => { const c = document.getElementById('lastRunCard');
+    return { visible: !c.hidden && getComputedStyle(c).display !== 'none', verdict: c.querySelector('.lr-verdict').textContent,
+      name: c.querySelector('.lr-name').textContent }; })()`;
+  // On a tab of its own: the step that fails logs a console error there.
+  const away = await ctx.browser.openPage(`${ctx.base}/page?live`, { width: 1000, height: 700 });
+  let prompt = false, during = null, after = null;
+  try {
+    await sleep(PAGE_SETTLE_MS);
+    await away.bringToFront();
+    await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: stuck });
+    for (let waited = 0; !prompt && waited < 15_000; waited += POLL_MS) {
+      await sleep(POLL_MS);
+      prompt = await away.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].some((e) => /failed/i.test(e.textContent))`);
+    }
+    const popup = await openPopup(ctx);
+    during = await popup.evaluate(cardState);
+    await ctx.send({ type: 'STOP_PLAYBACK' });
+    await sleep(POPUP_SETTLE_MS);
+    after = await popup.evaluate(cardState);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+    await popup.close();
+  } finally {
+    await away.close();
+  }
+  check(prompt && !during.visible, 'a run paused on its failed step: the Last run card of the run before is not shown', { prompt, during });
+  check(after.visible && after.name === 'e2e live stuck' && /Test broken|Stopped/.test(after.verdict),
+    'once the run ends, the card is back with its result', after);
+}
+
 async function checkHotkeys(ctx) {
   await reloadTestPage(ctx);
   // Alt+R as the page gets it; `key` is what the keyboard typed ("®" for Option+R on macOS).
@@ -4766,6 +4800,7 @@ const CHECKS = [
   ['assert', 'Assert: waited for, and a false one does not stop the run', checkAssert],
   ['last-run', 'The Last run card in the popup', checkLastRun],
   ['no-checks', 'A run with no Assert says it checked nothing', checkNoChecks],
+  ['last-run-live', 'The Last run card hides while a run is on', checkLastRunLive],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
   ['select-type', 'Child Condition type "select"', checkSelectType],

@@ -491,6 +491,8 @@ body.update-locked .cap-edit-btn:hover { transform: none; }
 .last-run[data-status="broken"]  { --lr-color: var(--warning); }
 .last-run[data-status="stopped"] { --lr-color: var(--muted); }
 .last-run[data-status="unchecked"] { --lr-color: var(--muted); }
+/* A run is on: the card tells the one before it (popup/connection.js). */
+body[data-running] .last-run { display: none; }
 .lr-hint { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
 .lr-hint[hidden] { display: none; }
 .lr-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 13px; }

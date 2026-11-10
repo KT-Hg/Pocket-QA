@@ -135,6 +135,11 @@ function updateStatusIndicator() {
 
   chrome.runtime.sendMessage({ type: 'GET_EXTENSION_STATUS' }, (status) => {
     _syncRecordButtons(!chrome.runtime.lastError && !!status?.recording);
+    // While a run is on (paused on a failed step too), the Last run card would
+    // show the run before it — a "✓ Passed" next to a run stuck at step 3.
+    // The card comes back with this run's result once it ends.
+    document.body.toggleAttribute('data-running',
+      !chrome.runtime.lastError && !!(status?.playing || status?.sequencePlaying || status?.csvPlaying));
     if (chrome.runtime.lastError || !status) {
       if (statusIndicator) {
         statusIndicator.classList.remove('active', 'recording', 'playing', 'sequence');
