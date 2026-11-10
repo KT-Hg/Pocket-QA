@@ -3,8 +3,8 @@
  */
 
 import { scenarioList, startRecord, stopRecord } from '../dom.js';
-import { activatedTabs } from '../tab-activation.js';
-import { CONTENT_SCRIPT_FILES, showToast } from '../utils.js';
+import { activateCurrentTab } from '../tab-activation.js';
+import { showToast } from '../utils.js';
 import { previewActions } from './preview.js';
 
 export function initRecorder() {
@@ -16,20 +16,7 @@ export function initRecorder() {
       if (!tab) { showToast("No active tab found", "error"); return; }
 
       const tabId = tab.id;
-
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          files: CONTENT_SCRIPT_FILES
-        });
-      } catch (_) {
-        // Content script already injected — expected
-      }
-
-      if (!activatedTabs.has(tabId)) {
-        activatedTabs.add(tabId);
-        chrome.storage.local.set({ activatedTabs: Array.from(activatedTabs) });
-      }
+      await activateCurrentTab();
 
       const scenarioId = scenarioList?.value || null;
       chrome.runtime.sendMessage({ type: "START_RECORD", tabId, scenarioId });

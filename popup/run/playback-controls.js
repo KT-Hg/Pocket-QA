@@ -5,6 +5,7 @@
 import { addToRunList, csvDelayBetweenPreset, delayAfterScenario, delayPreset, playScenario, runListDisplay, saveSequenceAsScenario, scenarioList, sequenceName, sequenceScenarioList, startSequence, stopPlay, stopSequence } from '../dom.js';
 import { showFieldError } from '../record/picked-selectors.js';
 import { loadScenarios } from '../scenarios/scenario-list.js';
+import { activateCurrentTab } from '../tab-activation.js';
 import { ui } from '../ui-state.js';
 import { escHtml, showPrompt, showToast } from '../utils.js';
 
@@ -108,9 +109,10 @@ export function updateRunListDisplay() {
 export function initPlaybackControls() {
   /* === PLAYBACK === */
 
-  playScenario.onclick = () => {
+  playScenario.onclick = async () => {
     const scenarioId = scenarioList.value;
     if (!scenarioId) return;
+    await activateCurrentTab(); // a run plays on this tab: it needs Pocket QA on there
     const loopCount = Math.max(1, parseInt(document.getElementById("loopCount")?.value || "1", 10));
     const loopDelayPreset = document.getElementById("loopDelayPreset");
     const loopDelayCustom = document.getElementById("loopDelay");
@@ -165,8 +167,9 @@ export function initPlaybackControls() {
     delayAfterScenario.value = "";
     delayAfterScenario.style.display = "none";
   };
-  startSequence.onclick = () => {
+  startSequence.onclick = async () => {
     if (!ui.runList.length) return;
+    await activateCurrentTab();
 
     chrome.runtime.sendMessage({
       type: "START_SEQUENCE_PLAYBACK",

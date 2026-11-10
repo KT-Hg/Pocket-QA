@@ -35,6 +35,29 @@ function syncGatedCardCollapse(isActive) {
 
 export let activatedTabs = new Set();
 
+/**
+ * Turn Pocket QA on for the active tab — content.js injected (a tab opened before
+ * the install has none), the tab remembered as activated — and redraw the bar.
+ * What starts a recording or a run calls it first. False on a tab that cannot be
+ * used, or when the injection failed.
+ */
+export async function activateCurrentTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !isEligibleTab(tab)) return false;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: CONTENT_SCRIPT_FILES });
+  } catch (_) {
+    // Already injected (the manifest's content script), or a page that refuses it:
+    // the run reports the latter itself.
+  }
+  if (!activatedTabs.has(tab.id)) {
+    activatedTabs.add(tab.id);
+    await chrome.storage.local.set({ activatedTabs: Array.from(activatedTabs) });
+  }
+  checkTabActivation();
+  return true;
+}
+
 // Only the Record overlay locks scrolling now. The Data one covers just the two
 // cards inside #dataGatedZone, so the rest of that tab has to stay scrollable —
 // otherwise the SQL Test Case Designer sits below a fold nobody can reach.
@@ -50,23 +73,14 @@ function _syncOverlayScrollLock() {
   if (shouldLock) lockScroll(); else unlockScroll();
 }
 
-function showLockOverlay(which, type) {
-  const id = which === 'record' ? 'Record' : 'Data';
-  const overlay = document.getElementById('lockOverlay' + id);
-  const titleEl = document.getElementById('lockOverlay' + id + 'Title');
-  const subEl = document.getElementById('lockOverlay' + id + 'Sub');
-  const btn = document.getElementById('lockOverlay' + id + 'Btn');
+/**
+ * The lock over the Record tab (or the Data tab's gated cards) on a page Pocket QA
+ * cannot use — the New Tab page, Settings. An eligible tab never gets it: what
+ * starts a recording or a run turns the tab on (activateCurrentTab).
+ */
+function showLockOverlay(which) {
+  const overlay = document.getElementById(which === 'record' ? 'lockOverlayRecord' : 'lockOverlayData');
   if (!overlay) return;
-  if (type === 'not-eligible') {
-    if (titleEl) titleEl.textContent = 'Not available on this page';
-    // A first click on the icon is often on the New Tab page: say what to do next.
-    if (subEl) subEl.textContent = 'Open a website (an http or https page) in this tab, then click the Pocket QA icon again. Browser pages such as the New Tab page or Settings cannot be tested.';
-    if (btn) btn.hidden = true;
-  } else {
-    if (titleEl) titleEl.textContent = 'Activate on Tab';
-    if (subEl) subEl.textContent = 'Click Activate to turn Pocket QA on for this tab. It stays off on a tab until you do, so its hotkeys never fire on other sites.';
-    if (btn) btn.hidden = false;
-  }
   overlay.classList.add('is-visible');
   if (which === 'record') _recordOverlayWanted = true;
   _syncOverlayScrollLock();
@@ -94,8 +108,8 @@ function checkTabActivation() {
       if (statusDot) { statusDot.className = "status-dot"; }
       activateTab.style.display = "none";
       deactivateTab.style.display = "none";
-      showLockOverlay('record', 'not-eligible');
-      showLockOverlay('data', 'not-eligible');
+      showLockOverlay('record');
+      showLockOverlay('data');
       document.body.dataset.activation = 'not-eligible';
       syncGatedCardCollapse(false);
       return;
@@ -113,15 +127,19 @@ function checkTabActivation() {
       document.body.dataset.activation = 'active';
       syncGatedCardCollapse(true);
     } else {
-      activationStatus.textContent = "Inactive";
-      activationStatus.style.color = "var(--danger)";
+      // No lock over the cards: Start Recording, Play, a Sequence and a CSV run
+      // turn the tab on themselves (activateCurrentTab). A newcomer met a lock and
+      // an "Activate" nobody explained before the first recording; only the
+      // hotkeys still wait for the tab to be on.
+      activationStatus.textContent = "Off on this tab";
+      activationStatus.title = "Pocket QA turns on for this tab when you record or play here. Its hotkeys work once it is on.";
+      activationStatus.style.color = "var(--muted)";
       if (statusDot) { statusDot.className = "status-dot inactive"; }
       activateTab.style.display = "block";
       deactivateTab.style.display = "none";
-      showLockOverlay('record', 'inactive');
-      showLockOverlay('data', 'inactive');
+      hideLockOverlay();
       document.body.dataset.activation = 'inactive';
-      syncGatedCardCollapse(false);
+      syncGatedCardCollapse(true);
     }
   });
 }
@@ -140,37 +158,12 @@ export function initTabActivation() {
   });
   if (activateTab) {
     activateTab.addEventListener('click', async () => {
-      chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-        const tab = tabs[0];
-        if (!tab || !isEligibleTab(tab)) return;
-
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: CONTENT_SCRIPT_FILES
-          });
-
-          activatedTabs.add(tab.id);
-          chrome.storage.local.set({ activatedTabs: Array.from(activatedTabs) });
-
-          checkTabActivation();
-
-          activationStatus.textContent = "Activated successfully";
-          activationStatus.style.color = "var(--success)";
-          setTimeout(() => checkTabActivation(), RECHECK_AFTER_ACTIVATION_MS);
-        } catch (err) {
-          // Reported inline only — the success path does the same, and a toast on
-          // top of it would announce the same failure twice.
-          activationStatus.textContent = "Activation failed";
-          activationStatus.style.color = "var(--danger)";
-        }
-      });
+      if (!(await activateCurrentTab())) return;
+      activationStatus.textContent = "Activated successfully";
+      activationStatus.style.color = "var(--success)";
+      setTimeout(() => checkTabActivation(), RECHECK_AFTER_ACTIVATION_MS);
     });
   }
-  ['lockOverlayRecordBtn', 'lockOverlayDataBtn'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (btn) btn.addEventListener('click', () => activateTab && activateTab.click());
-  });
   // Record only. Swallowing the wheel over the Data overlay would trap the popup
   // scroll whenever the pointer happened to be over the two gated cards.
   ['lockOverlayRecord'].forEach(id => {
@@ -182,7 +175,7 @@ export function initTabActivation() {
   if (deactivateTab) {
     deactivateTab.addEventListener('click', () => {
       // "Remove" in red read as deleting something: nothing is deleted, the tab reloads.
-      showConfirm("Turn Pocket QA off on this tab? The page reloads, and recording and playback stop working here until you click Activate again. Your scenarios are kept.", () => {
+      showConfirm("Turn Pocket QA off on this tab? The page reloads and its hotkeys stop working here; recording or playing on this tab turns it on again. Your scenarios are kept.", () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0];
         if (!tab) return;

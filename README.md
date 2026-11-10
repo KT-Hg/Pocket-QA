@@ -45,7 +45,7 @@ Requires **Chrome 109 or newer**.
 ## Quick Start
 
 1. Navigate to the page you want to automate
-2. Open the extension popup → click **Activate** in the status bar
+2. Open the extension popup. Recording or playing turns Pocket QA on for the tab (the status bar's **Activate** does it by hand; the record hotkeys wait for it)
 3. Go to the **Record & Play** tab → click **▶ Start Recording**; the page shows a **● Recording — Pocket QA** pill while it records
 4. Click and type on the page — those are the two event types the recorder captures. Each step is named after what the page calls the element (a field's label or placeholder, a button's text)
 5. Click **■ Stop** (in the popup or on the pill) → name and save the scenario; it stays selected, ready to play

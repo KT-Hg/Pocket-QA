@@ -5,6 +5,7 @@
 
 import { tallyText, tallyVerdicts } from '../../shared/verdict.js';
 import { clearCsvDoneBar, openPbPanel, setCsvDoneBar } from '../connection.js';
+import { activateCurrentTab } from '../tab-activation.js';
 import { ui } from '../ui-state.js';
 import { showConfirm, showToast } from '../utils.js';
 import { getInputVarsFromScenario, stopCsvCountdown, updateCsvBadges } from './csv-run.js';
@@ -112,7 +113,7 @@ function _rememberChoices() {
 }
 
 export function initCsvState() {
-  document.getElementById("startCsvRun")?.addEventListener("click", () => {
+  document.getElementById("startCsvRun")?.addEventListener("click", async () => {
     const scenarioId = document.getElementById("csvScenarioSelect")?.value;
     if (!scenarioId) { showToast("Select a scenario first", "error"); return; }
     if (!ui.csvParsed || !ui.csvParsed.rows.length) { showToast("Load a CSV file first", "error"); return; }
@@ -146,6 +147,7 @@ export function initCsvState() {
 
     const exportFormat = document.getElementById("csvExportFormat")?.value || "csv";
 
+    await activateCurrentTab(); // the rows play on this tab: Pocket QA on there first
     chrome.runtime.sendMessage({
       type: "START_CSV_PLAYBACK",
       scenarioId,

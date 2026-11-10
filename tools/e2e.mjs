@@ -1693,6 +1693,32 @@ async function checkSqlLang(ctx) {
   }
 }
 
+async function checkAutoActivate(ctx) {
+  await reloadTestPage(ctx);
+  const id = await makeScenario(ctx, 'e2e auto activate', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
+  const popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...POPUP_VIEWPORT });
+  try {
+    await popup.evaluate(`chrome.storage.local.set({ activatedTabs: [] })`);
+    await popup.reload();
+    await sleep(POPUP_SETTLE_MS);
+    const before = await popup.evaluate(`({ locked: document.getElementById('lockOverlayRecord').classList.contains('is-visible'),
+      status: document.getElementById('activationStatus').textContent, startReady: !document.getElementById('startRecord').disabled })`);
+    check(!before.locked && before.status === 'Off on this tab' && before.startReady,
+      'a web page not turned on yet: no lock over Record & Play, Start Recording ready', before);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+    await showScenario(popup, id);
+    await ctx.web.bringToFront();
+    await popup.evaluate(`document.getElementById('playScenario').click()`);
+    await sleep(SETTLE_MS);
+  } finally {
+    await closeQuietly(popup);
+  }
+  const activated = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('activatedTabs', (x) => r(x.activatedTabs || [])))`);
+  await ctx.send({ type: 'STOP_PLAYBACK' });
+  await sleep(SETTLE_MS);
+  check(activated.includes(ctx.webTabId), '▶ Play turns Pocket QA on for the tab it plays on', { activated, tab: ctx.webTabId });
+}
+
 async function checkHotkeys(ctx) {
   await reloadTestPage(ctx);
   // Alt+R as the page gets it; `key` is what the keyboard typed ("®" for Option+R on macOS).
@@ -4827,6 +4853,7 @@ const CHECKS = [
   ['no-checks', 'A run with no Assert says it checked nothing', checkNoChecks],
   ['last-run-live', 'The Last run card hides while a run is on', checkLastRunLive],
   ['sql-lang', 'The SQL page opens in English, a chosen language kept', checkSqlLang],
+  ['auto-activate', 'No lock on a web page; Play turns the tab on', checkAutoActivate],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
   ['select-type', 'Child Condition type "select"', checkSelectType],

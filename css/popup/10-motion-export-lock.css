@@ -782,26 +782,6 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   line-height: 1.5;
 }
 
-.lock-overlay-activate-btn {
-  display: inline-block;
-  padding: 7px 22px;
-  background: var(--primary-fill);
-  color: #fff;
-  border: none;
-  border-radius: 7px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.lock-overlay-activate-btn:hover { background: var(--primary-fill-hover); }
-
-/* display:inline-block above outranks the UA rule for [hidden], so the
- * not-eligible branch's `btn.hidden = true` never actually hid this button —
- * "Not Available" came with an Activate button that could not activate. */
-.lock-overlay-activate-btn[hidden] { display: none; }
-
 [data-theme="dark"] .lock-overlay {
   background: rgba(0, 0, 0, 0.48);
 }
@@ -859,15 +839,6 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   font-size: 0.72rem;
 }
 
-/* width: auto overrides the blanket `button { width: 100% }` near the top of
- * this file — without it the button eats the row and the copy wraps to one
- * word per line. */
-.lock-overlay-zone .lock-overlay-activate-btn {
-  flex: 0 0 auto;
-  width: auto;
-  padding: 6px 16px;
-  font-size: 0.8rem;
-}
 
 /* Only while the overlay shows: keep the zone tall enough for the card, since
  * the "not supported on this page" copy runs to three lines. The zone is last
