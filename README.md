@@ -82,7 +82,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - **DB Test Session** — opens `dbtest.html`: the changes recorded in Adminer and the SQL to undo them
 
 ### Capture
-- Screenshot: Visible, Full Page, Scroll V/H, Segment V/H, Element, Window
+- Screenshot: Visible, Full Page, Scroll (down / across), Segment (down / across), Element, Window — a line under the buttons says what each kind does
 - Crop/edit mode for all capture types
 - Image diff tool (pixel-level comparison)
 - Standalone image editor for any image from the clipboard or a file
@@ -102,7 +102,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - Screenshot save mode (auto/ask), filename prefix
 - Watermark (format, font size)
 - Segment scroll speed (V/H)
-- Notifications on playback complete
+- Notifications in four groups (run ended, errors, captures, scheduled runs), all on by default
 - Import/Export scenarios and folders — an import holding Run JS or Upload File actions warns, naming the folders the uploads read
 - Backup/Restore all data
 

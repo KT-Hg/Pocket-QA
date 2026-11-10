@@ -8,10 +8,10 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 
 ## Còn lại sau đợt sửa review (2026-10)
 
-- **`content.js` có 2.167 dòng** (`wc -l`; từ 3.343). Đợt plan 9 chuyển countdown, prompt khi action lỗi và thanh
+- **`content.js` có 2.273 dòng** (`wc -l`; từ 3.343). Đợt plan 9 chuyển countdown, prompt khi action lỗi và thanh
   segment sang `content-overlays.js`, worker chỉ nạp khi cần (2.278 → 2.040), rồi thêm khoảng 100 dòng cho
   "Choose item #" trong danh sách ảo hoá, rồi khoảng 25 dòng cho Assert (plan 10: `CHECK_CONDITION` trả thêm `found` /
-  `actual`). Xuống dưới 2.000 phải chuyển cả Element picker: popup gửi `START_PICK_MODE`
+  `actual`), rồi khoảng 105 dòng ở plan 16 (tên bước `_humanName`, khung đang ghi, câu "not found"). Xuống dưới 2.000 phải chuyển cả Element picker: popup gửi `START_PICK_MODE`
   thẳng vào tab ở ba chỗ, và recorder dùng chung `pickerMode` / `_extIsOurChrome` với nó.
 
 - **`verify --eslint` đếm cả worktree lồng trong repo.** Session chạy trong `.claude/worktrees/…` để lại một bản code
@@ -34,6 +34,14 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   Read DOM có thể khác); báo cáo ghi rõ điều này.
 - **Lỗi nằm trong scenario khác (Switch chạy vào):** bấm dòng lỗi trên thẻ Last run nhảy theo số bước trong scenario
   gốc, có thể trỏ nhầm hàng; trace và bug report thì kể lỗi trên bước Switch đó.
+- **Lần Resume không bao giờ ghi `✓ Finished · no checks`:** các Assert trước checkpoint đã chạy ở lần bị cắt, nên lần
+  chạy tiếp không biết tổng số Assert và vẫn ghi `✓ Passed` khi không có lỗi. Sequence và CSV run cũng không đếm.
+- **Tên bước lấy từ trang** (plan 16) chỉ có ở bước ghi từ bản này trở đi; bước ghi trước đó vẫn hiện selector. Trên
+  trang đặt `aria-label` chung chung, tên có thể không nói đúng phần tử — sửa ở ô **Label** khi Edit.
+- **Dấu 🔒 của bước gõ vào ô mật khẩu mất khi Save Edit** (form dựng lại action từ đầu); mật khẩu vẫn nằm nguyên văn
+  trong scenario, file JSON và code export như trước.
+- **Ảnh Visible chụp trong lúc đang ghi có cả khung `● Recording — Pocket QA`** ở góc dưới phải. Ảnh Full page,
+  Scroll, Segment và Element thì ẩn nó như mọi overlay của extension.
 
 - **Recorder chỉ ghi tab bắt đầu ghi.** Link mở sang tab mới thì thao tác ở tab đó không được ghi. Trước đây ghi được
   nhưng phát lại chạy trên tab ban đầu, tức là sai tab.
