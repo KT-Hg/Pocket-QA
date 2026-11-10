@@ -11,7 +11,7 @@ import { ui } from '../ui-state.js';
 import { escHtml, getActionIcon, getDragAfterElement, showConfirm, showToast } from '../utils.js';
 import { followListEdit, startEdit } from './action-form.js';
 import { debouncedSaveDraft } from './draft.js';
-import { anchorAfterUnit, clearInsertPoint, insertAnchor, moveInsertPoint, pickInsertAfter, renderInsertPoint } from './insert-point.js';
+import { anchorAfterUnit, clearInsertPoint, fitInsertPoint, insertAnchor, moveInsertPoint, pickInsertAfter, renderInsertPoint } from './insert-point.js';
 import { candidateActions, noOf, setSwitchContext, swCtx, switchSelfIdx, switchStartSuffix } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 
@@ -788,11 +788,11 @@ export function previewActions(onRendered) {
       if (currentRequestId !== ui.previewRequestId) return;
 
       actionsEl.innerHTML = "";
+      setSwitchContext(scenarioId, res?.actions || []);
       // An insertion point is a place in one list.
-      if (ui.insertPoint && ui.insertPoint.scenarioId !== scenarioId) ui.insertPoint = null;
+      fitInsertPoint(scenarioId, swCtx.actions.length);
 
       if (!res?.actions?.length) {
-        setSwitchContext(scenarioId, []);
         actionsEl.innerHTML = `<li class="empty">No actions recorded — use the Add Manual Action card below to add one</li>`;
         // An empty scenario takes a paste too: it is the quickest way to start one.
         _appendPasteRow();
@@ -803,7 +803,6 @@ export function previewActions(onRendered) {
         return;
       }
 
-      setSwitchContext(scenarioId, res.actions);
       _renderActionRows(res.actions, scenarioId);
       _appendPasteRow();
       renderInsertPoint();

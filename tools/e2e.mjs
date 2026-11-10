@@ -983,6 +983,97 @@ async function checkInsertPoint(ctx) {
   }
 }
 
+/** The popup opened again as the toolbar button opens it: one load, so it restores what was kept once. */
+async function reopenPopup(ctx) {
+  const popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...POPUP_VIEWPORT });
+  await sleep(POPUP_SETTLE_MS);
+  return popup;
+}
+
+/** The popup closes itself for a pick (window.close); a page CDP opened may stay. */
+const closeQuietly = (page) => page.close().catch(() => { /* closed itself */ });
+
+async function checkInsertPointPick(ctx) {
+  const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` } });
+  const id = await makeScenario(ctx, 'e2e insert point pick', [click('a'), click('b'), click('c')]);
+  const placeOf = (popup) => popup.evaluate(`(() => { const g = document.querySelector('#actions li.action-ghost');
+    const n = document.getElementById('insertPointNote');
+    return { after: g?.previousElementSibling?.dataset.index ?? null, note: n.hidden ? '' : n.textContent.trim(),
+      selector: document.getElementById('manualSelector').value }; })()`);
+  const add = async (popup) => { await popup.evaluate(`document.getElementById('addManualAction').click()`); await sleep(POPUP_SETTLE_MS); };
+  const shape = async (popup) => (await storedActions(popup, id)).map((a) => a.selector).join(' | ');
+  let popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    await popup.evaluate(`(() => {
+      document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+      document.querySelector('#actions li.action[data-index="0"] .ins-gap').click();
+      const t = document.getElementById('manualActionType'); t.value = 'click'; t.dispatchEvent(new Event('change'));
+    })()`);
+    await sleep(SETTLE_MS);
+    // 🎯 keeps the form and closes the popup; the element is clicked on the page.
+    await popup.evaluate(`document.getElementById('pickElement').click()`);
+    await sleep(SETTLE_MS);
+    await closeQuietly(popup);
+    await clickAt(ctx, '#choiceA');
+    await sleep(SETTLE_MS);
+    popup = await reopenPopup(ctx);
+    const picked = await placeOf(popup);
+    check(picked.selector === '#choiceA' && picked.after === '0' && /Insert at #2/.test(picked.note),
+      'after 🎯 Pick the popup comes back with the place picked by + (under row 1)', picked);
+    await add(popup);
+    const one = await shape(popup);
+    check(one === '#a | #choiceA | #b | #c', 'the action whose element was picked goes in at the place, not last', one);
+    // The popup closed with an action half filled in: its draft keeps the place too.
+    await popup.evaluate(`(() => {
+      const t = document.getElementById('manualActionType'); t.value = 'click'; t.dispatchEvent(new Event('change'));
+      const s = document.getElementById('manualSelector'); s.value = '#x'; s.dispatchEvent(new Event('input'));
+    })()`);
+    await sleep(DRAFT_SAVE_MS);
+    await closeQuietly(popup);
+    popup = await reopenPopup(ctx);
+    const drafted = await placeOf(popup);
+    check(drafted.selector === '#x' && drafted.after === '1' && /Insert at #3/.test(drafted.note),
+      'a draft brought back keeps the place: right after the action just added', drafted);
+    await add(popup);
+    const two = await shape(popup);
+    check(two === '#a | #choiceA | #x | #b | #c', 'the drafted action goes in at that place', two);
+    // A Drag & Drop's drop target picked on the page: the popup closes for it too.
+    await popup.evaluate(`(() => {
+      const t = document.getElementById('manualActionType'); t.value = 'dragdrop'; t.dispatchEvent(new Event('change'));
+      document.getElementById('manualSelector').value = '#from';
+      document.getElementById('dragdropTargetPick').click();
+    })()`);
+    await sleep(SETTLE_MS);
+    await closeQuietly(popup);
+    await clickAt(ctx, '#choiceB');
+    await sleep(SETTLE_MS);
+    popup = await reopenPopup(ctx);
+    const target = await popup.evaluate(`document.getElementById('dragdropTarget').value`);
+    const dd = await placeOf(popup);
+    check(target === '#choiceB' && dd.after === '2' && /Insert at #4/.test(dd.note),
+      'after picking a drop target the place is still there', { target, ...dd });
+    await add(popup);
+    const three = await shape(popup);
+    check(three === '#a | #choiceA | #x | #from | #b | #c', 'the Drag & Drop goes in at the place', three);
+    // A place kept for a list that has changed since is dropped, not used at a wrong index.
+    await popup.evaluate(`(() => {
+      const t = document.getElementById('manualActionType'); t.value = 'click'; t.dispatchEvent(new Event('change'));
+      const s = document.getElementById('manualSelector'); s.value = '#y'; s.dispatchEvent(new Event('input'));
+    })()`);
+    await sleep(DRAFT_SAVE_MS);
+    await closeQuietly(popup);
+    await ctx.send({ type: 'ADD_MANUAL_ACTION', scenarioId: id, action: click('z') });
+    popup = await reopenPopup(ctx);
+    const stale = await placeOf(popup);
+    check(stale.selector === '#y' && stale.note === '', 'the list changed while the popup was closed: the place is dropped, the action goes last', stale);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove(['manualFormDraft', 'pendingEdit', 'lastPickedSelector', 'lastPickedSelectors', 'lastPickedFrameId'])`);
+    await closeQuietly(popup);
+  }
+}
+
 async function checkSwitchOtherCase(ctx) {
   const guest = await makeScenario(ctx, 'e2e guest', [{ type: 'click', selector: '#g', selectors: { css: '#g' } }]);
   const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` } });
@@ -4501,6 +4592,7 @@ const CHECKS = [
   ['switch-other-case', 'A Switch case running another scenario: listed, never dropped into', checkSwitchOtherCase],
   ['copy-switch-block', 'Copy and Paste a Switch with its block', checkCopySwitchBlock],
   ['insert-point', 'The + between rows: the dummy row, adds and a paste at that place', checkInsertPoint],
+  ['insert-point-pick', 'The place picked by + kept across 🎯 Pick and a reopened draft', checkInsertPointPick],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],

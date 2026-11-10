@@ -12,7 +12,7 @@ import { ui } from '../ui-state.js';
 import { debounce, isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
 import { addVariableRow, newVariableConfig } from '../variables.js';
 import { saveDraft } from './draft.js';
-import { clearInsertPoint, insertAnchor, moveInsertPoint } from './insert-point.js';
+import { clearInsertPoint, insertAnchor, keptInsertPoint, moveInsertPoint } from './insert-point.js';
 import { CONDITION_FORM_TYPES, DEFAULT_DELAY_MS, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, clickThroughOff, fillField, setClickThrough, showClickThroughFor } from './form-table.js';
@@ -653,6 +653,8 @@ export function initActionForm() {
           ...(ui.editing || {}),
           ...collectManualFormState(),
           isNew: !ui.editing,
+          // Where the new action goes (the + between rows): it went last after a pick.
+          insertPoint: keptInsertPoint(),
         }
       });
     }

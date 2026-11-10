@@ -8,6 +8,7 @@ import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { debounce } from '../utils.js';
 import { applyManualFormState, collectManualFormState, setEditing } from './form-state.js';
+import { keptInsertPoint, restoreInsertPoint } from './insert-point.js';
 
 /* === DRAFT: persist Add Manual Action card across popup close/reopen === */
 
@@ -30,6 +31,7 @@ export function saveDraft() {
     // editing state
     editing: ui.editing ? { scenarioId: ui.editing.scenarioId, index: ui.editing.index } : null,
     scenarioId: document.getElementById("scenarioList")?.value || null,
+    insertPoint: keptInsertPoint(),
   };
 
   chrome.storage.local.set({ manualFormDraft: draft });
@@ -48,6 +50,7 @@ export function restoreDraft(draft) {
   }
 
   applyManualFormState(draft);
+  if (!draft.editing) restoreInsertPoint(draft.insertPoint);
 
   // Open card
   if (draft.cardOpen || draft.editing) setCardOpen(document.getElementById("addManualActionCard"), true);

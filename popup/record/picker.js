@@ -8,6 +8,7 @@ import { ui } from '../ui-state.js';
 import { isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
 import { restoreDraft } from './draft.js';
 import { applyManualFormState, collectManualFormState, setEditing } from './form-state.js';
+import { keptInsertPoint, restoreInsertPoint } from './insert-point.js';
 import { updateFrameNote, displayPickedDragdropTargetSelectors, displayPickedSelectors } from './picked-selectors.js';
 
 export function initPicker() {
@@ -48,6 +49,7 @@ export function initPicker() {
       // Restores every field + all wrapper visibility (also handles the legacy
       // actionValue/actionDelay shape written by older versions).
       applyManualFormState(pe);
+      if (pe.isNew) restoreInsertPoint(pe.insertPoint);
 
       setCardOpen(document.getElementById("addManualActionCard"), true);
 
@@ -80,6 +82,7 @@ export function initPicker() {
         if (ddTarget) ddTarget.value = ddPickedSelectors[targetType] || picked;
       }
       if (st.editingIndex != null) setEditing({ scenarioId: st.scenarioId, index: st.editingIndex });
+      else restoreInsertPoint(st.insertPoint);
       setCardOpen(document.getElementById("addManualActionCard"), true);
       return;
     }
@@ -126,6 +129,7 @@ export function initPicker() {
           ...collectManualFormState(),
           scenarioId: scenarioList.value || null,
           editingIndex: ui.editing ? ui.editing.index : null,
+          insertPoint: keptInsertPoint(),
         }
       });
       safeSendTabMessage(tab.id, { type: "START_PICK_MODE" });

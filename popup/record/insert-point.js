@@ -9,6 +9,10 @@
  *
  * The place is dropped (back to "last") when the list changes under it: another
  * scenario, a Delete, a drag, Undo / Redo, or Edit on a row.
+ *
+ * It is kept with the form when the popup closes — 🎯 Pick, the drop target's
+ * Pick, the draft — and comes back with it (keptInsertPoint / restoreInsertPoint),
+ * for the list it was picked in only.
  */
 
 import { isBlockCase, insertActions } from '../../shared/switch-blocks.js';
@@ -16,10 +20,13 @@ import { actionsEl, conditionType, manualActionType, manualSelector, manualValue
 import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { debounce, escHtml, getActionIcon, showToast } from '../utils.js';
+import { debouncedSaveDraft } from './draft.js';
 import { anchorOf, applyPlacement, getActionDisplayValue, placeText, renderConditionRunTo } from './preview.js';
 import { swCtx } from './switch-case-builder.js';
 
 let ghost = null;   // the dummy row, made on first use (tests import this module without a DOM)
+// The list previewActions last drew: { scenarioId, count }, null before the first.
+let listShown = null;
 
 function _ghostRow() {
   if (ghost) return ghost;
@@ -35,17 +42,56 @@ function _ghostRow() {
   return ghost;
 }
 
-/** The place for the list on screen, or null: the next action goes last. */
+/**
+ * The place for the list on screen, or null: the next action goes last. A place
+ * brought back from storage (`count` still on it) waits for the list to be
+ * checked by fitInsertPoint.
+ */
 export function insertAnchor() {
   const p = ui.insertPoint;
   const sid = scenarioList.value || null;
-  return p && p.scenarioId === sid && swCtx.scenarioId === sid ? p.anchor : null;
+  return p && p.count == null && p.scenarioId === sid && swCtx.scenarioId === sid ? p.anchor : null;
 }
 
 export function setInsertPoint(anchor) {
   ui.insertPoint = anchor ? { scenarioId: scenarioList.value || null, anchor } : null;
   renderInsertPoint();
   // "Then run" counts the actions after the place the Condition goes.
+  if (manualActionType.value === "condition") renderConditionRunTo();
+  // The draft follows the place, so a popup closed now brings it back.
+  debouncedSaveDraft();
+}
+
+/**
+ * The place, to keep with the form while the popup is closed: null when the next
+ * action goes last. `count` is the length of the list it is a place in.
+ */
+export function keptInsertPoint() {
+  const anchor = !ui.editing && insertAnchor();
+  return anchor ? { scenarioId: swCtx.scenarioId, anchor, count: swCtx.actions.length } : null;
+}
+
+/** A place kept by keptInsertPoint, back in a reopened popup — once its list is checked. */
+export function restoreInsertPoint(kept) {
+  if (!kept?.anchor || kept.count == null || ui.editing) return;
+  ui.insertPoint = { scenarioId: kept.scenarioId ?? null, anchor: kept.anchor, count: kept.count };
+  // The list was drawn before the form came back: check it against that one.
+  if (listShown) fitInsertPoint(listShown.scenarioId, listShown.count);
+  renderInsertPoint();
+}
+
+/**
+ * The list on screen is now `count` actions of `scenarioId`: a place is one in
+ * that scenario, and one brought back from storage holds only if the list is the
+ * length it was — changed while the popup was closed, its indexes may point elsewhere.
+ */
+export function fitInsertPoint(scenarioId, count) {
+  listShown = { scenarioId, count };
+  const p = ui.insertPoint;
+  if (!p) return;
+  if (p.scenarioId !== scenarioId || (p.count != null && p.count !== count)) { ui.insertPoint = null; return; }
+  if (p.count == null) return;
+  delete p.count;
   if (manualActionType.value === "condition") renderConditionRunTo();
 }
 
