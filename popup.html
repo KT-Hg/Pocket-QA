@@ -53,7 +53,7 @@
       <span class="status-spacer"></span>
       <span class="status-progress" id="statusText"></span>
       <button id="activateTab" class="success" style="display:none;">Activate</button>
-      <button id="deactivateTab" class="danger" style="display:none;">Remove</button>
+      <button id="deactivateTab" class="secondary" style="display:none;" title="Turn Pocket QA off on this tab (the page reloads). Your scenarios are kept.">Turn off</button>
       <button class="icon-btn" id="toggleTheme" title="Toggle theme" aria-label="Toggle dark or light theme"><span aria-hidden="true">🌙</span></button>
     </div>
     <!-- Now Playing bar (click to toggle mini panel) -->
@@ -985,7 +985,7 @@
           <div class="lock-overlay-icon">🔒</div>
           <div class="lock-overlay-text">
             <h3 class="lock-overlay-title" id="lockOverlayDataTitle">Activate on Tab</h3>
-            <p class="lock-overlay-sub" id="lockOverlayDataSub">Click Activate to enable recording and playback on the current tab.</p>
+            <p class="lock-overlay-sub" id="lockOverlayDataSub">Click Activate to turn Pocket QA on for this tab. It stays off on a tab until you do, so its hotkeys never fire on other sites.</p>
           </div>
           <button class="lock-overlay-activate-btn" id="lockOverlayDataBtn">Activate</button>
         </div>
@@ -1377,7 +1377,7 @@
           <option value="10">10 seconds</option>
         </select>
       </div>
-      <span class="helper-text">On: press hotkey/button → countdown → open dropdown → auto capture. Off: capture immediately (default).</span>
+      <span class="helper-text">On (default): press the hotkey or button → a countdown → open a dropdown → it captures. Off: it captures at once.</span>
 
       <div class="step-label step-label-divider-top">Watermark</div>
       <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; padding:3px 0;">
@@ -1975,7 +1975,7 @@
     <div class="lock-overlay-card">
       <div class="lock-overlay-icon">🔒</div>
       <h3 class="lock-overlay-title" id="lockOverlayRecordTitle">Activate on Tab</h3>
-      <p class="lock-overlay-sub" id="lockOverlayRecordSub">Click Activate to enable recording and playback on the current tab.</p>
+      <p class="lock-overlay-sub" id="lockOverlayRecordSub">Click Activate to turn Pocket QA on for this tab. It stays off on a tab until you do, so its hotkeys never fire on other sites.</p>
       <button class="lock-overlay-activate-btn" id="lockOverlayRecordBtn">Activate</button>
     </div>
   </div>

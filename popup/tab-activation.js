@@ -58,12 +58,13 @@ function showLockOverlay(which, type) {
   const btn = document.getElementById('lockOverlay' + id + 'Btn');
   if (!overlay) return;
   if (type === 'not-eligible') {
-    if (titleEl) titleEl.textContent = 'Not Available';
-    if (subEl) subEl.textContent = 'Recording and playback are not supported on this page (e.g. Chrome settings, extension pages).';
+    if (titleEl) titleEl.textContent = 'Not available on this page';
+    // A first click on the icon is often on the New Tab page: say what to do next.
+    if (subEl) subEl.textContent = 'Open a website (an http or https page) in this tab, then click the Pocket QA icon again. Browser pages such as the New Tab page or Settings cannot be tested.';
     if (btn) btn.hidden = true;
   } else {
     if (titleEl) titleEl.textContent = 'Activate on Tab';
-    if (subEl) subEl.textContent = 'Click Activate to enable recording and playback on the current tab.';
+    if (subEl) subEl.textContent = 'Click Activate to turn Pocket QA on for this tab. It stays off on a tab until you do, so its hotkeys never fire on other sites.';
     if (btn) btn.hidden = false;
   }
   overlay.classList.add('is-visible');
@@ -180,7 +181,8 @@ export function initTabActivation() {
   });
   if (deactivateTab) {
     deactivateTab.addEventListener('click', () => {
-      showConfirm("Remove extension from this tab? You'll need to reactivate to use it again.", () => {
+      // "Remove" in red read as deleting something: nothing is deleted, the tab reloads.
+      showConfirm("Turn Pocket QA off on this tab? The page reloads, and recording and playback stop working here until you click Activate again. Your scenarios are kept.", () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0];
         if (!tab) return;
@@ -193,7 +195,7 @@ export function initTabActivation() {
           checkTabActivation();
         });
       });
-      }, { title: 'Remove Extension' });
+      }, { title: 'Turn off on this tab', okLabel: 'Turn off' });
     });
   }
   // Remove tab from activated list when closed

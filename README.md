@@ -46,9 +46,9 @@ Requires **Chrome 109 or newer**.
 
 1. Navigate to the page you want to automate
 2. Open the extension popup → click **Activate** in the status bar
-3. Go to the **Record & Play** tab → click **▶ Start Recording**
-4. Click and type on the page — those are the two event types the recorder captures
-5. Click **■ Stop** → name and save the scenario
+3. Go to the **Record & Play** tab → click **▶ Start Recording**; the page shows a **● Recording — Pocket QA** pill while it records
+4. Click and type on the page — those are the two event types the recorder captures. Each step is named after what the page calls the element (a field's label or placeholder, a button's text)
+5. Click **■ Stop** (in the popup or on the pill) → name and save the scenario; it stays selected, ready to play
 6. Add any further steps (hover, drag & drop, navigate, screenshot, upload…) with **Add Action**
 7. Click **▶ Play** to replay
 
@@ -61,6 +61,9 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 ### Record & Play
 - Start/stop recording; undo/redo on the action list (up to 50 steps, cleared by **New** or loading another scenario)
   - Only the tab the recording started on is recorded; clicks and input events the page's own scripts dispatch are left out, and text typed just before a click is recorded before it
+  - Each recorded step gets a name from the page: the element's aria-label / aria-labelledby, a field's `<label>`, its placeholder, title or alt, the text of the button or link clicked, then its `name` — never what was typed. The list shows the name with the selector under it; Edit → Label changes it
+  - While recording, the tab shows a **● Recording — Pocket QA** pill (bottom right) whose **■ Stop** stops and saves like the hotkey, and the popup's Start button reads **● Recording…**
+  - **Turn off** in the status bar takes Pocket QA off the tab (the page reloads); scenarios are kept
 - **Last run** card at the top: how the last Play or Resume came out, its failures, its bug report — see [Run result](#run-result--bug-report)
 - Add manual actions (all 17 types)
 - **Click through** on each action (checkbox under Label) and on each scenario (⊘ on its toolbar) — see [Click through](#click-through)

@@ -12,7 +12,7 @@
  *   4. an Adminer-looking page makes dbtools/boot.js import its modules through
  *      web_accessible_resources without "failed to load";
  *   5. the popup on an activated http page: the status bar says Active and offers
- *      Remove, and the Now Playing bar (wired by popup/connection.js) opens its panel;
+ *      Turn off, and the Now Playing bar (wired by popup/connection.js) opens its panel;
  *   6. Add Manual Action: typing an XPath under CSS switches the selector type, a
  *      type chosen by hand stays; an edit restored from its draft reopens a card
  *      remembered closed with its chevron, title and Save Edit in step; Add with
@@ -179,7 +179,7 @@ async function checkActivatedPopup(browser, extUrl, base) {
     activation: document.getElementById('activationStatus')?.textContent,
     removeShown: getComputedStyle(document.getElementById('deactivateTab')).display !== 'none',
   })`);
-  if (bar.activation === 'Active' && bar.removeShown) ok('status bar: Active, with Remove');
+  if (bar.activation === 'Active' && bar.removeShown) ok('status bar: Active, with Turn off');
   else fail(`status bar: ${JSON.stringify(bar)}`);
   const panel = await popup.evaluate(`(() => {
     const bar = document.getElementById('nowPlayingBar');
