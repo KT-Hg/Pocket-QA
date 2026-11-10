@@ -1076,7 +1076,8 @@ test('a CSV row stopped before its end is recorded as not completed', () => {
 
 test('a run\'s verdict is in its notification title, and the counts in its text', () => {
   const t = (step) => titlesOf(step).map((n) => `${n.title} | ${n.message}`);
-  assert.deepEqual(t('verdict: passed'), ['✓ Passed — "VPass" | "VPass" finished']);
+  // VPass has no Assert: it ran to its end, and checked nothing.
+  assert.deepEqual(t('verdict: passed'), ['✓ Finished · no checks — "VPass" | "VPass" finished — no Assert ran, so nothing was checked']);
   assert.deepEqual(t('verdict: failed'), ['✗ Failed — "VFail" | "VFail" finished — 1 check failed']);
   assert.deepEqual(t('verdict: broken'), ['⚠ Test broken — "VBroken" | "VBroken" finished — 1 check failed · 1 step broken']);
   assert.deepEqual(t('verdict: stopped'), ['⏹ Stopped — "VStop" | "VStop" stopped before its end']);
@@ -1100,7 +1101,7 @@ test('Play and Resume keep their last run; a Sequence or a CSV run does not', ()
   assert.deepEqual(Object.keys(lr).sort(), ['actions', 'completed', 'endedAt', 'failures', 'loops', 'scenarioId', 'scenarioName', 'startedAt', 'verdict']);
   assert.deepEqual({ ...lr, startedAt: 0, endedAt: 0, failures: lr.failures.map((f) => ({ ...f, at: 0 })) }, {
     scenarioId: 'vFail', scenarioName: 'VFail', startedAt: 0, endedAt: 0, loops: 1, completed: true,
-    verdict: { status: 'failed', asserts: 1, broken: 0 },
+    verdict: { status: 'failed', asserts: 1, broken: 0, checks: 1 },
     failures: [{ index: 2, type: 'assert', label: '', reason: 'Expected element to exist', kind: 'assert', expected: '',
       url: 'https://example.com/start', at: 0, loop: 1, trace: [0, 1] }],
     actions: JSON.parse(JSON.stringify(fake.data.local.scenarios.vFail.actions)), // as storage keeps them
@@ -1109,6 +1110,8 @@ test('Play and Resume keep their last run; a Sequence or a CSV run does not', ()
   const loop = ended['verdict: three loops, the second fails'].lastRun;
   assert.deepEqual([loop.loops, loop.failures.length, loop.verdict.status], [3, 1, 'failed']);
   assert.equal(ended['verdict: resumed'].lastRun.resumed, true);
+  // The Asserts before the checkpoint ran in the run that was cut off: a resumed run counts none.
+  assert.equal('checks' in ended['verdict: resumed'].lastRun.verdict, false);
   assert.deepEqual(ended['verdict: sequence'].lastRun, SENTINEL);
   assert.deepEqual(ended['verdict: csv'].lastRun, SENTINEL);
 });

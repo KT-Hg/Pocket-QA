@@ -71,8 +71,12 @@ function _render(card, run, dismissedAt) {
   card.hidden = !run?.endedAt || run.endedAt === dismissedAt;
   if (card.hidden) return;
   const status = run.verdict?.status || 'stopped';
-  card.dataset.status = status;
-  card.querySelector('.lr-verdict').textContent = verdictLabel(status);
+  // Passed with no Assert played: it ran to its end, which says nothing of the page.
+  const unchecked = status === 'passed' && run.verdict?.checks === 0;
+  card.dataset.status = unchecked ? 'unchecked' : status;
+  card.querySelector('.lr-verdict').textContent = verdictLabel(status, run.verdict);
+  const hint = card.querySelector('.lr-hint');
+  if (hint) hint.hidden = !unchecked;
   const name = card.querySelector('.lr-name');
   name.textContent = run.scenarioName || run.scenarioId || '';
   name.title = name.textContent;

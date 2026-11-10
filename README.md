@@ -229,6 +229,7 @@ the Assert after it fail too, and that is a broken test, not a failing app.
 | Verdict | When |
 |---|---|
 | ✓ Passed | no failure, and the run reached its end |
+| ✓ Finished · no checks | Passed, but no Assert ran (none in the scenario, or all switched off or skipped): it ran to its end, which says nothing of the page. The Last run card tells you to add an Assert. A resumed run is never called this: the Asserts before its checkpoint ran in the run that was cut off |
 | ✗ Failed | its first failure is a false Assert |
 | ⚠ Test broken | its first failure is anything else |
 | ⏹ Stopped | no failure, but the run did not reach its end (Stop, its tab closed) — never Passed |

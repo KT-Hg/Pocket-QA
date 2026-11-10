@@ -29,7 +29,12 @@ export function runVerdict(failures, { completed = false } = {}) {
   return { status, asserts, broken };
 }
 
-export function verdictLabel(status) {
+/**
+ * The verdict in words. `checks`: how many Asserts the run played, when known —
+ * a run that passed with none checked nothing, and says so rather than "Passed".
+ */
+export function verdictLabel(status, { checks } = {}) {
+  if (status === 'passed' && checks === 0) return '✓ Finished · no checks';
   return LABELS[status] || '';
 }
 

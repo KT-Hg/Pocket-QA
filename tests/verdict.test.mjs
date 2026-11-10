@@ -44,6 +44,17 @@ test('verdictLabel', () => {
   assert.equal(verdictLabel('stopped'), '⏹ Stopped');
 });
 
+test('verdictLabel: a run that passed with no Assert played checked nothing', () => {
+  assert.equal(verdictLabel('passed', { checks: 0 }), '✓ Finished · no checks');
+  assert.equal(verdictLabel('passed', { checks: 2 }), '✓ Passed');
+  // Not known (an older lastRun, a resumed run, a CSV row): as before.
+  assert.equal(verdictLabel('passed', {}), '✓ Passed');
+  assert.equal(verdictLabel('passed', { checks: undefined }), '✓ Passed');
+  // Only a pass is relabelled: a stop with no Assert is still a stop.
+  assert.equal(verdictLabel('stopped', { checks: 0 }), '⏹ Stopped');
+  assert.equal(verdictLabel('failed', { checks: 0 }), '✗ Failed');
+});
+
 const { tallyVerdicts, tallyText } = await import('../shared/verdict.js');
 
 test('tallyVerdicts: CSV rows by verdict; a row recorded before `completed` ran to its end', () => {

@@ -1570,6 +1570,44 @@ async function checkLastRun(ctx) {
   await popup.close();
 }
 
+async function checkNoChecks(ctx) {
+  const lastVerdict = () => ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('lastRun', (x) => r(x.lastRun?.verdict || null)))`);
+  const card = async () => {
+    const popup = await openPopup(ctx);
+    const seen = await popup.evaluate(`(() => {
+      const c = document.getElementById('lastRunCard');
+      return { verdict: c.querySelector('.lr-verdict').textContent, status: c.dataset.status, hint: c.querySelector('.lr-hint')?.hidden === false };
+    })()`);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+    await popup.close();
+    return seen;
+  };
+  const clicks = [
+    { type: 'click', selector: '#bg1', selectors: { css: '#bg1' } },
+    { type: 'click', selector: '#bg2', selectors: { css: '#bg2' } },
+  ];
+  const holds = { type: 'assert', conditionType: 'textEquals', selector: '#bg1', selectors: { css: '#bg1' }, expectedValue: 'bg1' };
+
+  await reloadTestPage(ctx);
+  await play(ctx, await makeScenario(ctx, 'e2e no checks', clicks));
+  const none = { verdict: await lastVerdict(), card: await card() };
+  check(none.verdict?.status === 'passed' && none.verdict?.checks === 0
+    && none.card.verdict === '✓ Finished · no checks' && none.card.status === 'unchecked' && none.card.hint,
+  'a run with no Assert: "Finished · no checks", not Passed, and a hint to add one', none);
+
+  await reloadTestPage(ctx);
+  await play(ctx, await makeScenario(ctx, 'e2e one check', [...clicks, holds]));
+  const one = { verdict: await lastVerdict(), card: await card() };
+  check(one.verdict?.status === 'passed' && one.verdict?.checks === 1
+    && one.card.verdict === '✓ Passed' && one.card.status === 'passed' && !one.card.hint,
+  'an Assert that holds: Passed, no hint', one);
+
+  await reloadTestPage(ctx);
+  await play(ctx, await makeScenario(ctx, 'e2e check switched off', [...clicks, { ...holds, disabled: true }]));
+  const off = await lastVerdict();
+  check(off?.status === 'passed' && off?.checks === 0, 'a disabled Assert checks nothing', off);
+}
+
 async function checkHotkeys(ctx) {
   await reloadTestPage(ctx);
   // Alt+R as the page gets it; `key` is what the keyboard typed ("®" for Option+R on macOS).
@@ -4603,6 +4641,7 @@ const CHECKS = [
   ['condition-unknown', 'A Condition of an unknown type', checkConditionUnknown],
   ['assert', 'Assert: waited for, and a false one does not stop the run', checkAssert],
   ['last-run', 'The Last run card in the popup', checkLastRun],
+  ['no-checks', 'A run with no Assert says it checked nothing', checkNoChecks],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
   ['select-type', 'Child Condition type "select"', checkSelectType],

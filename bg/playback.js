@@ -94,7 +94,7 @@ function _failCounts(verdict) {
  * (state.runVerdict); the caller's updateBadge shows it.
  */
 function _endVerdict(failures, completed) {
-  const verdict = runVerdict(failures, { completed });
+  const verdict = { ...runVerdict(failures, { completed }), checks: _checksRun };
   state.runVerdict = verdict.status === 'passed' ? null : verdict.status;
   return verdict;
 }
@@ -107,7 +107,8 @@ function _endVerdict(failures, completed) {
  */
 function _notifyVerdict(name, verdict, done) {
   const send = verdict.status === 'failed' || verdict.status === 'broken' ? sendAlertNotification : sendCompletionNotification;
-  return send(`${verdictLabel(verdict.status)} — ${name}`, `${done}${_failCounts(verdict)}`);
+  const unchecked = verdict.status === 'passed' && verdict.checks === 0 ? ' — no Assert ran, so nothing was checked' : '';
+  return send(`${verdictLabel(verdict.status, verdict)} — ${name}`, `${done}${_failCounts(verdict)}${unchecked}`);
 }
 
 /**
@@ -127,6 +128,11 @@ async function _evidence(tabId, evidence) {
 // Cached per playback run so repeated screenshot actions don't each issue a
 // storage read.  Reset at the start of each public entry point.
 let _ssSettings = null;
+
+// Asserts played in the current Play, Resume or Sequence, Switch cases and other
+// scenarios included: a run that played none checked nothing (_endVerdict).
+// Runs never overlap (runClaimed), so one counter, reset by each entry point.
+let _checksRun = 0;
 
 async function _getSsSettings() {
   if (!_ssSettings) {
@@ -274,6 +280,7 @@ export async function playActionsOnTab(tabId, actions, {
         }
         // Once per step: Retry plays the same step again.
         if (evidence && traced && evidence.trace.at(-1) !== i) evidence.trace.push(i);
+        if (action.type === 'assert') _checksRun++;
 
         // Each action type is a step in bg/playback/steps/; any other is played by
         // the content script.
@@ -399,7 +406,10 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
     await closeOpenSessions();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.playback.active = false;
+    // Asserts before the checkpoint ran in the run that was cut off: a count from
+    // here says nothing about the whole run.
     const verdict = _endVerdict(failedActions, completed);
+    delete verdict.checks;
     updateBadge();
     chrome.storage.local.remove('playbackCheckpoint');
     _saveLastRun(scenarioId, scenario, {
@@ -440,6 +450,7 @@ export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0, ta
 
 async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
   _ssSettings = null; // reset screenshot settings cache for this run
+  _checksRun = 0;
 
   const scenarios = await getScenarios();
   const scenario  = scenarios[scenarioId];
@@ -517,6 +528,7 @@ export async function startSequence(runList) {
 
 async function _playSequence(runList) {
   _ssSettings = null;
+  _checksRun = 0;
 
   state.sequencePlayback = { active: true, runList, currentIndex: 0 };
   updateBadge();
