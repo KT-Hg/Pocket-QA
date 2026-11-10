@@ -110,6 +110,23 @@ function _scheduleNextPoll(isActive) {
  * status dot, text badge, "Now Playing" bar, detail panel, and progress bar.
  * Called on a recurring interval managed by `_scheduleNextPoll`.
  */
+/**
+ * Start and Stop as the recording stands: while one runs, Start says so and
+ * cannot start another, and Stop is the button to press. Start used to stay
+ * green, with only a small "● REC" in the header to tell.
+ */
+function _syncRecordButtons(recording) {
+  const start = document.getElementById('startRecord');
+  const stop = document.getElementById('stopRecord');
+  if (!start || !stop || start.disabled === recording) return;
+  start.disabled = recording;
+  start.textContent = recording ? '● Recording…' : '▶ Start Recording';
+  start.classList.toggle('primary-gradient', !recording);
+  start.classList.toggle('secondary', recording);
+  stop.classList.toggle('danger', recording);
+  stop.classList.toggle('secondary', !recording);
+}
+
 function updateStatusIndicator() {
   const statusDot = document.getElementById('statusDot');
   const statusIndicator = document.getElementById('statusIndicator');
@@ -117,6 +134,7 @@ function updateStatusIndicator() {
   const scenarioList = document.getElementById('scenarioList');
 
   chrome.runtime.sendMessage({ type: 'GET_EXTENSION_STATUS' }, (status) => {
+    _syncRecordButtons(!chrome.runtime.lastError && !!status?.recording);
     if (chrome.runtime.lastError || !status) {
       if (statusIndicator) {
         statusIndicator.classList.remove('active', 'recording', 'playing', 'sequence');

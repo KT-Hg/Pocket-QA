@@ -4039,6 +4039,45 @@ async function checkRecordNames(ctx) {
     'a missing element: "not found on the page within 5 s (looked for it by ID and CSS)"', reasons);
 }
 
+async function checkRecordingPill(ctx) {
+  await reloadTestPage(ctx);
+  const id = await makeScenario(ctx, 'e2e recording pill', []);
+  const pill = () => ctx.web.evaluate(`(() => { const p = document.getElementById('__pqa_recording');
+    return p ? p.textContent.replace(/\\s+/g, ' ').trim() : null; })()`);
+  const buttons = async () => {
+    const popup = await openPopup(ctx);
+    const b = await popup.evaluate(`(() => { const s = document.getElementById('startRecord'), t = document.getElementById('stopRecord');
+      return { start: s.textContent.trim(), startDisabled: s.disabled, stopDanger: t.classList.contains('danger') }; })()`);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+    await popup.close();
+    return b;
+  };
+  const before = await pill();
+  await ctx.web.bringToFront();
+  await ctx.send({ type: 'START_RECORD', scenarioId: id, tabId: ctx.webTabId });
+  await sleep(SETTLE_MS);
+  const shown = await pill();
+  const inFrame = await ctx.web.evaluate(`document.querySelector('iframe')?.contentDocument?.getElementById('__pqa_recording') ? 'yes' : 'no'`).catch(() => 'n/a');
+  check(before === null && /Recording — Pocket QA/.test(shown || '') && /Stop/.test(shown || '') && inFrame !== 'yes',
+    'recording: the page shows a "● Recording — Pocket QA" pill with Stop, in the top frame only', { before, shown, inFrame });
+  const during = await buttons();
+  check(during.start === '● Recording…' && during.startDisabled && during.stopDanger,
+    'the popup while recording: Start reads "● Recording…" and is off, Stop stands out', during);
+
+  await ctx.web.bringToFront();
+  await clickAt(ctx, '#bg1');
+  await sleep(SETTLE_MS);
+  await clickAt(ctx, '#__pqa_recording button');
+  await sleep(SETTLE_MS * 2);
+  const status = await ctx.send({ type: 'GET_EXTENSION_STATUS' });
+  const saved = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('scenarios', (x) => r((x.scenarios[${JSON.stringify(id)}].actions || []).map((a) => a.selector))))`);
+  const after = await pill();
+  check(!status?.recording && after === null && JSON.stringify(saved) === '["#bg1"]',
+    'Stop on the pill stops and saves the recording, the pill goes, and its click is not a step', { recording: status?.recording, after, saved });
+  const idle = await buttons();
+  check(idle.start === '▶ Start Recording' && !idle.startDisabled && !idle.stopDanger, 'stopped: Start and Stop are back as they were', idle);
+}
+
 async function checkRecordOtherTab(ctx) {
   await reloadTestPage(ctx);
   const other = await ctx.browser.openPage(`${ctx.base}/page?other`, { width: 1000, height: 700 });
@@ -4760,6 +4799,7 @@ const CHECKS = [
   ['record-input-order', 'Typing, then a click at once', checkRecordInputOrder],
   ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
   ['record-names', 'Recorded steps named after their elements; "not found" in words', checkRecordNames],
+  ['recording-pill', 'Recording shows on the page and in the popup; Stop on the page', checkRecordingPill],
   ['record-restart', 'A recording across a worker restart', checkRecordRestart],
   ['csv-zip-advanced', 'The ZIP\'s Advanced section in the CSV card', checkCsvZipAdvanced],
   ['csv-zip-suggest', 'Variable suggestions in the ZIP Folder name', checkCsvZipSuggest],

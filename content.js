@@ -93,12 +93,44 @@ try {
     if (res.frameId != null) _myFrameId = res.frameId;
     _isRecording = !!res.recording;
     _tabActivated = !!res.activated;
+    _syncRecordingPill();
   });
 } catch (_) { /* extension context invalidated: keep frame 0, not recording */ }
 
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg?.type === 'RECORDING_STATE') _isRecording = !!msg.recording;
+  if (msg?.type !== 'RECORDING_STATE') return;
+  _isRecording = !!msg.recording;
+  _syncRecordingPill();
 });
+
+/**
+ * The pill the recording tab shows while it records: the popup closes once a
+ * recording starts, and nothing on the page said it was on. Its Stop does what
+ * the Stop hotkey does. A click on it is not recorded (_extIsOurChrome). The top
+ * frame only: one per tab.
+ * ponytail: a Visible screenshot taken while recording shows it (full-page and
+ * element shots hide every overlay); hide it there too if that gets in the way.
+ */
+let _recordingPill = null;
+
+function _syncRecordingPill() {
+  const show = _isRecording && window.top === window;
+  if (show && !_recordingPill) {
+    _recordingPill = _extOverlay({
+      id: '__pqa_recording',
+      variant: 'pill',
+      lead: _extSpan('●', ['color:' + _EXT_DANGER, 'font-size:14px', 'line-height:1']),
+      label: 'Recording — Pocket QA',
+      hint: null,
+      buttons: [{ key: 'stop', label: '■ Stop', tone: 'danger', onClick: () => safeSend({ type: 'STOP_RECORD' }) }],
+      // Bottom right: the top right is where a page keeps its account menu.
+      extra: ['top:auto', 'bottom:12px'],
+    }).mount();
+  } else if (!show && _recordingPill) {
+    _recordingPill.destroy();
+    _recordingPill = null;
+  }
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    DYNAMIC ID DETECTION
