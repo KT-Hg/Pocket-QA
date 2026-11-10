@@ -1,5 +1,5 @@
 /**
- * dom.js — elements of the Record & Play and Data tabs that several parts
+ * dom.js — elements of the Record & Play and Tools tabs that several parts
  * use, looked up once when the popup starts.
  */
 

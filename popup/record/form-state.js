@@ -173,7 +173,7 @@ function renameInFormState(state, from, to) {
 
 /**
  * The open form, and the draft kept of it, after variable `from` was renamed to
- * `to` in the Data tab — otherwise saving the form brought the old name back,
+ * `to` in the Tools tab — otherwise saving the form brought the old name back,
  * and autoCreateMissingVariables made it a new empty variable. The draft is
  * renamed where it is stored: saveDraft() writes nothing while the card is
  * closed, yet the next popup restores what was stored.

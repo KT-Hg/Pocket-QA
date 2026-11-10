@@ -302,3 +302,13 @@ summary:has(> .chev)::-webkit-details-marker { display: none; }
   display: none;
 }
 
+/* A heading over a group of cards in a tab (Record & Play: "Run several · on a
+   schedule · from a CSV"). */
+.tab-group-label {
+  margin: 14px 4px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

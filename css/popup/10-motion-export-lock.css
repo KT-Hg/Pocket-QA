@@ -745,8 +745,7 @@ label.export-bm-setting-row:has(input:disabled) .hl-toggle-slider { cursor: not-
   transition: opacity 0.18s ease;
 }
 
-body[data-active-tab="tabRecord"] #lockOverlayRecord.is-visible,
-body[data-active-tab="tabData"] #lockOverlayData.is-visible {
+body[data-active-tab="tabRecord"] #lockOverlayRecord.is-visible {
   opacity: 1;
   pointer-events: all;
 }
@@ -786,68 +785,7 @@ body[data-active-tab="tabData"] #lockOverlayData.is-visible {
   background: rgba(0, 0, 0, 0.48);
 }
 
-/* --- Scoped variant: the Data tab locks two cards, not the whole tab ---
- * Scheduled Playback and the CSV run need a live tab. Variables, Export Code
- * and the SQL Test Case Designer do not — they read chrome.storage.local and
- * nothing else — so a fixed, full-panel overlay used to put them out of reach
- * on any tab that was never activated, including this extension's own pages.
- * Same overlay, same card, same wording; only the positioning changes.
- */
-.gated-zone {
-  position: relative;
-}
-
-.lock-overlay-zone {
-  position: absolute;   /* inset: 0 still comes from .lock-overlay */
-  z-index: 2;           /* below the sticky header (100) and every modal */
-  border-radius: 12px;
-  touch-action: auto;   /* the panel behind it still has to scroll */
-  overscroll-behavior: auto;
-}
-
-/* Both gated cards start collapsed, so the zone is about two headers tall and
- * the column layout of .lock-overlay-card would overflow it. Same elements,
- * laid out as a row. */
-.lock-overlay-zone .lock-overlay-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-  max-width: none;
-  width: auto;
-  margin: 0 10px;
-  padding: 12px 14px;
-}
-
-.lock-overlay-zone .lock-overlay-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.lock-overlay-zone .lock-overlay-icon {
-  font-size: 1.35rem;
-  margin-bottom: 0;
-}
-
-.lock-overlay-zone .lock-overlay-title {
-  margin: 0 0 2px;
-  font-size: 0.86rem;
-}
-
-.lock-overlay-zone .lock-overlay-sub {
-  margin: 0;
-  font-size: 0.72rem;
-}
-
-
-/* Only while the overlay shows: keep the zone tall enough for the card, since
- * the "not supported on this page" copy runs to three lines. The zone is last
- * in the tab, so the extra height reads as bottom padding. */
-.gated-zone:has(> .lock-overlay-zone.is-visible) {
-  min-height: 122px;
-}
-
-/* === Export Code Card (Data tab) === */
+/* === Export Code Card (Tools tab) === */
 .export-code-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

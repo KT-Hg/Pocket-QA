@@ -1,5 +1,5 @@
 /**
- * ui-state.js — state of the Record & Play and Data tabs that more than one of
+ * ui-state.js — state of the Record & Play and Tools tabs that more than one of
  * their modules writes: caches of scenarios and folders, the action being
  * edited, picked selectors, clipboards, the Switch being built, the run list,
  * the schedule being edited and the CSV run.

@@ -1,5 +1,5 @@
 /**
- * export/code-card.js — the Export Code card of the Data tab: the scenario its
+ * export/code-card.js — the Export Code card of the Tools tab: the scenario its
  * format buttons export, listed by folder, and the buttons, off until there is
  * one. With none picked yet, the card takes the one Manage Scenarios has.
  */

@@ -27,10 +27,10 @@ export function getInputVarsFromScenario(scenarioId) {
 /**
  * The names a ZIP Folder name can use: what a row's folder is filled in from
  * (zipEntries) — the CSV's columns, then what the scenario writes (Read DOM,
- * Screenshot → Variable), then the Data tab variables it reads (a row keeps
+ * Screenshot → Variable), then the Tools tab variables it reads (a row keeps
  * only the variables its scenario reads or writes). Nothing has to be chosen
  * first: the CSV loaded last (csvSessionData) and the scenario chosen last
- * (csvScenarioId) stand in, and with no scenario at all every Data tab
+ * (csvScenarioId) stand in, and with no scenario at all every Tools tab
  * variable is offered.
  */
 async function folderNameVars() {

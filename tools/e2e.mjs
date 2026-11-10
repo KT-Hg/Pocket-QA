@@ -1719,6 +1719,24 @@ async function checkAutoActivate(ctx) {
   check(activated.includes(ctx.webTabId), '▶ Play turns Pocket QA on for the tab it plays on', { activated, tab: ctx.webTabId });
 }
 
+async function checkRunGroup(ctx) {
+  const popup = await openPopup(ctx);
+  try {
+    const layout = await popup.evaluate(`(() => {
+      const ids = [...document.querySelectorAll('#tabRecord .card[id]')].map((c) => c.id);
+      return { tab: document.querySelector('.tab-btn[data-tab="tabData"]').textContent.trim(),
+        group: document.querySelector('#tabRecord .tab-group-label')?.textContent.trim() || '',
+        last: ids.slice(-3), inTools: !!document.querySelector('#tabData #scheduledPlaybackCard, #tabData #csvRunCard') };
+    })()`);
+    check(layout.tab === 'Tools' && /schedule/i.test(layout.group) && !layout.inTools
+      && layout.last.join() === 'sequencePlaybackCard,scheduledPlaybackCard,csvRunCard',
+    'Sequence, Scheduled Playback and the CSV run close Record & Play under one heading; the Data tab is Tools', layout);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await popup.close();
+  }
+}
+
 async function checkHotkeys(ctx) {
   await reloadTestPage(ctx);
   // Alt+R as the page gets it; `key` is what the keyboard typed ("®" for Option+R on macOS).
@@ -4244,7 +4262,7 @@ async function checkCsvZipSuggest(ctx) {
   // A new popup with nothing chosen in the CSV card: type "abc ${" key by key.
   const typeInFolderName = async (popup) => {
     await popup.evaluate(`(() => {
-      document.querySelector('.tab-btn[data-tab="tabData"]').click();
+      document.querySelector('.tab-btn[data-tab="tabRecord"]').click(); // the CSV card's tab since 1.0.29
       document.getElementById('csvRunCard').classList.remove('collapsed');
       document.getElementById('csvZipAdvanced').open = true;
       const i = document.getElementById('csvZipFolderName'); i.value = ''; i.focus();
@@ -4854,6 +4872,7 @@ const CHECKS = [
   ['last-run-live', 'The Last run card hides while a run is on', checkLastRunLive],
   ['sql-lang', 'The SQL page opens in English, a chosen language kept', checkSqlLang],
   ['auto-activate', 'No lock on a web page; Play turns the tab on', checkAutoActivate],
+  ['run-group', 'Sequence, schedule and CSV run in one group on Record & Play', checkRunGroup],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
   ['select-type', 'Child Condition type "select"', checkSelectType],

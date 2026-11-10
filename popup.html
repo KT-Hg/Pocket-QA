@@ -118,7 +118,7 @@
     <!-- Tab Navigation -->
     <div class="tab-nav" id="tabNav">
       <button class="tab-btn" data-tab="tabRecord">Record & Play</button>
-      <button class="tab-btn" data-tab="tabData">Data</button>
+      <button class="tab-btn" data-tab="tabData">Tools</button>
       <button class="tab-btn" data-tab="tabCapture">Capture</button>
       <button class="tab-btn" data-tab="tabHighlight">Highlight <span id="hlTabBadge" class="count-badge" style="display:none;"></span></button>
       <button class="tab-btn" data-tab="tabSettings">Settings</button>
@@ -720,6 +720,10 @@
       </div>
     </div>
 
+    <!-- RUN — several scenarios, on a schedule, or once per CSV row. They sat in the
+         Data tab, where nobody looked for a schedule. -->
+    <div class="tab-group-label">Run several · on a schedule · from a CSV</div>
+
     <!-- SEQUENCE PLAYBACK -->
     <div class="card collapsible collapsed" id="sequencePlaybackCard">
       <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Sequence Scenarios <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="sequence" title="Sequence guide" style="margin-left:auto;">?</button></h3>
@@ -752,10 +756,106 @@
       <button id="saveSequenceAsScenario" class="secondary" style="margin-top: 6px;">Save as Scenario</button>
     </div>
 
+
+    <!-- SCHEDULED PLAYBACK -->
+    <div class="card collapsible collapsed" id="scheduledPlaybackCard">
+      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Scheduled Playback <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="schedule" title="Schedule guide" style="margin-left:auto;">?</button></h3>
+      <div class="row equalize">
+        <select id="scheduleScenarioSelect">
+          <option value="">-- Select scenario --</option>
+        </select>
+        <input id="scheduleTime" type="time" style="display:none;" />
+        <div class="schedule-time-picker">
+          <input id="stHour" type="number" min="1" max="12" value="12" title="Hour" />
+          <span class="st-colon">:</span>
+          <input id="stMin" type="number" min="0" max="59" value="0" title="Minute" />
+          <button type="button" id="stAmPm" class="secondary">AM</button>
+        </div>
+      </div>
+      <input id="scheduleLabel" placeholder="Schedule label (optional)" style="margin-top: 6px;" />
+      <input id="scheduleUrl" type="url" placeholder="Start URL — each run opens it in a new tab" style="margin-top: 6px;"
+             title="Filled in with this tab's address. Without a start URL a run plays on whatever tab is active at the time." />
+      <div class="row" style="margin-top: 6px; align-items: center; gap: 8px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;margin:0;">
+          <input type="checkbox" id="scheduleRepeat" style="width:auto;margin:0;" /> Repeat daily
+        </label>
+        <button id="addSchedule" class="secondary" style="flex:0 0 auto;width:auto;">+ Add</button>
+      </div>
+      <span class="helper-text">Runs at the selected time (background must be active)</span>
+      <ul id="scheduleList" class="actions" style="margin-top: 8px;"></ul>
+    </div>
+
+    <!-- CSV DATA-DRIVEN RUN -->
+    <div class="card collapsible collapsed" id="csvRunCard">
+      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">CSV Data-Driven Run <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="csv" title="CSV run guide" style="margin-left:auto;">?</button></h3>
+      <select id="csvScenarioSelect" style="margin-bottom: 6px;">
+        <option value="">-- Select scenario --</option>
+      </select>
+      <input type="file" id="csvFile" accept=".csv,.txt" />
+      <span class="helper-text">First row = column headers → used as variable names (e.g. ${email})</span>
+      <div id="csvPreview" style="margin-top: 6px; font-size: 12px; color: var(--muted);"></div>
+
+      <!-- Delay between rows -->
+      <div class="row" style="gap:6px; margin-top: 6px;">
+        <select id="csvDelayBetweenPreset" style="flex: 1;">
+          <option value="500" selected>0.5s (default)</option>
+          <option value="1000">1s</option>
+          <option value="2000">2s</option>
+          <option value="3000">3s</option>
+          <option value="5000">5s</option>
+          <option value="10000">10s</option>
+          <option value="custom">Custom…</option>
+        </select>
+        <input id="csvDelayBetween" type="number" min="0" placeholder="ms"
+               style="display:none; width: 80px; flex: 0 0 80px;" />
+      </div>
+
+      <!-- Export format + Feature 3: locked warning -->
+      <div id="csvFormatRow" style="margin-top:6px;">
+        <div class="row" style="align-items:center;">
+          <label class="csv-format-label">Export format:</label>
+          <select id="csvExportFormat" style="flex:1; margin:0; font-size:12px;">
+            <option value="xlsx" selected>Excel XLSX (images in cells)</option>
+            <option value="html">HTML (embedded images)</option>
+            <option value="zip">ZIP (screenshots + CSV)</option>
+          </select>
+        </div>
+        <div id="csvFormatLocked" class="csv-format-locked" style="display:none;">
+          <span class="csv-format-lock-icon">⚠</span>
+          <span class="csv-format-lock-text">Changing format will clear results</span>
+          <button id="csvChangeFormat" class="csv-format-clear-btn">🗑 Clear &amp; change</button>
+        </div>
+      </div>
+
+      <!-- ZIP only (07-switch-loop-csv.css); never locked, so a finished run
+           can be downloaded again under other names -->
+      <details id="csvZipAdvanced">
+        <summary><span class="chev" aria-hidden="true">▸</span>Advanced</summary>
+        <div class="form-grid">
+          <label class="form-label" for="csvZipFolderName">Folder name</label>
+          <div>
+            <input id="csvZipFolderName" placeholder="row_01" spellcheck="false" autocomplete="off" />
+            <span class="form-hint">Empty = row_01. ${column} from the CSV, e.g. abc ${name}</span>
+            <label class="form-check" title="The row's number in the CSV after the name: abc john_01, abc kate_02. Off: a name used twice gets _2."><input type="checkbox" id="csvZipRowNumber" /> Add row number</label>
+          </div>
+        </div>
+      </details>
+
+      <!-- Status text: idle messages / run summary -->
+      <div id="csvStatus" style="font-size:12px; color:var(--muted); margin-top:4px;"></div>
+
+      <!-- Start button (disabled while running) -->
+      <div class="row csv-action-row" style="margin-top:6px;">
+        <button id="startCsvRun" class="primary-gradient" style="flex:1;">▶ Start CSV Run</button>
+      </div>
+
+      <button id="csvDownloadResult" class="secondary" style="display:none; margin-top:6px; width:100%; font-size:12px;">⬇ Download result</button>
+    </div>
+
     </div> <!-- End main-content -->
   </div>
 
-  <!-- ===== TAB: DATA ===== -->
+  <!-- ===== TAB: TOOLS (id tabData, kept for the saved tab order) ===== -->
   <div class="tab-panel" id="tabData">
     <div class="main-content" id="mainContentData" role="complementary">
 
@@ -872,123 +972,6 @@
           <span class="hl-toggle-slider" aria-hidden="true"></span>
         </span>
       </label>
-    </div>
-
-    <!-- The two cards below are the only ones on this tab that need a live,
-         activated tab to do anything. Variables, Export Code and the SQL Test
-         Case Designer read storage alone, so the lock overlay is scoped to this
-         wrapper rather than to the whole panel — see #lockOverlayData at the
-         end of it. -->
-    <div class="gated-zone" id="dataGatedZone">
-
-    <!-- SCHEDULED PLAYBACK -->
-    <div class="card collapsible collapsed" id="scheduledPlaybackCard">
-      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">Scheduled Playback <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="schedule" title="Schedule guide" style="margin-left:auto;">?</button></h3>
-      <div class="row equalize">
-        <select id="scheduleScenarioSelect">
-          <option value="">-- Select scenario --</option>
-        </select>
-        <input id="scheduleTime" type="time" style="display:none;" />
-        <div class="schedule-time-picker">
-          <input id="stHour" type="number" min="1" max="12" value="12" title="Hour" />
-          <span class="st-colon">:</span>
-          <input id="stMin" type="number" min="0" max="59" value="0" title="Minute" />
-          <button type="button" id="stAmPm" class="secondary">AM</button>
-        </div>
-      </div>
-      <input id="scheduleLabel" placeholder="Schedule label (optional)" style="margin-top: 6px;" />
-      <input id="scheduleUrl" type="url" placeholder="Start URL — each run opens it in a new tab" style="margin-top: 6px;"
-             title="Filled in with this tab's address. Without a start URL a run plays on whatever tab is active at the time." />
-      <div class="row" style="margin-top: 6px; align-items: center; gap: 8px;">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;margin:0;">
-          <input type="checkbox" id="scheduleRepeat" style="width:auto;margin:0;" /> Repeat daily
-        </label>
-        <button id="addSchedule" class="secondary" style="flex:0 0 auto;width:auto;">+ Add</button>
-      </div>
-      <span class="helper-text">Runs at the selected time (background must be active)</span>
-      <ul id="scheduleList" class="actions" style="margin-top: 8px;"></ul>
-    </div>
-
-    <!-- CSV DATA-DRIVEN RUN -->
-    <div class="card collapsible collapsed" id="csvRunCard">
-      <h3 role="button" tabindex="0" aria-expanded="false" style="display:flex;align-items:center;">CSV Data-Driven Run <span class="chev" aria-hidden="true">▸</span><button class="card-help-btn" data-card="csv" title="CSV run guide" style="margin-left:auto;">?</button></h3>
-      <select id="csvScenarioSelect" style="margin-bottom: 6px;">
-        <option value="">-- Select scenario --</option>
-      </select>
-      <input type="file" id="csvFile" accept=".csv,.txt" />
-      <span class="helper-text">First row = column headers → used as variable names (e.g. ${email})</span>
-      <div id="csvPreview" style="margin-top: 6px; font-size: 12px; color: var(--muted);"></div>
-
-      <!-- Delay between rows -->
-      <div class="row" style="gap:6px; margin-top: 6px;">
-        <select id="csvDelayBetweenPreset" style="flex: 1;">
-          <option value="500" selected>0.5s (default)</option>
-          <option value="1000">1s</option>
-          <option value="2000">2s</option>
-          <option value="3000">3s</option>
-          <option value="5000">5s</option>
-          <option value="10000">10s</option>
-          <option value="custom">Custom…</option>
-        </select>
-        <input id="csvDelayBetween" type="number" min="0" placeholder="ms"
-               style="display:none; width: 80px; flex: 0 0 80px;" />
-      </div>
-
-      <!-- Export format + Feature 3: locked warning -->
-      <div id="csvFormatRow" style="margin-top:6px;">
-        <div class="row" style="align-items:center;">
-          <label class="csv-format-label">Export format:</label>
-          <select id="csvExportFormat" style="flex:1; margin:0; font-size:12px;">
-            <option value="xlsx" selected>Excel XLSX (images in cells)</option>
-            <option value="html">HTML (embedded images)</option>
-            <option value="zip">ZIP (screenshots + CSV)</option>
-          </select>
-        </div>
-        <div id="csvFormatLocked" class="csv-format-locked" style="display:none;">
-          <span class="csv-format-lock-icon">⚠</span>
-          <span class="csv-format-lock-text">Changing format will clear results</span>
-          <button id="csvChangeFormat" class="csv-format-clear-btn">🗑 Clear &amp; change</button>
-        </div>
-      </div>
-
-      <!-- ZIP only (07-switch-loop-csv.css); never locked, so a finished run
-           can be downloaded again under other names -->
-      <details id="csvZipAdvanced">
-        <summary><span class="chev" aria-hidden="true">▸</span>Advanced</summary>
-        <div class="form-grid">
-          <label class="form-label" for="csvZipFolderName">Folder name</label>
-          <div>
-            <input id="csvZipFolderName" placeholder="row_01" spellcheck="false" autocomplete="off" />
-            <span class="form-hint">Empty = row_01. ${column} from the CSV, e.g. abc ${name}</span>
-            <label class="form-check" title="The row's number in the CSV after the name: abc john_01, abc kate_02. Off: a name used twice gets _2."><input type="checkbox" id="csvZipRowNumber" /> Add row number</label>
-          </div>
-        </div>
-      </details>
-
-      <!-- Status text: idle messages / run summary -->
-      <div id="csvStatus" style="font-size:12px; color:var(--muted); margin-top:4px;"></div>
-
-      <!-- Start button (disabled while running) -->
-      <div class="row csv-action-row" style="margin-top:6px;">
-        <button id="startCsvRun" class="primary-gradient" style="flex:1;">▶ Start CSV Run</button>
-      </div>
-
-      <button id="csvDownloadResult" class="secondary" style="display:none; margin-top:6px; width:100%; font-size:12px;">⬇ Download result</button>
-    </div>
-
-      <!-- Same frosted card as the Record tab's overlay, same wording; it lays
-           out as a row instead of a column because both cards above are
-           collapsed by default and a full-height card would not fit over two
-           headers. -->
-      <div class="lock-overlay lock-overlay-zone" id="lockOverlayData">
-        <div class="lock-overlay-card">
-          <div class="lock-overlay-icon">🔒</div>
-          <div class="lock-overlay-text">
-            <h3 class="lock-overlay-title" id="lockOverlayDataTitle">Not available on this page</h3>
-            <p class="lock-overlay-sub" id="lockOverlayDataSub">Open a website (an http or https page) in this tab, then click the Pocket QA icon again.</p>
-          </div>
-        </div>
-      </div>
     </div>
 
     </div>
@@ -1970,8 +1953,8 @@
     </div>
   </div>
 
-  <!-- Record's lock overlay (always in DOM for smooth transitions). The Data
-       tab's lives inside #dataGatedZone, since it covers two cards, not a tab. -->
+  <!-- Record's lock overlay (always in DOM for smooth transitions), on a page
+       Pocket QA cannot use; the Tools tab reads storage only and has none. -->
   <div class="lock-overlay" id="lockOverlayRecord">
     <div class="lock-overlay-card">
       <div class="lock-overlay-icon">🔒</div>

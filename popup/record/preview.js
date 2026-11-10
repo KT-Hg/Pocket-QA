@@ -476,7 +476,7 @@ function createActionListItem(a, i, scenarioId, view = null) {
     : "";
   // Typed into a password field while recording (content.js): kept as typed.
   const secretHtml = a.secret
-    ? `<span class="secret-mark" title="Typed into a password field. The password is saved in this scenario as plain text, and goes into JSON exports and exported code — put it in a variable (Data tab) to keep it out.">🔒</span>`
+    ? `<span class="secret-mark" title="Typed into a password field. The password is saved in this scenario as plain text, and goes into JSON exports and exported code — put it in a variable (Tools tab) to keep it out.">🔒</span>`
     : "";
   const clickThroughHtml = a.clickThrough === false
     ? `<span class="ct-off" title="Click through off: fails when its element is disabled, read-only, not visible or covered">⊘</span>`

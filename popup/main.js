@@ -1,4 +1,4 @@
-// popup/main.js — the Record & Play and Data tabs.
+// popup/main.js — the Record & Play and Tools tabs.
 //
 // This was one initMain() closure; its parts now live in popup/{record,scenarios,
 // run,csv,help,ui}/ and a few files beside this one. Shared mutable state of

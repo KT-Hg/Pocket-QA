@@ -69,13 +69,15 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - **Click through** on each action (checkbox under Label) and on each scenario (⊘ on its toolbar) — see [Click through](#click-through)
 - Save and manage scenarios (rename, duplicate, move to folder, delete)
 - Playback controls: loop count, loop delay
-- Sequence playback (run multiple scenarios in order, each with its own delay)
+- **Run several · on a schedule · from a CSV**, a group at the end of the tab:
+  - Sequence playback (run multiple scenarios in order, each with its own delay)
+  - Scheduled playback at a set time — one-off, or **Repeat daily**
+  - CSV data-driven runs (one scenario execution per CSV row)
 
-### Data
+### Tools
+(The tab was called **Data** until 1.0.29, and held the schedule and the CSV run too.)
 - Global variables table (`${varName}` → value); renaming a variable renames it in every scenario using it — see [Variable System](#variable-system)
 - **Export Code** — turn any saved scenario into a JS Bookmarklet, a Selenium Python script or pytest test, a Playwright Test spec, a Robot Framework test or a Selenium Java TestNG class
-- Scheduled playback at a set time — one-off, or **Repeat daily**
-- CSV data-driven runs (one scenario execution per CSV row)
 - **SQL Test Case Designer** — opens `sqltest.html` in its own tab (see below)
 - **DB Test Session** — opens `dbtest.html`: the changes recorded in Adminer and the SQL to undo them
 
@@ -275,7 +277,7 @@ window showed (a background run) or the capture failed.
 
 ## Export Code
 
-From the **Data** tab → **Export Code** card, select any saved scenario (the card starts on the one selected in Manage Scenarios; the list is grouped by folder) and pick one of five formats — the buttons wait for a scenario. All five open the same window, with four tabs:
+From the **Tools** tab → **Export Code** card, select any saved scenario (the card starts on the one selected in Manage Scenarios; the list is grouped by folder) and pick one of five formats — the buttons wait for a scenario. All five open the same window, with four tabs:
 
 - **Code** — the code, coloured (comments, strings, keywords; each `Step N` comment in bold), with *↧ Steps* (to Step 1, past the helpers), *wrap* (remembered) and *select all*. When some steps are not exported as is, one line above the code counts them (`⚠ 2 to check · 2 skipped · 1 note — see Actions`); a click opens Actions.
 - **Variables** — the variables the scenario uses, with the values that will be baked in.
@@ -707,7 +709,7 @@ hold `${variables}`. The verdict follows the popup's run result:
 
 ### Environments, saved values, auth
 
-- `${name}` is filled from the Data tab's variables, then from the **environment** in use, which wins on a
+- `${name}` is filled from the Tools tab's variables, then from the **environment** in use, which wins on a
   name both have.
 - **Save values** takes a value from the response — a JSON path, a header, the status, the body or part of it
   (an Extract pattern, as Read DOM's) — and writes it into the environment in use, where it stays across
@@ -924,9 +926,9 @@ Priority (highest → lowest):
 
 **Token syntax:** `${varName}` — applied to: selector (every flavour in `selectors`, drag-drop target too), value, URL, JS code, expected value, switchVar, folderPath, fileNames, Child Condition fields, Read DOM attribute name, Dropdown item # and items selector
 
-**Suggestions while typing:** in the Add Action card, typing `${` (or Ctrl+Space) in any of those fields opens a list of names — the Data tab's variables (with their type and current value), the ones earlier steps of the scenario write (Read DOM, Screenshot → Variable; for an edited step, only the steps above it) and the loaded CSV's columns. ↑ / ↓ move, Enter / Tab insert `${name}`, Escape closes; the keys do their usual thing whenever the list is closed. Name-only fields (Switch Variable, Read DOM and Screenshot → Variable names) list the names on focus and take the bare name. `shared/var-suggest.js` (what fits) + `popup/ui/var-suggest.js` (the list) + `popup/record/var-suggestions.js` (fields and sources).
+**Suggestions while typing:** in the Add Action card, typing `${` (or Ctrl+Space) in any of those fields opens a list of names — the Tools tab's variables (with their type and current value), the ones earlier steps of the scenario write (Read DOM, Screenshot → Variable; for an edited step, only the steps above it) and the loaded CSV's columns. ↑ / ↓ move, Enter / Tab insert `${name}`, Escape closes; the keys do their usual thing whenever the list is closed. Name-only fields (Switch Variable, Read DOM and Screenshot → Variable names) list the names on focus and take the bare name. `shared/var-suggest.js` (what fits) + `popup/ui/var-suggest.js` (the list) + `popup/record/var-suggestions.js` (fields and sources).
 
-**Renaming:** saving a variable under a new name (Edit in the Data tab) renames it wherever it is used — every `${old}` in any field of any scenario (labels too), the bare names of a Switch, a Read DOM and a Screenshot → Variable step, the undo / redo history, actions recorded but not yet saved, and the Add Manual Action form with its draft; the toast counts the references and scenarios changed. Refused, nothing changed: a name another variable has, a name a scenario already uses (two variables would become one), a name holding `}` or starting with `${`, and while a run plays. Exported code, backups and CSV files keep the old name; when the CSV loaded last still has a column of the old name, the toast says to rename it. `renameVarRefs` (`shared/var-name.js`) + `RENAME_VARIABLE` (`bg/handlers/variables.js`).
+**Renaming:** saving a variable under a new name (Edit in the Tools tab) renames it wherever it is used — every `${old}` in any field of any scenario (labels too), the bare names of a Switch, a Read DOM and a Screenshot → Variable step, the undo / redo history, actions recorded but not yet saved, and the Add Manual Action form with its draft; the toast counts the references and scenarios changed. Refused, nothing changed: a name another variable has, a name a scenario already uses (two variables would become one), a name holding `}` or starting with `${`, and while a run plays. Exported code, backups and CSV files keep the old name; when the CSV loaded last still has a column of the old name, the toast says to rename it. `renameVarRefs` (`shared/var-name.js`) + `RENAME_VARIABLE` (`bg/handlers/variables.js`).
 
 **Variable types:**
 
@@ -1006,7 +1008,7 @@ All hotkeys are configurable in the **Settings** tab and synced via `chrome.stor
 
 `content.js` is injected into **all frames**; recorded actions carry the originating `frameId` so playback targets the right frame.
 
-The popup's Record & Play and Data tabs start in `popup/main.js`, whose `initMain()` runs the parts in a fixed
+The popup's Record & Play and Tools tabs start in `popup/main.js`, whose `initMain()` runs the parts in a fixed
 order: `popup/record/` (recording, the action form, the preview, the Switch builder), `popup/scenarios/` (list,
 save, folders, rename / delete, import / export, backup), `popup/run/` (playback, run list, schedules),
 `popup/csv/` (the data-driven run and its result files), `popup/help/`, and the shared `popup/dom.js` (elements
@@ -1033,7 +1035,7 @@ through covers (`click-through`), and `CSS.escape` for the service worker, which
 (`css-escape`).
 
 `sqltest.html` + `sqlcases/*.js` sit outside that pipeline: the SQL Test Case Designer is a self-contained
-page that never messages the service worker or touches a tab. It is opened from the Data tab and uses
+page that never messages the service worker or touches a tab. It is opened from the Tools tab and uses
 `chrome.storage.local` only to remember the last query, the technique toggles and the shared theme.
 
 `dbtools/` sits outside it too, with its own content script:
@@ -1295,7 +1297,7 @@ as well an editor, a terminal or a design tool.
 
 **ZIP layout.** `results.csv`, then one folder per row holding that row's screenshots: `row_01/shot.png`, `row_02/shot.png` … The ZIP's **Advanced** section (under Export format, shown only while ZIP is chosen) names them:
 
-- **Folder name** — a template filled in from each row, e.g. `abc ${name}` → `abc john/`, `abc kate/`. `${column}` takes the row's CSV value; a variable the run wrote (Read DOM) wins over a column of the same name. Characters Windows refuses and `/` become `_`, a trailing dot or space is dropped; a name that comes out empty (or an empty field) is `row_NN`. Typing `${` (or Ctrl+Space) lists the names it can use: the CSV's columns, the variables the scenario writes, and the Data tab variables it reads (a row keeps only those). Nothing has to be chosen first: with no file in the card, the CSV loaded last stands in; with no scenario chosen, the one chosen last (`csvScenarioId`); with none ever chosen, every Data tab variable is listed.
+- **Folder name** — a template filled in from each row, e.g. `abc ${name}` → `abc john/`, `abc kate/`. `${column}` takes the row's CSV value; a variable the run wrote (Read DOM) wins over a column of the same name. Characters Windows refuses and `/` become `_`, a trailing dot or space is dropped; a name that comes out empty (or an empty field) is `row_NN`. Typing `${` (or Ctrl+Space) lists the names it can use: the CSV's columns, the variables the scenario writes, and the Tools tab variables it reads (a row keeps only those). Nothing has to be chosen first: with no file in the card, the CSV loaded last stands in; with no scenario chosen, the one chosen last (`csvScenarioId`); with none ever chosen, every Tools tab variable is listed.
 - **Add row number** — the row's number in the CSV after the name: `abc john_01`, `abc kate_02`, `abc john_03`. No effect on `row_NN`.
 - Two rows that land on one name (case ignored, as on Windows) get `_2`, `_3` … in row order: `abc john`, `abc kate`, `abc john_2`.
 - Inside a folder, an image is named by its Screenshot → Variable's **Filename** (filled in for that row; `a/b` makes a subfolder), else by its variable. Two images on one name get `_2`.

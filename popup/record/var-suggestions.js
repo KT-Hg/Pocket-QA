@@ -2,7 +2,7 @@
  * record/var-suggestions.js — variable suggestions in the Add Manual Action
  * card: which fields offer them, and the names they offer.
  *
- * Names come from the Data tab (in its order, with the type and current value),
+ * Names come from the Tools tab (in its order, with the type and current value),
  * from the steps of the scenario before the one being added or edited (Read
  * DOM, Screenshot → Variable), and from the columns of the loaded CSV.
  * popup/ui/var-suggest.js shows the list.
@@ -29,7 +29,7 @@ const _send = (msg) => new Promise((resolve) => {
   chrome.runtime.sendMessage(msg, (res) => { void chrome.runtime.lastError; resolve(res); });
 });
 
-/** Every name the card can offer now: Data tab, then earlier steps, then CSV columns. */
+/** Every name the card can offer now: Tools tab, then earlier steps, then CSV columns. */
 export async function varEntries() {
   const scenarioId = ui.editing ? ui.editing.scenarioId : (scenarioList?.value || null);
   const [table, preview] = await Promise.all([

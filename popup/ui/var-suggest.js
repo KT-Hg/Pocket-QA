@@ -13,7 +13,7 @@
  * from a `${`, the list offers them for the field's whole text, as a 'name'
  * field offers names — a header's value, say, with ${variables} in it too.
  * `detail` is what the row shows on its right: `{ chips, more, chain }` (a
- * Data tab value as varValueDetail reads it) or `{ text }`, and `spec` for the
+ * Tools tab value as varValueDetail reads it) or `{ text }`, and `spec` for the
  * row's tooltip.
  *
  * One list serves every field. It sits under the field, or above it when there
