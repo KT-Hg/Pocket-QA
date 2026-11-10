@@ -342,11 +342,6 @@ body.update-locked .cap-edit-btn:hover { transform: none; }
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
 }
 
-.status-bar .status-dot.inactive {
-  background: var(--danger);
-  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
-}
-
 .status-bar .status-dot.recording {
   background: var(--danger);
   animation: pulse-dot 1s ease infinite;

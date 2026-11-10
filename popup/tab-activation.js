@@ -95,7 +95,7 @@ function checkTabActivation() {
       activationStatus.textContent = "Off on this tab";
       activationStatus.title = "Pocket QA turns on for this tab when you record or play here. Its hotkeys work once it is on.";
       activationStatus.style.color = "var(--muted)";
-      if (statusDot) { statusDot.className = "status-dot inactive"; }
+      if (statusDot) { statusDot.className = "status-dot"; } // grey: nothing wrong, just not on yet
       activateTab.style.display = "block";
       deactivateTab.style.display = "none";
       _setLock(false);
