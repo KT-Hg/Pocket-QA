@@ -83,6 +83,7 @@
 }
 .actions .value-sub { font-size: 9px; }
 .actions .value-sub > * + * { margin-left: 6px; }
+.actions .secret-mark { margin-right: 3px; cursor: help; }
 .actions .value-target { font-size: 10px; color: var(--muted); font-family: var(--mono, ui-monospace, monospace); }
 /* Actions inside a Switch block: 75% of a normal row (30px vs 40px) so the
    Switch and its cases stand out. Text shrinks less than the row — 75% of it

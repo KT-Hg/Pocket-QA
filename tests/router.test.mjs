@@ -381,7 +381,10 @@ await send('from a web page: recorded click keeps its known fields', { type: 'RE
   label: `  ${'Confirm the order and pay now, '.repeat(3)}  `,
 } }, { sender: { ...PAGE_SENDER, frameId: 3 } });
 await send('from a web page: a name that is not text is dropped', { type: 'RECORDED_ACTION', action: {
-  type: 'input', selector: '#q', value: 'x', label: { toString: 'alert(1)' },
+  type: 'input', selector: '#q', value: 'x', label: { toString: 'alert(1)' }, secret: 'yes',
+} }, { sender: PAGE_SENDER });
+await send('from a web page: typing into a password field is marked', { type: 'RECORDED_ACTION', action: {
+  type: 'input', selector: '#pw', value: 's3cret', secret: true,
 } }, { sender: PAGE_SENDER });
 await send('stop record (page actions)', { type: 'STOP_RECORD' });
 
@@ -597,7 +600,9 @@ test('from a web page, a recorded action is a click or an input with known field
     type: 'click', selector: '#ok', selectors: { css: '#ok', text: 'OK', textTag: 'button' }, frameId: 3, delay: 500,
     label: 'Confirm the order and pay now, Confirm the order and pay now',
   }, {
-    type: 'input', selector: '#q', value: 'x', frameId: 0, delay: 500, // its name was not text: none kept
+    type: 'input', selector: '#q', value: 'x', frameId: 0, delay: 500, // its name was not text, its mark not true: neither kept
+  }, {
+    type: 'input', selector: '#pw', value: 's3cret', secret: true, frameId: 0, delay: 500,
   }]);
 });
 test('an import names its Run JS actions and the folders its Upload File actions read', () => {

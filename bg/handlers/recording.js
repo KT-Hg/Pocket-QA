@@ -54,6 +54,7 @@ function _recordedFromPage(action, sender) {
     }
   }
   if (action.type === 'input' && typeof action.value === 'string') out.value = action.value;
+  if (action.type === 'input' && action.secret === true) out.secret = true; // typed into a password field
   // The step's name, as content.js read it off the page ("Password"): text the
   // page controls, so a string, kept short; every view shows it as text.
   if (typeof action.label === 'string' && action.label.trim()) out.label = action.label.trim().slice(0, LABEL_MAX);

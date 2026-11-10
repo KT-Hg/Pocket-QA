@@ -724,7 +724,11 @@ function _stepName(el) {
 function _recordInput(el, selectors) {
   safeSend({
     type: 'RECORDED_ACTION',
-    action: { type: 'input', selector: selectors.css, selectors, value: el.value, frameId: _myFrameId, ..._stepName(el) },
+    action: {
+      type: 'input', selector: selectors.css, selectors, value: el.value, frameId: _myFrameId, ..._stepName(el),
+      // A password, saved as typed: the list marks it so it is not a surprise.
+      ...(el.type === 'password' ? { secret: true } : {}),
+    },
   });
 }
 

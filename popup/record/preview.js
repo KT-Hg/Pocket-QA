@@ -474,6 +474,10 @@ function createActionListItem(a, i, scenarioId, view = null) {
   const labelHtml = a.label
     ? `<span class="value-target">${escHtml(value)}</span>`
     : "";
+  // Typed into a password field while recording (content.js): kept as typed.
+  const secretHtml = a.secret
+    ? `<span class="secret-mark" title="Typed into a password field. The password is saved in this scenario as plain text, and goes into JSON exports and exported code — put it in a variable (Data tab) to keep it out.">🔒</span>`
+    : "";
   const clickThroughHtml = a.clickThrough === false
     ? `<span class="ct-off" title="Click through off: fails when its element is disabled, read-only, not visible or covered">⊘</span>`
     : "";
@@ -542,7 +546,7 @@ function createActionListItem(a, i, scenarioId, view = null) {
     <span class="index"${placeTitle}>${escHtml(no)}.</span>
     <span class="type">${getActionIcon(a.type)}${escHtml(a.type)}${toggleHtml}</span>
     <span class="value" title="${a.label ? `${escHtml(a.label)}&#10;` : ""}${escHtml(value)}${escHtml(delayText)}">
-      <span class="value-main">${warnHtml}${clickThroughHtml}${escHtml(mainText)}${escHtml(delayText)}</span>
+      <span class="value-main">${warnHtml}${secretHtml}${clickThroughHtml}${escHtml(mainText)}${escHtml(delayText)}</span>
       ${subHtml}
     </span>
   `;

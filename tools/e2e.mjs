@@ -4043,8 +4043,11 @@ async function checkRecordNames(ctx) {
     await showScenario(popup, id);
     const rows = await popup.evaluate(`[...document.querySelectorAll('#actions li.action')].map((li) =>
       li.querySelector('.value-main').textContent.trim() + ' / ' + (li.querySelector('.value-target')?.textContent ?? '-'))`);
-    check(rows[1] === 'Tên đăng nhập (500ms) / #nu' && rows[3] === 'Mật khẩu (500ms) / #np' && rows[5] === '#nd (500ms) / -',
+    check(rows[1] === 'Tên đăng nhập (500ms) / #nu' && rows[3] === '🔒Mật khẩu (500ms) / #np' && rows[5] === '#nd (500ms) / -',
       'the list reads by name, the selector on the line under it; an unnamed step shows its selector as before', rows);
+    const locks = await popup.evaluate(`[...document.querySelectorAll('#actions li.action')].map((li) => !!li.querySelector('.secret-mark'))`);
+    check(JSON.stringify(locks) === '[false,false,false,true,false,false]' && actions[3].secret === true && !actions[1].secret,
+      'what was typed into the password field is marked 🔒 in the list; the other field is not', { locks, secrets: actions.map((a) => a.secret ?? '-') });
     if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   } finally {
     await popup.close();
