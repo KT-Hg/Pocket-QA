@@ -454,8 +454,8 @@ export const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Chụp cái gì</span><span class="ch-title">Sáu kiểu — chọn theo thứ cần lấy</span></div><p class="ch-desc">
         • <b>Page</b> — đúng phần đang nhìn thấy (viewport)<br>
         • <b>Full</b> — toàn trang, tự cuộn và ghép ảnh lại<br>
-        • <b>Scroll ↕V / ↔H</b> — cuộn hết một chiều rồi ghép; dùng khi trang chỉ dài theo một hướng, hoặc bảng rộng tràn ngang<br>
-        • <b>Segment ⬍V / ⬌H</b> — bạn tự chọn <i>đoạn</i>: bấm để đánh dấu điểm bắt đầu, cuộn tới chỗ muốn dừng, bấm lần nữa để chụp. Dùng cho danh sách cuộn vô tận, hoặc khi chỉ cần một khúc giữa trang rất dài<br>
+        • <b>Scroll ↕ Down / ↔ Across</b> — cuộn hết một chiều rồi ghép; dùng khi trang chỉ dài theo một hướng, hoặc bảng rộng tràn ngang<br>
+        • <b>Segment ⬍ Down / ⬌ Across</b> — bạn tự chọn <i>đoạn</i>: bấm để đánh dấu điểm bắt đầu, cuộn tới chỗ muốn dừng, bấm lần nữa để chụp. Dùng cho danh sách cuộn vô tận, hoặc khi chỉ cần một khúc giữa trang rất dài<br>
         • <b>Element 📌</b> — bấm rồi click thẳng vào phần tử trên trang, chỉ chụp đúng nó<br>
         • <b>Window 🖥</b> — chụp <i>cả một cửa sổ ứng dụng</i></p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">🖥 Window</span><span class="ch-title">Kiểu chụp duy nhất ra ngoài được trang web</span></div><p class="ch-desc">Năm kiểu trên đều chụp <b>nội dung trang</b>, nên không bao giờ thấy được DevTools, thanh địa chỉ hay ứng dụng khác. Window đi qua <b>hệ điều hành</b> nên chụp được bất cứ cửa sổ nào: Chrome đang mở DevTools, VS Code, terminal, Figma…<br><br>Một cửa sổ chọn nguồn sẽ hiện ra để bạn chỉ định; <b>lần dùng đầu tiên Chrome sẽ hỏi quyền chia sẻ màn hình</b>.</p></div>
@@ -469,8 +469,8 @@ export const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">What gets captured</span><span class="ch-title">Six kinds — pick by what you need</span></div><p class="ch-desc">
         • <b>Page</b> — exactly what is on screen (the viewport)<br>
         • <b>Full</b> — the whole page, scrolled and stitched automatically<br>
-        • <b>Scroll ↕V / ↔H</b> — scrolls one axis to the end and stitches; for pages long in one direction only, or tables that run off the side<br>
-        • <b>Segment ⬍V / ⬌H</b> — you choose the <i>stretch</i>: press once to mark the start, scroll to where it should end, press again to capture. For infinite-scroll lists, or one slice of a very long page<br>
+        • <b>Scroll ↕ Down / ↔ Across</b> — scrolls one axis to the end and stitches; for pages long in one direction only, or tables that run off the side<br>
+        • <b>Segment ⬍ Down / ⬌ Across</b> — you choose the <i>stretch</i>: press once to mark the start, scroll to where it should end, press again to capture. For infinite-scroll lists, or one slice of a very long page<br>
         • <b>Element 📌</b> — press, then click an element on the page; only that element is captured<br>
         • <b>Window 🖥</b> — captures <i>a whole application window</i></p></div>
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-purple">🖥 Window</span><span class="ch-title">The one capture that escapes the web page</span></div><p class="ch-desc">The five kinds above capture <b>page content</b>, so they can never show DevTools, the address bar, or another application. Window capture goes through the <b>operating system</b> instead, so it can photograph any window: Chrome with DevTools open, VS Code, a terminal, Figma…<br><br>A picker window opens so you can choose which one; <b>the first use asks for Chrome's screen-capture permission</b>.</p></div>

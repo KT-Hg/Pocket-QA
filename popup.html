@@ -1027,19 +1027,19 @@
         <div class="capture-group-row">
           <span class="capture-group-label">Scroll</span>
           <div class="capture-btn-row">
-            <button id="screenshotScrollV"  class="cap-save-btn" title="Capture full vertical scroll">↕ V</button>
-            <button id="screenshotScrollH"  class="cap-save-btn" title="Capture full horizontal scroll">↔ H</button>
-            <button id="cropScrollV"        class="cap-edit-btn" title="Capture full vertical scroll, then open the editor">✂ ↕V</button>
-            <button id="cropScrollH"        class="cap-edit-btn" title="Capture full horizontal scroll, then open the editor">✂ ↔H</button>
+            <button id="screenshotScrollV"  class="cap-save-btn" title="Capture full vertical scroll">↕ Down</button>
+            <button id="screenshotScrollH"  class="cap-save-btn" title="Capture full horizontal scroll">↔ Across</button>
+            <button id="cropScrollV"        class="cap-edit-btn" title="Capture full vertical scroll, then open the editor">✂ Down</button>
+            <button id="cropScrollH"        class="cap-edit-btn" title="Capture full horizontal scroll, then open the editor">✂ Across</button>
           </div>
         </div>
         <div class="capture-group-row">
           <span class="capture-group-label">Segment</span>
           <div class="capture-btn-row">
-            <button id="segmentScrollV"     class="cap-save-btn" title="Mark start, scroll down to the end, then stop to capture">⬍ V</button>
-            <button id="segmentScrollH"     class="cap-save-btn" title="Mark start, scroll right to the end, then stop to capture">⬌ H</button>
-            <button id="cropSegmentScrollV" class="cap-edit-btn" title="Vertical segment capture, then open the editor">✂ ⬍V</button>
-            <button id="cropSegmentScrollH" class="cap-edit-btn" title="Horizontal segment capture, then open the editor">✂ ⬌H</button>
+            <button id="segmentScrollV"     class="cap-save-btn" title="Mark start, scroll down to the end, then stop to capture">⬍ Down</button>
+            <button id="segmentScrollH"     class="cap-save-btn" title="Mark start, scroll right to the end, then stop to capture">⬌ Across</button>
+            <button id="cropSegmentScrollV" class="cap-edit-btn" title="Vertical segment capture, then open the editor">✂ Down</button>
+            <button id="cropSegmentScrollH" class="cap-edit-btn" title="Horizontal segment capture, then open the editor">✂ Across</button>
           </div>
         </div>
         <div class="capture-group-row">
@@ -1056,6 +1056,8 @@
             <button id="cropScreenshotWindow" class="cap-edit-btn" title="Capture a whole application window, then open the editor">✂ Pick</button>
           </div>
         </div>
+        <!-- Symbols alone ("↕ V", "✂ ⬍V") told a newcomer nothing: say what the two kinds of button and the two long captures are. -->
+        <span class="helper-text">Blue buttons save the picture; dashed <b>✂</b> buttons open it in the editor first. <b>Scroll</b> takes the whole length of the page; <b>Segment</b> only the part you mark: press, scroll to where it should end, press again.</span>
       </div>
 
       <!-- Visible -->
