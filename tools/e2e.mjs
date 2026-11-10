@@ -4018,9 +4018,10 @@ async function checkRecordNames(ctx) {
 
   // An element that is not there: the reason says how it was looked for, in words.
   const gone = await makeScenario(ctx, 'e2e not found', [{ type: 'click', selector: '#gone', selectors: { css: '#gone', id: 'gone' } }]);
-  await ctx.ext.evaluate(`window.__fails = []; window.__failsHooked || chrome.runtime.onMessage.addListener((m) => {
-    if (m.type === 'ACTION_FAILED') __fails.push(m.reason);
-  }); window.__failsHooked = true;`);
+  // A hook of its own: the assert check's __fails one prefixes the index.
+  await ctx.ext.evaluate(`window.__notFound = []; window.__notFoundHooked || chrome.runtime.onMessage.addListener((m) => {
+    if (m.type === 'ACTION_FAILED') __notFound.push(m.reason);
+  }); window.__notFoundHooked = true;`);
   // On a tab of its own: the page logs the failure as a console error, which the
   // test tab must not have.
   const away = await ctx.browser.openPage(`${ctx.base}/page?gone`, { width: 1000, height: 700 });
@@ -4028,13 +4029,13 @@ async function checkRecordNames(ctx) {
     await sleep(PAGE_SETTLE_MS);
     await away.bringToFront();
     await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: gone });
-    for (let waited = 0; waited < 15_000 && !(await ctx.ext.evaluate('__fails.length')); waited += POLL_MS) await sleep(POLL_MS);
+    for (let waited = 0; waited < 15_000 && !(await ctx.ext.evaluate('__notFound.length')); waited += POLL_MS) await sleep(POLL_MS);
     await ctx.send({ type: 'STOP_PLAYBACK' });
     await sleep(SETTLE_MS);
   } finally {
     await away.close();
   }
-  const reasons = await ctx.ext.evaluate('__fails');
+  const reasons = await ctx.ext.evaluate('__notFound');
   check(/^Element not found on the page within 5 s \(looked for it by ID and CSS\)$/.test(reasons[0] || ''),
     'a missing element: "not found on the page within 5 s (looked for it by ID and CSS)"', reasons);
 }
