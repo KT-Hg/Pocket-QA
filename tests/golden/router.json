@@ -2337,6 +2337,7 @@
    "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
    "tabs.onRemoved.addListener []",
    "storage.sync.get [[\"notifyOnComplete\"]]",
+   "notifications.create [\"complete_1768467607500\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"✓ Finished · no checks — sequence of 1\",\"message\":\"1 scenario(s) done — no Assert ran, so nothing was checked\"}]",
    "alarms.clear [\"playback-keepalive\"]",
    "tabs.update [1,{\"autoDiscardable\":true}]",
    "action.setBadgeText [{\"text\":\"\"}]"
@@ -2410,7 +2411,8 @@
    "storage.local.remove [\"playbackCheckpoint\"]",
    "storage.local.set [{\"lastRun\":{\"scenarioId\":\"r1\",\"scenarioName\":\"Restored\",\"startedAt\":1768467607500,\"endedAt\":1768467607500,\"loops\":1,\"completed\":true,\"verdict\":{\"status\":\"passed\",\"asserts\":0,\"broken\":0},\"failures\":[],\"resumed\":true,\"actions\":[]}}]",
    "storage.local.remove [\"lastRunShot\"]",
-   "storage.sync.get [[\"notifyOnComplete\"]]"
+   "storage.sync.get [[\"notifyOnComplete\"]]",
+   "notifications.create [\"complete_1768467607500\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"✓ Passed — \\\"Restored\\\"\",\"message\":\"\\\"Restored\\\" resumed & finished\"}]"
   ],
   "console": [],
   "storage": {
