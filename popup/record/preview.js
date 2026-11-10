@@ -468,8 +468,11 @@ function createActionListItem(a, i, scenarioId, view = null) {
   else if (a.type === "condition") value = getActionDisplayValue(a).replace(/ \[skip \d+\]$/, "");
   else value = getActionDisplayValue(a);
   const delayText = (a.delay && a.type !== "wait") ? ` (${a.delay}ms)` : "";
+  // A named step reads by its name ("Password"); what it targets ("#p") goes on
+  // the line under it. A recorded step is named after the element (content.js).
+  const mainText = a.label || value;
   const labelHtml = a.label
-    ? `<span class="value-label">${escHtml(a.label)}</span>`
+    ? `<span class="value-target">${escHtml(value)}</span>`
     : "";
   const clickThroughHtml = a.clickThrough === false
     ? `<span class="ct-off" title="Click through off: fails when its element is disabled, read-only, not visible or covered">⊘</span>`
@@ -538,8 +541,8 @@ function createActionListItem(a, i, scenarioId, view = null) {
   li.innerHTML = `
     <span class="index"${placeTitle}>${escHtml(no)}.</span>
     <span class="type">${getActionIcon(a.type)}${escHtml(a.type)}${toggleHtml}</span>
-    <span class="value" title="${escHtml(value)}${escHtml(delayText)}">
-      <span class="value-main">${warnHtml}${clickThroughHtml}${escHtml(value)}${escHtml(delayText)}</span>
+    <span class="value" title="${a.label ? `${escHtml(a.label)}&#10;` : ""}${escHtml(value)}${escHtml(delayText)}">
+      <span class="value-main">${warnHtml}${clickThroughHtml}${escHtml(mainText)}${escHtml(delayText)}</span>
       ${subHtml}
     </span>
   `;

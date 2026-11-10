@@ -33,6 +33,8 @@ function _recordsTab(tabId) {
 // What content.js records, and the fields of it a page may send.
 const RECORDED_TYPES = new Set(['click', 'input']);
 const RECORDED_SELECTOR_KEYS = [...SELECTOR_KEYS, 'textTag'];
+// content.js names a step in 60 characters at most (HUMAN_NAME_MAX).
+const LABEL_MAX = 60;
 
 /**
  * A recorded action as a web page's content script may send it: a click or an
@@ -52,6 +54,9 @@ function _recordedFromPage(action, sender) {
     }
   }
   if (action.type === 'input' && typeof action.value === 'string') out.value = action.value;
+  // The step's name, as content.js read it off the page ("Password"): text the
+  // page controls, so a string, kept short; every view shows it as text.
+  if (typeof action.label === 'string' && action.label.trim()) out.label = action.label.trim().slice(0, LABEL_MAX);
   out.frameId = sender.frameId ?? 0;
   return out;
 }

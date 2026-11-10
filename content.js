@@ -242,6 +242,56 @@ function getAllSelectors(el) {
   return selectors;
 }
 
+/* <human-name> — tests/human-name.test.mjs loads this block into a sandbox. */
+// Names that tell nothing of which element it is.
+const _GENERIC_NAMES = new Set(['button', 'submit', 'input', 'link', 'image', 'icon', 'text', 'field']);
+// What a recorded step may be named: longer is a paragraph, not a name.
+const HUMAN_NAME_MAX = 60;
+// The text of a clicked control past this length is the content of a container.
+const CONTROL_TEXT_MAX = 40;
+
+/** The text of `label` without the fields inside it (a <select>'s options). */
+function _labelText(label) {
+  const copy = label.cloneNode(true);
+  copy.querySelectorAll('input, select, textarea').forEach((f) => f.remove());
+  return copy.textContent;
+}
+
+/**
+ * What a person calls `el`, for the name of the step recorded on it: its
+ * aria-label or aria-labelledby, the <label> of a field, its placeholder, title
+ * or alt, the text of the button or link clicked, then its name attribute.
+ * Never what was typed into it. '' when nothing names it.
+ */
+function _humanName(el) {
+  const attr = (n) => el.getAttribute?.(n);
+  const isField = !!el.matches?.('input, textarea, select');
+  const control = isField ? null : el.closest?.('button, a, summary, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], [role="checkbox"]');
+  const shortText = (node) => {
+    const t = node ? (node.innerText ?? node.textContent ?? '') : '';
+    return t.trim().length <= CONTROL_TEXT_MAX ? t : '';
+  };
+  const candidates = [
+    () => attr('aria-label'),
+    () => (attr('aria-labelledby') || '').split(/\s+/).map((id) => (id && document.getElementById(id)?.textContent) || '').join(' '),
+    () => (isField && el.labels?.[0] ? _labelText(el.labels[0]) : ''),
+    () => attr('placeholder'),
+    () => attr('title'),
+    () => attr('alt'),
+    () => control && (control.getAttribute('aria-label') || shortText(control)),
+    // <input type="submit" value="Sign in">: its value is its caption, not typed.
+    () => (el.tagName === 'INPUT' && /^(submit|button|reset)$/i.test(el.type) ? el.value : ''),
+    () => (isField ? '' : shortText(el)),
+    () => attr('name'),
+  ];
+  for (const get of candidates) {
+    const name = String(get() ?? '').replace(/\s+/g, ' ').trim();
+    if (name.length > 1 && !_GENERIC_NAMES.has(name.toLowerCase())) return name.slice(0, HUMAN_NAME_MAX);
+  }
+  return '';
+}
+/* </human-name> */
+
 /* ─────────────────────────────────────────────────────────────────────────────
    SHADOW DOM PIERCE
    Web components (LitElement, Stencil, etc.) render into shadow roots that are
@@ -365,6 +415,17 @@ function _withPlain(selectors, selector) {
   return { ...plain, ...(selectors && typeof selectors === 'object' ? selectors : {}) };
 }
 
+// A strategy of _locators as a person would say it; cssShadow is the same CSS, looked for in shadow roots too.
+const _LOCATOR_WORDS = {
+  fullXpath: 'full XPath', xpath: 'XPath', id: 'ID', css: 'CSS', cssShadow: 'CSS',
+  testId: 'data-testid', dataId: 'data-id', name: 'name', text: 'text',
+};
+
+/** "a", "a and b", "a, b and c". */
+function _wordList(words) {
+  return words.length < 2 ? (words[0] || 'its selector') : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`;
+}
+
 /** `prefer`: the selector type the user chose in the form (action.selectorType) — see _locators. */
 function findElementWithFallback(selectors, timeout = 5000, prefer = null) {
   return new Promise((resolve, reject) => {
@@ -427,7 +488,9 @@ function findElementWithFallback(selectors, timeout = 5000, prefer = null) {
       found = true;
       clearTimeout(trailing);
       observer.disconnect();
-      reject(new Error(`Timeout: Element not found with any selector strategy`));
+      // What was tried, in words: "by ID, CSS and text", not "any selector strategy".
+      const ways = [...new Set(strategies.map((s) => _LOCATOR_WORDS[s.type] || s.type))];
+      reject(new Error(`Element not found on the page within ${timeout / 1000} s (looked for it by ${_wordList(ways)})`));
     }, timeout);
   });
 }
@@ -610,7 +673,7 @@ document.addEventListener('click', (event) => {
 
   const selectors = getAllSelectors(event.target);
   if (!selectors) return;
-  safeSend({ type: 'RECORDED_ACTION', action: { type: 'click', selector: selectors.css, selectors, frameId: _myFrameId } });
+  safeSend({ type: 'RECORDED_ACTION', action: { type: 'click', selector: selectors.css, selectors, frameId: _myFrameId, ..._stepName(event.target) } });
 }, true);
 
 // Inputs typed into but not recorded yet (the debounce below): element →
@@ -619,10 +682,17 @@ document.addEventListener('click', (event) => {
 const _pendingInputs = new Map();
 const INPUT_DEBOUNCE_MS = 400;
 
+// The step's name as the list, the failures and the bug report show it: what the
+// page calls the element ("Password"), not its selector ("#p").
+function _stepName(el) {
+  const name = _humanName(el);
+  return name ? { label: name } : {};
+}
+
 function _recordInput(el, selectors) {
   safeSend({
     type: 'RECORDED_ACTION',
-    action: { type: 'input', selector: selectors.css, selectors, value: el.value, frameId: _myFrameId },
+    action: { type: 'input', selector: selectors.css, selectors, value: el.value, frameId: _myFrameId, ..._stepName(el) },
   });
 }
 

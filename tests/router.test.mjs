@@ -377,7 +377,12 @@ await send('from a web page: recorded uploadFile dropped', { type: 'RECORDED_ACT
 await send('from a web page: recorded script dropped', { type: 'RECORDED_ACTION', action: { type: 'script', code: 'alert(1)' } }, { sender: PAGE_SENDER });
 await send('from a web page: recorded click keeps its known fields', { type: 'RECORDED_ACTION', action: {
   type: 'click', selector: '#ok', selectors: { css: '#ok', text: 'OK', textTag: 'button', onclick: 'x' }, code: 'alert(1)', frameId: 9,
+  // The step's name read off the page: trimmed and cut to 60 characters.
+  label: `  ${'Confirm the order and pay now, '.repeat(3)}  `,
 } }, { sender: { ...PAGE_SENDER, frameId: 3 } });
+await send('from a web page: a name that is not text is dropped', { type: 'RECORDED_ACTION', action: {
+  type: 'input', selector: '#q', value: 'x', label: { toString: 'alert(1)' },
+} }, { sender: PAGE_SENDER });
 await send('stop record (page actions)', { type: 'STOP_RECORD' });
 
 // An import says what it holds that reaches beyond the page: Run JS, and the
@@ -590,6 +595,9 @@ test('from a web page, a recorded action is a click or an input with known field
   assert.deepEqual(_stepOf('from a web page: recorded script dropped')?.responses, [{ received: false }]);
   assert.deepEqual(_stepOf('stop record (page actions)')?.responses?.[0]?.actions, [{
     type: 'click', selector: '#ok', selectors: { css: '#ok', text: 'OK', textTag: 'button' }, frameId: 3, delay: 500,
+    label: 'Confirm the order and pay now, Confirm the order and pay now',
+  }, {
+    type: 'input', selector: '#q', value: 'x', frameId: 0, delay: 500, // its name was not text: none kept
   }]);
 });
 test('an import names its Run JS actions and the folders its Upload File actions read', () => {

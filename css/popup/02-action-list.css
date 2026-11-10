@@ -83,7 +83,7 @@
 }
 .actions .value-sub { font-size: 9px; }
 .actions .value-sub > * + * { margin-left: 6px; }
-.actions .value-label { font-size: 10px; color: var(--primary); opacity: 0.8; font-style: italic; }
+.actions .value-target { font-size: 10px; color: var(--muted); font-family: var(--mono, ui-monospace, monospace); }
 /* Actions inside a Switch block: 75% of a normal row (30px vs 40px) so the
    Switch and its cases stand out. Text shrinks less than the row — 75% of it
    would be ~7.5px, too small to read. */
@@ -93,7 +93,7 @@
 #actions li.action.sw-in-block .type { font-size: 9px; }
 #actions li.action.sw-in-block .value-main { font-size: 9px; line-height: 12px; }
 #actions li.action.sw-in-block .value-sub { font-size: 8px; line-height: 11px; }
-#actions li.action.sw-in-block .value-label { font-size: 8.5px; }
+#actions li.action.sw-in-block .value-target { font-size: 8.5px; }
 #actions li.action.sw-in-block .sw-note { font-size: 8px; }
 #actions li.action.sw-in-block button {
   height: 16px !important;

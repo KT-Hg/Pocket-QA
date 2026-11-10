@@ -3985,6 +3985,60 @@ async function checkRecordInputOrder(ctx) {
     'text typed just before a click is recorded before it', actions.map((a) => `${a.type} ${a.selector} ${a.value ?? ''}`));
 }
 
+async function checkRecordNames(ctx) {
+  await reloadTestPage(ctx);
+  await ctx.web.evaluate(`document.body.insertAdjacentHTML('afterbegin', '<form id="nf" onsubmit="return false">'
+    + '<label for="nu">Tên đăng nhập</label> <input id="nu"> <input id="np" type="password" placeholder="Mật khẩu"> '
+    + '<button id="nb" type="button"><span>Đăng nhập</span></button> <div id="nd" style="display:inline-block;width:40px;height:20px"></div></form>')`);
+  const { id, actions } = await record(ctx, 'e2e record names', async () => {
+    await clickAt(ctx, '#nu');
+    await ctx.web.send('Input.insertText', { text: 'admin' });
+    await clickAt(ctx, '#np');
+    await ctx.web.send('Input.insertText', { text: 'hunter2' });
+    await clickAt(ctx, '#nb');
+    await clickAt(ctx, '#nd');
+  });
+  const named = actions.map((a) => `${a.type} ${a.selector} ${a.label ?? '-'}`);
+  check(named.join(' | ') === 'click #nu Tên đăng nhập | input #nu Tên đăng nhập | click #np Mật khẩu | input #np Mật khẩu'
+    + ' | click form > button > span Đăng nhập | click #nd -',
+  'each recorded step is named after its element: the <label>, the placeholder, the button text; nothing names an empty box', named);
+  check(!actions.some((a) => /admin|hunter2/.test(a.label || '')), 'a name is never what was typed', named);
+
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    const rows = await popup.evaluate(`[...document.querySelectorAll('#actions li.action')].map((li) =>
+      li.querySelector('.value-main').textContent.trim() + ' / ' + (li.querySelector('.value-target')?.textContent ?? '-'))`);
+    check(rows[1] === 'Tên đăng nhập (500ms) / #nu' && rows[3] === 'Mật khẩu (500ms) / #np' && rows[5] === '#nd (500ms) / -',
+      'the list reads by name, the selector on the line under it; an unnamed step shows its selector as before', rows);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await popup.close();
+  }
+
+  // An element that is not there: the reason says how it was looked for, in words.
+  const gone = await makeScenario(ctx, 'e2e not found', [{ type: 'click', selector: '#gone', selectors: { css: '#gone', id: 'gone' } }]);
+  await ctx.ext.evaluate(`window.__fails = []; window.__failsHooked || chrome.runtime.onMessage.addListener((m) => {
+    if (m.type === 'ACTION_FAILED') __fails.push(m.reason);
+  }); window.__failsHooked = true;`);
+  // On a tab of its own: the page logs the failure as a console error, which the
+  // test tab must not have.
+  const away = await ctx.browser.openPage(`${ctx.base}/page?gone`, { width: 1000, height: 700 });
+  try {
+    await sleep(PAGE_SETTLE_MS);
+    await away.bringToFront();
+    await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: gone });
+    for (let waited = 0; waited < 15_000 && !(await ctx.ext.evaluate('__fails.length')); waited += POLL_MS) await sleep(POLL_MS);
+    await ctx.send({ type: 'STOP_PLAYBACK' });
+    await sleep(SETTLE_MS);
+  } finally {
+    await away.close();
+  }
+  const reasons = await ctx.ext.evaluate('__fails');
+  check(/^Element not found on the page within 5 s \(looked for it by ID and CSS\)$/.test(reasons[0] || ''),
+    'a missing element: "not found on the page within 5 s (looked for it by ID and CSS)"', reasons);
+}
+
 async function checkRecordOtherTab(ctx) {
   await reloadTestPage(ctx);
   const other = await ctx.browser.openPage(`${ctx.base}/page?other`, { width: 1000, height: 700 });
@@ -4705,6 +4759,7 @@ const CHECKS = [
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],
   ['record-input-order', 'Typing, then a click at once', checkRecordInputOrder],
   ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
+  ['record-names', 'Recorded steps named after their elements; "not found" in words', checkRecordNames],
   ['record-restart', 'A recording across a worker restart', checkRecordRestart],
   ['csv-zip-advanced', 'The ZIP\'s Advanced section in the CSV card', checkCsvZipAdvanced],
   ['csv-zip-suggest', 'Variable suggestions in the ZIP Folder name', checkCsvZipSuggest],
