@@ -209,24 +209,29 @@ export async function launchWithExtension(extDir, { headed = false } = {}) {
     return page;
   }
 
+  // Edge runs extensions of its own, some with a background.js worker too: ours is
+  // the one whose manifest has extDir's name.
+  const extName = JSON.parse(readFileSync(join(extDir, 'manifest.json'), 'utf8')).name;
+  const tried = new Set();
+
   /** The extension's service worker (background.js), once `chrome` is usable in it; null if it never starts. */
   async function serviceWorker() {
     for (let waited = 0; waited < WORKER_TIMEOUT_MS; waited += POLL_MS) {
       const { targetInfos } = await conn.send('Target.getTargets');
-      // Edge runs extensions of its own; ours is the one whose worker is background.js.
-      const info = targetInfos.find((t) => t.type === 'service_worker'
+      const candidates = targetInfos.filter((t) => t.type === 'service_worker' && !tried.has(t.targetId)
         && t.url.startsWith('chrome-extension://') && t.url.endsWith('/background.js'));
-      if (info) {
+      for (const info of candidates) {
         const sw = await attach(conn, info.targetId);
         await sw.send('Runtime.enable');
         sw.extId = new URL(info.url).host;
         // Right after start-up the worker's scope may not be evaluable yet.
-        for (; waited < WORKER_TIMEOUT_MS; waited += POLL_MS) {
-          const ready = await sw.evaluate(`typeof chrome !== 'undefined' && !!chrome.runtime`, 2_000).catch(() => false);
-          if (ready) return sw;
-          await sleep(POLL_MS);
+        let name = null;
+        for (; waited < WORKER_TIMEOUT_MS && name === null; waited += POLL_MS) {
+          name = await sw.evaluate(`typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime.getManifest().name : null`, 2_000).catch(() => null);
+          if (name === null) await sleep(POLL_MS);
         }
-        return sw;
+        if (name === extName) return sw;
+        tried.add(info.targetId);
       }
       await sleep(POLL_MS);
     }
