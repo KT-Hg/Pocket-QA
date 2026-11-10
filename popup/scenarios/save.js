@@ -12,6 +12,27 @@ import { setFolderFilter } from './folders.js';
 import { toggleScenarioActions } from './scenario-actions.js';
 import { loadScenarios } from './scenario-list.js';
 
+/** The scenario `id` just made, selected in Manage Scenarios: what is added or edited next saves into it. */
+function _selectMade(id, name, folderId) {
+  // A search or folder filter in Manage Scenarios could hide it, and only a
+  // listed scenario can be the selected one.
+  const term = (scenarioSearch?.value || "").trim().toLowerCase();
+  if (term && !name.toLowerCase().includes(term)) scenarioSearch.value = "";
+  if (filterFolder?.value && filterFolder.value !== (folderId || "__none__")) setFolderFilter("");
+  // loadScenarios selects whatever lastSelectedScenario names.
+  chrome.storage.local.set({ lastSelectedScenario: id }, () => loadScenarios());
+}
+
+/** `go()` now, or once confirmed when `name` is already used in that folder. */
+function _unlessTaken(name, folderId, go, { title, okLabel, verb }) {
+  const taken = Object.values(ui.scenariosCache).some(s => s.name === name && (s.folderId || null) === folderId);
+  if (taken) {
+    showConfirm(`A scenario named "${name}" is already in this folder. ${verb} another one with the same name?`, go, { title, okLabel });
+  } else {
+    go();
+  }
+}
+
 function _createNamedScenario(name) {
   const folderId = scenarioFolder.value || null;
   const create = () => chrome.runtime.sendMessage({ type: "CREATE_SCENARIO", name, folderId }, (res) => {
@@ -19,21 +40,10 @@ function _createNamedScenario(name) {
     if (ui.editing) { clearEditState(); chrome.storage.local.remove("manualFormDraft"); }
     scenarioName.value = "";
     scenarioName.classList.remove("required-error");
-    // A search or folder filter in Manage Scenarios could hide the new one,
-    // and only a listed scenario can be the selected one.
-    const term = (scenarioSearch?.value || "").trim().toLowerCase();
-    if (term && !name.toLowerCase().includes(term)) scenarioSearch.value = "";
-    if (filterFolder?.value && filterFolder.value !== (folderId || "__none__")) setFolderFilter("");
-    // loadScenarios selects whatever lastSelectedScenario names.
-    chrome.storage.local.set({ lastSelectedScenario: res.id }, () => loadScenarios());
+    _selectMade(res.id, name, folderId);
     showToast(`Created "${name}" — what you add or edit now saves into it`, "success");
   });
-  const taken = Object.values(ui.scenariosCache).some(s => s.name === name && (s.folderId || null) === folderId);
-  if (taken) {
-    showConfirm(`A scenario named "${name}" is already in this folder. Create another one with the same name?`, create, { title: 'New Scenario', okLabel: 'Create' });
-  } else {
-    create();
-  }
+  _unlessTaken(name, folderId, create, { title: 'New Scenario', okLabel: 'Create', verb: 'Create' });
 }
 
 export function initSave() {
@@ -57,13 +67,17 @@ export function initSave() {
     );
     const originalCreatedAt = existing ? existing[1].createdAt : undefined;
 
-    chrome.runtime.sendMessage({ type: "SAVE_SCENARIO", name, folderId, originalCreatedAt }, (res) => {
+    // Saved, the scenario stays selected: ▶ Play runs it at once, and what is
+    // recorded or edited next saves into it. It used to leave nothing selected —
+    // an empty list and a greyed Play right after Save.
+    const save = () => chrome.runtime.sendMessage({ type: "SAVE_SCENARIO", name, folderId, originalCreatedAt }, (res) => {
+      if (!res?.success || !res.id) { showToast("Failed to save scenario", "error"); return; }
       scenarioName.value = "";
       scenarioFolder.value = "";
-      loadScenarios();
-      if (res?.success) showToast("Scenario saved", "success");
-      else showToast("Failed to save scenario", "error");
+      _selectMade(res.id, name, folderId);
+      showToast(`Saved "${name}" — press ▶ Play to run it`, "success");
     });
+    _unlessTaken(name, folderId, save, { title: 'Save Scenario', okLabel: 'Save', verb: 'Save' });
   });
   // New: with a name typed, the scenario is created now and selected, so what is
   // recorded or added next saves straight into it. Without a name it clears the

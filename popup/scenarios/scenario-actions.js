@@ -43,7 +43,7 @@ export function toggleScenarioActions(enabled) {
     if (enabled) {
       const name = ui.scenariosCache[scenarioList.value]?.name;
       autoSaveNotice.textContent = name
-        ? `✓ Editing "${name}" — changes save automatically`
+        ? `✓ Editing "${name}" — changes save automatically. To start another one, type a name above and click New.`
         : "✓ Changes save automatically";
     }
   }

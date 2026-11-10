@@ -859,6 +859,35 @@ async function checkPasteEmpty(ctx) {
   }
 }
 
+async function checkSaveSelects(ctx) {
+  // An unsaved draft of two actions, nothing selected, as after a first recording.
+  await ctx.send({ type: 'START_NEW_SCENARIO' });
+  for (const sel of ['#a', '#b']) await ctx.send({ type: 'ADD_MANUAL_ACTION', action: { type: 'click', selector: sel, selectors: { css: sel } } });
+  await ctx.ext.evaluate(`chrome.storage.local.remove('lastSelectedScenario')`);
+  const popup = await openPopup(ctx);
+  try {
+    await popup.evaluate(`(() => {
+      document.querySelector('.tab-btn[data-tab="tabRecord"]').click();
+      document.getElementById('scenarioName').value = 'e2e saved and kept';
+      document.getElementById('saveFlow').click();
+    })()`);
+    await sleep(POPUP_SETTLE_MS * 2);
+    const after = await popup.evaluate(`(() => {
+      const list = document.getElementById('scenarioList');
+      return { name: list.options[list.selectedIndex]?.textContent || '', play: !document.getElementById('playScenario').disabled,
+        rows: document.querySelectorAll('#actions li.action').length, toast: document.getElementById('toast').textContent,
+        notice: document.getElementById('autoSaveNotice').textContent };
+    })()`);
+    check(after.name === 'e2e saved and kept' && after.play && after.rows === 2,
+      'after Save the scenario stays selected: its 2 actions listed, ▶ Play ready', after);
+    check(/Saved "e2e saved and kept" — press ▶ Play/.test(after.toast) && /To start another one/.test(after.notice),
+      'the toast points to Play, and the notice says how to start another scenario', after);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await popup.close();
+  }
+}
+
 /**
  * Add Action on scenario `id` with the page scrolled past the top of the card, as
  * after filling a long form: where the card and the new row (`last`) end up.
@@ -4626,6 +4655,7 @@ const CHECKS = [
   ['switch-draft-follows', 'A new Switch in the form while its list changes', checkDraftSwitchFollows],
   ['switch-nested-check', 'A Switch whose case would cross the block of a Switch in it', checkNestedBlockCheck],
   ['paste-empty', 'Paste into a scenario with no actions', checkPasteEmpty],
+  ['save-selects', 'Save keeps the saved scenario selected, ready to Play', checkSaveSelects],
   ['form-scroll', 'After Add Action: the card back in view, the list on the new action', checkFormScroll],
   ['switch-other-case', 'A Switch case running another scenario: listed, never dropped into', checkSwitchOtherCase],
   ['copy-switch-block', 'Copy and Paste a Switch with its block', checkCopySwitchBlock],
