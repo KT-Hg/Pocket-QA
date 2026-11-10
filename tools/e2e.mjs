@@ -1671,6 +1671,28 @@ async function checkLastRunLive(ctx) {
     'once the run ends, the card is back with its result', after);
 }
 
+async function checkSqlLang(ctx) {
+  const title = (page) => page.evaluate(`({ title: document.querySelector('.topbar-title').textContent.trim(),
+    lang: document.documentElement.lang, button: document.getElementById('langLabel').textContent })`);
+  await ctx.ext.evaluate(`chrome.storage.local.remove('sqlCasesLang')`);
+  const page = await ctx.browser.openPage(ctx.extUrl('sqltest.html'), { width: 1200, height: 800 });
+  try {
+    await sleep(POPUP_SETTLE_MS);
+    const first = await title(page);
+    check(/SQL Test Case Designer/.test(first.title) && first.lang === 'en' && first.button === 'EN',
+      'the SQL page opens in English the first time, as the popup does', first);
+    await page.evaluate(`chrome.storage.local.set({ sqlCasesLang: 'vi' })`);
+    await page.reload();
+    await sleep(POPUP_SETTLE_MS);
+    const chosen = await title(page);
+    check(/Thiết kế Test Case SQL/.test(chosen.title) && chosen.lang === 'vi', 'Vietnamese once chosen stays Vietnamese', chosen);
+    if (page.errors().length) fail(`page errors: ${page.errors().join(' | ')}`);
+  } finally {
+    await page.evaluate(`chrome.storage.local.remove('sqlCasesLang')`).catch(() => {});
+    await page.close();
+  }
+}
+
 async function checkHotkeys(ctx) {
   await reloadTestPage(ctx);
   // Alt+R as the page gets it; `key` is what the keyboard typed ("®" for Option+R on macOS).
@@ -4804,6 +4826,7 @@ const CHECKS = [
   ['last-run', 'The Last run card in the popup', checkLastRun],
   ['no-checks', 'A run with no Assert says it checked nothing', checkNoChecks],
   ['last-run-live', 'The Last run card hides while a run is on', checkLastRunLive],
+  ['sql-lang', 'The SQL page opens in English, a chosen language kept', checkSqlLang],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
   ['select-type', 'Child Condition type "select"', checkSelectType],

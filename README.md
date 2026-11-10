@@ -20,7 +20,7 @@ A Chrome Manifest V3 extension that records browser interactions and replays the
 | **Screenshot** | Visible, full page, scroll (V/H), segment, element, whole OS window — with crop editor, standalone image editor, image diff, and watermark |
 | **Highlight** | Select text on any page to highlight it in 5 colours with notes; auto-restored on revisit, scoped by URL patterns |
 | **CSV Run** | Run a scenario once per row; export results to XLSX / HTML / ZIP with screenshots and a **Run Result** per row |
-| **SQL Test Cases** | Vietnamese/English. Parse a SELECT/INSERT/UPDATE/DELETE statement and derive a test case list — EP + BVA, decision table / MC-DC, NULL & 3-valued logic, JOIN cardinality, grouping and paging — with one panel for editing the sample values every case draws on, exported as CSV or JSON |
+| **SQL Test Cases** | English/Vietnamese. Parse a SELECT/INSERT/UPDATE/DELETE statement and derive a test case list — EP + BVA, decision table / MC-DC, NULL & 3-valued logic, JOIN cardinality, grouping and paging — with one panel for editing the sample values every case draws on, exported as CSV or JSON |
 | **API Tests** | Keep API requests in folders, send them (paste a cURL from DevTools), check the response — status, JSON path, header, body, time — with environments, values saved from a response (a login token) and auth set on a folder; run a folder one request at a time; Postman Collection v2.1 export (for Newman in CI) and import; results as CSV |
 | **DB Test Session** | Records every row changed through **Adminer** — edit form, grid edits, bulk delete, `INSERT`, and hand-written SQL — and rolls a whole test run back, with a preview of the exact SQL and a drift check per row. (Whole-table snapshots, backup tables and rollback after Playback are built but temporarily hidden.) |
 | **Export** | Scenario JSON, folder JSON, full backup/restore, JS Bookmarklet, Selenium Python (script or pytest), Playwright Test, Robot Framework, Selenium Java (TestNG) |
@@ -531,7 +531,7 @@ plus `INSERT`, `UPDATE` and `DELETE`. MySQL backticks, SQL Server brackets and A
 accepted, as are the `?` / `:name` / `@name` / `$1` parameter markers. Both MySQL (`INTERVAL 6 MONTH`) and
 PostgreSQL (`INTERVAL '6 months'`) interval syntax parse.
 
-**Language:** Vietnamese by default, English via the 🌐 button in the top bar; the choice is remembered.
+**Language:** English by default, as the popup is; Vietnamese via the 🌐 button in the top bar; the choice is remembered.
 Generation runs in the active language rather than translating afterwards, so an export always matches what is
 on screen. SQL keywords stay in English in both — they are what the tester has to match against the query.
 Catalogs live in [`sqlcases/i18n/`](sqlcases/i18n/); `technique` and `priority` stay stable English codes

@@ -25,7 +25,9 @@ export const LANGUAGES = [
   { code: 'en', label: 'English', short: 'EN' }
 ];
 
-export const DEFAULT_LANG = 'vi';
+// English, as the popup and the DB panel are: a first visit in Vietnamese next to
+// an English popup read as two products. The 🌐 button switches, and is remembered.
+export const DEFAULT_LANG = 'en';
 
 let lang = DEFAULT_LANG;
 const missing = new Set();
