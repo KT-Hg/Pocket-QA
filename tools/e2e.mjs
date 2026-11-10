@@ -1019,6 +1019,19 @@ async function reopenPopup(ctx) {
   return popup;
 }
 
+/**
+ * The popup after an element was picked on the page: the worker opens it
+ * (chrome.action.openPopup), and that one takes what the pick kept, so another
+ * opened beside it would find nothing. Where the browser does not let the worker
+ * open it, the toolbar button does.
+ */
+async function popupAfterPick(ctx) {
+  const opened = await ctx.browser.pageOpenedAt(ctx.extUrl('popup.html'), POPUP_SETTLE_MS);
+  if (!opened) return reopenPopup(ctx);
+  await sleep(POPUP_SETTLE_MS);
+  return opened;
+}
+
 /** The popup closes itself for a pick (window.close); a page CDP opened may stay. */
 const closeQuietly = (page) => page.close().catch(() => { /* closed itself */ });
 
@@ -1046,7 +1059,7 @@ async function checkInsertPointPick(ctx) {
     await closeQuietly(popup);
     await clickAt(ctx, '#choiceA');
     await sleep(SETTLE_MS);
-    popup = await reopenPopup(ctx);
+    popup = await popupAfterPick(ctx);
     const picked = await placeOf(popup);
     check(picked.selector === '#choiceA' && picked.after === '0' && /Insert at #2/.test(picked.note),
       'after 🎯 Pick the popup comes back with the place picked by + (under row 1)', picked);
@@ -1077,7 +1090,7 @@ async function checkInsertPointPick(ctx) {
     await closeQuietly(popup);
     await clickAt(ctx, '#choiceB');
     await sleep(SETTLE_MS);
-    popup = await reopenPopup(ctx);
+    popup = await popupAfterPick(ctx);
     const target = await popup.evaluate(`document.getElementById('dragdropTarget').value`);
     const dd = await placeOf(popup);
     check(target === '#choiceB' && dd.after === '2' && /Insert at #4/.test(dd.note),

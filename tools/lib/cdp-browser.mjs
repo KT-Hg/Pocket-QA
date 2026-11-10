@@ -198,15 +198,39 @@ export async function launchWithExtension(extDir, { headed = false } = {}) {
   ], { stdio: 'ignore' });
   const conn = await connect(await devToolsUrl(profile.dir));
 
+  const PAGE_DOMAINS = ['Page', 'Runtime', 'Log', 'Network'];
+  const attached = new Set();
+
   /** A new tab, with its domains on before it loads `url` so load-time errors are caught. */
   async function openPage(url, { initScript, width, height } = {}) {
     const { targetId } = await conn.send('Target.createTarget', { url: 'about:blank' });
+    attached.add(targetId);
     const page = pageApi(conn, await attach(conn, targetId));
-    for (const domain of ['Page', 'Runtime', 'Log', 'Network']) await page.send(`${domain}.enable`);
+    for (const domain of PAGE_DOMAINS) await page.send(`${domain}.enable`);
     if (width) await page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
     if (initScript) await page.send('Page.addScriptToEvaluateOnNewDocument', { source: initScript });
     await page.goto(url);
     return page;
+  }
+
+  /**
+   * A page the browser opened by itself at `url` (one chrome.action.openPopup()
+   * opened, say), attached; null if none comes within `ms`. Errors it hit
+   * before this are not seen.
+   */
+  async function pageOpenedAt(url, ms) {
+    for (let waited = 0; waited < ms; waited += POLL_MS) {
+      const { targetInfos } = await conn.send('Target.getTargets');
+      const info = targetInfos.find((t) => t.type === 'page' && t.url.startsWith(url) && !attached.has(t.targetId));
+      if (info) {
+        attached.add(info.targetId);
+        const page = pageApi(conn, await attach(conn, info.targetId));
+        for (const domain of PAGE_DOMAINS) await page.send(`${domain}.enable`);
+        return page;
+      }
+      await sleep(POLL_MS);
+    }
+    return null;
   }
 
   // Edge runs extensions of its own, some with a background.js worker too: ours is
@@ -252,7 +276,7 @@ export async function launchWithExtension(extDir, { headed = false } = {}) {
     try { rmSync(profile.dir, { recursive: true, force: true }); } catch { /* the browser may still hold a file; it is a temp folder */ }
   }
 
-  return { browserPath: exe, send: conn.send, openPage, serviceWorker, downloads, downloadDir: profile.downloads, close };
+  return { browserPath: exe, send: conn.send, openPage, pageOpenedAt, serviceWorker, downloads, downloadDir: profile.downloads, close };
 }
 
 /**
