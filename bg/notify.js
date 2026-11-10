@@ -16,9 +16,10 @@ const _NOTIF_ICON = chrome.runtime.getURL('icons/icon48.png');
  * ignored it completely — so turning the toggle off in Settings did almost
  * nothing, which reads as a bug.
  *
- * Defaults preserve the behaviour each category had before the split: completion
- * was opt-in (off by default), alerts and capture results always fired. An absent
- * key therefore means `false` for complete and `true` for the other two.
+ * Every category is on by default: an absent key means `true`. Completion was
+ * opt-in until 1.0.29, but the popup closes once a run starts, so a run that
+ * passed ended in silence and a newcomer never learnt how it came out. Someone
+ * who switched it off has `false` stored, and keeps it.
  *
  * Update-lock notices deliberately have no category — see notifyLocked() in
  * bg/update-check.js. They explain why a requested action did nothing at all, so
@@ -30,7 +31,7 @@ const NOTIFY_KEY = {
   capture:  'notifyOnCapture',
   schedule: 'notifyOnSchedule',
 };
-const NOTIFY_DEFAULT = { complete: false, error: true, capture: true, schedule: true };
+const NOTIFY_DEFAULT = { complete: true, error: true, capture: true, schedule: true };
 
 async function _notifyEnabled(category) {
   const key = NOTIFY_KEY[category];

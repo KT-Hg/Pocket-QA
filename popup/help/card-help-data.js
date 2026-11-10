@@ -559,7 +559,7 @@ export const CARD_HELP_DATA = {
     title: { vi: 'Hướng dẫn Notifications', en: 'Notifications Guide' },
     vi: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Vì sao có thẻ này</span><span class="ch-title">Kịch bản chạy khi bạn không nhìn</span></div><p class="ch-desc">Một lần chạy CSV vài trăm dòng, hay một lịch tự chạy lúc 8 giờ sáng, đều diễn ra khi popup đã đóng và bạn đang làm việc khác. Thông báo của hệ điều hành là cách duy nhất biết được kết quả mà không phải ngồi canh.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">4 nhóm</span><span class="ch-title">Bật/tắt riêng từng nhóm</span></div><p class="ch-desc">
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">4 nhóm</span><span class="ch-title">Bật/tắt riêng từng nhóm — cả 4 nhóm bật sẵn</span></div><p class="ch-desc">
         • <b>Run passed or stopped</b> — playback, sequence hay CSV chạy xong mà không lỗi, hoặc bị dừng<br>
         • <b>Errors &amp; warnings</b> — một lần chạy hay action bị lỗi, lần chạy đang dừng chờ bạn chọn Retry / Skip / Stop, tab bị đóng giữa chừng, storage đầy<br>
         • <b>Capture results</b> — ảnh chụp đã lưu ở đâu, khi popup đã đóng (phím tắt, đếm ngược, chụp theo đoạn, chọn phần tử). Nhóm này đáng bật nhất, vì lúc đó không có chỗ nào khác báo kết quả<br>
@@ -567,7 +567,7 @@ export const CARD_HELP_DATA = {
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-red">Ngoại lệ</span><span class="ch-title">Một thông báo không tắt được</span></div><p class="ch-desc">Khi đã quá hạn cập nhật bắt buộc, thông báo <b>"cần cập nhật"</b> luôn hiện dù bạn tắt hết — vì lúc đó nó là thứ duy nhất giải thích tại sao bấm nút mà không có gì xảy ra. Lời nhắc <i>trước</i> hạn thì vẫn theo công tắc <b>Errors &amp; warnings</b>.</p></div>`,
     en: `
       <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-blue">Why this card exists</span><span class="ch-title">Runs that happen while you are not watching</span></div><p class="ch-desc">A CSV run of a few hundred rows, or a schedule firing at 8am, both happen with the popup closed while you are doing something else. A system notification is the only way to learn the outcome without sitting and watching.</p></div>
-      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">Four categories</span><span class="ch-title">Each switched separately</span></div><p class="ch-desc">
+      <div class="ch-item"><div class="ch-name"><span class="ch-badge badge-gray">Four categories</span><span class="ch-title">Each switched separately — all four on by default</span></div><p class="ch-desc">
         • <b>Run passed or stopped</b> — a playback, sequence or CSV run finished with nothing failed, or was stopped<br>
         • <b>Errors &amp; warnings</b> — a failed run or action, a run paused for your Retry / Skip / Stop, a tab closed mid-run, storage full<br>
         • <b>Capture results</b> — where a screenshot was saved, when the popup is closed (hotkey, countdown, segment, element pick). The most worthwhile one: nothing else reports the result then<br>

@@ -101,9 +101,9 @@ function _endVerdict(failures, completed) {
 
 /**
  * The verdict as the run's last notification: in the title, and the counts after
- * `done`. A failed or broken run goes out as an alert, which is on by default:
- * as a completion notice (off by default) a run that failed ended in silence,
- * the per-action alerts being the only sign — and CSV runs raise none of those.
+ * `done`. A failed or broken run goes out as an alert, so muting completion
+ * notices never silences a failure — the per-action alerts would be the only
+ * sign, and CSV runs raise none of those.
  */
 function _notifyVerdict(name, verdict, done) {
   const send = verdict.status === 'failed' || verdict.status === 'broken' ? sendAlertNotification : sendCompletionNotification;

@@ -149,7 +149,7 @@ function cancelHotkeyCapture() {
  * here would show three unticked boxes for notifications that do fire.
  */
 const NOTIFY_TOGGLES = {
-  notifyOnComplete: false,
+  notifyOnComplete: true,
   notifyOnError:    true,
   notifyOnCapture:  true,
   notifyOnSchedule: true,
