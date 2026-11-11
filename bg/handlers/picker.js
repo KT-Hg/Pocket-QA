@@ -12,6 +12,7 @@ import { updateBadge } from '../badge.js';
 import { sendCaptureNotification } from '../notify.js';
 import { takeElementScreenshot, reportCaptureResult } from '../screenshot.js';
 import { readCaptureSettings } from '../screenshot/settings.js';
+import { isTabOn } from '../tabs.js';
 
 /* --- Element picker passthrough --- */
 function pickMode(request, sender, sendResponse) {
@@ -27,11 +28,7 @@ function pickMode(request, sender, sendResponse) {
 export const pickerHandlers = {
   /* --- Activation check (for content.js hotkey guard) --- */
   IS_TAB_ACTIVATED(request, sender, sendResponse) {
-    const tabId = sender.tab?.id;
-    chrome.storage.local.get(["activatedTabs"], (res) => {
-      const activated = tabId != null && (res.activatedTabs || []).includes(tabId);
-      sendResponse({ activated });
-    });
+    isTabOn(sender.tab?.id, (activated) => sendResponse({ activated }));
     return true;
   },
 
@@ -60,7 +57,7 @@ export const pickerHandlers = {
         return;
       }
       if (flags.elemShotPickPending && request.selector) {
-        chrome.storage.local.remove(["elemShotPickPending", "elemShotPickCrop", "lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId"]);
+        chrome.storage.local.remove(["elemShotPickPending", "elemShotPickCrop", "lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId", "lastPickedLabel"]);
         const crop = !!flags.elemShotPickCrop;
         const tabId = targetTab(request, sender);
         if (!tabId) { _elemShotErr("Lost track of the tab — try the capture again"); return; }

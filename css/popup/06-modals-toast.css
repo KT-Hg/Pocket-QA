@@ -248,6 +248,12 @@
   word-break: break-word;
   overflow-wrap: break-word;
 }
+/* showConfirm(…, { link }): under the buttons */
+.confirm-modal-link { display: block; margin: 12px auto 0; padding: 0; font-size: 12px; text-align: center; }
+.confirm-modal-link[hidden] { display: none; }
+
+/* A Settings card the popup sent the user to (the dialog's link): flashed once */
+.card.setting-flash { animation: sw-flash 1.6s ease-out; }
 
 /* === Toast Notification === */
 .toast {

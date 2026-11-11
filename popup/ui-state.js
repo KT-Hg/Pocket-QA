@@ -20,7 +20,11 @@ export const ui = {
   // Frame the picked element lives in (0 = top page). Carried onto the action
   // while the selector is still the picked one, so it plays in that iframe.
   currentPickedFrameId: null,
+  // What the picked element (and drop target) is called: { tag, name, id } from
+  // the page, for the Picked line; null when not known.
+  currentPickedLabel: null,
   currentPickedDragdropTargetSelectors: null,
+  currentPickedDragdropTargetLabel: null,
   actionClipboard: null, // a copied unit: [action, …the actions under it] (actionUnit)
   // Where Add Action / Paste put the next action: { scenarioId, anchor } (record/insert-point.js).
   insertPoint: null,

@@ -174,6 +174,23 @@ summary:has(> .chev)::-webkit-details-marker { display: none; }
 /* In a label | field grid: a row of its own, under the field, 3px below it
    like anywhere else (the grid's gap is 8px). */
 .form-grid > .field-error { grid-column: 2; margin-top: -5px; }
+/* A note rather than an error (showFieldError(…, { warn: true })): the field is not marked. */
+.field-error.field-warn { color: var(--warning-text); }
+/* 👁's line (record/show-on-page.js, data-preview) comes and goes as the mouse does:
+   it grows in and folds away, so the form under it slides instead of jumping. */
+.field-error[data-preview] { overflow: hidden; animation: preview-msg-in 0.22s ease-out; }
+.field-error[data-preview].leaving { animation: preview-msg-out 0.16s ease-out forwards; }
+@keyframes preview-msg-in {
+  from { max-height: 0; opacity: 0; margin-top: 0; }
+  to   { max-height: 2.6em; opacity: 1; margin-top: 3px; }
+}
+@keyframes preview-msg-out {
+  from { max-height: 2.6em; opacity: 1; margin-top: 3px; }
+  to   { max-height: 0; opacity: 0; margin-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .field-error[data-preview], .field-error[data-preview].leaving { animation: none; }
+}
 
 /* === Picked element: one line under the selector (shared with the drop target).
    Its locators are listed in the type menu (record/selector-type-menu.js). === */
@@ -189,6 +206,25 @@ summary:has(> .chev)::-webkit-details-marker { display: none; }
   font-size: 11px;
   color: var(--muted);
 }
+
+/* The picked element's name: hover outlines it on the page, a click scrolls to it
+   (record/show-on-page.js). Struck out once the box holds something else. */
+.pk-name {
+  width: auto;
+  margin: 0;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.pk-name:hover:not(:disabled) { background: var(--secondary-bg); color: var(--primary); transform: none; }
+.pk-name code { font-size: 10.5px; padding: 0 4px; border-radius: 3px; background: var(--secondary-bg); color: var(--text); }
+.pk-stale { display: none; font-style: italic; }
+.picked-stale .pk-name { opacity: 0.55; text-decoration: line-through; }
+.picked-stale .pk-stale { display: inline; }
 
 #clearPickedSelectorsBtn:hover:not(:disabled),
 #clearDragdropTargetBtn:hover:not(:disabled) {

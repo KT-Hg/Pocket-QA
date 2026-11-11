@@ -8,6 +8,7 @@
  */
 
 import { state } from './state.js';
+import { endRunPanel } from './run-panel.js';
 
 // Held by runClaimed() from the moment a playback entry point is let in until it returns.
 let _claimed = false;
@@ -39,6 +40,7 @@ export async function runClaimed(start) {
     await start();
   } finally {
     _claimed = false;
+    endRunPanel(); // the run panel on its page goes with the run
   }
   return true;
 }

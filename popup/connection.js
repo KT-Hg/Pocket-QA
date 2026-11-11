@@ -19,11 +19,12 @@ let _panelOpen = false;
 let _csvDoneActive = false;
 let _csvDoneTimeout = null;
 
-function _setNowPlaying(show, { icon = '▶', name = '', step = '', switched = false } = {}) {
+function _setNowPlaying(show, { icon = '▶', name = '', step = '', pct = 0, paused = false } = {}) {
   const bar      = document.getElementById('nowPlayingBar');
   const iconEl   = document.getElementById('nowPlayingIcon');
   const nameEl   = document.getElementById('nowPlayingName');
   const stepEl   = document.getElementById('nowPlayingStep');
+  const fill     = document.getElementById('nowPlayingFill');
   const thinBar  = document.getElementById('playbackProgressWrap');
   if (!bar) return;
   if (!show) {
@@ -34,10 +35,21 @@ function _setNowPlaying(show, { icon = '▶', name = '', step = '', switched = f
   }
   bar.style.display = '';
   if (thinBar) thinBar.style.display = 'none'; // hidden — step shown in Now Playing bar
-  bar.classList.toggle('switched', switched);
+  bar.classList.toggle('paused', paused);
   if (iconEl) iconEl.textContent = icon;
   if (nameEl) nameEl.textContent = name;
   if (stepEl) stepEl.textContent = step;
+  if (fill) fill.style.width = `${Math.round(pct)}%`;
+  bar.title = `${name}${step ? ` — ${step}` : ''} · click for details`;
+}
+
+/** The run line as the page's run panel words it (status.run, bg/run-panel.js); `fallback` until the run has its tab. */
+function _showRun(run, fallback) {
+  if (!run) { _setNowPlaying(true, fallback); return; }
+  let icon = '▶';
+  if (run.paused) icon = '⏸';
+  else if (run.waiting) icon = '⏳';
+  _setNowPlaying(true, { icon, name: run.head, step: run.counter, pct: run.pct, paused: run.paused });
 }
 
 function _setPanelOpen(open) {
@@ -127,6 +139,11 @@ function _syncRecordButtons(recording) {
   stop.classList.toggle('secondary', !recording);
 }
 
+/** The dot as the tab's own state has it when nothing runs: green on, grey off (tab-activation.js). */
+function _restoreIdleDot(statusDot) {
+  if (statusDot) statusDot.className = statusDot.dataset.idleClass || 'status-dot';
+}
+
 function updateStatusIndicator() {
   const statusDot = document.getElementById('statusDot');
   const statusIndicator = document.getElementById('statusIndicator');
@@ -144,6 +161,7 @@ function updateStatusIndicator() {
       if (statusIndicator) {
         statusIndicator.classList.remove('active', 'recording', 'playing', 'sequence');
       }
+      _restoreIdleDot(statusDot);
       if (statusText) statusText.textContent = '';
       _setProgress(false, 0, 0);
       _scheduleNextPoll(false);
@@ -167,12 +185,13 @@ function updateStatusIndicator() {
       const seqProgress = `${status.currentScenarioIndex + 1}/${status.totalScenarios}`;
       if (statusText) statusText.textContent = '▶▶';
       if (statusDot) statusDot.className = 'status-dot active';
-      _setNowPlaying(true, { icon: '▶▶', name: status.scenarioName || 'Sequence', step: `seq ${seqProgress}` });
+      const seqPct = status.totalScenarios > 0 ? (status.currentScenarioIndex + 1) / status.totalScenarios * 100 : 0;
+      _showRun(status.run, { icon: '▶▶', name: status.scenarioName || 'Sequence', step: `seq ${seqProgress}`, pct: seqPct });
       _updatePanel({
         name: status.scenarioName || 'Sequence',
         origName: '',
         progress: seqProgress,
-        pct: status.totalScenarios > 0 ? (status.currentScenarioIndex + 1) / status.totalScenarios * 100 : 0,
+        pct: seqPct,
       });
       _setProgress(true, status.currentScenarioIndex + 1, status.totalScenarios);
       _scheduleNextPoll(true);
@@ -187,17 +206,13 @@ function updateStatusIndicator() {
       if (statusText) statusText.textContent = '▶';
       if (statusDot) statusDot.className = 'status-dot active';
       const isSwitched = !!(status.originalScenarioName && status.scenarioName !== status.originalScenarioName);
-      _setNowPlaying(true, {
-        icon: '▶',
-        name: status.scenarioName || '',
-        step: csvStep,
-        switched: isSwitched,
-      });
+      const stepPct = status.totalActions > 0 ? (status.actionIndex + 1) / status.totalActions * 100 : 0;
+      _showRun(status.run, { name: status.scenarioName || '', step: csvStep, pct: stepPct });
       _updatePanel({
         name: status.scenarioName || '',
         origName: isSwitched ? status.originalScenarioName : '',
         progress: csvStep,
-        pct: status.totalActions > 0 ? (status.actionIndex + 1) / status.totalActions * 100 : 0,
+        pct: stepPct,
         csvRow: status.csvPlaying ? status.csvCurrentRow + 1 : 0,
         csvTotal: status.csvPlaying ? status.csvTotalRows : 0,
       });
@@ -210,12 +225,13 @@ function updateStatusIndicator() {
       if (statusText) statusText.textContent = '▶';
       if (statusDot) statusDot.className = 'status-dot active';
       const betweenStep = `row ${status.csvCurrentRow + 1}/${status.csvTotalRows} · waiting…`;
-      _setNowPlaying(true, { icon: '⏸', name: status.csvScenarioName || '', step: betweenStep });
+      const rowPct = status.csvTotalRows > 0 ? status.csvCurrentRow / status.csvTotalRows * 100 : 0;
+      _showRun(status.run, { icon: '⏳', name: status.csvScenarioName || '', step: betweenStep, pct: rowPct });
       _updatePanel({
         name: status.csvScenarioName || '',
         origName: '',
         progress: betweenStep,
-        pct: status.csvTotalRows > 0 ? status.csvCurrentRow / status.csvTotalRows * 100 : 0,
+        pct: rowPct,
         csvRow: status.csvCurrentRow + 1,
         csvTotal: status.csvTotalRows,
       });
@@ -223,6 +239,8 @@ function updateStatusIndicator() {
       _scheduleNextPoll(true);
     } else {
       statusIndicator.classList.remove('active', 'recording', 'playing', 'sequence');
+      // The red dot of a recording that just stopped would stay until the popup reopened.
+      _restoreIdleDot(statusDot);
       if (statusText) statusText.textContent = '';
       if (!_csvDoneActive) _setNowPlaying(false);
       _setProgress(false, 0, 0);
@@ -246,7 +264,7 @@ function updateStatusIndicator() {
 export function setCsvDoneBar(scenarioName, summary) {
   _csvDoneActive = true;
   clearTimeout(_csvDoneTimeout);
-  _setNowPlaying(true, { icon: '✓', name: scenarioName, step: summary });
+  _setNowPlaying(true, { icon: '✓', name: scenarioName, step: summary, pct: 100 });
   _updatePanel({ name: scenarioName, progress: summary, pct: 100 });
   const bar = document.getElementById('nowPlayingBar');
   if (bar) bar.classList.add('csv-done');
@@ -284,14 +302,17 @@ document.getElementById('nowPlayingBar')?.addEventListener('click', () => {
   _setPanelOpen(!_panelOpen);
 });
 
-document.getElementById('pbPanelStop')?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  // STOP_SEQUENCE_PLAYBACK, not STOP_SEQUENCE — the latter has no handler and
-  // only produced an unchecked-lastError warning. Sequences happened to stop
-  // anyway because STOP_PLAYBACK also clears sequencePlayback.active, which
-  // would have quietly stopped being true after any refactor of that handler.
-  chrome.runtime.sendMessage({ type: 'STOP_PLAYBACK' });
-  chrome.runtime.sendMessage({ type: 'STOP_SEQUENCE_PLAYBACK' });
-  chrome.runtime.sendMessage({ type: 'STOP_CSV_PLAYBACK' });
-  _setPanelOpen(false);
-});
+// The mini panel's Stop and the run line's own (as the page panel's): the run ends, whatever kind.
+for (const id of ['pbPanelStop', 'nowPlayingStop']) {
+  document.getElementById(id)?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // STOP_SEQUENCE_PLAYBACK, not STOP_SEQUENCE — the latter has no handler and
+    // only produced an unchecked-lastError warning. Sequences happened to stop
+    // anyway because STOP_PLAYBACK also clears sequencePlayback.active, which
+    // would have quietly stopped being true after any refactor of that handler.
+    chrome.runtime.sendMessage({ type: 'STOP_PLAYBACK' });
+    chrome.runtime.sendMessage({ type: 'STOP_SEQUENCE_PLAYBACK' });
+    chrome.runtime.sendMessage({ type: 'STOP_CSV_PLAYBACK' });
+    _setPanelOpen(false);
+  });
+}

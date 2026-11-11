@@ -10,9 +10,10 @@ import { normalizeVarName, normalizeVarRef, selectorStrings } from '../../shared
 import { addManualAction, cancelEdit, conditionExpectedValue, conditionExpectedValueWrapper, conditionSkipCount, conditionType, manualActionType, manualDelay, manualSelector, manualValue, pickElement, pickedSelectorsInfo, pickedSelectorsWrap, scenarioList, selectorType } from '../dom.js';
 import { ui } from '../ui-state.js';
 import { debounce, isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
+import { whenTabOn } from '../tab-activation.js';
 import { addVariableRow, newVariableConfig } from '../variables.js';
 import { saveDraft } from './draft.js';
-import { clearInsertPoint, insertAnchor, keptInsertPoint, moveInsertPoint } from './insert-point.js';
+import { clearInsertPoint, insertAnchor, keptInsertPoint, moveInsertPoint, renderInsertPoint } from './insert-point.js';
 import { CONDITION_FORM_TYPES, DEFAULT_DELAY_MS, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, readdomMode, switchMode, updateDropdownForm, updateReaddomForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
 import { collectManualFormState, setEditing } from './form-state.js';
 import { CHILD_COND_FIELDS, SINGLE_LINE_KINDS, TYPE_FIELDS, VALUE_BOX, clearField, clickThroughOff, fillField, setClickThrough, showClickThroughFor } from './form-table.js';
@@ -467,6 +468,8 @@ export function clearEditState() {
   }
   setChildCondExpanded(false);
   updateChildCondBadge();
+  // The form was emptied in code, which fires no input: the dummy row follows here.
+  renderInsertPoint();
 }
 
 /**
@@ -639,7 +642,7 @@ export function initActionForm() {
     document.getElementById(id)?.addEventListener("input", _debouncedUpdateChildCondBadge);
     document.getElementById(id)?.addEventListener("change", updateChildCondBadge);
   });
-  pickElement.addEventListener('click', () => {
+  const togglePickMode = () => {
     ui.pickerMode = !ui.pickerMode;
     pickElement.textContent = ui.pickerMode ? "✓ Pick Mode" : "🎯";
     pickElement.classList.toggle('picker-active', ui.pickerMode);
@@ -684,6 +687,11 @@ export function initActionForm() {
         document.getElementById('pickerInstructionBar')?.classList.remove('show');
       }
     });
+  };
+  // Picking needs Pocket QA on for the tab; leaving pick mode needs nothing.
+  pickElement.addEventListener('click', () => {
+    if (ui.pickerMode) togglePickMode();
+    else whenTabOn(togglePickMode);
   });
   addManualAction.addEventListener('click', () => {
     const selector  = manualSelector.value?.trim() || "";

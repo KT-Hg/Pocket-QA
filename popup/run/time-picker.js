@@ -55,6 +55,9 @@ function prefillScheduleUrl(force = false) {
   });
 }
 
+/** A minute as the picker shows it: 0 → "00", 5 → "05". */
+export const twoDigits = (n) => String(n).padStart(2, "0");
+
 /** A 12-hour clock hour as 24-hour: 12 AM is hour 0, 12 PM hour 12, other PM hours add 12. */
 function to24h(h12, pm) {
   if (pm) return h12 === 12 ? 12 : h12 + 12;
@@ -86,7 +89,8 @@ export function initTimePicker() {
     stHour.addEventListener("input", syncHidden);
     stHour.addEventListener("change", () => { stHour.value = clamp(stHour.value, 1, 12); syncHidden(); });
     stMin.addEventListener("input", syncHidden);
-    stMin.addEventListener("change", () => { stMin.value = clamp(stMin.value, 0, 59); syncHidden(); });
+    // Minutes read as a clock does: 12:00, 9:05 — not 12:0.
+    stMin.addEventListener("change", () => { stMin.value = twoDigits(clamp(stMin.value, 0, 59)); syncHidden(); });
     stAmPm.addEventListener("click", () => {
       stAmPm.textContent = stAmPm.textContent === "AM" ? "PM" : "AM";
       syncHidden();
@@ -94,7 +98,7 @@ export function initTimePicker() {
 
     resetScheduleTimePicker = () => {
       stHour.value = 12;
-      stMin.value  = 0;
+      stMin.value  = "00";
       stAmPm.textContent = "AM";
       syncHidden(); // keep hidden populated (12 AM = "00:00")
     };

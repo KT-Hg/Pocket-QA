@@ -163,69 +163,89 @@ body.update-locked #diffScreenshots:hover,
 body.update-locked .cap-save-btn:hover,
 body.update-locked .cap-edit-btn:hover { transform: none; }
 
-/* === Now Playing bar === */
+/* === Now Playing: the run panel the page shows (content.js RUN PANEL), in the popup ===
+   Same parts, words and colours: ▶ / ⏸ / ⏳, what plays, the step, ■ Stop, and a
+   3px bar for the whole run along the bottom. A click opens the mini panel. */
 .now-playing-bar {
+  --run: #22c55e;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 10px;
-  background: color-mix(in srgb, var(--success) 10%, var(--card));
-  border-bottom: 1px solid color-mix(in srgb, var(--success) 30%, var(--border));
+  gap: 10px;
+  margin: 8px 10px;
+  padding: 5px 6px 7px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
   cursor: pointer;
   user-select: none;
-  min-height: 28px;
-  transition: background .15s;
+  transition: border-color .15s;
 }
 
 .now-playing-bar:hover {
-  background: color-mix(in srgb, var(--success) 18%, var(--card));
+  border-color: color-mix(in srgb, var(--run) 55%, var(--border));
 }
 
-.now-playing-bar.switched {
-  background: color-mix(in srgb, var(--secondary) 12%, var(--card));
-  border-bottom-color: color-mix(in srgb, var(--secondary) 30%, var(--border));
-}
+/* A failed action waits for Retry / Skip / Stop: amber, as on the page. */
+.now-playing-bar.paused { --run: #f59e0b; }
 
-.now-playing-bar.switched:hover {
-  background: color-mix(in srgb, var(--secondary) 20%, var(--card));
-}
-
-.now-playing-bar.csv-done {
-  background: color-mix(in srgb, var(--success) 8%, var(--card));
-  border-bottom-color: color-mix(in srgb, var(--success) 25%, var(--border));
-  opacity: 0.85;
-}
-
-.now-playing-bar.csv-done:hover {
-  opacity: 1;
-  background: color-mix(in srgb, var(--success) 14%, var(--card));
-}
+.now-playing-bar.csv-done { opacity: 0.85; }
+.now-playing-bar.csv-done:hover { opacity: 1; }
+.now-playing-bar.csv-done .now-playing-stop { display: none; }
 
 .now-playing-icon {
   font-size: 11px;
-  color: var(--success);
+  color: var(--run);
   flex: 0 0 auto;
 }
 
-.now-playing-bar.switched .now-playing-icon {
-  color: var(--secondary);
-}
-
 .now-playing-name {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
   color: var(--text);
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .now-playing-step {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
   flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Solid, as the page panel's Stop (the popup's other danger buttons are outlined). */
+.now-playing-bar .now-playing-stop {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--danger-fill);
+  border-color: var(--danger-fill);
+  color: white;
+}
+
+.now-playing-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(127, 127, 127, 0.25);
+}
+
+.now-playing-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--run);
+  transition: width .3s ease;
 }
 
 /* === Playback mini panel === */

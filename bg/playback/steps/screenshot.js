@@ -6,6 +6,7 @@
 import { normalizeVarName } from '../../../shared/var-name.js';
 import { takeVisibleScreenshot, takeFullPageScreenshot, takeElementScreenshot } from '../../screenshot.js';
 import { afterFailure } from './flow.js';
+import { withRunPanelHidden } from '../../run-panel.js';
 
 /** Element screenshot. */
 export async function runElementScreenshot(ctx, i, action) {
@@ -13,11 +14,12 @@ export async function runElementScreenshot(ctx, i, action) {
   const settings = await _getSsSettings();
   const saveMode = forceAutoSave ? 'auto' : (settings.screenshotSaveMode || 'auto');
   const prefix   = settings.screenshotPrefix || 'screenshot';
-  const result   = await takeElementScreenshot(tabId, {
+  // Each capture is of the page alone: the run panel goes for it (bg/run-panel.js).
+  const result   = await withRunPanelHidden(tabId, () => takeElementScreenshot(tabId, {
     selector: action.selector, saveMode, prefix, crop: false, returnBase64: false, skipDownload,
     selectors: action.selectors, selectorType: action.selectorType, requestedFilename: action.value || null,
     frameId: action.frameId,
-  })
+  }))
     .catch(e => ({ error: e.message }));
   if (result?.error) {
     const back = afterFailure(await fail(i, action, result.error), i);
@@ -38,22 +40,23 @@ export async function runScreenshotToVar(ctx, i, action) {
   try {
     const saveMode = forceAutoSave ? 'auto' : (settings.screenshotSaveMode || 'auto');
     const prefix   = settings.screenshotPrefix || 'screenshot';
-    let res;
-    if (action.target === 'element' && action.selector) {
-      res = await takeElementScreenshot(tabId, {
-        selector: action.selector, saveMode, prefix, crop: false, returnBase64: true, skipDownload,
-        selectors: action.selectors, selectorType: action.selectorType, frameId: action.frameId,
-      });
-    } else if (action.target === 'full') {
-      res = await takeFullPageScreenshot(tabId, {
-        saveMode, prefix, requestedFilename: null, crop: false, scrollDir: 'full',
-        returnBase64: true, skipDownload,
-      });
-    } else {
-      res = await takeVisibleScreenshot(tabId, {
+    const res = await withRunPanelHidden(tabId, () => {
+      if (action.target === 'element' && action.selector) {
+        return takeElementScreenshot(tabId, {
+          selector: action.selector, saveMode, prefix, crop: false, returnBase64: true, skipDownload,
+          selectors: action.selectors, selectorType: action.selectorType, frameId: action.frameId,
+        });
+      }
+      if (action.target === 'full') {
+        return takeFullPageScreenshot(tabId, {
+          saveMode, prefix, requestedFilename: null, crop: false, scrollDir: 'full',
+          returnBase64: true, skipDownload,
+        });
+      }
+      return takeVisibleScreenshot(tabId, {
         saveMode, prefix, requestedFilename: null, crop: false, returnBase64: true, skipDownload,
       });
-    }
+    });
     if (res?.error) throw new Error(res.error);
     const ssVar = normalizeVarName(action.varName);
     if (res && ssVar) {
@@ -76,7 +79,7 @@ export async function runScreenshot(ctx, i, action) {
   const settings = await _getSsSettings();
   const saveMode = forceAutoSave ? 'auto' : (settings.screenshotSaveMode || 'auto');
   const prefix   = settings.screenshotPrefix || 'screenshot';
-  const task     = action.type === 'screenshot_full'
+  const task     = withRunPanelHidden(tabId, () => (action.type === 'screenshot_full'
     ? takeFullPageScreenshot(tabId, {
       saveMode, prefix, requestedFilename: action.value || null, crop: false, scrollDir: 'full',
       returnBase64: false, skipDownload,
@@ -84,7 +87,7 @@ export async function runScreenshot(ctx, i, action) {
     : takeVisibleScreenshot(tabId, {
       saveMode, prefix, requestedFilename: action.value || null, crop: false, returnBase64: false,
       skipDownload,
-    });
+    })));
   const result = await task.catch(e => ({ error: e.message }));
   if (result?.error) {
     const back = afterFailure(await fail(i, action, result.error), i);

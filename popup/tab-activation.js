@@ -12,28 +12,75 @@ import { CONTENT_SCRIPT_FILES, isEligibleTab, lockScroll, showConfirm, unlockScr
 const RECHECK_AFTER_ACTIVATION_MS = 1500;
 
 export let activatedTabs = new Set();
+// Settings → Allow on all tabs (storage.local allowAllTabs): every web page counts as on.
+let allowAllTabs = false;
 
 /**
- * Turn Pocket QA on for the active tab — content.js injected (a tab opened before
- * the install has none), the tab remembered as activated — and redraw the bar.
- * What starts a recording or a run calls it first. False on a tab that cannot be
- * used, or when the injection failed.
+ * content.js in the tab: a tab opened before the install (or before an update)
+ * has none. A page that refuses it is reported by what then runs there.
+ */
+function _injectContent(tabId) {
+  return chrome.scripting.executeScript({ target: { tabId }, files: CONTENT_SCRIPT_FILES }).catch(() => {});
+}
+
+/**
+ * Turn Pocket QA on for the active tab — content.js injected, the tab remembered
+ * as activated — and redraw the bar. The status bar's Turn on does it, and the
+ * "Off on this tab" question (askToTurnOn). False on a tab that cannot be used.
  */
 export async function activateCurrentTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !isEligibleTab(tab)) return false;
-  try {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: CONTENT_SCRIPT_FILES });
-  } catch (_) {
-    // Already injected (the manifest's content script), or a page that refuses it:
-    // the run reports the latter itself.
-  }
+  await _injectContent(tab.id);
   if (!activatedTabs.has(tab.id)) {
     activatedTabs.add(tab.id);
     await chrome.storage.local.set({ activatedTabs: Array.from(activatedTabs) });
   }
   checkTabActivation();
   return true;
+}
+
+/**
+ * What every "this tab is off" moment says — Record, Play, a Sequence, a CSV run,
+ * 🎯 Pick — in one place, so they read alike; anything else that acts on the page
+ * asks with askToTurnOn / whenTabOn and says the same.
+ */
+export const TAB_OFF = {
+  title: 'Off on this tab',
+  message: 'Pocket QA is off on this tab. Turn it on to record, play or pick elements here — it stays on for this tab until you turn it off or close the tab.',
+  ok: 'Turn on',
+};
+
+/** The "Off on this tab" question; Turn on turns the tab on (remembered), then `onTurnedOn`. Cancel leaves it off. */
+export function askToTurnOn(onTurnedOn) {
+  showConfirm(TAB_OFF.message, async () => { if (await activateCurrentTab()) onTurnedOn?.(); },
+    { title: TAB_OFF.title, okLabel: TAB_OFF.ok, link: { label: 'Not ask again: Allow on all tabs in Settings →', onClick: openAllTabsSetting } });
+}
+
+/**
+ * What acts on the page — recording, a run, picking an element — runs only on a
+ * tab Pocket QA is on (or with Allow on all tabs). On a tab it is off on nothing
+ * starts: askToTurnOn, and `then` once the user turned it on.
+ */
+export function whenTabOn(then) {
+  chrome.tabs.query({ active: true, currentWindow: true }, async ([tab]) => {
+    // A browser page (New Tab, Settings) has Record & Play locked: nothing to ask there.
+    if (!tab || !isEligibleTab(tab)) { then(); return; }
+    if (!allowAllTabs && !activatedTabs.has(tab.id)) { askToTurnOn(then); return; }
+    await _injectContent(tab.id);
+    then();
+  });
+}
+
+/** Settings, at Allow on all tabs (flashed), from the "Off on this tab" question. */
+export function openAllTabsSetting() {
+  document.querySelector('.tab-btn[data-tab="tabSettings"]')?.click();
+  const card = document.getElementById('allowAllTabsCard');
+  if (!card) return;
+  card.scrollIntoView({ block: 'center' });
+  card.classList.remove('setting-flash');
+  void card.offsetWidth; // restart the flash when it is shown twice in a row
+  card.classList.add('setting-flash');
 }
 
 // The scroll lock is scoped to the tab on screen: the overlay only renders while
@@ -49,13 +96,23 @@ function _syncOverlayScrollLock() {
 
 /**
  * The lock over Record & Play, on a page Pocket QA cannot use — the New Tab page,
- * Settings. An eligible tab never gets it: what starts a recording or a run
- * turns the tab on (activateCurrentTab). The Tools tab reads storage only.
+ * Settings. An eligible tab never gets it: recording, a run and picking ask to
+ * turn it on (whenTabOn). The Tools tab reads storage only.
  */
 function _setLock(locked) {
   document.getElementById('lockOverlayRecord')?.classList.toggle('is-visible', locked);
   _recordOverlayWanted = locked;
   _syncOverlayScrollLock();
+}
+
+/**
+ * The dot for the tab's own state, kept on it (data-idle-class) so the status
+ * poll can put it back once a recording or a run ends (connection.js).
+ */
+function _setIdleDot(statusDot, cls) {
+  if (!statusDot) return;
+  statusDot.dataset.idleClass = cls;
+  statusDot.className = cls;
 }
 
 function checkTabActivation() {
@@ -68,7 +125,7 @@ function checkTabActivation() {
     if (!isEligibleTab(tab)) {
       activationStatus.textContent = "Not available";
       activationStatus.style.color = "var(--muted)";
-      if (statusDot) { statusDot.className = "status-dot"; }
+      _setIdleDot(statusDot, "status-dot");
       activateTab.style.display = "none";
       deactivateTab.style.display = "none";
       _setLock(true);
@@ -76,26 +133,26 @@ function checkTabActivation() {
       return;
     }
 
-    const isActivated = activatedTabs.has(tab.id);
+    const isActivated = allowAllTabs || activatedTabs.has(tab.id);
 
     if (isActivated) {
-      activationStatus.textContent = "Active";
-      activationStatus.title = "";
+      activationStatus.textContent = allowAllTabs ? "Active · all tabs" : "Active";
+      activationStatus.title = allowAllTabs ? "Allow on all tabs is on (Settings): Pocket QA works on every web page." : "";
       activationStatus.style.color = "var(--success)";
-      if (statusDot) { statusDot.className = "status-dot active"; }
+      _setIdleDot(statusDot, "status-dot active");
       activateTab.style.display = "none";
-      deactivateTab.style.display = "block";
+      // One tab cannot be turned off while every tab is allowed: that is the Settings toggle.
+      deactivateTab.style.display = allowAllTabs ? "none" : "block";
       _setLock(false);
       document.body.dataset.activation = 'active';
     } else {
-      // No lock over the cards: Start Recording, Play, a Sequence and a CSV run
-      // turn the tab on themselves (activateCurrentTab). A newcomer met a lock and
-      // an "Activate" nobody explained before the first recording; only the
-      // hotkeys still wait for the tab to be on.
+      // No lock over the cards: Start Recording, Play, a Sequence, a CSV run and
+      // 🎯 Pick say the tab is off and ask to turn it on (whenTabOn); the record
+      // hotkeys do nothing until it is.
       activationStatus.textContent = "Off on this tab";
-      activationStatus.title = "Pocket QA turns on for this tab when you record or play here. Its hotkeys work once it is on.";
+      activationStatus.title = "Turn Pocket QA on here to record, play or pick elements (Turn on). Its hotkeys work once it is on.";
       activationStatus.style.color = "var(--muted)";
-      if (statusDot) { statusDot.className = "status-dot"; } // grey: nothing wrong, just not on yet
+      _setIdleDot(statusDot, "status-dot"); // grey: nothing wrong, just not on yet
       activateTab.style.display = "block";
       deactivateTab.style.display = "none";
       _setLock(false);
@@ -105,10 +162,17 @@ function checkTabActivation() {
 }
 
 export function initTabActivation() {
-  chrome.storage.local.get(["activatedTabs"], (res) => {
+  chrome.storage.local.get(["activatedTabs", "allowAllTabs"], (res) => {
     if (res?.activatedTabs) {
       activatedTabs = new Set(res.activatedTabs);
     }
+    allowAllTabs = !!res?.allowAllTabs;
+    checkTabActivation();
+  });
+  // The Settings toggle, flipped while the popup is open.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.allowAllTabs) return;
+    allowAllTabs = !!changes.allowAllTabs.newValue;
     checkTabActivation();
   });
   // Re-check the lock whenever init.js's switchTab() flips data-active-tab, since
@@ -119,7 +183,7 @@ export function initTabActivation() {
   if (activateTab) {
     activateTab.addEventListener('click', async () => {
       if (!(await activateCurrentTab())) return;
-      activationStatus.textContent = "Activated successfully";
+      activationStatus.textContent = "Turned on";
       activationStatus.style.color = "var(--success)";
       setTimeout(() => checkTabActivation(), RECHECK_AFTER_ACTIVATION_MS);
     });
@@ -135,7 +199,7 @@ export function initTabActivation() {
   if (deactivateTab) {
     deactivateTab.addEventListener('click', () => {
       // "Remove" in red read as deleting something: nothing is deleted, the tab reloads.
-      showConfirm("Turn Pocket QA off on this tab? The page reloads and its hotkeys stop working here; recording or playing on this tab turns it on again. Your scenarios are kept.", () => {
+      showConfirm("Turn Pocket QA off on this tab? The page reloads, its hotkeys stop working here, and recording, playing or picking here asks to turn it on again. Your scenarios are kept.", () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0];
         if (!tab) return;

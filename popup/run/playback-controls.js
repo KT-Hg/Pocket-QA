@@ -5,7 +5,7 @@
 import { addToRunList, csvDelayBetweenPreset, delayAfterScenario, delayPreset, playScenario, runListDisplay, saveSequenceAsScenario, scenarioList, sequenceName, sequenceScenarioList, startSequence, stopPlay, stopSequence } from '../dom.js';
 import { showFieldError } from '../record/picked-selectors.js';
 import { loadScenarios } from '../scenarios/scenario-list.js';
-import { activateCurrentTab } from '../tab-activation.js';
+import { whenTabOn } from '../tab-activation.js';
 import { ui } from '../ui-state.js';
 import { escHtml, showPrompt, showToast } from '../utils.js';
 
@@ -109,10 +109,12 @@ export function updateRunListDisplay() {
 export function initPlaybackControls() {
   /* === PLAYBACK === */
 
-  playScenario.onclick = async () => {
+  // A run plays on this tab: only one Pocket QA is on (whenTabOn asks first).
+  playScenario.onclick = () => {
     const scenarioId = scenarioList.value;
-    if (!scenarioId) return;
-    await activateCurrentTab(); // a run plays on this tab: it needs Pocket QA on there
+    if (scenarioId) whenTabOn(() => _play(scenarioId));
+  };
+  const _play = (scenarioId) => {
     const loopCount = Math.max(1, parseInt(document.getElementById("loopCount")?.value || "1", 10));
     const loopDelayPreset = document.getElementById("loopDelayPreset");
     const loopDelayCustom = document.getElementById("loopDelay");
@@ -167,14 +169,9 @@ export function initPlaybackControls() {
     delayAfterScenario.value = "";
     delayAfterScenario.style.display = "none";
   };
-  startSequence.onclick = async () => {
+  startSequence.onclick = () => {
     if (!ui.runList.length) return;
-    await activateCurrentTab();
-
-    chrome.runtime.sendMessage({
-      type: "START_SEQUENCE_PLAYBACK",
-      runList: ui.runList,
-    });
+    whenTabOn(() => chrome.runtime.sendMessage({ type: "START_SEQUENCE_PLAYBACK", runList: ui.runList }));
   };
   stopSequence.onclick = () => {
     chrome.runtime.sendMessage({ type: "STOP_SEQUENCE_PLAYBACK" });

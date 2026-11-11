@@ -83,7 +83,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"recording":false,"recordingScenarioId":null,"playing":false,"sequencePlaying":false,"csvPlaying":false,"csvCurrentRow":0,"csvTotalRows":0,"csvScenarioName":null,"actionIndex":0,"totalActions":0,"loopCurrent":1,"loopTotal":1,"scenarioName":null,"originalScenarioName":null,"currentScenarioIndex":0,"totalScenarios":0,"csvInterrupted":{"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"}}
+   {"recording":false,"recordingScenarioId":null,"playing":false,"sequencePlaying":false,"csvPlaying":false,"csvCurrentRow":0,"csvTotalRows":0,"csvScenarioName":null,"actionIndex":0,"totalActions":0,"loopCurrent":1,"loopTotal":1,"scenarioName":null,"originalScenarioName":null,"currentScenarioIndex":0,"totalScenarios":0,"csvInterrupted":{"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},"run":null}
   ],
   "calls": [],
   "console": []
@@ -100,10 +100,10 @@
    "‹undefined›"
   ],
   "responses": [
-   {"frameId":3,"recording":false,"activated":true}
+   {"frameId":3,"recording":false,"activated":true,"run":null}
   ],
   "calls": [
-   "storage.local.get [[\"activatedTabs\"]]"
+   "storage.local.get [[\"activatedTabs\",\"allowAllTabs\"]]"
   ],
   "console": []
  },
@@ -2131,7 +2131,7 @@
    {"activated":true}
   ],
   "calls": [
-   "storage.local.get [[\"activatedTabs\"]]"
+   "storage.local.get [[\"activatedTabs\",\"allowAllTabs\"]]"
   ],
   "console": []
  },
@@ -2150,7 +2150,7 @@
    {"activated":false}
   ],
   "calls": [
-   "storage.local.get [[\"activatedTabs\"]]"
+   "storage.local.get [[\"activatedTabs\",\"allowAllTabs\"]]"
   ],
   "console": []
  },
@@ -2403,11 +2403,13 @@
    "storage.local.get [\"dbtoolsSettings\"]",
    "action.setBadgeText [{\"text\":\"▶\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#22c55e\"}]",
+   "tabs.sendMessage [1,{\"type\":\"RUN_PANEL\",\"run\":{\"kind\":\"scenario\",\"scenario\":\"Restored\",\"from\":\"\",\"step\":2,\"steps\":0,\"loop\":1,\"loops\":1,\"paused\":false,\"waiting\":false,\"head\":\"Restored\",\"counter\":\"\",\"pct\":0}},{\"frameId\":0}]",
    "tabs.update [1,{\"autoDiscardable\":false}]",
    "alarms.create [\"playback-keepalive\",{\"when\":1768467627500}]",
    "alarms.clear [\"playback-keepalive\"]",
    "tabs.update [1,{\"autoDiscardable\":true}]",
    "action.setBadgeText [{\"text\":\"\"}]",
+   "tabs.sendMessage [1,{\"type\":\"RUN_PANEL\",\"run\":null},{\"frameId\":0}]",
    "storage.local.remove [\"playbackCheckpoint\"]",
    "storage.local.set [{\"lastRun\":{\"scenarioId\":\"r1\",\"scenarioName\":\"Restored\",\"startedAt\":1768467607500,\"endedAt\":1768467607500,\"loops\":1,\"completed\":true,\"verdict\":{\"status\":\"passed\",\"asserts\":0,\"broken\":0},\"failures\":[],\"resumed\":true,\"actions\":[]}}]",
    "storage.local.remove [\"lastRunShot\"]",
@@ -2489,6 +2491,7 @@
   "calls": [
    "action.setBadgeText [{\"text\":\"1/1\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#3b82f6\"}]",
+   "tabs.sendMessage [1,{\"type\":\"RUN_PANEL\",\"run\":{\"kind\":\"csv\",\"scenario\":\"Restored\",\"from\":\"\",\"step\":2,\"steps\":0,\"loop\":1,\"loops\":1,\"paused\":false,\"waiting\":true,\"item\":1,\"items\":1,\"head\":\"CSV row 1/1 · Restored\",\"counter\":\"next…\",\"pct\":100}},{\"frameId\":0}]",
    "storage.session.set [{\"csv_pending\":{\"scenarioId\":\"r1\",\"currentRow\":0,\"delayBetween\":500,\"exportFormat\":\"csv\",\"timestamp\":1768467607500}}]",
    "storage.local.get [[\"scenarios\"]]",
    "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
@@ -2501,6 +2504,7 @@
    "storage.session.remove [\"csv_pending\"]",
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
+   "tabs.sendMessage [1,{\"type\":\"RUN_PANEL\",\"run\":null},{\"frameId\":0}]",
    "storage.sync.get [[\"notifyOnError\"]]",
    "runtime.sendMessage [{\"type\":\"CSV_RUN_ERROR\",\"error\":\"indexedDB is not defined\",\"total\":0,\"failRows\":0,\"tally\":{\"passed\":0,\"failed\":0,\"broken\":0,\"stopped\":0}}]",
    "notifications.create [\"csv_error\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⚠ CSV Run Failed\",\"message\":\"Stopped after 0 row(s): indexedDB is not defined\"}]"
@@ -2604,6 +2608,7 @@
    "storage.local.get [[\"csvSessionData\"]]",
    "action.setBadgeText [{\"text\":\"1/1\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#3b82f6\"}]",
+   "tabs.sendMessage [1,{\"type\":\"RUN_PANEL\",\"run\":{\"kind\":\"csv\",\"scenario\":\"Restored\",\"from\":\"\",\"step\":2,\"steps\":0,\"loop\":1,\"loops\":1,\"paused\":false,\"waiting\":true,\"item\":1,\"items\":1,\"head\":\"CSV row 1/1 · Restored\",\"counter\":\"next…\",\"pct\":100}},{\"frameId\":0}]",
    "storage.session.set [{\"csv_pending\":{\"scenarioId\":\"r1\",\"currentRow\":0,\"delayBetween\":500,\"exportFormat\":\"csv\",\"timestamp\":1768467607500}}]",
    "storage.local.get [[\"scenarios\"]]",
    "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
@@ -2616,6 +2621,7 @@
    "storage.session.remove [\"csv_pending\"]",
    "storage.local.remove [\"playbackCheckpoint\"]",
    "action.setBadgeText [{\"text\":\"\"}]",
+   "tabs.sendMessage [1,{\"type\":\"RUN_PANEL\",\"run\":null},{\"frameId\":0}]",
    "storage.sync.get [[\"notifyOnError\"]]",
    "runtime.sendMessage [{\"type\":\"CSV_RUN_ERROR\",\"error\":\"indexedDB is not defined\",\"total\":0,\"failRows\":0,\"tally\":{\"passed\":0,\"failed\":0,\"broken\":0,\"stopped\":0}}]",
    "notifications.create [\"csv_error\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"⚠ CSV Run Failed\",\"message\":\"Stopped after 0 row(s): indexedDB is not defined\"}]"
@@ -2901,7 +2907,7 @@
   "calls": [
    "action.setBadgeText [{\"text\":\"\"}]",
    "storage.local.get [[\"elemShotPickPending\",\"elemShotPickCrop\"]]",
-   "storage.local.remove [[\"elemShotPickPending\",\"elemShotPickCrop\",\"lastPickedSelector\",\"lastPickedSelectors\",\"lastPickedFrameId\"]]",
+   "storage.local.remove [[\"elemShotPickPending\",\"elemShotPickCrop\",\"lastPickedSelector\",\"lastPickedSelectors\",\"lastPickedFrameId\",\"lastPickedLabel\"]]",
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.sendMessage [1,{\"type\":\"GET_ELEMENT_RECT\",\"selector\":\"#shot\",\"selectors\":{\"css\":\"#shot\"}},{\"frameId\":0}]",
@@ -3381,7 +3387,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"recording":false,"recordingScenarioId":null,"playing":false,"sequencePlaying":false,"csvPlaying":false,"csvCurrentRow":0,"csvTotalRows":1,"csvScenarioName":null,"actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1,"scenarioName":"Restored","originalScenarioName":"Restored","currentScenarioIndex":0,"totalScenarios":1,"csvInterrupted":null}
+   {"recording":false,"recordingScenarioId":null,"playing":false,"sequencePlaying":false,"csvPlaying":false,"csvCurrentRow":0,"csvTotalRows":1,"csvScenarioName":null,"actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1,"scenarioName":"Restored","originalScenarioName":"Restored","currentScenarioIndex":0,"totalScenarios":1,"csvInterrupted":null,"run":null}
   ],
   "calls": [],
   "console": []
@@ -3716,10 +3722,10 @@
    "‹undefined›"
   ],
   "responses": [
-   {"frameId":0,"recording":false,"activated":true}
+   {"frameId":0,"recording":false,"activated":true,"run":null}
   ],
   "calls": [
-   "storage.local.get [[\"activatedTabs\"]]"
+   "storage.local.get [[\"activatedTabs\",\"allowAllTabs\"]]"
   ],
   "console": []
  },
@@ -3853,10 +3859,10 @@
    "‹undefined›"
   ],
   "responses": [
-   {"frameId":0,"recording":false,"activated":false}
+   {"frameId":0,"recording":false,"activated":false,"run":null}
   ],
   "calls": [
-   "storage.local.get [[\"activatedTabs\"]]"
+   "storage.local.get [[\"activatedTabs\",\"allowAllTabs\"]]"
   ],
   "console": []
  },

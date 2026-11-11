@@ -97,13 +97,17 @@ function _closeModal(modal, releaseFocus, extra) {
     document.activeElement.blur();
   }
   modal.classList.remove('show');
+  // Only the showConfirm that asked for it shows the link; no later dialog inherits it.
+  const link = document.getElementById('confirmModalLink');
+  if (link) { link.hidden = true; link.onclick = null; }
   releaseFocus();
   modal.setAttribute('aria-hidden', 'true');
   if (extra) extra();
   unlockScroll();
 }
 
-export function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabel = '' } = {}) {
+/** `link`: { label, onClick } — a link under the question; it closes the dialog, then runs onClick. */
+export function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabel = '', link = null } = {}) {
   const modal = document.getElementById('confirmModal');
   document.getElementById('confirmModalTitle').textContent = title;
   document.getElementById('confirmModalMsg').textContent = msg;
@@ -114,6 +118,12 @@ export function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false,
   okBtn.textContent = okLabel || (danger ? 'Delete' : 'Confirm');
   okBtn.className = danger ? 'danger' : '';
   cancelBtn.style.display = '';
+  // Shown before the focus trap is set, so Tab reaches it.
+  const linkBtn = document.getElementById('confirmModalLink');
+  if (linkBtn && link) {
+    linkBtn.textContent = link.label;
+    linkBtn.hidden = false;
+  }
   modal.classList.add('show');
   modal.setAttribute('aria-hidden', 'false');
   lockScroll();
@@ -121,6 +131,7 @@ export function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false,
   const close = () => _closeModal(modal, releaseFocus);
   cancelBtn.onclick = close;
   okBtn.onclick = () => { close(); onConfirm(); };
+  if (linkBtn && link) linkBtn.onclick = () => { close(); link.onClick(); };
 }
 
 export function showAlert(msg, { title = 'Notice' } = {}) {

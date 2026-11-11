@@ -22,6 +22,8 @@
  *                                  tests/dropdown-pick.test.mjs)
  *   SHARED IN-PAGE OVERLAY CHROME  _extOverlay(): the template every overlay below uses
  *   ELEMENT PICKER                 START_PICK_MODE / STOP_PICK_MODE → ELEMENT_PICKED
+ *   ELEMENT PREVIEW                SHOW_ELEMENT / HIDE_ELEMENT: the popup's 👁 and the
+ *                                  picked element's name outline or flash it
  *   FULL PAGE SCREENSHOT HELPER    GET_PAGE_DIMENSIONS, GET_ELEMENT_RECT, CHECK_CONDITION;
  *                                  MARK_ELEMENT / UNMARK_ELEMENT for the CDP steps
  *   HOTKEYS                        the shortcut settings
@@ -94,6 +96,7 @@ try {
     _isRecording = !!res.recording;
     _tabActivated = !!res.activated;
     _syncRecordingPill();
+    _syncRunPanel(res.run); // a run that came to this page (a Navigate, a reload)
   });
 } catch (_) { /* extension context invalidated: keep frame 0, not recording */ }
 
@@ -113,6 +116,10 @@ chrome.runtime.onMessage.addListener((msg) => {
  */
 let _recordingPill = null;
 
+// The recording pill and the run panel share one footprint: bottom right (the top
+// right is where a page keeps its account menu) and one fixed width, whatever they say.
+const _BOTTOM_PILL = ['top:auto', 'bottom:12px', 'box-sizing:border-box', 'width:420px', 'max-width:calc(100vw - 24px)'];
+
 function _syncRecordingPill() {
   const show = _isRecording && window.top === window;
   if (show && !_recordingPill) {
@@ -123,14 +130,85 @@ function _syncRecordingPill() {
       label: 'Recording — Pocket QA',
       hint: null,
       buttons: [{ key: 'stop', label: '■ Stop', tone: 'danger', onClick: () => safeSend({ type: 'STOP_RECORD' }) }],
-      // Bottom right: the top right is where a page keeps its account menu.
-      extra: ['top:auto', 'bottom:12px'],
+      extra: _BOTTOM_PILL,
     }).mount();
   } else if (!show && _recordingPill) {
     _recordingPill.destroy();
     _recordingPill = null;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RUN PANEL
+   The pill a run's page shows while it plays (RUN_PANEL from bg/run-panel.js,
+   and REGISTER_FRAME's `run` after a page load): which scenario, which step,
+   how far through the whole run as a bar, and a Stop. Like the recording pill,
+   bottom right, top frame only. RUN_PANEL_HIDE takes it off the screen for a
+   screenshot and answers once it is gone.
+───────────────────────────────────────────────────────────────────────────── */
+
+const RUN_GREEN = '#22c55e';
+const RUN_AMBER = '#f59e0b';
+let _runPanel = null;      // { handle, lead, steps, fill }
+let _runPanelHidden = false;
+
+/** `run` comes worded from the worker (bg/run-panel.js: head, counter, pct), as the popup's run line gets it. */
+function _syncRunPanel(run) {
+  if (!run || window.top !== window) {
+    _runPanel?.handle.destroy();
+    _runPanel = null;
+    return;
+  }
+  if (!_runPanel) {
+    // pointer-events:none on each part too: `all:initial` would give them their own.
+    const lead = _extSpan('▶', ['font-size:12px', 'line-height:1', `color:${RUN_GREEN}`, 'pointer-events:none']);
+    const steps = _extSpan('', ['font-size:12px', 'flex:0 0 auto', 'white-space:nowrap', 'font-variant-numeric:tabular-nums', 'opacity:0.75', 'pointer-events:none']);
+    const track = _extSpan('', ['position:absolute', 'left:0', 'right:0', 'bottom:0', 'height:3px', 'background:rgba(127,127,127,0.25)', 'pointer-events:none']);
+    const fill = _extSpan('', ['display:block', 'height:100%', 'width:0', `background:${RUN_GREEN}`, 'transition:width 0.3s ease']);
+    track.appendChild(fill);
+    const handle = _extOverlay({
+      id: '__pqa_run',
+      variant: 'pill',
+      lead,
+      label: '',
+      trail: steps,
+      hint: null,
+      buttons: [{ key: 'stop', label: '■ Stop', tone: 'danger', onClick: () => safeSend({ type: 'STOP_RUN' }) }],
+      content: [track],
+      // Where the recording pill is, as wide. Clicks go through it — a CDP click a
+      // run makes there reaches the page — but for its Stop.
+      // ponytail: it can still sit over an element at the bottom right; dodge it like the picker bar if that bites.
+      extra: [..._BOTTOM_PILL, 'overflow:hidden', 'pointer-events:none'],
+    }).mount();
+    handle.buttons.stop.style.pointerEvents = 'auto';
+    // A long scenario name ends in "…" on one line (the whole is in the tooltip).
+    Object.assign(lead.nextElementSibling.style, { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: '0', pointerEvents: 'none' });
+    _runPanel = { handle, lead, steps, fill };
+  }
+  const { head = '', counter = '' } = run;
+  _runPanel.handle.setLabel(head);
+  _runPanel.handle.el.title = `${head}${counter ? ` — ${counter}` : ''}`;
+  _runPanel.steps.textContent = counter;
+  let lead = '▶';
+  if (run.paused) lead = '⏸';
+  else if (run.waiting) lead = '⏳';
+  _runPanel.lead.textContent = lead;
+  const tone = run.paused ? RUN_AMBER : RUN_GREEN;
+  _runPanel.lead.style.color = tone;
+  _runPanel.fill.style.background = tone;
+  _runPanel.fill.style.width = `${run.pct ?? 0}%`;
+  _runPanel.handle.el.style.visibility = _runPanelHidden ? 'hidden' : '';
+}
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === 'RUN_PANEL') { _syncRunPanel(msg.run); return; }
+  if (msg?.type !== 'RUN_PANEL_HIDE') return;
+  _runPanelHidden = !!msg.hidden;
+  if (_runPanel) _runPanel.handle.el.style.visibility = _runPanelHidden ? 'hidden' : '';
+  // Answered once the page has painted without it: the capture comes right after.
+  nextFrame(() => nextFrame(() => sendResponse({ ok: true })));
+  return true;
+});
 
 /* ─────────────────────────────────────────────────────────────────────────────
    DYNAMIC ID DETECTION
@@ -1828,8 +1906,10 @@ document.addEventListener('click', (event) => {
     height: Math.round(_cr.height),
   };
 
-  try { chrome.storage.local.set({ lastPickedSelector: selectors.css, lastPickedSelectors: selectors, lastPickedFrameId: _myFrameId }); } catch (_) { /* context invalidated: ELEMENT_PICKED below still carries the selector */ }
-  safeSend({ type: 'ELEMENT_PICKED', selector: selectors.css, selectors, rect: pickedRect, frameId: _myFrameId });
+  // What the popup's Picked line calls it, so the user knows which element it was.
+  const label = _previewLabel(el);
+  try { chrome.storage.local.set({ lastPickedSelector: selectors.css, lastPickedSelectors: selectors, lastPickedFrameId: _myFrameId, lastPickedLabel: label }); } catch (_) { /* context invalidated: ELEMENT_PICKED below still carries the selector */ }
+  safeSend({ type: 'ELEMENT_PICKED', selector: selectors.css, selectors, rect: pickedRect, frameId: _myFrameId, label });
   pickerMode = false;
   clearPickerUI();
 }, true);
@@ -1839,6 +1919,248 @@ function clearPickerUI() {
   hidePickerBar();
   _removePickerOverlay();
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ELEMENT PREVIEW
+   The popup's 👁 and the picked element's name show the element on the page:
+   SHOW_ELEMENT mode 'peek' outlines it while the mouse is on them (no scroll;
+   off-screen, an arrow at the page edge says where), mode 'flash' scrolls it to
+   the middle and flashes it; HIDE_ELEMENT ends a peek. It is found the way an
+   action finds it (_locators), so what shows is what playback would use.
+───────────────────────────────────────────────────────────────────────────── */
+
+const PREVIEW_FLASH_MS = 1200;  // the rhythm of the action list's sw-flash
+// The dashed box around the visible parent of a hidden element, after a flash.
+const PREVIEW_HIDDEN_MS = 3000;
+// An outline the popup cannot take back: the element is under the popup, or the
+// popup closed during a hover (nothing tells the page it closed). It goes on the
+// next click on the page, or after this long.
+const PREVIEW_HOLD_MS = 10000;
+// ponytail: a selector matching hundreds would only paint noise; the other matches get dashed boxes up to this many.
+const PREVIEW_OTHERS_MAX = 20;
+const PREVIEW_SCROLL_MAX_MS = 700;
+
+let _preview = null; // { boxes: [{ el, node, chip }], nodes, raf, timer }
+
+/** What the popup calls `el`: its tag, the name a person gives it (_humanName), its id. */
+function _previewLabel(el) {
+  return { tag: el.tagName.toLowerCase(), name: _humanName(el), id: el.id || '' };
+}
+
+function _previewChipText(label) {
+  return `${label.tag}${label.id ? `#${label.id}` : ''}${label.name ? ` · “${label.name}”` : ''}`;
+}
+
+const _hasBox = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 || r.height > 0; };
+
+/** Every element the locator that found one matches (document order), or null when it can only find one. */
+function _allMatches(type, s) {
+  const xp = (x) => {
+    const r = document.evaluate(x, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+    return Array.from({ length: r.snapshotLength }, (_, i) => r.snapshotItem(i)).filter((n) => n.nodeType === 1);
+  };
+  const all = (css) => [...document.querySelectorAll(css)];
+  try {
+    switch (type) {
+      case 'css': return all(s.css);
+      case 'xpath': return xp(s.xpath);
+      case 'fullXpath': return xp(s.fullXpath);
+      case 'name': return all(`[name="${CSS.escape(s.name)}"]`);
+      case 'testId': return all(`[data-testid="${CSS.escape(s.testId)}"]`);
+      case 'dataId': return all(`[data-id="${CSS.escape(s.dataId)}"]`);
+      default: return null; // id is unique; a shadow-DOM or text match is the one found
+    }
+  } catch (_) { return null; }
+}
+
+/** The element, as an action finds it, and the others its locator also matches. */
+function _locateForPreview(selectors, selector, prefer) {
+  const s = _withPlain(selectors, selector);
+  for (const strategy of _locators(s, prefer)) {
+    let el = null;
+    try { el = strategy.fn(); } catch (_) { /* selector invalid for this strategy: try the next one */ }
+    if (el) return { el, matches: _allMatches(strategy.type, s) || [el] };
+  }
+  return null;
+}
+
+function _clearPreview() {
+  if (!_preview) return;
+  cancelAnimationFrame(_preview.raf);
+  clearTimeout(_preview.timer);
+  _preview.nodes.forEach((n) => n.remove());
+  document.removeEventListener('mousedown', _clearPreview, true);
+  _preview = null;
+}
+
+/** An outline that follows `el` (scroll, layout) until the preview is cleared. */
+function _previewBox(el, { dashed = false, chip = '' } = {}) {
+  const node = _extMarkOverlay(document.createElement('div'));
+  node.style.cssText = [
+    'all:initial', 'position:fixed', 'pointer-events:none', 'z-index:2147483646', 'box-sizing:border-box',
+    'display:block', 'border-radius:4px', `border:2px ${dashed ? 'dashed' : 'solid'} ${_EXT_ACCENT}`,
+    `background:${dashed ? 'transparent' : 'rgba(79,70,229,0.10)'}`,
+  ].join(';');
+  let chipNode = null;
+  if (chip) {
+    chipNode = document.createElement('div');
+    chipNode.style.cssText = [
+      'all:initial', 'position:absolute', 'left:-2px', 'display:block', 'white-space:nowrap', 'max-width:60vw',
+      'overflow:hidden', 'text-overflow:ellipsis', `font:600 11px/1 ${_EXT_FONT}`, 'color:#fff',
+      `background:${dashed ? '#6b7280' : _EXT_ACCENT}`, 'padding:4px 7px', 'border-radius:5px',
+    ].join(';');
+    chipNode.textContent = chip;
+    node.appendChild(chipNode);
+  }
+  document.documentElement.appendChild(node);
+  return { el, node, chip: chipNode };
+}
+
+function _placePreviewBox(b) {
+  const r = b.el.getBoundingClientRect();
+  Object.assign(b.node.style, { left: `${r.left - 4}px`, top: `${r.top - 4}px`, width: `${r.width + 8}px`, height: `${r.height + 8}px` });
+  if (b.chip) {
+    const below = r.top < 26; // no room above: the label goes under the box
+    b.chip.style.bottom = below ? 'auto' : 'calc(100% + 4px)';
+    b.chip.style.top = below ? 'calc(100% + 4px)' : 'auto';
+  }
+}
+
+function _trackPreview() {
+  if (!_preview) return;
+  _preview.boxes.forEach(_placePreviewBox);
+  _preview.raf = requestAnimationFrame(_trackPreview);
+}
+
+/** Show `boxes` (and `extra` nodes) for `life` ms; `fade`: the flash's fade, else a short fade in. */
+function _startPreview(boxes, extra, { life, fade }) {
+  _preview = { boxes, nodes: [...boxes.map((b) => b.node), ...extra], raf: 0, timer: setTimeout(_clearPreview, life) };
+  _trackPreview();
+  document.addEventListener('mousedown', _clearPreview, true);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  for (const n of _preview.nodes) {
+    n.animate(fade
+      ? [{ opacity: 0, transform: 'scale(1.06)' }, { opacity: 1, transform: 'scale(1)', offset: 0.1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }]
+      : [{ opacity: 0 }, { opacity: 1 }], { duration: fade ? life : 120, easing: 'ease-out', fill: 'forwards' });
+  }
+}
+
+/** Scroll `el` to the middle of the window when it is not all in view; resolves once the scroll ends. */
+function _scrollIntoViewForPreview(el) {
+  const r = el.getBoundingClientRect();
+  if (r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth) return Promise.resolve();
+  const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, smooth ? PREVIEW_SCROLL_MAX_MS : 0);
+    if (smooth) document.addEventListener('scrollend', () => { clearTimeout(timer); resolve(); }, { once: true, capture: true });
+    el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
+  });
+}
+
+/* <popup-rect> */
+/**
+ * Where the popup is, in this page's CSS px. The popup sends its place on the
+ * screen (screenX/Y, its size, its devicePixelRatio); the page's content sits on
+ * the screen at its window's place less the window's border and bars. Page zoom
+ * is this page's devicePixelRatio over the popup's. Guessing the popup at the
+ * window's top right was 253 px off in Edge (the icon has buttons to its right,
+ * or sits in the Extensions menu) and ignored zoom; this is within 4 px at 100%
+ * and 125% (measured). A popup that sends no place gets that guess.
+ */
+function _popupRectOnPage(popup, page) {
+  if (popup.screenX == null || !popup.dpr) {
+    return { left: page.innerWidth - popup.width - 8, top: 0, width: popup.width, height: popup.height };
+  }
+  const zoom = page.devicePixelRatio / popup.dpr;
+  const side = (page.outerWidth - page.innerWidth * zoom) / 2; // the window's side border, screen px
+  const left = page.screenX + side;
+  const top = page.screenY + (page.outerHeight - page.innerHeight * zoom) - side; // under the tabs and toolbar
+  return {
+    left: (popup.screenX - left) / zoom,
+    top: (popup.screenY - top) / zoom,
+    width: popup.width / zoom,
+    height: popup.height / zoom,
+  };
+}
+/* </popup-rect> */
+
+/**
+ * Whether most of `el` lies under the popup (top frame only).
+ * ponytail: an element in an iframe is never called covered; send the frame's offset from the top frame if that bites.
+ */
+function _underPopup(el, popup) {
+  if (!popup?.width || window !== window.top) return false;
+  const p = _popupRectOnPage(popup, window);
+  const r = el.getBoundingClientRect();
+  const w = Math.max(0, Math.min(r.right, p.left + p.width) - Math.max(r.left, p.left));
+  const h = Math.max(0, Math.min(r.bottom, p.top + p.height) - Math.max(r.top, p.top));
+  return w * h > 0.3 * r.width * r.height;
+}
+
+/** A hidden element (no size): a dashed box around its nearest visible parent, if any; whether there was one. */
+async function _previewHidden(el, flash) {
+  let parent = el.parentElement;
+  while (parent && parent !== document.body && !_hasBox(parent)) parent = parent.parentElement;
+  if (!parent || parent === document.body) return false;
+  if (flash) await _scrollIntoViewForPreview(parent);
+  _startPreview([_previewBox(parent, { dashed: true, chip: 'hidden inside this box' })], [],
+    { life: flash ? PREVIEW_HIDDEN_MS : PREVIEW_HOLD_MS, fade: false });
+  return true;
+}
+
+/** A peek never scrolls: for an element out of view, an arrow at the page edge says where it is. */
+function _previewEdge(r, label) {
+  const below = r.top > innerHeight;
+  const edge = _extMarkOverlay(document.createElement('div'));
+  edge.style.cssText = [
+    'all:initial', 'position:fixed', 'left:16px', below ? 'bottom:16px' : 'top:16px', 'z-index:2147483647', 'pointer-events:none',
+    'display:block', `font:600 12px/1 ${_EXT_FONT}`, 'color:#fff', `background:${_EXT_ACCENT}`, 'padding:7px 10px',
+    'border-radius:6px', `box-shadow:${_EXT_BAR_SHADOW}`, 'max-width:80vw', 'overflow:hidden', 'text-overflow:ellipsis', 'white-space:nowrap',
+  ].join(';');
+  const dist = Math.round(below ? r.top - innerHeight : -r.bottom);
+  edge.textContent = `${below ? '↓' : '↑'} ${_previewChipText(label)} · ${dist}px ${below ? 'below' : 'above'} — click to scroll to it`;
+  document.documentElement.appendChild(edge);
+  _startPreview([], [edge], { life: PREVIEW_HOLD_MS, fade: false });
+}
+
+async function _showElement({ selectors, selector, selectorType, mode, popup }) {
+  _clearPreview();
+  const flash = mode === 'flash';
+  const hit = _locateForPreview(selectors, selector, selectorType);
+  if (!hit) return { found: false };
+  const { el } = hit;
+  const label = _previewLabel(el);
+  const count = hit.matches.length || 1;
+
+  if (!_hasBox(el)) return { found: true, hidden: true, count, label, parent: await _previewHidden(el, flash) };
+  const r = el.getBoundingClientRect();
+  if (!flash && (r.bottom < 0 || r.top > innerHeight)) {
+    _previewEdge(r, label);
+    return { found: true, count, label, offscreen: true };
+  }
+
+  if (flash) await _scrollIntoViewForPreview(el);
+  const covered = _underPopup(el, popup);
+  const chip = count > 1 ? `1/${count} · ${_previewChipText(label)} · playback uses this one` : _previewChipText(label);
+  const others = hit.matches.filter((m) => m !== el && _hasBox(m)).slice(0, PREVIEW_OTHERS_MAX)
+    .map((m) => _previewBox(m, { dashed: true, chip: String(hit.matches.indexOf(m) + 1) }));
+  // Drawn last, so it sits above the dashed ones.
+  const main = _previewBox(el, { chip });
+  const held = !flash || covered;
+  _startPreview([...others, main], [], { life: held ? PREVIEW_HOLD_MS : PREVIEW_FLASH_MS, fade: !held });
+  return { found: true, count, label, covered };
+}
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === 'HIDE_ELEMENT') {
+    _clearPreview();
+    sendResponse({ ok: true });
+    return;
+  }
+  if (msg?.type !== 'SHOW_ELEMENT') return;
+  _showElement(msg).then(sendResponse, (e) => sendResponse({ error: e?.message || String(e) }));
+  return true;
+});
 
 /* ─────────────────────────────────────────────────────────────────────────────
    FULL PAGE SCREENSHOT HELPER
@@ -2102,10 +2424,10 @@ function getKeyCombo(e, byCode = false) {
   return parts.join('+');
 }
 
-// _tabActivated (STATE) follows a change to the activated tabs.
+// _tabActivated (STATE) follows a change to the activated tabs, or to Allow on all tabs.
 try {
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !changes.activatedTabs) return;
+    if (area !== 'local' || !(changes.activatedTabs || changes.allowAllTabs)) return;
     chrome.runtime.sendMessage({ type: 'IS_TAB_ACTIVATED' }, (res) => {
       if (chrome.runtime.lastError) return;
       _tabActivated = !!res?.activated;

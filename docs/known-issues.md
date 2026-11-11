@@ -8,7 +8,7 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 
 ## Còn lại sau đợt sửa review (2026-10)
 
-- **`content.js` có 2.273 dòng** (`wc -l`; từ 3.343). Đợt plan 9 chuyển countdown, prompt khi action lỗi và thanh
+- **`content.js` có 2.491 dòng** (`wc -l`; từ 3.343; 2.273 trước khi thêm Element preview — 👁 và tên phần tử đã pick). Đợt plan 9 chuyển countdown, prompt khi action lỗi và thanh
   segment sang `content-overlays.js`, worker chỉ nạp khi cần (2.278 → 2.040), rồi thêm khoảng 100 dòng cho
   "Choose item #" trong danh sách ảo hoá, rồi khoảng 25 dòng cho Assert (plan 10: `CHECK_CONDITION` trả thêm `found` /
   `actual`), rồi khoảng 105 dòng ở plan 16 (tên bước `_humanName`, khung đang ghi, câu "not found"). Xuống dưới 2.000 phải chuyển cả Element picker: popup gửi `START_PICK_MODE`
@@ -40,6 +40,18 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   trang đặt `aria-label` chung chung, tên có thể không nói đúng phần tử — sửa ở ô **Label** khi Edit.
 - **Dấu 🔒 của bước gõ vào ô mật khẩu mất khi Save Edit** (form dựng lại action từ đầu); mật khẩu vẫn nằm nguyên văn
   trong scenario, file JSON và code export như trước.
+- **👁 / tên element đã pick:** "Under this popup" giờ dựa vào vị trí thật của popup: popup gửi `screenX/screenY`, cỡ và
+  `devicePixelRatio`, trang đổi sang px của mình (`_popupRectOnPage`, zoom = DPR trang ÷ DPR popup). Trước 2026-11-12 trang
+  đoán popup nằm sát mép phải cửa sổ — trên Edge lệch 253 px (popup thật ở x 242, đoán x 495; bên phải icon còn ⋯, profile,
+  Copilot) và bỏ qua zoom. Đo lại với popup thật trên Edge: x 242 ở 100%, 383 × 480 tại x 193 ở 125% (lệch tối đa 4 px);
+  phần tử ở mép phải không còn bị báo, phần tử dưới popup thì có. Còn lại: phần tử trong iframe không bao giờ bị báo là
+  dưới popup; trình duyệt không cho `screenX` (vd. Linux Wayland trả 0) thì vùng tính sai. Popup không
+  báo cho trang khi nó đóng, nên viền còn lại (Esc lúc đang rê, hoặc phần tử nằm dưới popup) chỉ mất khi bấm vào trang
+  hoặc sau 10 s. Action cũ mở để Edit chưa có tên phần tử: dòng ghi "Picked element" cho tới lần rê / bấm đầu tiên.
+  Tên trên dòng Picked chỉ giữ trong form (draft, pick), không lưu vào action.
+- **Sửa ô Drop on sau khi pick vẫn phát lại phần tử đã pick:** `_buildDragdrop` lưu `targetSelectors` của lần pick dù ô đã
+  sửa (khác ô Selector, nơi chữ gõ khác thì bỏ lần pick). 👁 của ô Drop on làm theo đúng điều đó, nên nó chỉ phần tử đã pick
+  chứ không phải chữ trong ô. Bấm ✕ Clear trước khi gõ target khác.
 - **Ảnh Visible chụp trong lúc đang ghi có cả khung `● Recording — Pocket QA`** ở góc dưới phải. Ảnh Full page,
   Scroll, Segment và Element thì ẩn nó như mọi overlay của extension.
 

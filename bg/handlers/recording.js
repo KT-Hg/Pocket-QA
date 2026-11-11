@@ -14,6 +14,8 @@ import { ignoreLastError } from '../last-error.js';
 import { isAnyPlaybackActive } from '../run-state.js';
 import { fromExtensionPage, targetTab } from '../sender.js';
 import { SELECTOR_KEYS } from '../../shared/var-name.js';
+import { isTabOn } from '../tabs.js';
+import { runPanelState } from '../run-panel.js';
 
 // A playback checkpoint younger than this is offered for resume when its tab reloads.
 const RESUME_OFFER_WINDOW_MS = 60_000;
@@ -149,12 +151,11 @@ export const recordingHandlers = {
   REGISTER_FRAME: _afterRestore((request, sender, sendResponse) => {
     // `activated`: whether the record hotkeys act on this tab (content.js keeps
     // the key from the page only there).
+    // `run`: the run panel, for a page the run went to (a Navigate, a reload) — bg/run-panel.js.
     const tabId = sender.tab?.id;
-    chrome.storage.local.get(["activatedTabs"], (res) => {
-      sendResponse({
-        frameId: sender.frameId ?? 0, recording: _recordsTab(tabId),
-        activated: tabId != null && (res?.activatedTabs || []).includes(tabId),
-      });
+    const run = (sender.frameId ?? 0) === 0 && tabId != null && tabId === state.playback.tabId ? runPanelState() : null;
+    isTabOn(tabId, (activated) => {
+      sendResponse({ frameId: sender.frameId ?? 0, recording: _recordsTab(tabId), activated, run });
     });
     return true;
   }),

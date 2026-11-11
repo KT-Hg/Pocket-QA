@@ -5,7 +5,7 @@
 import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { escHtml, getDragAfterElement, showToast } from '../utils.js';
-import { resetScheduleTimePicker } from './time-picker.js';
+import { resetScheduleTimePicker, twoDigits } from './time-picker.js';
 
 /* === NOTIFICATION SETTING === */
 
@@ -41,7 +41,7 @@ function _setScheduleTimePicker(timeStr) {
   else if (h24 === 12) { h12 = 12;  ampm = "PM"; }
   else                 { h12 = h24 - 12; ampm = "PM"; }
   stHour.value = h12;
-  stMin.value  = m;
+  stMin.value  = twoDigits(m);
   stAmPm.textContent = ampm;
   hidden.value = timeStr;
 }

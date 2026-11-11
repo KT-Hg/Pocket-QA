@@ -1111,7 +1111,143 @@ async function checkInsertPointPick(ctx) {
     check(stale.selector === '#y' && stale.note === '', 'the list changed while the popup was closed: the place is dropped, the action goes last', stale);
     if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   } finally {
-    await ctx.ext.evaluate(`chrome.storage.local.remove(['manualFormDraft', 'pendingEdit', 'lastPickedSelector', 'lastPickedSelectors', 'lastPickedFrameId'])`);
+    await ctx.ext.evaluate(`chrome.storage.local.remove(['manualFormDraft', 'pendingEdit', 'lastPickedSelector', 'lastPickedSelectors', 'lastPickedFrameId', 'lastPickedLabel'])`);
+    await closeQuietly(popup);
+  }
+}
+
+// After a hover: the 150 ms intent, the message to the page and its answer.
+const PREVIEW_SETTLE_MS = 500;
+// After a click: the smooth scroll, then the flash (1.2 s) is still on.
+const FLASH_SETTLE_MS = 900;
+
+async function checkShowOnPage(ctx) {
+  await reloadTestPage(ctx);
+  // The page tells "under the popup" from where the popup says it is on the screen (placeLikeEdge below):
+  // #choiceA goes to the left edge, clear of it, #choiceB to the window's top-right corner, right of it.
+  await ctx.web.evaluate(`(() => { document.body.prepend(document.getElementById('choiceA'));
+    Object.assign(document.getElementById('choiceB').style, { position: 'fixed', right: '40px', top: '120px' }); })()`);
+  // Outlines the preview draws on the page: the text of each (its label, or the edge arrow's).
+  const outlines = () => ctx.web.evaluate(`[...document.querySelectorAll(':root > [data-ext-overlay="1"]')].map((n) => n.textContent)`);
+  // The popup is a tab here. For the page's sums, put it where Edge's toolbar popup sits: under the
+  // extension's icon, 261 px in from the window's right edge (measured), not at the edge.
+  const placeLikeEdge = async (p) => {
+    const g = await ctx.web.evaluate(`({ screenX, screenY, outerWidth, outerHeight, innerWidth, innerHeight })`);
+    const side = (g.outerWidth - g.innerWidth) / 2;
+    const x = g.screenX + side + g.innerWidth - 480 - 261;
+    const y = g.screenY + g.outerHeight - g.innerHeight - side;
+    await p.evaluate(`void Object.defineProperties(window, { screenX: { get: () => ${x} }, screenY: { get: () => ${y} } })`);
+  };
+  let popup = await openPopup(ctx);
+  try {
+    await popup.evaluate(`(() => {
+      document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+      const t = document.getElementById('manualActionType'); t.value = 'click'; t.dispatchEvent(new Event('change'));
+      document.getElementById('pickElement').click();
+    })()`);
+    await sleep(SETTLE_MS);
+    await closeQuietly(popup);
+    await clickAt(ctx, '#choiceA');
+    await sleep(SETTLE_MS);
+    popup = await popupAfterPick(ctx);
+    await placeLikeEdge(popup);
+    const name = await popup.evaluate(`document.querySelector('#pickedSelectorsInfo .pk-name')?.textContent`);
+    check(name === 'button “choiceA”', 'after a pick the Picked line names the element', name);
+
+    const eye = (event) => popup.evaluate(`document.getElementById('showSelectorOnPage').dispatchEvent(new MouseEvent('${event}'))`);
+    const onName = (event) => popup.evaluate(`document.querySelector('#pickedSelectorsInfo .pk-name')
+      .dispatchEvent(new MouseEvent('${event}', { bubbles: true, relatedTarget: document.body }))`);
+    const typeSelector = (v) => popup.evaluate(`(() => { const s = document.getElementById('manualSelector');
+      s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input')); })()`);
+    const message = () => popup.evaluate(`document.querySelector('#selectorRow + .field-error')?.textContent || ''`);
+    const scrollY = () => ctx.web.evaluate('Math.round(scrollY)');
+
+    // Hover 👁: an outline with the element's name, the page not scrolled; gone when the mouse leaves.
+    const before = await scrollY();
+    await eye('mouseenter');
+    await sleep(PREVIEW_SETTLE_MS);
+    const peek = await outlines();
+    const still = await scrollY();
+    await eye('mouseleave');
+    await sleep(SETTLE_MS);
+    check(peek.length === 1 && peek[0].includes('choiceA') && still === before && (await outlines()).length === 0,
+      'hovering 👁 outlines the element without scrolling; leaving takes the outline away', { peek, before, still });
+
+    // Off-screen: a hover says where (an arrow at the page edge); a click scrolls to it and flashes it.
+    await ctx.web.evaluate(`(() => { const s = document.createElement('div'); s.style.height = '3000px'; document.body.append(s);
+      scrollTo(0, document.documentElement.scrollHeight); })()`);
+    await eye('mouseenter');
+    await sleep(PREVIEW_SETTLE_MS);
+    const edge = await outlines();
+    await eye('mouseleave');
+    check(edge.length === 1 && /^↑ .*choiceA.* above/.test(edge[0]), 'an off-screen element: the hover shows an arrow saying where it is', edge);
+    await popup.evaluate(`document.getElementById('showSelectorOnPage').click()`);
+    await sleep(FLASH_SETTLE_MS);
+    const inView = await ctx.web.evaluate(`(() => { const r = document.getElementById('choiceA').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()`);
+    const flashed = await outlines();
+    const icon = await popup.evaluate(`document.getElementById('showSelectorOnPage').textContent`);
+    // The flash (1.2 s) starts once the scroll ends (up to 0.7 s): polled, not timed.
+    const gone = !!(await pageSoon(ctx, `!document.querySelector(':root > [data-ext-overlay="1"]')`, 3_000));
+    check(inView && flashed.some((t) => t.includes('choiceA')) && icon === '✓' && gone,
+      'a click on 👁 scrolls the element into view, flashes it, shows ✓, and the flash goes', { inView, flashed, icon, gone });
+
+    // The box edited: the name is struck out and still shows the picked element; 👁 shows what the box holds.
+    await typeSelector('#bg2');
+    const stale = await popup.evaluate(`document.getElementById('pickedSelectorsWrap').classList.contains('picked-stale')`);
+    await onName('mouseover');
+    await sleep(PREVIEW_SETTLE_MS);
+    const byName = await outlines();
+    await onName('mouseout');
+    await eye('mouseenter');
+    await sleep(PREVIEW_SETTLE_MS);
+    const byEye = await outlines();
+    check(stale && byName.some((t) => t.includes('choiceA')) && byEye.some((t) => t.includes('bg2')),
+      'with the box edited, the struck-out name shows the picked element and 👁 what the box holds', { stale, byName, byEye });
+    // A click on the page takes away an outline the popup did not (it may have closed).
+    await clickAt(ctx, '#out');
+    await sleep(SETTLE_MS);
+    check((await outlines()).length === 0, 'a click on the page takes away an outline left on it', await outlines());
+    await eye('mouseleave');
+
+    // At the window's right edge, right of the popup: in view — no "Under this popup" line. (The old
+    // guess put the popup at that edge and said it was under it, though it could be seen.)
+    await typeSelector('#choiceB');
+    await popup.evaluate(`document.getElementById('showSelectorOnPage').click()`);
+    await sleep(FLASH_SETTLE_MS);
+    const rightOfPopup = await message();
+    check(!rightOfPopup.startsWith('Under this popup'), 'an element right of the popup, at the window\'s edge, is not called covered', rightOfPopup);
+    await clickAt(ctx, '#out');
+    await sleep(SETTLE_MS);
+
+    // Under the popup: the line says so, and the flash is held (until a click on the page) so Esc shows it.
+    await ctx.web.evaluate(`document.getElementById('choiceB').style.right = '400px'`);
+    await popup.evaluate(`document.getElementById('showSelectorOnPage').click()`);
+    await sleep(FLASH_SETTLE_MS + 1_000);
+    const held = { text: await message(), outlines: await outlines() };
+    check(held.text === 'Under this popup — press Esc to see it.' && held.outlines.some((t) => t.includes('choiceB')),
+      'an element under the popup: the line says so, and its outline outlasts the flash', held);
+    await clickAt(ctx, '#out');
+    await sleep(SETTLE_MS);
+
+    // What 👁 says when it finds no single visible element.
+    const says = async (selector) => {
+      await typeSelector(selector);
+      await popup.evaluate(`document.getElementById('showSelectorOnPage').click()`);
+      await sleep(PREVIEW_SETTLE_MS);
+      return { text: await message(), icon: await popup.evaluate(`document.getElementById('showSelectorOnPage').textContent`), outlines: await outlines() };
+    };
+    const missing = await says('#nope');
+    check(missing.text.startsWith('Not on this page') && missing.icon === '✕', 'a selector that finds nothing: "Not on this page" and ✕', missing);
+    const several = await says('.edit');
+    check(several.text.startsWith('2 matches — playback uses the first') && several.outlines.length === 2 && several.icon === '!',
+      'a selector with two matches: both outlined, the line says playback uses the first', several);
+    const hidden = await says('#ctHidden');
+    check(hidden.text.startsWith('On the page but hidden'), 'a hidden element: "On the page but hidden"', hidden);
+    const variable = await says('#${who}');
+    check(variable.text.includes('only known when it plays'), 'a selector with ${…}: not looked for, says why', variable);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove(['manualFormDraft', 'pendingEdit', 'lastPickedSelector', 'lastPickedSelectors', 'lastPickedFrameId', 'lastPickedLabel'])`);
     await closeQuietly(popup);
   }
 }
@@ -1416,7 +1552,7 @@ async function checkChildCondition(ctx) {
   let text = '';
   for (let waited = 0; !text && waited < 10_000; waited += POLL_MS) {
     await sleep(POLL_MS);
-    text = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].map((e) => e.textContent).find((t) => /failed/i.test(t)) || ''`);
+    text = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]:not(#__pqa_run)')].map((e) => e.textContent).find((t) => /failed/i.test(t)) || ''`);
   }
   await ctx.send({ type: 'STOP_PLAYBACK' });
   await sleep(SETTLE_MS);
@@ -1452,7 +1588,7 @@ async function playUntilPrompt(ctx, scenarioId) {
   let prompt = false;
   while (!prompt && Date.now() - started < 15_000) {
     await sleep(POLL_MS);
-    prompt = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].some((e) => /failed/i.test(e.textContent))`);
+    prompt = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]:not(#__pqa_run)')].some((e) => /failed/i.test(e.textContent))`);
     if (!prompt && Date.now() - started > 2_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing) break;
   }
   const seconds = (Date.now() - started) / 1000;
@@ -1496,7 +1632,7 @@ async function checkAssert(ctx) {
   let prompt = false;
   while (Date.now() - started < 30_000) {
     await sleep(POLL_MS);
-    prompt ||= await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].some((e) => /failed/i.test(e.textContent))`);
+    prompt ||= await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]:not(#__pqa_run)')].some((e) => /failed/i.test(e.textContent))`);
     if (prompt || (Date.now() - started > 1_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing)) break;
   }
   const seconds = (Date.now() - started) / 1000;
@@ -1667,7 +1803,7 @@ async function checkLastRunLive(ctx) {
     await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: stuck });
     for (let waited = 0; !prompt && waited < 15_000; waited += POLL_MS) {
       await sleep(POLL_MS);
-      prompt = await away.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].some((e) => /failed/i.test(e.textContent))`);
+      prompt = await away.evaluate(`[...document.querySelectorAll('[data-ext-overlay]:not(#__pqa_run)')].some((e) => /failed/i.test(e.textContent))`);
     }
     const popup = await openPopup(ctx);
     during = await popup.evaluate(cardState);
@@ -1709,27 +1845,252 @@ async function checkSqlLang(ctx) {
 async function checkAutoActivate(ctx) {
   await reloadTestPage(ctx);
   const id = await makeScenario(ctx, 'e2e auto activate', [{ type: 'click', selector: '#bg1', selectors: { css: '#bg1' } }]);
-  const popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...POPUP_VIEWPORT });
-  try {
-    await popup.evaluate(`chrome.storage.local.set({ activatedTabs: [] })`);
-    await popup.reload();
+  const activated = () => ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('activatedTabs', (x) => r(x.activatedTabs || [])))`);
+  // The popup on the test page, Pocket QA off there.
+  const openOff = async () => {
+    await ctx.ext.evaluate(`chrome.storage.local.set({ activatedTabs: [] })`);
+    const page = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...POPUP_VIEWPORT });
     await sleep(POPUP_SETTLE_MS);
+    return page;
+  };
+  const asked = (page) => page.evaluate(`({ shown: document.getElementById('confirmModal').classList.contains('show'),
+    title: document.getElementById('confirmModalTitle').textContent, ok: document.getElementById('confirmModalOk').textContent,
+    msg: document.getElementById('confirmModalMsg').textContent })`);
+  let popup = await openOff();
+  try {
     const before = await popup.evaluate(`({ locked: document.getElementById('lockOverlayRecord').classList.contains('is-visible'),
       status: document.getElementById('activationStatus').textContent, startReady: !document.getElementById('startRecord').disabled })`);
     check(!before.locked && before.status === 'Off on this tab' && before.startReady,
       'a web page not turned on yet: no lock over Record & Play, Start Recording ready', before);
+
+    // Start Recording on a tab that is off: nothing records; the popup says so and asks to turn it on.
+    await popup.evaluate(`document.getElementById('startRecord').click()`);
+    await sleep(SETTLE_MS);
+    const rec = await asked(popup);
+    const recording = !!(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.recording;
+    await popup.evaluate(`document.getElementById('confirmModalCancel').click()`);
+    const afterCancel = await activated();
+    check(rec.shown && rec.title === 'Off on this tab' && rec.ok === 'Turn on' && !recording && !afterCancel.includes(ctx.webTabId),
+      'Start Recording on a tab that is off: nothing records, it asks to turn the tab on, Cancel leaves it off', { rec, recording, afterCancel });
+
+    // 🎯 Pick too, and it stays out of pick mode.
+    await popup.evaluate(`document.getElementById('pickElement').click()`);
+    await sleep(SETTLE_MS);
+    const pick = await asked(popup);
+    const mode = await popup.evaluate(`document.getElementById('pickElement').textContent`);
+    await popup.evaluate(`document.getElementById('confirmModalCancel').click()`);
+    check(pick.shown && pick.ok === 'Turn on' && pick.msg === rec.msg && mode === '🎯',
+      '🎯 Pick on a tab that is off asks the same question, without going into pick mode', { pick, mode });
+
+    // Turn on: the tab is remembered as on, and the recording starts.
+    await popup.evaluate(`document.getElementById('startRecord').click()`);
+    await sleep(SETTLE_MS);
+    await popup.evaluate(`document.getElementById('confirmModalOk').click()`).catch(() => { /* the popup closes itself */ });
+    await sleep(POPUP_SETTLE_MS);
+    const started = !!(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.recording;
+    const on = await activated();
+    await ctx.send({ type: 'STOP_RECORD' });
+    check(started && on.includes(ctx.webTabId), 'Turn on: the tab is remembered as on and the recording starts', { started, on });
     if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await closeQuietly(popup);
+  }
+
+  // ▶ Play asks the same: Cancel plays nothing; Turn on turns the tab on and plays.
+  popup = await openOff();
+  try {
     await showScenario(popup, id);
+    await popup.evaluate(`document.getElementById('playScenario').click()`);
+    await sleep(SETTLE_MS);
+    const play = await asked(popup);
+    await popup.evaluate(`document.getElementById('confirmModalCancel').click()`);
+    await sleep(SETTLE_MS);
+    const ranOff = !!(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing;
+    const offStill = !(await activated()).includes(ctx.webTabId);
+    check(play.shown && play.ok === 'Turn on' && !ranOff && offStill,
+      '▶ Play on a tab that is off: nothing plays, it asks the same question', { play, ranOff, offStill });
     await ctx.web.bringToFront();
     await popup.evaluate(`document.getElementById('playScenario').click()`);
+    await sleep(SETTLE_MS);
+    await popup.evaluate(`document.getElementById('confirmModalOk').click()`).catch(() => { /* the popup closes itself */ });
     await sleep(SETTLE_MS);
   } finally {
     await closeQuietly(popup);
   }
-  const activated = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('activatedTabs', (x) => r(x.activatedTabs || [])))`);
+  const played = await activated();
   await ctx.send({ type: 'STOP_PLAYBACK' });
   await sleep(SETTLE_MS);
-  check(activated.includes(ctx.webTabId), '▶ Play turns Pocket QA on for the tab it plays on', { activated, tab: ctx.webTabId });
+  check(played.includes(ctx.webTabId), '▶ Play, then Turn on: the tab is turned on and the scenario plays there', { played, tab: ctx.webTabId });
+}
+
+// The run panel on the page a run plays on: what plays and how far, off the screen
+// for a screenshot, gone when the run ends; its Stop ends a run.
+async function checkRunPanel(ctx) {
+  await reloadTestPage(ctx);
+  await ctx.ext.evaluate(`chrome.storage.sync.set({ screenshotSaveMode: 'auto', screenshotPrefix: 'e2e' })`);
+  // What the page saw of the panel, each time it changed: "shown <text>" / "hidden <text>" / "none".
+  const watch = () => ctx.web.evaluate(`(() => { window.__panel = ['none'];
+    new MutationObserver(() => { const p = document.getElementById('__pqa_run');
+      const s = p ? (p.style.visibility === 'hidden' ? 'hidden ' : 'shown ') + p.textContent : 'none';
+      if (__panel.at(-1) !== s) __panel.push(s); })
+      .observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true }); })()`);
+  await watch();
+  const id = await makeScenario(ctx, 'e2e run panel', [
+    { type: 'wait', delay: 700 },
+    { type: 'click', selector: '#bg1', selectors: { css: '#bg1' }, delay: 300 },
+    { type: 'screenshot', value: 'panel', delay: 300 },
+    { type: 'wait', delay: 700 },
+  ]);
+  const before = ctx.browser.downloads().length;
+  await play(ctx, id);
+  const seen = await ctx.web.evaluate('window.__panel');
+  const shown = seen.filter((s) => s.startsWith('shown'));
+  check(shown.some((s) => s.includes('e2e run panel') && s.includes('step 1/4')) && shown.some((s) => s.includes('step 4/4')) && seen.at(-1) === 'none',
+    'a run shows its panel — the scenario and its step — and takes it away at the end', seen);
+  const hiddenAt = seen.findIndex((s) => s.startsWith('hidden') && s.includes('step 3/4'));
+  check(hiddenAt > 0 && seen.slice(hiddenAt + 1).some((s) => s.startsWith('shown')) && ctx.browser.downloads().length - before === 1,
+    'the screenshot step takes the panel off the screen, then puts it back', { seen, saved: ctx.browser.downloads().length - before });
+
+  // ■ Stop on the panel ends the run.
+  await reloadTestPage(ctx);
+  const long = await makeScenario(ctx, 'e2e run panel stop', [{ type: 'wait', delay: 8000 }, { type: 'click', selector: '#bg2', selectors: { css: '#bg2' } }]);
+  await ctx.web.bringToFront();
+  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: long });
+  const up = await pageSoon(ctx, `!!document.getElementById('__pqa_run')`, 5_000);
+  await clickAt(ctx, '#__pqa_run button');
+  let st = null;
+  for (let waited = 0; waited < 3_000; waited += POLL_MS) { st = await ctx.send({ type: 'GET_EXTENSION_STATUS' }); if (!st?.playing) break; await sleep(POLL_MS); }
+  const gone = !!(await pageSoon(ctx, `!document.getElementById('__pqa_run')`, 3_000));
+  const log = await ctx.web.evaluate('window.__log');
+  if (st?.playing) await ctx.send({ type: 'STOP_PLAYBACK' });
+  check(up && !st?.playing && gone && !log.some((l) => l.startsWith('bg2')), "the panel's ■ Stop ends the run, and the panel goes", { up, playing: st?.playing, gone, log });
+}
+
+// A new action being filled in: Cancel beside Add Action (laid out as Save Edit / Cancel),
+// and the dummy row's ✕ — both empty the card, and the dummy row goes with it.
+async function checkAddCancel(ctx) {
+  const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` } });
+  const id = await makeScenario(ctx, 'e2e add cancel', [click('a'), click('b')]);
+  const popup = await openPopup(ctx);
+  const fill = () => popup.evaluate(`(() => {
+    document.getElementById('addManualActionCard')?.classList.remove('collapsed');
+    const t = document.getElementById('manualActionType'); t.value = 'click'; t.dispatchEvent(new Event('change', { bubbles: true }));
+    const s = document.getElementById('manualSelector'); s.value = '#new'; s.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  const state = () => popup.evaluate(`(() => {
+    const c = document.getElementById('cancelEdit'), a = document.getElementById('addManualAction');
+    return { type: document.getElementById('manualActionType').value, selector: document.getElementById('manualSelector').value,
+      ghost: !!document.querySelector('#actions li.action-ghost'), cancel: c.offsetWidth > 0,
+      cancelW: c.offsetWidth, addW: a.offsetWidth, addText: a.textContent };
+  })()`);
+  try {
+    await showScenario(popup, id);
+    await fill();
+    await sleep(SETTLE_MS);
+    const adding = await state();
+    check(adding.ghost && adding.cancel && adding.addText === 'Add Action', 'filling in a new action: the dummy row, and Cancel beside Add Action', adding);
+    await rowButton(popup, 0, 3); // Edit on row 1: Save Edit / Cancel
+    const editing = await state();
+    check(editing.cancel && editing.addText === 'Save Edit' && editing.cancelW === adding.cancelW && editing.addW === adding.addW,
+      'Add Action / Cancel take the widths Save Edit / Cancel take', { adding, editing });
+    await popup.evaluate(`document.getElementById('cancelEdit').click()`);
+    await sleep(SETTLE_MS);
+
+    await fill();
+    await sleep(SETTLE_MS);
+    await popup.evaluate(`document.querySelector('#actions li.action-ghost [data-g="cancel"]').click()`);
+    await sleep(SETTLE_MS);
+    const byX = await state();
+    check(!byX.ghost && byX.type === '' && byX.selector === '', "the dummy row's ✕ empties the Add Action card, and the row goes", byX);
+
+    await fill();
+    await sleep(SETTLE_MS);
+    await popup.evaluate(`document.getElementById('cancelEdit').click()`);
+    await sleep(SETTLE_MS);
+    const byCancel = await state();
+    check(!byCancel.ghost && byCancel.type === '' && byCancel.selector === '', 'Cancel while adding empties the card the same way', byCancel);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove(['manualFormDraft'])`);
+    await closeQuietly(popup);
+  }
+}
+
+// Settings → Allow on all tabs: reached from the "Off on this tab" question; then nothing asks,
+// and the record hotkeys work on a tab never turned on.
+async function checkAllowAllTabs(ctx) {
+  await reloadTestPage(ctx);
+  await ctx.ext.evaluate(`chrome.storage.local.set({ activatedTabs: [], allowAllTabs: false })`);
+  let popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...POPUP_VIEWPORT });
+  await sleep(POPUP_SETTLE_MS);
+  try {
+    await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabRecord"]').click(); document.getElementById('startRecord').click()`);
+    await sleep(SETTLE_MS);
+    const link = await popup.evaluate(`(() => { const l = document.getElementById('confirmModalLink'); return l.hidden ? null : l.textContent; })()`);
+    await popup.evaluate(`document.getElementById('confirmModalLink').click()`);
+    await sleep(SETTLE_MS);
+    const landed = await popup.evaluate(`({ tab: document.body.dataset.activeTab, modal: document.getElementById('confirmModal').classList.contains('show'),
+      flashed: document.getElementById('allowAllTabsCard').classList.contains('setting-flash') })`);
+    check(/Allow on all tabs/.test(link || '') && landed.tab === 'tabSettings' && !landed.modal && landed.flashed,
+      'the "Off on this tab" question links to Settings → Allow on all tabs', { link, ...landed });
+
+    await popup.evaluate(`document.getElementById('allowAllTabs').click()`);
+    await sleep(SETTLE_MS);
+    const on = await popup.evaluate(`({ status: document.getElementById('activationStatus').textContent,
+      turnOff: getComputedStyle(document.getElementById('deactivateTab')).display })`);
+    const stored = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('allowAllTabs', (x) => r(x.allowAllTabs)))`);
+    check(stored === true && on.status === 'Active · all tabs' && on.turnOff === 'none',
+      'the toggle turns Pocket QA on for every tab: the status bar says so', { stored, ...on });
+
+    // A record hotkey on the test tab, never turned on one by one.
+    await ctx.web.bringToFront();
+    for (const type of ['keyDown', 'keyUp']) {
+      await ctx.web.send('Input.dispatchKeyEvent', { type, key: 'r', code: 'KeyR', windowsVirtualKeyCode: 82, modifiers: 1 });
+    }
+    await sleep(SETTLE_MS);
+    const byHotkey = !!(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.recording;
+    await ctx.send({ type: 'STOP_RECORD' });
+    check(byHotkey, 'with every tab allowed, the record hotkey works on a tab never turned on', { byHotkey });
+  } finally {
+    await closeQuietly(popup);
+  }
+  // Start Recording no longer asks.
+  popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...POPUP_VIEWPORT });
+  await sleep(POPUP_SETTLE_MS);
+  try {
+    await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabRecord"]').click(); document.getElementById('startRecord').click()`).catch(() => { /* the popup closes itself */ });
+    await sleep(POPUP_SETTLE_MS);
+    const started = !!(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.recording;
+    await ctx.send({ type: 'STOP_RECORD' });
+    check(started, 'with every tab allowed, Start Recording records at once, without asking', { started });
+  } finally {
+    await closeQuietly(popup);
+    await ctx.ext.evaluate(`chrome.storage.local.set({ allowAllTabs: false })`);
+  }
+}
+
+// The status dot while recording, and once Stop has ended it (it stayed red until the popup reopened).
+async function checkRecordDot(ctx) {
+  const popup = await openPopup(ctx);
+  const dotWhen = async (want, ms) => {
+    let cls = '';
+    for (let waited = 0; waited < ms; waited += POLL_MS) {
+      cls = await popup.evaluate(`document.getElementById('statusDot').className`);
+      if (want(cls)) break;
+      await sleep(POLL_MS);
+    }
+    return cls;
+  };
+  try {
+    await ctx.send({ type: 'START_RECORD', tabId: ctx.webTabId, scenarioId: null });
+    const during = await dotWhen((c) => c.includes('recording'), 4_000);
+    await ctx.send({ type: 'STOP_RECORD' });
+    const after = await dotWhen((c) => !c.includes('recording'), 4_000);
+    check(during === 'status-dot recording' && after === 'status-dot active',
+      'the status dot is red while recording and green again once Stop ends it', { during, after });
+  } finally {
+    await closeQuietly(popup);
+  }
 }
 
 async function checkRunGroup(ctx) {
@@ -2243,7 +2604,7 @@ async function checkClickThrough(ctx) {
     let text = '';
     for (let waited = 0; !text && waited < 8_000; waited += POLL_MS) {
       await sleep(POLL_MS);
-      text = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]')].map((e) => e.textContent).find((t) => /failed/i.test(t)) || ''`);
+      text = await ctx.web.evaluate(`[...document.querySelectorAll('[data-ext-overlay]:not(#__pqa_run)')].map((e) => e.textContent).find((t) => /failed/i.test(t)) || ''`);
       if (!text && waited > 2_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing) break;
     }
     await ctx.send({ type: 'STOP_PLAYBACK' });
@@ -4871,6 +5232,7 @@ const CHECKS = [
   ['copy-switch-block', 'Copy and Paste a Switch with its block', checkCopySwitchBlock],
   ['insert-point', 'The + between rows: the dummy row, adds and a paste at that place', checkInsertPoint],
   ['insert-point-pick', 'The place picked by + kept across 🎯 Pick and a reopened draft', checkInsertPointPick],
+  ['show-on-page', 'The picked element named in the form; 👁 and its name outline it on the page or scroll to it', checkShowOnPage],
   ['background-tab', 'A run in a background tab', checkBackgroundTab],
   ['label-click', 'A click on a label, recorded and played', checkLabelClick],
   ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],
@@ -4884,7 +5246,11 @@ const CHECKS = [
   ['no-checks', 'A run with no Assert says it checked nothing', checkNoChecks],
   ['last-run-live', 'The Last run card hides while a run is on', checkLastRunLive],
   ['sql-lang', 'The SQL page opens in English, a chosen language kept', checkSqlLang],
-  ['auto-activate', 'No lock on a web page; Play turns the tab on', checkAutoActivate],
+  ['auto-activate', 'No lock on a web page; Record, Play and Pick ask to turn the tab on, with one question', checkAutoActivate],
+  ['record-dot', 'The status dot after Stop Recording', checkRecordDot],
+  ['run-panel', 'The run panel on the page: progress, off for a screenshot, its Stop', checkRunPanel],
+  ['add-cancel','Cancel while adding, and the dummy row\'s ✕, empty the Add Action card', checkAddCancel],
+  ['allow-all-tabs', 'Settings → Allow on all tabs, reached from the "Off on this tab" question', checkAllowAllTabs],
   ['run-group', 'Sequence, schedule and CSV run in one group on Record & Play', checkRunGroup],
   ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
   ['shadow-dom', 'Elements in a shadow root', checkShadowDom],

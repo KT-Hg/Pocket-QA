@@ -45,7 +45,7 @@ Requires **Chrome 109 or newer**.
 ## Quick Start
 
 1. Navigate to the page you want to automate
-2. Open the extension popup. Recording or playing turns Pocket QA on for the tab (the status bar's **Activate** does it by hand; the record hotkeys wait for it)
+2. Open the extension popup and turn Pocket QA on for the tab: **Turn on** in the status bar, or **Turn on** when Start Recording, Play, a Sequence, a CSV run or 🎯 Pick asks (nothing records, plays or picks on a tab it is off on; the tab stays on until turned off or closed); the record hotkeys wait for it too. Or turn on **Settings → Allow on all tabs** to skip this on every page
 3. Go to the **Record & Play** tab → click **▶ Start Recording**; the page shows a **● Recording — Pocket QA** pill while it records
 4. Click and type on the page — those are the two event types the recorder captures. Each step is named after what the page calls the element (a field's label or placeholder, a button's text)
 5. Click **■ Stop** (in the popup or on the pill) → name and save the scenario; it stays selected, ready to play
@@ -64,11 +64,17 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
   - Each recorded step gets a name from the page: the element's aria-label / aria-labelledby, a field's `<label>`, its placeholder, title or alt, the text of the button or link clicked, then its `name` — never what was typed. The list shows the name with the selector under it; Edit → Label changes it
   - While recording, the tab shows a **● Recording — Pocket QA** pill (bottom right) whose **■ Stop** stops and saves like the hotkey, and the popup's Start button reads **● Recording…**
   - **Turn off** in the status bar takes Pocket QA off the tab (the page reloads); scenarios are kept
+  - On a tab Pocket QA is off on (grey dot, *Off on this tab*), Start Recording, ▶ Play, a Sequence, a CSV run and 🎯 Pick (Selector and Drop on) start nothing: they all ask the same question (*Off on this tab*, `TAB_OFF` in `popup/tab-activation.js`), whose **Turn on** turns the tab on — remembered until it is turned off or closed — and goes on. A scheduled run and Resume are left as they are: no one is there to ask
+  - The status dot is red and blinks while recording, and goes back to green (on) or grey (off) once the recording stops
 - **Last run** card at the top: how the last Play or Resume came out, its failures, its bug report — see [Run result](#run-result--bug-report)
 - Add manual actions (all 17 types)
+  - While a new action is filled in, **Cancel** sits beside **Add Action** (as beside Save Edit when editing), and the faded dummy row in the list has **✕**: both empty the card, and the dummy row goes
+  - After 🎯 Pick, the line under the selector names the element (`button` “Sign in” · 5 locators); it is struck out once the box holds another selector, which Add Action would save instead
+  - **👁** in the Selector and Drop on boxes, and the picked element's name: hover (or Tab onto it) to outline the element on the page without scrolling — off-screen, an ↑ / ↓ arrow at the page edge says where; click to scroll it to the middle and flash it. 👁 looks for what its box holds, the name for the element picked; both find it the way playback would. Under the box: not found, hidden, several matches (playback uses the first, outlined solid), `${…}` in the selector, or **Under this popup — press Esc to see it** (the outline stays until a click on the page, or 10 s). "Under this popup" comes from where the popup really is: it sends its screen position, size and `devicePixelRatio`, and the page turns that into its own pixels, page zoom included (`_popupRectOnPage`) — the popup hangs under the extension's icon, not at the window's edge
 - **Click through** on each action (checkbox under Label) and on each scenario (⊘ on its toolbar) — see [Click through](#click-through)
 - Save and manage scenarios (rename, duplicate, move to folder, delete)
 - Playback controls: loop count, loop delay
+- While a run plays, its page shows a **run panel** at the bottom right (like the recording pill): ▶ what plays (`Checkout · loop 2/3`, `Sequence 2/5 · Checkout`, `CSV row 4/20 · Checkout`, `Checkout → Login` when a Switch case plays another scenario), `step 3/8`, a bar for the whole run, and **■ Stop** (it ends the run, as the popup's Stop does). Amber with ⏸ while a failed action waits for an answer. It is taken off the page for every screenshot step and for a failed action's picture, and comes back with the next page after a Navigate. Clicks go through it except on Stop (`bg/run-panel.js`, content.js RUN PANEL). The recording pill and the run panel are one size (420 px wide). The popup's **Now Playing** line is the same panel: the same words, step, whole-run bar, amber pause and ■ Stop — the worker words the run once (`runWords`, `runFraction`) and hands it to the page and, with GET_EXTENSION_STATUS, to the popup; a click on the line opens its details as before
 - **Run several · on a schedule · from a CSV**, a group at the end of the tab:
   - Sequence playback (run multiple scenarios in order, each with its own delay)
   - Scheduled playback at a set time — one-off, or **Repeat daily**
@@ -98,6 +104,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - Export all highlights as JSON
 
 ### Settings
+- **Tabs → Allow on all tabs** (off by default, this browser only): every web page counts as turned on — record, pick and use the record hotkeys anywhere without turning Pocket QA on per tab; the status bar reads *Active · all tabs* and has no Turn off. The "Off on this tab" question links here (*Not ask again: Allow on all tabs in Settings →*)
 - Hotkey bindings (configurable, synced across devices)
 - Screenshot save mode (auto/ask), filename prefix
 - Watermark (format, font size)

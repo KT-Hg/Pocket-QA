@@ -32,6 +32,7 @@ export function collectManualFormState() {
     selectorTypeChosen: document.getElementById("selectorType")?.dataset.chosen === "1",
     dragdropTargetTypeChosen: document.getElementById("dragdropTargetSelectorType")?.dataset.chosen === "1",
     pickedSelectors: ui.currentPickedSelectors || null,
+    pickedLabel:     ui.currentPickedLabel, // read only with pickedSelectors
     pickedFrameId:   ui.currentPickedFrameId,
     value:       manualValue.value || "",
     valueByType: { ...valueByType },
@@ -48,6 +49,7 @@ export function collectManualFormState() {
     // Each type's own fields go under their element ids — record/form-table.js.
     ...draftFields("dragdrop"),
     pickedDragdropTargetSelectors: ui.currentPickedDragdropTargetSelectors || null,
+    pickedDragdropTargetLabel: ui.currentPickedDragdropTargetLabel,
 
     ...draftFields("condition"),
     childCond: {
@@ -70,7 +72,8 @@ export function collectManualFormState() {
 
 /**
  * Edit mode on (`{ scenarioId, index }`) or off (null): ui.editing and what the
- * card shows for it — its title, Save Edit / Add Action, Cancel. Every way into
+ * card shows for it — its title, Save Edit / Add Action beside Cancel (shown in
+ * both, as soon as an action type is chosen: 02-action-list.css). Every way into
  * an edit comes through here: Edit on an action, a restored draft, a pick.
  */
 export function setEditing(editing) {
@@ -78,7 +81,7 @@ export function setEditing(editing) {
   const title = document.getElementById("manualCardTitle");
   if (title) title.textContent = editing ? `Edit Action #${editing.index + 1}` : "Add Manual Action";
   addManualAction.textContent = editing ? "Save Edit" : "Add Action";
-  cancelEdit.style.display = editing ? "inline-block" : "none";
+  cancelEdit.title = editing ? "Cancel the edit — the action stays as it was" : "Cancel the new action — clears this card";
 }
 
 export function applyManualFormState(state) {
@@ -96,8 +99,7 @@ export function applyManualFormState(state) {
 
   // dragdrop: the picked drop target
   if (state.pickedDragdropTargetSelectors) {
-    ui.currentPickedDragdropTargetSelectors = state.pickedDragdropTargetSelectors;
-    displayPickedDragdropTargetSelectors(ui.currentPickedDragdropTargetSelectors);
+    displayPickedDragdropTargetSelectors(state.pickedDragdropTargetSelectors, state.pickedDragdropTargetLabel || null);
   }
 
   // child condition
@@ -136,8 +138,7 @@ export function applyManualFormState(state) {
      fields; #pickedSelectorsWrap lives inside #selectorSection so it follows. */
   if (state.selectorType) set("selectorType", state.selectorType);
   if (state.pickedSelectors) {
-    ui.currentPickedSelectors = state.pickedSelectors;
-    displayPickedSelectors(ui.currentPickedSelectors);
+    displayPickedSelectors(state.pickedSelectors, state.pickedLabel || null);
   }
   ui.currentPickedFrameId = state.pickedFrameId ?? null;
   updateFrameNote();

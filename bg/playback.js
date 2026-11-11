@@ -23,6 +23,7 @@ import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { failCountsText, runVerdict, tallyText, verdictLabel } from '../shared/verdict.js';
 import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY } from '../shared/storage-keys.js';
 import { captureFailureShot } from './screenshot/capture-tab.js';
+import { withRunPanelHidden } from './run-panel.js';
 import { isAnyPlaybackActive, runClaimed } from './run-state.js';
 import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
 import { notifyActionFailed, onActionFailed, recordFailure, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
@@ -119,7 +120,8 @@ function _notifyVerdict(name, verdict, done) {
  */
 async function _evidence(tabId, evidence) {
   const url = await getTabUrl(tabId);
-  evidence.shot = await captureFailureShot(tabId);
+  // The page as the action left it, without the run panel over it.
+  evidence.shot = await withRunPanelHidden(tabId, () => captureFailureShot(tabId));
   return { url, at: Date.now(), loop: evidence.loop, trace: [...evidence.trace] };
 }
 
@@ -204,6 +206,8 @@ export async function playActionsOnTab(tabId, actions, {
   }
 
   const resolvedVars = resolveRandomVars(vars !== null ? vars : await getVariables());
+  // The tab the run plays on, for its panel there (bg/run-panel.js).
+  state.playback.tabId = tabId;
 
   // Where the run is, for the checkpoint: the scenario it started from, then each
   // other scenario a Switch case went into, innermost last. A block case plays

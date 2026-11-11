@@ -173,6 +173,18 @@ function loadNotificationSetting() {
   });
 }
 
+/**
+ * Allow on all tabs: every web page counts as turned on (tab-activation.js, the
+ * worker's IS_TAB_ACTIVATED / REGISTER_FRAME). In storage.local, beside the list
+ * of tabs turned on one by one: it is this browser's, like that list.
+ */
+function loadAllowAllTabs() {
+  chrome.storage.local.get(['allowAllTabs'], (res) => {
+    const cb = document.getElementById('allowAllTabs');
+    if (cb) cb.checked = !!res?.allowAllTabs;
+  });
+}
+
 /* === Version / update card === */
 
 function formatWhen(ts) {
@@ -342,7 +354,14 @@ export function initSettings() {
     });
   }
 
+  /* --- Allow on all tabs (bound once, like the toggles above) --- */
+  document.getElementById('allowAllTabs')?.addEventListener('change', (e) => {
+    chrome.storage.local.set({ allowAllTabs: e.target.checked });
+    showToast(e.target.checked ? 'Pocket QA is on for every tab' : 'Pocket QA works only on the tabs you turn on', 'success');
+  });
+
   /* --- Load initial state --- */
+  loadAllowAllTabs();
   loadScreenshotSettings();
   loadHotkeySettings();
   loadNotificationSetting();
@@ -350,6 +369,7 @@ export function initSettings() {
 }
 
 export function reloadSettings() {
+  loadAllowAllTabs();
   loadScreenshotSettings();
   loadHotkeySettings();
   loadNotificationSetting();

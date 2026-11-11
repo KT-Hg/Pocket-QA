@@ -325,6 +325,27 @@
 /* The field has no border of its own here: its error marks the box. */
 .sel-group:has(> input.required-error) { border-color: var(--danger); }
 .sel-group input { flex: 1 1 auto; min-width: 0; margin: 0; border: 0; border-radius: 0 6px 6px 0; background: transparent; }
+/* 👁 (record/show-on-page.js): inside the box, so the row keeps its width and 🎯 its place. */
+.sel-group:has(> .sel-eye) input { border-radius: 0; }
+.sel-eye {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0 6px 6px 0;
+  background: transparent;
+  color: var(--muted);
+  font: 700 13px/1 system-ui, sans-serif;
+}
+.sel-eye:hover:not(:disabled) { background: var(--secondary-bg); color: var(--primary); transform: none; }
+/* What the last click found, for a moment: ✓ / ! / ✕ */
+.sel-eye.r-ok { color: var(--success); }
+.sel-eye.r-warn { color: var(--warning-text); }
+.sel-eye.r-bad { color: var(--danger); }
 .sel-group-type {
   position: relative;
   display: inline-flex;

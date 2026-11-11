@@ -6,6 +6,7 @@ import { manualSelector, pickElement, scenarioList, selectorType } from '../dom.
 import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { isEligibleTab, safeSendTabMessage, showToast } from '../utils.js';
+import { whenTabOn } from '../tab-activation.js';
 import { restoreDraft } from './draft.js';
 import { applyManualFormState, collectManualFormState, setEditing } from './form-state.js';
 import { keptInsertPoint, restoreInsertPoint } from './insert-point.js';
@@ -26,9 +27,8 @@ export function initPicker() {
           return;
         }
         manualSelector.value = msg.selector || "";
-        ui.currentPickedSelectors = msg.selectors || { css: msg.selector };
         ui.currentPickedFrameId = msg.frameId ?? null;
-        displayPickedSelectors(ui.currentPickedSelectors);
+        displayPickedSelectors(msg.selectors || { css: msg.selector }, msg.label || null);
         updateFrameNote();
         selectorType.value = 'css';
         ui.pickerMode = false;
@@ -40,7 +40,7 @@ export function initPicker() {
     }
   });
   // If popup opens after picking, restore the cached selector from storage
-  chrome.storage.local.get(["lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId", "pendingEdit", "dragdropTargetPickPending", "dragdropTargetPickState", "elemShotPickPending", "manualFormDraft"], (res) => {
+  chrome.storage.local.get(["lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId", "lastPickedLabel", "pendingEdit", "dragdropTargetPickPending", "dragdropTargetPickState", "elemShotPickPending", "manualFormDraft"], (res) => {
     // Restore pending edit/add state (saved before pick mode opens)
     if (res?.pendingEdit) {
       const pe = res.pendingEdit;
@@ -58,7 +58,7 @@ export function initPicker() {
 
     // Restore dragdrop target pick
     if (res?.dragdropTargetPickPending && (res?.lastPickedSelector || res?.lastPickedSelectors)) {
-      chrome.storage.local.remove(["dragdropTargetPickPending", "dragdropTargetPickState", "lastPickedSelector", "lastPickedSelectors"]);
+      chrome.storage.local.remove(["dragdropTargetPickPending", "dragdropTargetPickState", "lastPickedSelector", "lastPickedSelectors", "lastPickedLabel"]);
       const picked = res.lastPickedSelectors?.css || res.lastPickedSelector || "";
       const st = res.dragdropTargetPickState || {};
       // Restore the whole form, then lay the freshly picked target on top.
@@ -76,7 +76,7 @@ export function initPicker() {
       const ddPickedSelectors = res.lastPickedSelectors || (picked ? { css: picked } : null);
       const dtSelectorType = document.getElementById("dragdropTargetSelectorType");
       if (ddPickedSelectors) {
-        displayPickedDragdropTargetSelectors(ddPickedSelectors);
+        displayPickedDragdropTargetSelectors(ddPickedSelectors, res.lastPickedLabel || null);
         if (dtSelectorType) dtSelectorType.value = targetType;
         const ddTarget = document.getElementById("dragdropTarget");
         if (ddTarget) ddTarget.value = ddPickedSelectors[targetType] || picked;
@@ -91,14 +91,13 @@ export function initPicker() {
     if (!res?.elemShotPickPending) {
       if (res?.lastPickedSelectors) {
         try {
-          ui.currentPickedSelectors = res.lastPickedSelectors;
           ui.currentPickedFrameId = res.lastPickedFrameId ?? null;
-          displayPickedSelectors(ui.currentPickedSelectors);
-          updateFrameNote();
           if (res.lastPickedSelector) {
             manualSelector.value = res.lastPickedSelector;
           }
-          chrome.storage.local.remove(["lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId"]);
+          displayPickedSelectors(res.lastPickedSelectors, res.lastPickedLabel || null);
+          updateFrameNote();
+          chrome.storage.local.remove(["lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId", "lastPickedLabel"]);
         } catch (e) { /* ignore */ }
       } else if (res?.lastPickedSelector) {
         try {
@@ -114,8 +113,8 @@ export function initPicker() {
     }
   });
 
-  // Dragdrop target pick mode
-  document.getElementById("dragdropTargetPick")?.addEventListener("click", () => {
+  // Dragdrop target pick mode — only on a tab Pocket QA is on (whenTabOn asks first)
+  document.getElementById("dragdropTargetPick")?.addEventListener("click", () => whenTabOn(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tab = tabs[0];
       if (!tab?.id || !isEligibleTab(tab)) { showToast("Invalid tab for pick mode", "error"); return; }
@@ -136,5 +135,5 @@ export function initPicker() {
       chrome.runtime.sendMessage({ type: "START_PICK_MODE", tabId: tab.id });
       window.close();
     });
-  });
+  }));
 }

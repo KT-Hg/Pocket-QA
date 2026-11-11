@@ -5,7 +5,7 @@
 
 import { tallyText, tallyVerdicts } from '../../shared/verdict.js';
 import { clearCsvDoneBar, openPbPanel, setCsvDoneBar } from '../connection.js';
-import { activateCurrentTab } from '../tab-activation.js';
+import { whenTabOn } from '../tab-activation.js';
 import { ui } from '../ui-state.js';
 import { showConfirm, showToast } from '../utils.js';
 import { getInputVarsFromScenario, stopCsvCountdown, updateCsvBadges } from './csv-run.js';
@@ -113,10 +113,14 @@ function _rememberChoices() {
 }
 
 export function initCsvState() {
-  document.getElementById("startCsvRun")?.addEventListener("click", async () => {
+  // The rows play on this tab: only one Pocket QA is on (whenTabOn asks first).
+  document.getElementById("startCsvRun")?.addEventListener("click", () => {
     const scenarioId = document.getElementById("csvScenarioSelect")?.value;
     if (!scenarioId) { showToast("Select a scenario first", "error"); return; }
     if (!ui.csvParsed || !ui.csvParsed.rows.length) { showToast("Load a CSV file first", "error"); return; }
+    whenTabOn(() => _startCsvRun(scenarioId));
+  });
+  function _startCsvRun(scenarioId) {
     clearCsvDoneBar();
     ui._csvRunScenarioName = document.getElementById("csvScenarioSelect")?.selectedOptions[0]?.text || "CSV Run";
 
@@ -147,7 +151,6 @@ export function initCsvState() {
 
     const exportFormat = document.getElementById("csvExportFormat")?.value || "csv";
 
-    await activateCurrentTab(); // the rows play on this tab: Pocket QA on there first
     chrome.runtime.sendMessage({
       type: "START_CSV_PLAYBACK",
       scenarioId,
@@ -155,7 +158,7 @@ export function initCsvState() {
       delayBetween,
       exportFormat,
     });
-  });
+  }
   // Hard stop — the row in flight is abandoned and never recorded.
   document.getElementById("pbStopCsvNow")?.addEventListener("click", () => _handleCsvStop("aborted"));
   // Graceful stop — the worker finishes and records the current row, then ends the

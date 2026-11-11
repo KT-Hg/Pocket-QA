@@ -4,6 +4,7 @@
  */
 
 import { state } from './state.js';
+import { updateRunPanel } from './run-panel.js';
 
 /* ── Badge ─────────────────────────────────────────────────────────────────── */
 
@@ -54,4 +55,6 @@ export function updateBadge() {
   const { text, color } = badgeState();
   chrome.action.setBadgeText({ text });
   if (text) chrome.action.setBadgeBackgroundColor({ color });
+  // The panel on the run's page says the same, in full (bg/run-panel.js).
+  updateRunPanel();
 }

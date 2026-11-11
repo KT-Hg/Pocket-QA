@@ -6,9 +6,11 @@
  * onMessage listener returns: `true` while sendResponse is still to come.
  */
 
-import { state } from '../state.js';
+import { state, clearCsvState } from '../state.js';
 import { updateBadge } from '../badge.js';
+import { fromExtensionPage } from '../sender.js';
 import { startPlayback, startPlaybackFromCheckpoint, startSequence } from '../playback.js';
+import { runPanelState } from '../run-panel.js';
 
 export const playbackHandlers = {
   // The popup was opened: the last run's verdict is on its Last run card now,
@@ -54,6 +56,7 @@ export const playbackHandlers = {
       currentScenarioIndex: state.sequencePlayback.currentIndex,
       totalScenarios: state.sequencePlayback.runList.length,
       csvInterrupted: state.csvInterrupted,
+      run: runPanelState(), // the run line: in the page panel's words
     });
     return;
   },
@@ -83,6 +86,25 @@ export const playbackHandlers = {
   STOP_SEQUENCE_PLAYBACK(request, sender, sendResponse) {
     state.sequencePlayback.active = false;
     state.playback.active = false;
+    updateBadge();
+    sendResponse({ stopped: true });
+    return;
+  },
+
+  /**
+   * The run panel's ■ Stop (content.js RUN PANEL): the whole run ends, as the
+   * popup's Stop does — a scenario, a sequence or a CSV run (its checkpoint
+   * dropped, as STOP_CSV_PLAYBACK does). From a web page, only the run playing
+   * on that page.
+   */
+  STOP_RUN(request, sender, sendResponse) {
+    if (!fromExtensionPage(sender) && sender.tab?.id !== state.playback.tabId) { sendResponse({ stopped: false }); return; }
+    const wasCsv = state.csvPlayback.active;
+    state.playback.active = false;
+    state.sequencePlayback.active = false;
+    state.csvPlayback.active = false;
+    state.csvPlayback.stopAfterRow = false;
+    if (wasCsv) clearCsvState().catch(() => {});
     updateBadge();
     sendResponse({ stopped: true });
     return;

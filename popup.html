@@ -52,16 +52,18 @@
       <span class="status-label" id="activationStatus">Checking...</span>
       <span class="status-spacer"></span>
       <span class="status-progress" id="statusText"></span>
-      <button id="activateTab" class="success" style="display:none;">Activate</button>
+      <button id="activateTab" class="success" style="display:none;" title="Turn Pocket QA on for this tab: record, play and pick elements here">Turn on</button>
       <button id="deactivateTab" class="secondary" style="display:none;" title="Turn Pocket QA off on this tab (the page reloads). Your scenarios are kept.">Turn off</button>
       <button class="icon-btn" id="toggleTheme" title="Toggle theme" aria-label="Toggle dark or light theme"><span aria-hidden="true">🌙</span></button>
     </div>
-    <!-- Now Playing bar (click to toggle mini panel) -->
-    <div class="now-playing-bar" id="nowPlayingBar" style="display:none;">
+    <!-- Now Playing: the run panel the page shows, in the popup (click for the mini panel) -->
+    <div class="now-playing-bar" id="nowPlayingBar" style="display:none;" title="Click for details">
       <span class="now-playing-icon" id="nowPlayingIcon">▶</span>
       <span class="now-playing-name" id="nowPlayingName"></span>
       <span class="now-playing-step" id="nowPlayingStep"></span>
       <span class="chev chev--menu" id="nowPlayingCaret" aria-hidden="true">▾</span>
+      <button type="button" class="danger now-playing-stop" id="nowPlayingStop" title="Stop the run">■ Stop</button>
+      <span class="now-playing-track" aria-hidden="true"><span class="now-playing-fill" id="nowPlayingFill"></span></span>
     </div>
     <!-- Mini panel dropdown -->
     <div class="playback-panel" id="playbackPanel" style="display:none;">
@@ -267,6 +269,8 @@
           <div class="sel-group">
             <button type="button" class="sel-group-type" id="selectorTypeBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="selectorTypeMenu"></button>
             <input id="manualSelector" />
+            <!-- 👁: the element on the page — hover to outline it, click to scroll to it (record/show-on-page.js) -->
+            <button type="button" class="sel-eye" id="showSelectorOnPage" title="Show on the page — hover to outline it, click to scroll to it" aria-label="Show the element on the page"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
             <div class="sel-menu" id="selectorTypeMenu" role="menu" aria-label="Selector type" hidden></div>
           </div>
           <select id="selectorType" hidden>
@@ -432,6 +436,7 @@
           <div class="sel-group">
             <button type="button" class="sel-group-type" id="dragdropTargetTypeBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="dragdropTargetTypeMenu"></button>
             <input id="dragdropTarget" />
+            <button type="button" class="sel-eye" id="showDragdropTargetOnPage" title="Show on the page — hover to outline it, click to scroll to it" aria-label="Show the drop target on the page"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
             <div class="sel-menu" id="dragdropTargetTypeMenu" role="menu" aria-label="Drop target selector type" hidden></div>
           </div>
           <select id="dragdropTargetSelectorType" hidden>
@@ -609,7 +614,8 @@
       <!-- Hidden until an action type is chosen (02-action-list.css) -->
       <div class="row" id="manualActionButtons">
         <button id="addManualAction">Add Action</button>
-        <button id="cancelEdit" class="secondary w-auto" style="display: none;">Cancel</button>
+        <!-- Adding or editing alike: Cancel empties the card (record/action-form.js) -->
+        <button id="cancelEdit" class="secondary w-auto" title="Cancel the new action — clears this card">Cancel</button>
       </div>
     </div>
 
@@ -768,7 +774,7 @@
         <div class="schedule-time-picker">
           <input id="stHour" type="number" min="1" max="12" value="12" title="Hour" />
           <span class="st-colon">:</span>
-          <input id="stMin" type="number" min="0" max="59" value="0" title="Minute" />
+          <input id="stMin" type="number" min="0" max="59" value="00" title="Minute" />
           <button type="button" id="stAmPm" class="secondary">AM</button>
         </div>
       </div>
@@ -1262,6 +1268,17 @@
   <!-- ===== TAB: SETTINGS ===== -->
   <div class="tab-panel" id="tabSettings">
 
+    <!-- Tabs card — allowAllTabs (storage.local): every web page counts as turned on
+         (tab-activation.js, bg IS_TAB_ACTIVATED / REGISTER_FRAME) -->
+    <div class="card" id="allowAllTabsCard">
+      <h3 style="margin:0 0 6px;">Tabs</h3>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; padding: 3px 0;">
+        <input type="checkbox" id="allowAllTabs" style="width: auto; margin: 0; cursor: pointer;" />
+        Allow on all tabs
+      </label>
+      <span class="helper-text">On: record, pick elements and use the recording hotkeys on any web page, without turning Pocket QA on for each tab. Off (default): it works only on tabs you turn on (Turn on in the status bar, or when Start Recording, Play or 🎯 Pick asks). Browser pages such as New Tab stay unavailable either way.</span>
+    </div>
+
     <!-- Hotkeys card -->
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -1321,7 +1338,7 @@
         </div>
       </div>
       <div class="activation-required-notice" role="status">
-        🔒 Recording hotkeys are available after activating on the current tab
+        🔒 Recording hotkeys work once Pocket QA is turned on for the current tab — or turn on Allow on all tabs above
       </div>
       <span class="helper-text" style="margin-top: 4px; display: block;">Click Set → press any key combo. ESC to cancel.</span>
       <button id="resetHotkeys" class="secondary" style="margin-top: 6px; font-size: 11px; padding: 5px 10px;">Reset to defaults</button>
@@ -1587,6 +1604,9 @@
         <button id="confirmModalCancel" class="secondary">Cancel</button>
         <button id="confirmModalOk">OK</button>
       </div>
+      <!-- showConfirm(…, { link }): another way out (e.g. to the setting behind the question);
+           after the buttons, so the dialog's first focus stays on Cancel -->
+      <button id="confirmModalLink" class="link-btn confirm-modal-link" type="button" hidden></button>
     </div>
   </div>
 

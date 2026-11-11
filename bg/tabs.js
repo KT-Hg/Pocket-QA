@@ -9,6 +9,16 @@ const TAB_MESSAGE_TIMEOUT_MS = 10_000;
 
 /* ── Tab Helpers ────────────────────────────────────────────────────────────── */
 
+/**
+ * Whether Pocket QA is on for `tabId` (the record hotkeys act only there): turned
+ * on for that tab, or Settings → Allow on all tabs. `cb(on)`.
+ */
+export function isTabOn(tabId, cb) {
+  chrome.storage.local.get(["activatedTabs", "allowAllTabs"], (res) => {
+    cb(tabId != null && (!!res?.allowAllTabs || (res?.activatedTabs || []).includes(tabId)));
+  });
+}
+
 // Three-layer fallback: focused window → any eligible tab → session-stored last-known tab.
 // The session fallback handles popups opened via keyboard shortcut (no focused window).
 export function getActiveTabId() {

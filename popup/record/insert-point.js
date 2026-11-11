@@ -16,7 +16,7 @@
  */
 
 import { isBlockCase, insertActions } from '../../shared/switch-blocks.js';
-import { actionsEl, conditionType, manualActionType, manualSelector, manualValue, scenarioList } from '../dom.js';
+import { actionsEl, cancelEdit, conditionType, manualActionType, manualSelector, manualValue, scenarioList } from '../dom.js';
 import { setCardOpen } from '../ui/collapsible.js';
 import { ui } from '../ui-state.js';
 import { debounce, escHtml, getActionIcon, showToast } from '../utils.js';
@@ -37,7 +37,8 @@ function _ghostRow() {
     const g = e.target.closest("[data-g]")?.dataset.g;
     if (g === "up") _nudge(-1);
     else if (g === "down") _nudge(1);
-    else if (g === "end") setInsertPoint(null);
+    // ✕ drops the new action: the card's Cancel, which empties the form (and the row with it).
+    else if (g === "cancel") cancelEdit.click();
   });
   return ghost;
 }
@@ -214,7 +215,7 @@ function _rowHtml(action, at, place) {
     + `<span class="value"><span class="value-main">${escHtml(main)}</span>`
     + `<span class="value-sub">New action goes in at #${at + 1}${place ? ` · ${escHtml(place)}` : ""}</span></span>`
     + `<div class="btn-row">${btn("up", "↑", "Move the insertion point up")}${btn("down", "↓", "Move the insertion point down")}`
-    + `${btn("end", "✕", "Add at the end instead")}</div>`;
+    + `${btn("cancel", "✕", "Cancel the new action — clears the Add Action card")}</div>`;
 }
 
 /** The dummy row and the Add card's line, as the form and the place are now. */

@@ -170,7 +170,7 @@ export const dataIoHandlers = {
       // Half-finished popup interactions.
       "pendingEdit", "manualFormDraft", "pendingRecordScenarioId",
       "elemShotPickPending", "elemShotPickCrop",
-      "lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId",
+      "lastPickedSelector", "lastPickedSelectors", "lastPickedFrameId", "lastPickedLabel",
       "dragdropTargetPickPending", "dragdropTargetPickState",
       // Update bookkeeping belongs to this install, not to the backup. Importing
       // another machine's grace-period anchors could lock this one out.
