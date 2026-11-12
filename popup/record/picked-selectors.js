@@ -12,10 +12,15 @@ import { ui } from '../ui-state.js';
 // How long a field stays marked with its error.
 const FIELD_ERROR_MS = 2500;
 
+// Lines that stay right under their box, above its message: the iframe note and
+// the picked element's line. Its name previews on hover, so a message showing
+// above it would push it out from under the mouse.
+const BOX_LINES = '#pickedFrameNote, #pickedSelectorsWrap, #pickedDragdropTargetWrap';
+
 /**
  * What a field's message goes after: the field, or the row it sits in. Inside a
  * row (the selector box [CSS ▾ | …], a field and its button) the message would
- * be squeezed in beside the field.
+ * be squeezed in beside the field. Below the row's BOX_LINES, shown or not.
  */
 function _errorAnchor(inputEl) {
   let el = inputEl;
@@ -24,6 +29,7 @@ function _errorAnchor(inputEl) {
     if (!display.includes("flex") || flexDirection.startsWith("column")) break;
     el = p;
   }
+  while (el.nextElementSibling?.matches(BOX_LINES)) el = el.nextElementSibling;
   return el;
 }
 

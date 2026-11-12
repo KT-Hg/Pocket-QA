@@ -239,7 +239,7 @@ async function checkFieldErrors(popup) {
     return width;
   })()`);
   const width = await press('click', { manualSelector: '' });
-  const sel = await popup.evaluate(`(() => { const msg = document.getElementById('selectorRow').nextElementSibling;
+  const sel = await popup.evaluate(`(() => { const msg = document.querySelector('#selectorRow ~ .field-error');
     return { under: msg?.classList.contains('field-error') ? msg.textContent : null, width: document.getElementById('manualSelector').offsetWidth }; })()`);
   if (sel.under && sel.width === width) ok('no selector: the message is under the selector row, the field keeps its width');
   else fail(`no selector: ${JSON.stringify({ ...sel, widthBefore: width })}`);

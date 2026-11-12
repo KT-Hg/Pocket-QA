@@ -1159,7 +1159,7 @@ async function checkShowOnPage(ctx) {
       .dispatchEvent(new MouseEvent('${event}', { bubbles: true, relatedTarget: document.body }))`);
     const typeSelector = (v) => popup.evaluate(`(() => { const s = document.getElementById('manualSelector');
       s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('input')); })()`);
-    const message = () => popup.evaluate(`document.querySelector('#selectorRow + .field-error')?.textContent || ''`);
+    const message = () => popup.evaluate(`document.querySelector('#pickedSelectorsWrap + .field-error')?.textContent || ''`);
     const scrollY = () => ctx.web.evaluate('Math.round(scrollY)');
 
     // Hover 👁: an outline with the element's name, the page not scrolled; gone when the mouse leaves.
