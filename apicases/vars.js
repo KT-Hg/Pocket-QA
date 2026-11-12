@@ -1,5 +1,5 @@
 /**
- * vars.js — the variables a request is filled with: the Data tab's (shared
+ * vars.js — the variables a request is filled with: the Tools tab's (shared
  * with every scenario), then the environment in use, which wins on a name both
  * have. Each value is resolved as a playback resolves it: {random:…} and
  * {pick:…} drawn once per send, and {fallback:a|b} taken as its first value,
@@ -30,12 +30,12 @@ export function envVarObject(env) {
   return out;
 }
 
-/** The Data tab's variables, then the environment's on top. Pure. */
+/** The Tools tab's variables, then the environment's on top. Pure. */
 export function resolveVars(dataVars, envVars) {
   return { ...plainValues(dataVars), ...plainValues(envVars) };
 }
 
-/** The Data tab's variables as stored (specs unresolved); {} outside the extension. */
+/** The Tools tab's variables as stored (specs unresolved); {} outside the extension. */
 export function loadDataVars() {
   return new Promise((resolve) => {
     if (typeof chrome === 'undefined' || !chrome.storage?.local) resolve({});

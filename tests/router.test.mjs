@@ -505,7 +505,7 @@ await send('page: window capture result refused', { type: 'WINDOW_CAPTURE_RESULT
   sender: { ...PAGE_SENDER, tab: { ...PAGE_SENDER.tab, windowId: 7 } },
 });
 
-// Renaming a Data tab variable renames it in every scenario that uses it. A name
+// Renaming a Tools tab variable renames it in every scenario that uses it. A name
 // the table or a scenario already has would make two variables one for good, and
 // a run has its variables resolved already: those are refused, nothing written.
 // Added beside the scenarios already stored (tests below read some of them), under

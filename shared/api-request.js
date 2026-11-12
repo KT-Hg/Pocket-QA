@@ -126,7 +126,7 @@ function missingError(missing, authMissing) {
   const names = [...all].map((k) => `\${${k}}`).join(', ');
   const onlyAuth = !missing.size;
   return {
-    error: `No value for ${names}${onlyAuth ? ' (used by the auth)' : ''} — add ${all.size === 1 ? 'it' : 'them'} to the environment or the Data tab${onlyAuth ? ', or set this request\'s Auth to None' : ''}`,
+    error: `No value for ${names}${onlyAuth ? ' (used by the auth)' : ''} — add ${all.size === 1 ? 'it' : 'them'} to the environment or the Tools tab${onlyAuth ? ', or set this request\'s Auth to None' : ''}`,
     kind: 'vars',
   };
 }

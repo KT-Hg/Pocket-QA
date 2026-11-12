@@ -85,6 +85,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - Global variables table (`${varName}` → value); renaming a variable renames it in every scenario using it — see [Variable System](#variable-system)
 - **Export Code** — turn any saved scenario into a JS Bookmarklet, a Selenium Python script or pytest test, a Playwright Test spec, a Robot Framework test or a Selenium Java TestNG class
 - **SQL Test Case Designer** — opens `sqltest.html` in its own tab (see below)
+- **API Tests** — opens `apitest.html`: API requests in folders, checks, environments, Postman / cURL import (see below)
 - **DB Test Session** — opens `dbtest.html`: the changes recorded in Adminer and the SQL to undo them
 
 ### Capture
@@ -531,7 +532,7 @@ The limits that remain are listed in [docs/known-issues.md](docs/known-issues.md
 
 ## SQL Test Case Designer
 
-Opened from **Data → Analyze a SQL query**, this is a standalone page (`sqltest.html`) that parses a SQL
+Opened from **Tools → Analyze a SQL query**, this is a standalone page (`sqltest.html`) that parses a SQL
 statement and derives a numbered test case list from it. Nothing is sent anywhere — tokenising, parsing and
 generation all run locally in the page.
 
@@ -672,7 +673,7 @@ that each per-table CSV comes out square.
 
 ## API Tests
 
-Opened from **Data → API Tests → Manage API tests**, a full-tab page (`apitest.html`) that keeps API requests in
+Opened from **Tools → API Tests → Manage API tests**, a full-tab page (`apitest.html`) that keeps API requests in
 folders, sends them and checks what comes back. Requests go out with `fetch` from the extension page, so CORS
 does not apply and the browser's cookies for the site go along (a request's **Settings** tab turns that off).
 Nothing runs on its own: a request is sent on **Send** or **Run**.
@@ -815,7 +816,7 @@ Design notes and the phases beyond what is built: [`docs/adminer-rollback-plan.m
    six of them a filter appears, and Enter resumes the first match. One session records per database: resuming
    or starting another ends whichever was recording, and says so first.
 
-**Data → DB Test Session** opens the full page — and the card itself says which session is recording, one click
+**Tools → DB Test Session** opens the full page — and the card itself says which session is recording, one click
 from it. The page lists every change with the row it touched (`id=2`), a **↺** to undo just that one and a **↷** to put it back, its
 before/after per column (diffs stay open while new changes arrive), the session's snapshots and backup tables,
 and `.sql` / `.json` export. **Clean up…** deletes ended sessions with nothing left to undo (those still holding
@@ -1318,7 +1319,7 @@ The section is never locked: after a run, change the names and download again �
 - Tabs can be **reordered by drag and drop** — order is saved to `chrome.storage.local`
 - The **last active tab** is restored when the popup reopens
 - On first use (no saved state), the **first tab in current order** is shown
-- Default order: **Record & Play → Data → Capture → Highlight → Settings**
+- Default order: **Record & Play → Tools → Capture → Highlight → Settings**
 
 ---
 

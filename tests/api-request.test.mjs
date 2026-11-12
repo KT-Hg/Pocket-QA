@@ -47,7 +47,7 @@ test('variables: URL as is, JSON escaped, form encoded, headers on one line', ()
 test('a variable with no value stops the request and names it', () => {
   const r = buildRequest(req({ url: '${base}/u/${id}', headers: 'X: ${id}' }), { base: 'https://a.test' });
   assert.equal(r.kind, 'vars');
-  assert.equal(r.error, 'No value for ${id} — add it to the environment or the Data tab');
+  assert.equal(r.error, 'No value for ${id} — add it to the environment or the Tools tab');
   assert.match(buildRequest(req({ url: '${a}/${b}' })).error, /\$\{a\}, \$\{b\} — add them/);
   assert.equal(buildRequest(req({ url: 'https://a.test/${toString}' })).kind, 'vars', 'inherited names are not values');
 });
@@ -162,8 +162,8 @@ test('auth: what the Headers tab or the URL sets wins; a missing variable is nam
   assert.equal(buildRequest(req({ url: 'https://api.test/x?api_key=mine', auth: { type: 'apikey', key: 'api_key', value: 'theirs', in: 'query' } })).url,
     'https://api.test/x?api_key=mine');
   assert.equal(buildRequest(req({ auth: { type: 'bearer', token: '${token}' } }), {}).error,
-    'No value for ${token} (used by the auth) — add it to the environment or the Data tab, or set this request\'s Auth to None');
+    'No value for ${token} (used by the auth) — add it to the environment or the Tools tab, or set this request\'s Auth to None');
   assert.equal(buildRequest(req({ url: '${base}/x', auth: { type: 'bearer', token: '${token}' } }), {}).error,
-    'No value for ${base}, ${token} — add them to the environment or the Data tab', 'not only the auth: the usual message');
+    'No value for ${base}, ${token} — add them to the environment or the Tools tab', 'not only the auth: the usual message');
   assert.equal(buildRequest(req({ auth: { type: 'apikey', key: 'bad key', value: 'v', in: 'header' } })).kind, 'headers');
 });

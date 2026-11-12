@@ -127,7 +127,7 @@ export function headersPane(ed, { onCount = () => {} } = {}) {
     toggle.textContent = isTable ? 'Bulk edit' : 'Table';
     toggle.title = isTable ? 'Edit as text — to paste many headers at once' : 'Back to one row per header';
     help.textContent = isTable
-      ? 'Untick a header to keep it without sending it. Type ${ in a value to pick a variable (from the environment or the Data tab).'
+      ? 'Untick a header to keep it without sending it. Type ${ in a value to pick a variable (from the environment or the Tools tab).'
       : 'One per line, as Name: value. A line starting with # is not sent.';
   }
 

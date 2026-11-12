@@ -2,9 +2,9 @@
  * ui/environments.js — the environment picker in the top bar, and the dialog
  * that adds, renames, copies, deletes and fills in environments.
  *
- * An environment is a set of variables laid over the Data tab's (apicases/
+ * An environment is a set of variables laid over the Tools tab's (apicases/
  * vars.js): Dev and Staging each set ${baseUrl}, the requests stay the same.
- * Edits apply as they are typed; the dialog also lists the Data tab's
+ * Edits apply as they are typed; the dialog also lists the Tools tab's
  * variables, read-only, so a name both have is seen to be overridden.
  */
 
@@ -60,7 +60,7 @@ function varsTable(app, id) {
 }
 
 /**
- * A Data tab value as the popup shows it: its kind badge (S / R / P / F) and its
+ * A Tools tab value as the popup shows it: its kind badge (S / R / P / F) and its
  * value — a Random as "6 digits", a Pick or Fallback as its values. A variable
  * is stored as a config object, not as text.
  */
@@ -72,15 +72,15 @@ function dataValue(v) {
     h('i', { class: `vt-i ${kind}`, 'aria-hidden': 'true' }, kind.toUpperCase()), h('span', null, text || '(empty)'));
 }
 
-/** The Data tab's variables, read-only, marked where this environment overrides them. */
+/** The Tools tab's variables, read-only, marked where this environment overrides them. */
 async function dataTabList(app, id) {
   const data = await loadDataVars();
   const mine = new Set(Object.keys(envVarObject(findEnv(app.state, id))));
   const names = Object.keys(data);
   // Same columns as the table above, so a name and its value sit under that table's.
   return h('div', { class: 'ac-env-data' },
-    h('div', { class: 'pane-label' }, 'From the Data tab'),
-    h('p', { class: 'helper' }, 'Used when this environment does not set the name. Change them in the popup\'s Data tab.'),
+    h('div', { class: 'pane-label' }, 'From the Tools tab'),
+    h('p', { class: 'helper' }, 'Used when this environment does not set the name. Change them in the popup\'s Tools tab.'),
     names.length
       ? h('div', { class: 'ac-env-data-list' }, ...names.map((n) => h('div', { class: `ac-env-row ac-env-data-row${mine.has(n) ? ' is-over' : ''}` },
         h('span', { class: 'ac-env-data-name' }, h('code', null, n), mine.has(n) ? h('em', null, 'set here') : null),
@@ -144,7 +144,7 @@ function openManager(app) {
       h('div', { class: 'modal-head' }, h('h3', null, 'Environments'),
         h('button', { class: 't-btn t-btn-sm', 'aria-label': 'Close', onclick: close }, '✕')),
       h('p', { class: 'helper ac-envs-help' },
-        'Each environment sets variables on top of the Data tab\'s — e.g. ${baseUrl} for Dev and Staging. Values saved from responses go into the one in use.'),
+        'Each environment sets variables on top of the Tools tab\'s — e.g. ${baseUrl} for Dev and Staging. Values saved from responses go into the one in use.'),
       h('div', { class: 'ac-envs-body' }, left, right)));
   document.body.append(backdrop);
   document.addEventListener('keydown', onKey, true);

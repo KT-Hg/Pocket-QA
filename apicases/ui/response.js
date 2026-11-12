@@ -7,7 +7,7 @@
  * Results are kept for this visit only, by case: going to another case and
  * back shows the last one again. What is kept of it after that is the case's
  * `last` (apicases/run.js lastOf), shown until the case is sent again.
- * Variables are the Data tab's with the environment in use on top
+ * Variables are the Tools tab's with the environment in use on top
  * (apicases/vars.js).
  */
 

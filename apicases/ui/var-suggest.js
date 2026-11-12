@@ -7,7 +7,7 @@
  * Names, in the order a request resolves them (apicases/vars.js), so a name
  * both have shows with the value that is sent:
  *   E      the environment in use (a value whose name looks secret is hidden);
- *   S/R/P/F the Data tab's, with their kind and value;
+ *   S/R/P/F the Tools tab's, with their kind and value;
  *   #      names a case saves from its response, not set yet.
  */
 
@@ -21,7 +21,7 @@ import { loadDataVars } from '../vars.js';
 
 const SECRET = /token|secret|pass|key|auth|cookie|session/i;
 
-/** [{ name, kind, detail }] for the page in `state`: environment, Data tab, saved by a case. */
+/** [{ name, kind, detail }] for the page in `state`: environment, Tools tab, saved by a case. */
 export async function varEntries(state) {
   const out = [];
   const env = activeEnv(state);

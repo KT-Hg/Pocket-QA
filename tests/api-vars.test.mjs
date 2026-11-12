@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 const { resolveVars, envVarObject } = await import('../apicases/vars.js');
 const M = await import('../apicases/model.js');
 
-test('the environment wins on a name both have; the Data tab fills the rest', () => {
+test('the environment wins on a name both have; the Tools tab fills the rest', () => {
   const vars = resolveVars({ baseUrl: 'https://prod.test', user: 'an' }, { baseUrl: 'https://staging.test' });
   assert.deepEqual(vars, { baseUrl: 'https://staging.test', user: 'an' });
 });

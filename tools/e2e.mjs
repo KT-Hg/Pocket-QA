@@ -17,7 +17,7 @@
  *   var-name-guard  the variable modal refuses a name another row has (adding or
  *                 renaming) and one holding "}" or "${"; saving a row under its own
  *                 name goes through
- *   var-rename    a variable renamed in the Data tab is renamed in every scenario
+ *   var-rename    a variable renamed in the Tools tab is renamed in every scenario
  *                 using it (${…}, a Read DOM target), the toast counts them, the
  *                 preview follows, and a played scenario types its value; a new
  *                 name a scenario already writes is refused, nothing written. An
@@ -148,9 +148,9 @@
  *                 folder name and Add row number come back in a new popup, the
  *                 section open
  *   csv-zip-suggest  typing ${ in the ZIP Folder name lists names with nothing
- *                 chosen in the CSV card: the Data tab variables when no scenario
+ *                 chosen in the CSV card: the Tools tab variables when no scenario
  *                 was ever chosen; after a reopen, the last CSV's columns, what the
- *                 last scenario writes and the Data tab ones it reads (not one it
+ *                 last scenario writes and the Tools tab ones it reads (not one it
  *                 never uses); Enter inserts one
  *   csv-zip-run   a CSV run (john, kate, john) downloaded as a ZIP from the popup:
  *                 folders "abc ${name}" (abc john_2 for the repeat; _01 … with Add
@@ -512,7 +512,7 @@ async function checkSuggest(ctx) {
   await popup.close();
 }
 
-/** The Data tab's variable modal in `popup`: a row's Edit (Add with no key), filled in and saved. */
+/** The Tools tab's variable modal in `popup`: a row's Edit (Add with no key), filled in and saved. */
 function variableModal(popup) {
   return {
     open: (key) => popup.evaluate(key == null
@@ -4652,7 +4652,7 @@ async function checkCsvZipSuggest(ctx) {
   try {
     let names = await typeInFolderName(popup);
     check(names.includes('env') && names.includes('unused'),
-      'Folder name, no scenario ever chosen and no CSV: ${ lists the Data tab variables', names);
+      'Folder name, no scenario ever chosen and no CSV: ${ lists the Tools tab variables', names);
     // Choose a scenario and load a CSV once, as a user does, then open a new popup.
     await popup.evaluate(`(() => { const s = document.getElementById('csvScenarioSelect'); s.value = ${JSON.stringify(id)};
       s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
@@ -4667,7 +4667,7 @@ async function checkCsvZipSuggest(ctx) {
     popup = await openPopup(ctx);
     names = await typeInFolderName(popup);
     check(['name', 'city', 'order', 'env'].every((n) => names.includes(n)) && !names.includes('unused'),
-      'reopened with nothing chosen: the last CSV\'s columns, what the last scenario writes and the Data tab variables it reads', names);
+      'reopened with nothing chosen: the last CSV\'s columns, what the last scenario writes and the Tools tab variables it reads', names);
     for (const type of ['keyDown', 'keyUp']) await popup.send('Input.dispatchKeyEvent', { type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
     await sleep(SETTLE_MS);
     const value = await popup.evaluate(`document.getElementById('csvZipFolderName').value`);
@@ -4798,7 +4798,7 @@ const API_PAGE_HELPERS = `
 async function checkApiTests(ctx) {
   const page = await ctx.browser.openPage(ctx.extUrl('apitest.html'), { width: 1400, height: 900 });
   const ev = (js) => page.evaluate(`(async () => { ${API_PAGE_HELPERS} ${js} })()`, 20_000);
-  // The Data tab's variables, put back afterwards: this check adds one.
+  // The Tools tab's variables, put back afterwards: this check adds one.
   const dataVars = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('variables', (x) => r(x.variables || null)))`);
   try {
     await sleep(PAGE_SETTLE_MS);
@@ -4871,8 +4871,8 @@ async function checkApiTests(ctx) {
     check(offer.offeredNames === 'Accept,Accept-Language' && offer.name === 'Accept' && offer.offeredValues.startsWith('application/json,*/*')
       && offer.dx === 0 && offer.dy === 2, 'Headers: names and values are offered in a list right under the field', offer);
 
-    // Variable suggestions: ${ in the URL lists the Data tab's variables, Enter writes one.
-    // e2eApiPin is stored as the Data tab stores a Random: a config object, not text.
+    // Variable suggestions: ${ in the URL lists the Tools tab's variables, Enter writes one.
+    // e2eApiPin is stored as the Tools tab stores a Random: a config object, not text.
     await page.evaluate(`new Promise((r) => chrome.storage.local.set({ variables: { ...(${JSON.stringify(dataVars || {})}),
       e2eApiBase: ${JSON.stringify(ctx.base)}, e2eApiPin: { activeType: 'r', r: { type: 'numeric', length: 4 } } } }, r))`);
     const listed = await ev(`$('#btnEnvs').click(); await wait(150);
@@ -4880,7 +4880,7 @@ async function checkApiTests(ctx) {
       const text = row?.querySelector('.ac-env-data-value')?.textContent ?? row?.textContent;
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await wait(30);
       return text;`);
-    check(listed === 'R4 digits', 'the Environments dialog shows a Data tab Random as "4 digits", not [object Object]', listed);
+    check(listed === 'R4 digits', 'the Environments dialog shows a Tools tab Random as "4 digits", not [object Object]', listed);
     await page.bringToFront();
     const picked = await ev(`const u = $('.ac-url'); u.focus(); await wait(60); u.select();
       document.execCommand('insertText', false, '\${e2eApi'); await wait(100);
@@ -5216,7 +5216,7 @@ const CHECKS = [
   ['overlays', 'The countdown, failed-action prompt and segment bar, loaded when needed', checkOverlays],
   ['suggest', 'Variable suggestions in the popup', checkSuggest],
   ['var-name-guard', 'A variable name already taken, or one no ${…} can reach', checkVarNameGuard],
-  ['var-rename', 'A variable renamed in the Data tab, and in the scenarios using it', checkVarRename],
+  ['var-rename', 'A variable renamed in the Tools tab, and in the scenarios using it', checkVarRename],
   ['preview-no-flash', 'Disable / Enable an action without the list flashing', checkPreviewNoFlash],
   ['folder-filter', 'The Manage Scenarios folder filter, kept', checkFolderFilter],
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],

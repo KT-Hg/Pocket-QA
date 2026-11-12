@@ -69,7 +69,7 @@ export function rankVarNames(query, entries, limit = 50) {
 }
 
 /**
- * What a row shows of a Data tab variable's value, read rather than spelled as
+ * What a row shows of a Tools tab variable's value, read rather than spelled as
  * a spec: `{ chips, more, chain }` for the Pick options (chain false) or the
  * Fallback values in the order they are tried (chain true), Blank as '', `more`
  * the ones left out; `{ chips: ['8 digits'] }` for a Random; `{ text }` for a

@@ -304,7 +304,7 @@ export function saveEnvValues(state, values) {
 
 /**
  * What is wrong with each variable row of an environment, by index: '' when
- * nothing. Names follow the Data tab's rule (normalizeVarName: no "}"), and
+ * nothing. Names follow the Tools tab's rule (normalizeVarName: no "}"), and
  * two rows may not share one.
  */
 export function envVarProblems(vars) {
