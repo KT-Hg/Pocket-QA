@@ -1,5 +1,49 @@
 /**
- * tools/e2e/export.mjs — e2e: the export suite. Run by tools/e2e.mjs.
+ * tools/e2e/export.mjs — e2e suite "export". Run: node tools/e2e.mjs --suite export
+ *
+ * The Export Code card and its modal: formats, Settings, layout, tabs and keyboard.
+ *
+ *   export-file-name  a Selenium script exported from a scenario named in Vietnamese
+ *                 is saved under that name, letters kept, and the file holds the code
+ *   export-steps  the bookmarklet's export modal shows an Upload File step as skipped
+ *                 in the Actions tab, the counts and the warning bar (it showed
+ *                 "✓ OK"); Selenium's, which exports it, as "✓ OK". On EXPORT_SAMPLE
+ *                 the header counts all 11 steps and the 2 skipped, and the rows name
+ *                 a full-page screenshot, Upload File, a Condition's element, a label
+ *   export-regenerate  Reload scenario in either export modal shows a step added to
+ *                 the scenario since it opened, and lists and declares only the
+ *                 variables the scenario uses
+ *   export-headless  the Selenium modal's Headless switch exports a headless driver,
+ *                 and turns off (disabled) with Safari
+ *   export-output  the Selenium modal's Output pytest gives a test_….py file with a
+ *                 test function
+ *   export-start-url  the Selenium start URL filled from the active tab is in the code
+ *                 the modal first shows, not the TODO placeholder
+ *   export-url-field  the Starting URL field (Selenium, Playwright, Robot, Java) spans its Settings row,
+ *                 left-aligned, not an 80-pixel box showing "https://sl"
+ *   export-settings  each format's Settings come back in a new popup, apart from the
+ *                 other format's; stored values an input cannot take leave defaults
+ *   export-live-settings  the Selenium code follows each Settings change with no button
+ *                 pressed — Copy right after takes the new code; typing is followed
+ *                 once it pauses; opening with remembered Settings generates it once
+ *   export-layout  in a 480 × 600 popup the export code gets at least 400 px and Copy
+ *                 does not move between tabs; the bookmarklet's warnings take one
+ *                 line, which opens the Actions tab listing each reason and note;
+ *                 at 480 × 500 nothing is cut off
+ *   export-jump   a row of the export Actions tab, clicked or entered, opens the Code
+ *                 tab with its "Step n" line in view and its lines tinted; ↧ Steps
+ *                 shows Step 1
+ *   export-formats  the Export Code card offers the bookmarklet, Selenium, Playwright,
+ *                 Robot Framework and Selenium Java, each opening its own export with a
+ *                 "⬇ Download" button (Robot's a <name>.robot file, Java's <Name>Test.java);
+ *                 two by two, all one size, the last one in the middle of its row
+ *   export-card   the Export Code card's format buttons are off until a scenario is
+ *                 chosen; its list has the scenarios in no folder first, then a
+ *                 group per folder; it opens on the scenario Manage Scenarios has
+ *   export-tabs-keyboard  the export modal opened with the mouse puts focus on its
+ *                 Code tab with no ring; ← → Home End open and focus the tabs; each
+ *                 tab and panel name each other, the open tab alone in the Tab order
+ *   export-playwright  Playwright Test opens a <name>.spec.js holding one test
  */
 
 import { sleep } from '../lib/cdp-browser.mjs';

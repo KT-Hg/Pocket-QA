@@ -1,5 +1,24 @@
 /**
- * tools/e2e/export-run.mjs — e2e: the export-run suite. Run by tools/e2e.mjs.
+ * tools/e2e/export-run.mjs — e2e suite "export-run". Run: node tools/e2e.mjs --suite export-run
+ *
+ * Exported code run on a page (bookmarklet, Selenium, pytest, Playwright, Robot, Java),
+ * as playback leaves it.
+ *
+ *   export-run    each scenario of EXPORT_CASES, played, run as the exported bookmarklet
+ *                 and run as the exported Selenium script (python, Edge exported
+ *                 headless — with a window under --headed),
+ *                 leaves the export page the same way; the form case runs as the
+ *                 exported pytest test too, and a pytest test with a failing step
+ *                 names it; every case runs as the exported Playwright .spec.js too
+ *                 (PQA_PLAYWRIGHT_DIR: a folder with @playwright/test), and every case
+ *                 the Selenium script runs as the exported Robot Framework test too
+ *                 (PQA_ROBOT_PYTHON: a python with robotframework-seleniumlibrary) and as
+ *                 the exported Java TestNG class (PQA_JAVA_HOME: a JDK; PQA_JAVA_LIBS: a
+ *                 folder of the selenium-java and testng jars).
+ *                 No python, selenium, pytest, Playwright, Robot or Java: those runs are skipped,
+ *                 not failed. fails-at-step: a scenario whose step 3 finds nothing,
+ *                 run by each export, has its error name the step, its label and the
+ *                 locator
  */
 
 import { execFile } from 'node:child_process';

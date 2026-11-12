@@ -1,5 +1,18 @@
 /**
- * tools/e2e/vars.mjs — e2e: the vars suite. Run by tools/e2e.mjs.
+ * tools/e2e/vars.mjs — e2e suite "vars". Run: node tools/e2e.mjs --suite vars
+ *
+ * Variables: ${ suggestions, names refused, a rename followed everywhere.
+ *
+ *   suggest       typing ${g in the popup lists the matching variables; Enter inserts one
+ *   var-name-guard  the variable modal refuses a name another row has (adding or
+ *                 renaming) and one holding "}" or "${"; saving a row under its own
+ *                 name goes through
+ *   var-rename    a variable renamed in the Tools tab is renamed in every scenario
+ *                 using it (${…}, a Read DOM target), the toast counts them, the
+ *                 preview follows, and a played scenario types its value; a new
+ *                 name a scenario already writes is refused, nothing written. An
+ *                 action half-typed in the form follows too, draft included, and
+ *                 adding it brings the old name back nowhere
  */
 
 import { sleep } from '../lib/cdp-browser.mjs';

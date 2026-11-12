@@ -1,5 +1,14 @@
 /**
- * tools/e2e/pages.mjs — e2e: the pages suite. Run by tools/e2e.mjs.
+ * tools/e2e/pages.mjs — e2e suite "pages". Run: node tools/e2e.mjs --suite pages
+ *
+ * The other pages: the SQL page's language, highlights, the import warning.
+ *
+ *   highlight     a text selection opens the highlight tooltip, which follows the
+ *                 popup theme; a colour saves the highlight, and a reload paints it again.
+ *                 With Highlight off a page loads no highlight engine; turned on, the
+ *                 open page loads it and paints the highlight
+ *   import-warning  importing a scenario with Upload File and Run JS actions warns
+ *                 about both, and names the folder the upload reads
  */
 
 import { rmSync, writeFileSync } from 'node:fs';

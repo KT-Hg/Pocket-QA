@@ -1,5 +1,5 @@
 /**
- * tools/e2e/test-pages.mjs — e2e: the test pages the e2e server serves. Run by tools/e2e.mjs.
+ * tools/e2e/test-pages.mjs — e2e: the test page and the frame page the server in tools/e2e.mjs serves.
  */
 
 

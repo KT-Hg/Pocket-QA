@@ -1,5 +1,46 @@
 /**
- * tools/e2e/locate.mjs — e2e: the locate suite. Run by tools/e2e.mjs.
+ * tools/e2e/locate.mjs — e2e suite "locate". Run: node tools/e2e.mjs --suite locate
+ *
+ * How playback finds and acts on elements: dropdowns, conditions, selector types, shadow
+ * DOM, frames, the CDP steps, Click through.
+ *
+ *   dropdown      "Choose item #" in a custom list and in a <select>; a Dropdown
+ *                 known only by an id that needs escaping, or only by an XPath, opens
+ *   switch        Switch "Always" plays the other scenario; a Random of length 9999
+ *                 plays as 512 characters
+ *   capture       two visible screenshots within a second are both saved (Chrome
+ *                 allows two captureVisibleTab calls a second; the second shot retries)
+ *   background-tab  a run keeps going once its tab is sent to the background, and
+ *                 finds an element added there (Chrome runs no rAF in a hidden tab)
+ *   label-click   a real click on a checkbox's <label>, recorded, is one action, and
+ *                 playing it leaves the box checked
+ *   child-condition  "Text contains" clicks the innermost element holding the text,
+ *                 and ALL needs every condition; one that matches nothing says so
+ *   file-input    choosing a file while recording adds no Input action, and an old
+ *                 Input action on a file input fails at once (it timed out after 10 s)
+ *   condition-unknown  a Condition whose type the page does not know brings up the
+ *                 failure prompt instead of passing and running what it guards
+ *   selector-choice  an action's selectorType is tried first; without one, Full XPath
+ *                 still comes first
+ *   shadow-dom    buttons in a shadow root are clicked, one added there mid-wait
+ *                 included, on a page whose light DOM never stops changing
+ *   select-type   a Child Condition "Type is: select" finds a <select multiple>
+ *   condition-choice  a Condition checks the element of the selector type chosen in the
+ *                 form, not the Full XPath one; a Condition and an element screenshot
+ *                 find an element by a Name typed in the form
+ *   cdp-targets   the steps that act through CDP use the element the page found:
+ *                 Upload File by a typed XPath, a Dropdown opened by a typed Name,
+ *                 an element screenshot of the chosen CSS, not of the Full XPath one
+ *   click-through  with Click through on (the default) a covered button is clicked as
+ *                 before; with it off for the scenario, or for the action, a disabled,
+ *                 covered, read-only or hidden element (or drop target) fails the
+ *                 action with the reason; a shadow-DOM button is not "covered" by its host.
+ *                 Through CDP too: a covered Dropdown trigger and a disabled file input
+ *                 fail, a file input hidden by CSS still gets its file
+ *   typed-text    a Text selector typed in the form (no textTag) clicks the element
+ *                 holding that text, surrounding spaces ignored
+ *   select-missing  an Input of an option the <select> does not have brings up the
+ *                 failure prompt and leaves the choice alone; one it has is chosen
  */
 
 import { basename, dirname, join } from 'node:path';

@@ -1,5 +1,5 @@
 /**
- * tools/e2e/harness.mjs — e2e: the browser, the test tab and the helpers more than one suite uses. Run by tools/e2e.mjs.
+ * tools/e2e/harness.mjs — e2e: the options, the timings, ok / fail / check, and the helpers more than one suite uses.
  */
 
 import { readFileSync } from 'node:fs';

@@ -1,5 +1,7 @@
 /**
- * tools/e2e/api.mjs — e2e: the api suite. Run by tools/e2e.mjs.
+ * tools/e2e/api.mjs — e2e suite "api". Run: node tools/e2e.mjs --suite api
+ *
+ * The API Tests page: Send, checks, environments, folder runs, Postman.
  */
 
 import { existsSync, readFileSync } from 'node:fs';

@@ -1,5 +1,11 @@
 /**
- * tools/e2e/run.mjs — e2e: the run suite. Run by tools/e2e.mjs.
+ * tools/e2e/run.mjs — e2e suite "run". Run: node tools/e2e.mjs --suite run
+ *
+ * A run as it shows: the overlays, a schedule, Assert and the Last run card, the run
+ * panel, runs grouped on Record & Play.
+ *
+ *   schedule      a schedule's alarm opens its start URL in a new tab and plays there,
+ *                 not on the tab that was active
  */
 
 import { readdirSync } from 'node:fs';

@@ -1,5 +1,21 @@
 /**
- * tools/e2e/csv.mjs — e2e: the csv suite. Run by tools/e2e.mjs.
+ * tools/e2e/csv.mjs — e2e suite "csv". Run: node tools/e2e.mjs --suite csv
+ *
+ * The CSV card's ZIP download: its Advanced section, suggestions, folder names.
+ *
+ *   csv-zip-advanced  the CSV card's Advanced section (ZIP folder name) shows only
+ *                 while ZIP is chosen, also when code sets the format; a saved
+ *                 folder name and Add row number come back in a new popup, the
+ *                 section open
+ *   csv-zip-suggest  typing ${ in the ZIP Folder name lists names with nothing
+ *                 chosen in the CSV card: the Tools tab variables when no scenario
+ *                 was ever chosen; after a reopen, the last CSV's columns, what the
+ *                 last scenario writes and the Tools tab ones it reads (not one it
+ *                 never uses); Enter inserts one
+ *   csv-zip-run   a CSV run (john, kate, john) downloaded as a ZIP from the popup:
+ *                 folders "abc ${name}" (abc john_2 for the repeat; _01 … with Add
+ *                 row number, downloaded again with no new run), the image of a
+ *                 Screenshot → Variable named by its Filename; HTML / XLSX unchanged
  */
 
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';

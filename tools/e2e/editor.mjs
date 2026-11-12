@@ -1,5 +1,21 @@
 /**
- * tools/e2e/editor.mjs — e2e: the editor suite. Run by tools/e2e.mjs.
+ * tools/e2e/editor.mjs — e2e suite "editor". Run: node tools/e2e.mjs --suite editor
+ *
+ * The popup's action list and Add Action form: Switch blocks, copy and paste, the +
+ * insert point, 🎯 Pick, Edit → Save.
+ *
+ *   preview-no-flash  Disable / Enable on an action greys it out (or back) and the
+ *                 list is never left empty or on "Loading…" in between, which made
+ *                 the popup shrink and grow again
+ *   folder-filter  the Manage Scenarios folder filter outlives a rebuild of the
+ *                 folder lists and a reopened popup; a scenario moved out of the
+ *                 folder shown stays chosen; a deleted folder falls back to all
+ *   switch-draft  the popup reopened on a Switch draft lists the scenarios in the
+ *                 case editor; a scenario picked there survives a reload of the list
+ *   form-roundtrip  one action of every type, put in the Add Manual Action form
+ *                 with Edit and saved twice, comes back as it was each time — six of
+ *                 them with Click through off; the checkbox shows only for those
+ *                 types, and a draft keeps it
  */
 
 import { asActiveTab, sleep } from '../lib/cdp-browser.mjs';

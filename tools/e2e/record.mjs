@@ -1,5 +1,22 @@
 /**
- * tools/e2e/record.mjs — e2e: the record suite. Run by tools/e2e.mjs.
+ * tools/e2e/record.mjs — e2e suite "record". Run: node tools/e2e.mjs --suite record
+ *
+ * Recording: the hotkeys, Turn on, what is recorded and what is not, the recording pill,
+ * a worker restart.
+ *
+ *   hotkeys       Alt+R on a tab that is not activated reaches the page; on an
+ *                 activated tab, Option+R as macOS types it ("®") starts recording
+ *   record-overlay  clicks and typing inside a [data-ext-overlay] box are not recorded
+ *   record-untrusted  a click and an input event the page's own script dispatches
+ *                 are not recorded; a real click is
+ *   record-checkbox  ticking a checkbox records the click only, not an Input of its
+ *                 value ("on") as well
+ *   record-input-order  text typed into a field and a click on a button right after
+ *                 (within the input debounce) are recorded in that order
+ *   record-other-tab  typing in another tab while recording is not recorded; the
+ *                 recording tab still is
+ *   record-restart  a recording whose worker stopped before the first action (it
+ *                 sleeps after 30 s with nothing to do) still records that action
  */
 
 import { asActiveTab, sleep } from '../lib/cdp-browser.mjs';
