@@ -167,136 +167,20 @@
  */
 
 import { execFile } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { basename, delimiter, dirname, join, resolve } from 'node:path';
+import { basename, delimiter, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { asActiveTab, launchWithExtension, sleep } from './lib/cdp-browser.mjs';
-
-const args = process.argv.slice(2);
-const argValue = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
-const EXT = resolve(argValue('--ext') || resolve(dirname(fileURLToPath(import.meta.url)), '..'));
+import { DRAFT_SAVE_MS, EXT, HEADED, PAGE_SETTLE_MS, PLAY_TIMEOUT_MS, POLL_MS, POPUP_SETTLE_MS, POPUP_VIEWPORT, SETTLE_MS, argValue, args, check, clickAt, closeQuietly, exportStates, fail, failures, makeScenario, ok, openPopup, pageSoon, play, pngSize, record, reloadTestPage, showScenario } from './e2e/harness.mjs';
+import { FRAME_PAGE, TEST_PAGE } from './e2e/test-pages.mjs';
 const ONLY = argValue('--only')?.split(',') || null;
 const SUITE = argValue('--suite')?.split(',') || null;
 const LIST = args.includes('--list');
-const HEADED = args.includes('--headed');
 const CASES = argValue('--cases')?.split(',') || null;
-
-// A run is waited for this long, then stopped.
-const PLAY_TIMEOUT_MS = 30_000;
-const POLL_MS = 150;
-const SETTLE_MS = 300;
-const PAGE_SETTLE_MS = 800;
-const POPUP_SETTLE_MS = 1500;
-// The Add Manual Action draft is saved 600 ms after the last change (popup/record/draft.js).
-const DRAFT_SAVE_MS = 1000;
 // After the worker is stopped: long enough for it to be gone before the next message wakes it.
 const WORKER_STOP_SETTLE_MS = 1000;
-const POPUP_VIEWPORT = { width: 480, height: 900 };
-
-const failures = [];
-const fail = (msg) => { failures.push(msg); console.log(`  ✖ ${msg}`); };
-const ok = (msg) => console.log(`  ✔ ${msg}`);
-const check = (cond, msg, detail) => (cond ? ok(msg) : fail(`${msg} — ${JSON.stringify(detail)}`));
-
-const TEST_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>e2e</title>
-<style>.menu { display: none } .menu.open { display: block } li, [id], .xp { padding: 4px }</style></head>
-<body>
-<div id="dd" name="ddtrigger">Choose…</div>
-<ul id="menu" class="menu"><li>One</li><li>Two</li><li>Three</li></ul>
-<div id="vdd">Pick from 1000…</div>
-<div id="vlist" class="menu" role="listbox" style="height:150px;overflow-y:auto"><div id="vinner" style="position:relative"></div></div>
-<select id="sel"><option>a</option><option>b</option><option>c</option></select>
-<div id="2nd:dd">id that needs escaping</div>
-<div class="xp">known only by XPath</div>
-<input id="out"><input id="big">
-<button id="bg1">bg1</button><button id="bg2">bg2</button>
-<label for="agree" id="agreeLabel">Agree</label><input type="checkbox" id="agree"><label id="plainLabel">Just text</label>
-<input type="file" id="upload">
-<button id="choiceA">choiceA</button><button id="choiceB">choiceB</button>
-<div id="forms"><input id="formText"><select id="multiSel" multiple><option>m1</option></select></div>
-<div data-ext-overlay="test"><button id="overlayBtn">overlay</button><input id="overlayNote"></div>
-<table id="people"><tbody>
-  <tr><td id="aliceCell">Alice</td><td><button id="edit1" class="edit">Edit</button></td></tr>
-  <tr><td id="johnCell">John</td><td><button id="edit2" class="edit special">Edit</button></td></tr>
-</tbody></table>
-<input name="nick">
-<button id="ctDisabled" disabled>ctDisabled</button>
-<span style="position:relative;display:inline-block"><button id="ctCovered">ctCovered</button><span id="ctCover" style="position:absolute;inset:0"></span></span>
-<input id="ctReadonly" readonly><button id="ctHidden" style="display:none">ctHidden</button>
-<input type="file" id="ctFileDisabled" disabled><input type="file" id="ctFileHidden" style="display:none">
-<script>
-  window.__log = [];
-  document.getElementById('ctCovered').addEventListener('click', () => __log.push('ctCovered'));
-  // background-tab: #bg1 adds #late a moment later; every click logs whether the tab was visible.
-  const logClick = (el) => el.addEventListener('click', () => __log.push(el.id + ' ' + document.visibilityState));
-  logClick(document.getElementById('bg1'));
-  logClick(document.getElementById('bg2'));
-  logClick(document.getElementById('choiceA'));
-  logClick(document.getElementById('choiceB'));
-  // shadow-dom (?shadow only): buttons in a shadow root, one added late, and a
-  // ticker that keeps the light DOM changing as a busy app does.
-  if (location.search.includes('shadow')) {
-    customElements.define('shadow-box', class extends HTMLElement {
-      constructor() { super(); this.attachShadow({ mode: 'open' }); }
-    });
-    const host = document.createElement('shadow-box');
-    document.body.append(host);
-    const addShadowButton = (id) => {
-      const b = document.createElement('button');
-      b.id = id;
-      b.addEventListener('click', () => __log.push('shadow ' + id));
-      host.shadowRoot.append(b);
-    };
-    addShadowButton('shadowBtn');
-    setTimeout(() => addShadowButton('lateShadowBtn'), 700);
-    const ticker = document.createElement('span');
-    document.body.append(ticker);
-    setInterval(() => { ticker.textContent = String(Date.now() % 1000); }, 50);
-  }
-  // hotkeys: every Alt+key the page sees, and whether the extension kept it.
-  window.addEventListener('keydown', (e) => { if (e.altKey) __log.push('key ' + e.code + ' ' + (e.defaultPrevented ? 'prevented' : 'free')); });
-  // select-type: which element under #forms a Child Condition clicked.
-  document.getElementById('forms').addEventListener('click', (e) => __log.push('forms ' + e.target.id));
-  // child-condition: which element under #people a Child Condition clicked.
-  document.getElementById('people').addEventListener('click', (e) => __log.push('people ' + (e.target.id || e.target.tagName)));
-  document.getElementById('bg1').addEventListener('click', () => setTimeout(() => {
-    const late = document.createElement('button');
-    late.id = 'late';
-    logClick(late);
-    document.body.append(late);
-  }, 500));
-  const dd = document.getElementById('dd'), menu = document.getElementById('menu');
-  dd.addEventListener('click', () => { menu.classList.add('open'); __log.push('dd open'); });
-  menu.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => {
-    dd.textContent = li.textContent; menu.classList.remove('open'); __log.push('picked ' + li.textContent);
-  }));
-  // A list of 1000 that renders only the rows in view (and a few more), as react-window does;
-  // ?mixed: 120 rows of 30 and 40 px by turns.
-  const vdd = document.getElementById('vdd'), vlist = document.getElementById('vlist'), vinner = document.getElementById('vinner');
-  const mixed = location.search.includes('mixed');
-  const heights = Array.from({ length: mixed ? 120 : 1000 }, (_, i) => (mixed && i % 2 ? 40 : 30));
-  const tops = heights.map((_, i) => heights.slice(0, i).reduce((a, h) => a + h, 0));
-  vinner.style.height = (tops[tops.length - 1] + heights[heights.length - 1]) + 'px';
-  const vrender = () => {
-    let first = 0;
-    while (first < tops.length - 1 && tops[first + 1] <= vlist.scrollTop) first++;
-    const last = Math.min(tops.length - 1, first + 7);
-    vinner.replaceChildren(...Array.from({ length: last - first + 1 }, (_, k) => {
-      const row = document.createElement('div');
-      row.setAttribute('role', 'option');
-      row.textContent = 'Item ' + (first + k + 1);
-      row.style.cssText = 'position:absolute;left:0;right:0;height:' + heights[first + k] + 'px;top:' + tops[first + k] + 'px';
-      row.addEventListener('click', () => { vdd.textContent = row.textContent; vlist.classList.remove('open'); });
-      return row;
-    }));
-  };
-  vlist.addEventListener('scroll', vrender);
-  vdd.addEventListener('click', () => { vlist.classList.add('open'); vlist.scrollTop = 0; vrender(); });
-  document.getElementById('2nd:dd').addEventListener('click', () => __log.push('id dropdown clicked'));
-  document.querySelector('.xp').addEventListener('click', () => __log.push('xpath dropdown clicked'));
-</script></body></html>`;
 
 /** The browser, the test tab, and helpers shared by the checks. */
 async function setUp(browser, base) {
@@ -310,67 +194,6 @@ async function setUp(browser, base) {
   await sleep(PAGE_SETTLE_MS);
   const webTabId = await ext.evaluate(`new Promise((res) => chrome.tabs.query({ url: ${JSON.stringify(`${base}/page*`)} }, (t) => res(t[0]?.id)))`);
   return { browser, base, sw, ext, web, webTabId, extUrl, send };
-}
-
-/** A scenario made of `actions`, saved through the worker; its id. */
-async function makeScenario(ctx, name, actions) {
-  const { id } = await ctx.send({ type: 'CREATE_SCENARIO', name });
-  for (const action of actions) await ctx.send({ type: 'ADD_MANUAL_ACTION', scenarioId: id, action });
-  return id;
-}
-
-/**
- * Play a scenario on the test tab (it must be the active tab) and return the page's state.
- * `away`: a page brought to the front once the run has started, which hides the test tab.
- */
-async function play(ctx, scenarioId, { away = null } = {}) {
-  await ctx.web.bringToFront();
-  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId });
-  if (away) {
-    // The run takes the active tab once it has read the scenarios — slower the more
-    // there are: hidden before that, the test tab is not the one it plays on.
-    for (let waited = 0; waited < 5_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing; waited += 20) await sleep(20);
-    await away.bringToFront();
-  }
-  await sleep(SETTLE_MS);
-  let running = true;
-  for (let waited = 0; running && waited < PLAY_TIMEOUT_MS; waited += POLL_MS) {
-    const st = await ctx.send({ type: 'GET_EXTENSION_STATUS' });
-    running = !!(st?.playing || st?.sequencePlaying);
-    if (running) await sleep(POLL_MS);
-  }
-  // A run stuck on a failure prompt would block the next check.
-  if (running) await ctx.send({ type: 'STOP_PLAYBACK' });
-  await sleep(SETTLE_MS);
-  // `?.`: export-run plays on the export page, which has none of these.
-  return ctx.web.evaluate(`({ log: window.__log, dd: document.getElementById('dd')?.textContent, vdd: document.getElementById('vdd')?.textContent,
-    sel: document.getElementById('sel')?.value, out: document.getElementById('out')?.value,
-    big: document.getElementById('big')?.value, timedOut: ${running} })`);
-}
-
-const reloadTestPage = async (ctx) => { await ctx.web.reload(); await sleep(PAGE_SETTLE_MS); };
-
-/** Record what `perform` does on the test tab into a new scenario; its id and the recorded actions. */
-async function record(ctx, name, perform) {
-  const id = await makeScenario(ctx, name, []);
-  await ctx.web.bringToFront();
-  await ctx.send({ type: 'START_RECORD', scenarioId: id, tabId: ctx.webTabId });
-  await sleep(SETTLE_MS);
-  await perform();
-  await sleep(SETTLE_MS);
-  const r = await ctx.send({ type: 'STOP_RECORD' });
-  return { id, actions: r?.actions || [] };
-}
-
-/** A real (trusted) mouse click in the middle of `selector` on the test tab. */
-async function clickAt(ctx, selector) {
-  const { x, y } = await ctx.web.evaluate(`(() => {
-    const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  })()`);
-  for (const type of ['mousePressed', 'mouseReleased']) {
-    await ctx.web.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
-  }
 }
 
 async function checkDropdown(ctx) {
@@ -429,13 +252,6 @@ async function checkCapture(ctx) {
   check(ctx.browser.downloads().length - before === 2, 'two PNG files saved', ctx.browser.downloads());
 }
 
-/** Polls `expr` on the test page until it is truthy, for up to `ms`; its last value. */
-async function pageSoon(ctx, expr, ms = 5_000) {
-  let v = null;
-  for (let waited = 0; !v && waited < ms; waited += POLL_MS) { v = await ctx.web.evaluate(expr); if (!v) await sleep(POLL_MS); }
-  return v;
-}
-
 // The overlays content.js does not carry (content-overlays.js): loaded by the worker
 // only for a countdown, a failed-action prompt or a segment capture.
 async function checkOverlays(ctx) {
@@ -483,15 +299,6 @@ async function checkOverlays(ctx) {
   for (let waited = 0; !segSaved && waited < 10_000; waited += POLL_MS) { await sleep(POLL_MS); segSaved = ctx.browser.downloads().length - shotsBefore; }
   check(segSaved === 1, 'the segment-stop hotkey captures the segment', { segSaved });
   check(await loaded() === true, 'the overlay code is in the page once one was needed', null);
-}
-
-/** The popup as if opened on the activated test page; `size`: { width, height } other than POPUP_VIEWPORT. */
-async function openPopup(ctx, size = POPUP_VIEWPORT) {
-  const popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...size });
-  await popup.evaluate(`chrome.storage.local.set({ activatedTabs: [${ctx.webTabId}] })`);
-  await popup.reload();
-  await sleep(POPUP_SETTLE_MS);
-  return popup;
 }
 
 async function checkSuggest(ctx) {
@@ -808,15 +615,6 @@ function switchBlockActions() {
   ];
 }
 
-/** Scenario `id` in the popup's action list. */
-async function showScenario(popup, id) {
-  await popup.evaluate(`(() => {
-    document.querySelector('.tab-btn[data-tab="tabRecord"]').click();
-    const s = document.getElementById('scenarioList'); s.value = ${JSON.stringify(id)}; s.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`);
-  await sleep(POPUP_SETTLE_MS);
-}
-
 /** Button `n` of action row `i` clicked: 1 Disable, 2 Copy, 3 Edit, 4 Delete. */
 async function rowButton(popup, i, n) {
   await popup.evaluate(`document.querySelector('#actions li.action[data-index="${i}"] .btn-row button:nth-child(${n})').click()`);
@@ -1039,9 +837,6 @@ async function popupAfterPick(ctx) {
   await sleep(POPUP_SETTLE_MS);
   return opened;
 }
-
-/** The popup closes itself for a pick (window.close); a page CDP opened may stay. */
-const closeQuietly = (page) => page.close().catch(() => { /* closed itself */ });
 
 async function checkInsertPointPick(ctx) {
   const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` } });
@@ -2503,12 +2298,6 @@ async function checkConditionChoice(ctx) {
     { timedOut: r.timedOut, saved: ctx.browser.downloads().length - shots });
 }
 
-/** Width and height of a PNG file, from its IHDR chunk. */
-function pngSize(file) {
-  const b = readFileSync(file);
-  return { width: b.readUInt32BE(16), height: b.readUInt32BE(20) };
-}
-
 async function checkCdpTargets(ctx) {
   const marks = () => ctx.web.evaluate(`document.querySelectorAll('[data-pqa-target]').length`);
   // Each its own run: one that fails stops on the prompt, and must not hide the others.
@@ -3576,32 +3365,6 @@ const EXPORT_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>exp
   });
   report();
 </script></body></html>`;
-
-/**
- * The page EXPORT_PAGE frames (same origin): a field and a button whose click its
- * parent marks, and for the CDP steps a file input, a drop zone, a dropdown and a
- * box of known size to capture.
- */
-const FRAME_PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>frame</title></head>
-<body><input id="fName"><button id="fGo">go</button>
-<input type="file" id="fFiles" multiple><div id="fZone">frame drop</div>
-<div id="fDd">frame choose</div><ul id="fMenu" style="display:none"><li>fa</li><li>fb</li></ul>
-<span id="fShot" style="display:inline-block;width:57px;height:23px;background:#f80"></span>
-<script>
-  const frameMark = (m) => { try { parent.frameMark(m); } catch (e) { /* another origin: nothing to tell */ } };
-  document.getElementById('fGo').addEventListener('click', () => frameMark('frame go ' + document.getElementById('fName').value));
-  const fFiles = document.getElementById('fFiles');
-  fFiles.addEventListener('change', () => frameMark('frame files ' + [...fFiles.files].map((f) => f.name).join(',')));
-  const fZone = document.getElementById('fZone');
-  for (const t of ['dragenter', 'dragover']) fZone.addEventListener(t, (e) => e.preventDefault());
-  fZone.addEventListener('drop', (e) => { e.preventDefault(); frameMark('frame zone ' + [...e.dataTransfer.files].map((f) => f.name).join(',')); });
-  const fMenu = document.getElementById('fMenu');
-  document.getElementById('fDd').addEventListener('click', (e) => { fMenu.style.display = 'block'; frameMark('frame dd ' + (e.isTrusted ? 'trusted' : 'untrusted')); });
-  fMenu.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => { fMenu.style.display = 'none'; frameMark('frame picked ' + li.textContent); }));
-</script></body></html>`;
-
-/** The latest state each run of EXPORT_PAGE posted, by its ?run= key. */
-const exportStates = new Map();
 
 function saveExportState(req, reply) {
   let body = '';
