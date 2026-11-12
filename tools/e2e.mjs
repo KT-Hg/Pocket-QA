@@ -157,7 +157,10 @@
  *                 row number, downloaded again with no new run), the image of a
  *                 Screenshot → Variable named by its Filename; HTML / XLSX unchanged
  *
- * Usage: node tools/e2e.mjs [--only <name>] [--ext <extension dir>] [--headed] [--cases <a,b>]
+ * Usage: node tools/e2e.mjs [--suite <a,b>] [--only <a,b>] [--list] [--ext <extension dir>] [--headed] [--cases <a,b>]
+ *        --suite runs only those suites (see SUITES: locate, run, editor, vars, record, export,
+ *        export-run, csv, api, pages); --only runs only the checks named; both: the checks in both.
+ *        --list prints the checks picked, suite by suite, and exits (no browser).
  *        --cases runs only those cases of export-run (and its fails-at-step check when named).
  *        --ext runs another checkout (an older commit, to see a check fail there).
  * Exit:  0 OK, 1 a check failed, 2 no browser found.
@@ -174,7 +177,9 @@ import { asActiveTab, launchWithExtension, sleep } from './lib/cdp-browser.mjs';
 const args = process.argv.slice(2);
 const argValue = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
 const EXT = resolve(argValue('--ext') || resolve(dirname(fileURLToPath(import.meta.url)), '..'));
-const ONLY = argValue('--only');
+const ONLY = argValue('--only')?.split(',') || null;
+const SUITE = argValue('--suite')?.split(',') || null;
+const LIST = args.includes('--list');
 const HEADED = args.includes('--headed');
 const CASES = argValue('--cases')?.split(',') || null;
 
@@ -576,6 +581,9 @@ async function checkVarRename(ctx) {
   ]);
   await makeScenario(ctx, 'e2e rename: writes taken', [{ type: 'readdom', selector: '#dd', varName: 'taken' }]);
   await ctx.ext.evaluate(`chrome.storage.local.set({ lastSelectedScenario: ${JSON.stringify(played)} })`);
+  // An empty Add Action card: a draft another check left (form-roundtrip's is in Save Edit
+  // mode on its own scenario) would send the Add Action below elsewhere.
+  await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
   const popup = await openPopup(ctx);
   const { open, save, cancel } = variableModal(popup);
   const preview = () => popup.evaluate(`document.getElementById('actions').textContent`);
@@ -5209,98 +5217,141 @@ async function checkApiPostman(ctx) {
   }
 }
 
-const CHECKS = [
-  ['dropdown', 'Dropdown', checkDropdown],
-  ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
-  ['capture', 'Two visible screenshots in a row', checkCapture],
-  ['overlays', 'The countdown, failed-action prompt and segment bar, loaded when needed', checkOverlays],
-  ['suggest', 'Variable suggestions in the popup', checkSuggest],
-  ['var-name-guard', 'A variable name already taken, or one no ${…} can reach', checkVarNameGuard],
-  ['var-rename', 'A variable renamed in the Tools tab, and in the scenarios using it', checkVarRename],
-  ['preview-no-flash', 'Disable / Enable an action without the list flashing', checkPreviewNoFlash],
-  ['folder-filter', 'The Manage Scenarios folder filter, kept', checkFolderFilter],
-  ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
-  ['edit-follows-list', 'An action open in the form while its list changes', checkEditFollowsList],
-  ['numbers-by-position', 'Every action numbered by its position, in a Switch block too', checkNumbersByPosition],
-  ['switch-insert', 'A new Switch over actions already in the list', checkNewSwitchOverActions],
-  ['switch-draft-follows', 'A new Switch in the form while its list changes', checkDraftSwitchFollows],
-  ['switch-nested-check', 'A Switch whose case would cross the block of a Switch in it', checkNestedBlockCheck],
-  ['paste-empty', 'Paste into a scenario with no actions', checkPasteEmpty],
-  ['save-selects', 'Save keeps the saved scenario selected, ready to Play', checkSaveSelects],
-  ['form-scroll', 'After Add Action: the card back in view, the list on the new action', checkFormScroll],
-  ['switch-other-case', 'A Switch case running another scenario: listed, never dropped into', checkSwitchOtherCase],
-  ['copy-switch-block', 'Copy and Paste a Switch with its block', checkCopySwitchBlock],
-  ['insert-point', 'The + between rows: the dummy row, adds and a paste at that place', checkInsertPoint],
-  ['insert-point-pick', 'The place picked by + kept across 🎯 Pick and a reopened draft', checkInsertPointPick],
-  ['show-on-page', 'The picked element named in the form; 👁 and its name outline it on the page or scroll to it', checkShowOnPage],
-  ['background-tab', 'A run in a background tab', checkBackgroundTab],
-  ['label-click', 'A click on a label, recorded and played', checkLabelClick],
-  ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],
-  ['file-input', 'A file input, recorded and played', checkFileInput],
-  ['hotkeys', 'Record hotkeys: activated tabs only, macOS Option', checkHotkeys],
-  ['schedule', 'A scheduled run on its start URL', checkSchedule],
-  ['record-overlay', 'Recording ignores the extension overlays', checkRecordOverlay],
-  ['condition-unknown', 'A Condition of an unknown type', checkConditionUnknown],
-  ['assert', 'Assert: waited for, and a false one does not stop the run', checkAssert],
-  ['last-run', 'The Last run card in the popup', checkLastRun],
-  ['no-checks', 'A run with no Assert says it checked nothing', checkNoChecks],
-  ['last-run-live', 'The Last run card hides while a run is on', checkLastRunLive],
-  ['sql-lang', 'The SQL page opens in English, a chosen language kept', checkSqlLang],
-  ['auto-activate', 'No lock on a web page; Record, Play and Pick ask to turn the tab on, with one question', checkAutoActivate],
-  ['record-dot', 'The status dot after Stop Recording', checkRecordDot],
-  ['run-panel', 'The run panel on the page: progress, off for a screenshot, its Stop', checkRunPanel],
-  ['add-cancel','Cancel while adding, and the dummy row\'s ✕, empty the Add Action card', checkAddCancel],
-  ['allow-all-tabs', 'Settings → Allow on all tabs, reached from the "Off on this tab" question', checkAllowAllTabs],
-  ['run-group', 'Sequence, schedule and CSV run in one group on Record & Play', checkRunGroup],
-  ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
-  ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
-  ['select-type', 'Child Condition type "select"', checkSelectType],
-  ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
-  ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
-  ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
-  ['condition-choice', 'Condition and element screenshot use the chosen selector type', checkConditionChoice],
-  ['cdp-targets', 'Upload, Dropdown and element screenshot act on the element the page found', checkCdpTargets],
-  ['cdp-frames', 'Upload, Dropdown and element screenshot inside a frame', checkCdpFrames],
-  ['click-through', 'Click through: off for the scenario or the action', checkClickThrough],
-  ['typed-text', 'A Text selector typed in the form', checkTypedText],
-  ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
-  ['export-file-name', 'The file name of an exported script', checkExportFileName],
-  ['export-robot-data', 'The Robot export with a data file: the test and its reader', checkExportRobotData],
-  ['export-steps', 'The export modal tells which steps were skipped', checkExportSteps],
-  ['export-regenerate', 'Reload scenario in the export modals', checkExportRegenerate],
-  ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],
-  ['export-start-url', 'The Selenium start URL taken from the tab', checkExportStartUrl],
-  ['export-url-field', 'The Starting URL field of the export Settings', checkExportUrlField],
-  ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
-  ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
-  ['export-live-settings', 'The export code follows its Settings', checkExportLiveSettings],
-  ['export-layout', 'The export modal\'s size in a 600 and a 500 px popup', checkExportLayout],
-  ['export-jump', 'From a row of the Actions tab to its code', checkExportJump],
-  ['export-formats', 'The formats the Export Code card offers', checkExportFormats],
-  ['export-card', 'The Export Code card: its buttons and its list', checkExportCard],
-  ['export-tabs-keyboard', 'The export modal\'s tabs by keyboard', checkExportTabsKeyboard],
-  ['export-playwright', 'The Playwright Test export in the popup', checkExportPlaywright],
-  ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
-  ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
-  ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],
-  ['record-input-order', 'Typing, then a click at once', checkRecordInputOrder],
-  ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
-  ['record-names', 'Recorded steps named after their elements; "not found" in words', checkRecordNames],
-  ['recording-pill', 'Recording shows on the page and in the popup; Stop on the page', checkRecordingPill],
-  ['record-restart', 'A recording across a worker restart', checkRecordRestart],
-  ['csv-zip-advanced', 'The ZIP\'s Advanced section in the CSV card', checkCsvZipAdvanced],
-  ['csv-zip-suggest', 'Variable suggestions in the ZIP Folder name', checkCsvZipSuggest],
-  ['csv-zip-run', 'A CSV run downloaded as a ZIP with named folders', checkCsvZipRun],
-  ['api-tests', 'API Tests: Send, checks from a clicked key, verdicts', checkApiTests],
-  ['api-vars', 'API Tests: environments, a saved token, folder auth', checkApiVars],
-  ['api-run', 'API Tests: run a folder, ask before writes, Stop, results kept', checkApiRun],
-  ['api-postman', 'API Tests: Postman export, import back and run, a Postman collection\'s hosts', checkApiPostman],
-];
+const SUITES = {
+  'locate': [
+    ['dropdown', 'Dropdown', checkDropdown],
+    ['switch', 'Switch Always and the Random cap', checkSwitchAlways],
+    ['capture', 'Two visible screenshots in a row', checkCapture],
+    ['background-tab', 'A run in a background tab', checkBackgroundTab],
+    ['label-click', 'A click on a label, recorded and played', checkLabelClick],
+    ['child-condition', 'Child Condition: innermost text match, ALL', checkChildCondition],
+    ['file-input', 'A file input, recorded and played', checkFileInput],
+    ['condition-unknown', 'A Condition of an unknown type', checkConditionUnknown],
+    ['selector-choice', 'The selector type chosen in the form plays first', checkSelectorChoice],
+    ['shadow-dom', 'Elements in a shadow root', checkShadowDom],
+    ['select-type', 'Child Condition type "select"', checkSelectType],
+    ['condition-choice', 'Condition and element screenshot use the chosen selector type', checkConditionChoice],
+    ['cdp-targets', 'Upload, Dropdown and element screenshot act on the element the page found', checkCdpTargets],
+    ['cdp-frames', 'Upload, Dropdown and element screenshot inside a frame', checkCdpFrames],
+    ['click-through', 'Click through: off for the scenario or the action', checkClickThrough],
+    ['typed-text', 'A Text selector typed in the form', checkTypedText],
+    ['select-missing', 'Input of an option a <select> does not have', checkSelectMissing],
+  ],
+  'run': [
+    ['overlays', 'The countdown, failed-action prompt and segment bar, loaded when needed', checkOverlays],
+    ['schedule', 'A scheduled run on its start URL', checkSchedule],
+    ['assert', 'Assert: waited for, and a false one does not stop the run', checkAssert],
+    ['last-run', 'The Last run card in the popup', checkLastRun],
+    ['no-checks', 'A run with no Assert says it checked nothing', checkNoChecks],
+    ['last-run-live', 'The Last run card hides while a run is on', checkLastRunLive],
+    ['run-panel', 'The run panel on the page: progress, off for a screenshot, its Stop', checkRunPanel],
+    ['run-group', 'Sequence, schedule and CSV run in one group on Record & Play', checkRunGroup],
+  ],
+  'editor': [
+    ['preview-no-flash', 'Disable / Enable an action without the list flashing', checkPreviewNoFlash],
+    ['folder-filter', 'The Manage Scenarios folder filter, kept', checkFolderFilter],
+    ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
+    ['edit-follows-list', 'An action open in the form while its list changes', checkEditFollowsList],
+    ['numbers-by-position', 'Every action numbered by its position, in a Switch block too', checkNumbersByPosition],
+    ['switch-insert', 'A new Switch over actions already in the list', checkNewSwitchOverActions],
+    ['switch-draft-follows', 'A new Switch in the form while its list changes', checkDraftSwitchFollows],
+    ['switch-nested-check', 'A Switch whose case would cross the block of a Switch in it', checkNestedBlockCheck],
+    ['paste-empty', 'Paste into a scenario with no actions', checkPasteEmpty],
+    ['save-selects', 'Save keeps the saved scenario selected, ready to Play', checkSaveSelects],
+    ['form-scroll', 'After Add Action: the card back in view, the list on the new action', checkFormScroll],
+    ['switch-other-case', 'A Switch case running another scenario: listed, never dropped into', checkSwitchOtherCase],
+    ['copy-switch-block', 'Copy and Paste a Switch with its block', checkCopySwitchBlock],
+    ['insert-point', 'The + between rows: the dummy row, adds and a paste at that place', checkInsertPoint],
+    ['insert-point-pick', 'The place picked by + kept across 🎯 Pick and a reopened draft', checkInsertPointPick],
+    ['show-on-page', 'The picked element named in the form; 👁 and its name outline it on the page or scroll to it', checkShowOnPage],
+    ['add-cancel','Cancel while adding, and the dummy row\'s ✕, empty the Add Action card', checkAddCancel],
+    ['form-roundtrip', 'Every action type through Edit → Save', checkFormRoundtrip],
+  ],
+  'vars': [
+    ['suggest', 'Variable suggestions in the popup', checkSuggest],
+    ['var-name-guard', 'A variable name already taken, or one no ${…} can reach', checkVarNameGuard],
+    ['var-rename', 'A variable renamed in the Tools tab, and in the scenarios using it', checkVarRename],
+  ],
+  'record': [
+    ['hotkeys', 'Record hotkeys: activated tabs only, macOS Option', checkHotkeys],
+    ['record-overlay', 'Recording ignores the extension overlays', checkRecordOverlay],
+    ['auto-activate', 'No lock on a web page; Record, Play and Pick ask to turn the tab on, with one question', checkAutoActivate],
+    ['record-dot', 'The status dot after Stop Recording', checkRecordDot],
+    ['allow-all-tabs', 'Settings → Allow on all tabs, reached from the "Off on this tab" question', checkAllowAllTabs],
+    ['record-untrusted', 'Recording ignores events the page dispatches', checkRecordUntrusted],
+    ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],
+    ['record-input-order', 'Typing, then a click at once', checkRecordInputOrder],
+    ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
+    ['record-names', 'Recorded steps named after their elements; "not found" in words', checkRecordNames],
+    ['recording-pill', 'Recording shows on the page and in the popup; Stop on the page', checkRecordingPill],
+    ['record-restart', 'A recording across a worker restart', checkRecordRestart],
+  ],
+  'export': [
+    ['export-file-name', 'The file name of an exported script', checkExportFileName],
+    ['export-robot-data', 'The Robot export with a data file: the test and its reader', checkExportRobotData],
+    ['export-steps', 'The export modal tells which steps were skipped', checkExportSteps],
+    ['export-regenerate', 'Reload scenario in the export modals', checkExportRegenerate],
+    ['export-headless', 'The Headless switch of the Selenium export', checkExportHeadless],
+    ['export-start-url', 'The Selenium start URL taken from the tab', checkExportStartUrl],
+    ['export-url-field', 'The Starting URL field of the export Settings', checkExportUrlField],
+    ['export-output', 'The Output choice of the Selenium export', checkExportOutput],
+    ['export-settings', 'The export Settings, kept between popups', checkExportSettings],
+    ['export-live-settings', 'The export code follows its Settings', checkExportLiveSettings],
+    ['export-layout', 'The export modal\'s size in a 600 and a 500 px popup', checkExportLayout],
+    ['export-jump', 'From a row of the Actions tab to its code', checkExportJump],
+    ['export-formats', 'The formats the Export Code card offers', checkExportFormats],
+    ['export-card', 'The Export Code card: its buttons and its list', checkExportCard],
+    ['export-tabs-keyboard', 'The export modal\'s tabs by keyboard', checkExportTabsKeyboard],
+    ['export-playwright', 'The Playwright Test export in the popup', checkExportPlaywright],
+  ],
+  'export-run': [
+    ['export-run', 'Exported code run on a page, as playback leaves it', checkExportRun],
+  ],
+  'csv': [
+    ['csv-zip-advanced', 'The ZIP\'s Advanced section in the CSV card', checkCsvZipAdvanced],
+    ['csv-zip-suggest', 'Variable suggestions in the ZIP Folder name', checkCsvZipSuggest],
+    ['csv-zip-run', 'A CSV run downloaded as a ZIP with named folders', checkCsvZipRun],
+  ],
+  'api': [
+    ['api-tests', 'API Tests: Send, checks from a clicked key, verdicts', checkApiTests],
+    ['api-vars', 'API Tests: environments, a saved token, folder auth', checkApiVars],
+    ['api-run', 'API Tests: run a folder, ask before writes, Stop, results kept', checkApiRun],
+    ['api-postman', 'API Tests: Postman export, import back and run, a Postman collection\'s hosts', checkApiPostman],
+  ],
+  'pages': [
+    ['sql-lang', 'The SQL page opens in English, a chosen language kept', checkSqlLang],
+    ['highlight', 'Highlights: made, saved, painted again after a reload', checkHighlight],
+    ['import-warning', 'Importing actions that reach beyond the page', checkImportWarning],
+  ],
+};
+
+/** Every check as [name, title, run, suite], suite by suite. */
+const CHECKS = Object.entries(SUITES).flatMap(([suite, checks]) => checks.map((c) => [...c, suite]));
+
+/** The checks --suite and --only ask for, in CHECKS order; a name that is not there ends the run. */
+function pickChecks() {
+  const unknownSuites = (SUITE || []).filter((s) => !Object.hasOwn(SUITES, s));
+  if (unknownSuites.length) {
+    console.error(`e2e: no suite named ${unknownSuites.map((s) => `"${s}"`).join(', ')} (${Object.keys(SUITES).join(', ')})`);
+    process.exit(1);
+  }
+  const unknown = (ONLY || []).filter((n) => !CHECKS.some(([name]) => name === n));
+  if (unknown.length) {
+    console.error(`e2e: no check named ${unknown.map((n) => `"${n}"`).join(', ')} (${CHECKS.map(([n]) => n).join(', ')})`);
+    process.exit(1);
+  }
+  return CHECKS.filter(([name, , , suite]) => (!ONLY || ONLY.includes(name)) && (!SUITE || SUITE.includes(suite)));
+}
 
 async function main() {
-  if (ONLY && !CHECKS.some(([name]) => name === ONLY)) {
-    console.error(`e2e: no check named "${ONLY}" (${CHECKS.map(([n]) => n).join(', ')})`);
-    process.exit(1);
+  const picked = pickChecks();
+  if (LIST) {
+    let suite = null;
+    for (const [name, title, , s] of picked) {
+      if (s !== suite) console.log((suite = s));
+      console.log(`  ${name.padEnd(22)} ${title}`);
+    }
+    process.exit(0);
   }
   const server = await new Promise((res) => {
     const s = createServer((req, reply) => {
@@ -5330,8 +5381,7 @@ async function main() {
   console.log(`Browser: ${browser.browserPath}\nExtension: ${EXT}`);
   try {
     const ctx = await setUp(browser, base);
-    for (const [name, title, run] of CHECKS) {
-      if (ONLY && ONLY !== name) continue;
+    for (const [name, title, run] of picked) {
       console.log(title);
       try { await run(ctx); } catch (e) { fail(`${name}: ${e.message}`); }
     }
