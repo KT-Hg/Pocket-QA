@@ -10,6 +10,7 @@ import { state } from '../../state.js';
 import { getScenarios } from '../../storage.js';
 import { FAIL_STOP } from '../failure-prompt.js';
 import { STOP, afterFailure } from './flow.js';
+import { runPause } from '../../run-state.js';
 
 // Switch case target meaning "the scenario currently playing": the case jumps to
 // its startAt action in place instead of running a nested scenario.
@@ -64,7 +65,7 @@ export async function runSwitch(ctx, i, action) {
       const back = afterFailure(await fail(i, action, `Switch: more than ${MAX_SELF_JUMPS} jumps — possible infinite loop, continuing without jumping`, 'Jump limit exceeded'), i);
       if (back !== null) return back;
     } else {
-      if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+      if (action.delay && action.delay > 0) await runPause(action.delay);
       i = startIdx - 1; // the loop's i++ lands on startIdx
       return i;
     }
@@ -113,7 +114,7 @@ export async function runSwitch(ctx, i, action) {
     const back = afterFailure(await fail(i, action, `Switch: no case matched value "${switchVal}" and no default case set`), i);
     if (back !== null) return back;
   }
-  if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay && action.delay > 0) await runPause(action.delay);
   if (block) {
     // Leave the block — whatever ran (or failed and was skipped) above,
     // the other cases' actions must not run. A backward continueAt is a

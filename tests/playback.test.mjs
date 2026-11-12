@@ -1035,7 +1035,36 @@ await run('evidence: a failure inside another scenario says so', () => startPlay
   teardown: evidOf('evidence: a failure inside another scenario says so'),
 });
 
-const _shots = (step) => evid[step].calls.filter((c) => c.startsWith('tabs.captureVisibleTab'));
+// ■ Stop 1 s into an 8 s Wait (or a step's 8 s delay), then Play at once: the
+// pause ends soon after the Stop and the new run plays. It was refused, the
+// stopped run holding its claim until the pause would have ended.
+const { playbackHandlers } = await import('../bg/handlers/playback.js');
+const stopThenPlay = (first) => async () => {
+  let second;
+  setTimeout(() => { playbackHandlers.STOP_PLAYBACK({}, {}, () => {}); second = startPlayback('sBasic'); }, 1_000);
+  const t0 = fake.now;
+  await startPlayback(first);
+  const stoppedAfter = fake.now - t0;
+  await second;
+  return { stoppedAfter };
+};
+const longPauses = () => {
+  fake.data.local.scenarios.sLongWait = { name: 'LongWait', actions: [{ type: 'wait', delay: 8_000 }, hover('#late')] };
+  fake.data.local.scenarios.sLongDelay = { name: 'LongDelay', actions: [hover('#d', { delay: 8_000 }), hover('#late')] };
+};
+await run('stop in a long wait, then play at once', stopThenPlay('sLongWait'), { setup: longPauses });
+await run('stop in a long delay, then play at once', stopThenPlay('sLongDelay'), { setup: longPauses });
+test('Play right after ■ Stop in a long Wait or delay plays', () => {
+  for (const step of ['stop in a long wait, then play at once', 'stop in a long delay, then play at once']) {
+    const { result } = transcript.find((e) => e.step === step);
+    assert.ok(result.stoppedAfter < 1_500, `${step}: the pause ends soon after the Stop (${result.stoppedAfter} ms)`);
+    assert.equal(_countCalls(step, 'PLAYBACK_ALREADY_RUNNING'), 0, step);
+    assert.equal(_countCalls(step, '"PLAY_ACTION","action":{"type":"hover","selector":"#late"'), 0, `${step}: the stopped run goes no further`);
+    assert.equal(_countCalls(step, '"PLAY_ACTION","action":{"type":"hover","selector":"#a"'), 1, `${step}: the new run plays`);
+  }
+});
+
+const _shots =(step) => evid[step].calls.filter((c) => c.startsWith('tabs.captureVisibleTab'));
 test('the first failure keeps the URL, the time, the loop and the steps run so far; later ones do not', () => {
   const [first, second] = evid['evidence: trace and the first failure'].lastRun.failures;
   assert.deepEqual({ ...first, at: 0 }, {

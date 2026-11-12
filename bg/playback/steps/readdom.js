@@ -7,6 +7,7 @@ import { extractWithPattern, patternMismatch } from '../../../shared/text-patter
 import { tabMsg } from '../../tabs.js';
 import { pageReplyTimeout } from './page-reply.js';
 import { afterFailure } from './flow.js';
+import { runPause } from '../../run-state.js';
 
 export async function runReadDom(ctx, i, action) {
   const { tabId, fail, resolvedVars, stickFallbacks: _stickFallbacks } = ctx;
@@ -36,6 +37,6 @@ export async function runReadDom(ctx, i, action) {
     // previous iteration's values and later steps would use them silently.
     for (const n of writtenVarNames(action)) resolvedVars[n] = '';
   }
-  if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay && action.delay > 0) await runPause(action.delay);
   return i;
 }

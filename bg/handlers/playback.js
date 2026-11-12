@@ -11,6 +11,7 @@ import { updateBadge } from '../badge.js';
 import { fromExtensionPage } from '../sender.js';
 import { startPlayback, startPlaybackFromCheckpoint, startSequence } from '../playback.js';
 import { runPanelState } from '../run-panel.js';
+import { markStopped } from '../run-state.js';
 
 export const playbackHandlers = {
   // The popup was opened: the last run's verdict is on its Last run card now,
@@ -72,6 +73,7 @@ export const playbackHandlers = {
     state.playback.active = false;
     state.csvPlayback.active = false;
     state.sequencePlayback.active = false;
+    markStopped();
     updateBadge();
     sendResponse({ stopped: true });
     return;
@@ -86,6 +88,7 @@ export const playbackHandlers = {
   STOP_SEQUENCE_PLAYBACK(request, sender, sendResponse) {
     state.sequencePlayback.active = false;
     state.playback.active = false;
+    markStopped();
     updateBadge();
     sendResponse({ stopped: true });
     return;
@@ -105,6 +108,7 @@ export const playbackHandlers = {
     state.csvPlayback.active = false;
     state.csvPlayback.stopAfterRow = false;
     if (wasCsv) clearCsvState().catch(() => {});
+    markStopped();
     updateBadge();
     sendResponse({ stopped: true });
     return;

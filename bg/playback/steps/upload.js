@@ -8,6 +8,7 @@ import { setFileInputViaCdp, setFileDropZoneViaCdp } from '../../cdp/upload.js';
 import { afterFailure } from './flow.js';
 import { inFrame, markTarget, unmarkTarget, OTHER_ORIGIN_FRAME } from './page-target.js';
 import { strictFor } from './click-through.js';
+import { runPause } from '../../run-state.js';
 
 // Tagged in its frame, yet not found from the page: a frame of another origin.
 const _cdpError = (e, target, action) => (target.css && inFrame(action) && /not found/.test(e.message)
@@ -57,6 +58,6 @@ export async function runUploadFile(ctx, i, action) {
       if (back !== null) return back;
     }
   }
-  if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay && action.delay > 0) await runPause(action.delay);
   return i;
 }

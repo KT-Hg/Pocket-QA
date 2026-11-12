@@ -8,6 +8,7 @@ import { updateBadge } from '../badge.js';
 import { sendAlertNotification } from '../notify.js';
 import { ignoreLastError } from '../last-error.js';
 import { loadOverlays, tabMsg, waitForTabLoad } from '../tabs.js';
+import { markStopped } from '../run-state.js';
 
 // How often an open prompt checks whether the run was stopped elsewhere.
 const STOP_POLL_MS = 250;
@@ -145,6 +146,7 @@ export async function onActionFailed({ tabId, i, actions, action, reason, failed
     state.playback.active         = false;
     state.sequencePlayback.active = false;
     state.csvPlayback.active      = false;
+    markStopped();
     updateBadge();
     return FAIL_STOP;
   }

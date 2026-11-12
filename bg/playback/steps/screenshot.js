@@ -7,6 +7,7 @@ import { normalizeVarName } from '../../../shared/var-name.js';
 import { takeVisibleScreenshot, takeFullPageScreenshot, takeElementScreenshot } from '../../screenshot.js';
 import { afterFailure } from './flow.js';
 import { withRunPanelHidden } from '../../run-panel.js';
+import { runPause } from '../../run-state.js';
 
 /** Element screenshot. */
 export async function runElementScreenshot(ctx, i, action) {
@@ -25,7 +26,7 @@ export async function runElementScreenshot(ctx, i, action) {
     const back = afterFailure(await fail(i, action, result.error), i);
     if (back !== null) return back;
   }
-  if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay && action.delay > 0) await runPause(action.delay);
   return i;
 }
 
@@ -69,7 +70,7 @@ export async function runScreenshotToVar(ctx, i, action) {
     const back = afterFailure(await fail(i, action, e.message), i);
     if (back !== null) return back;
   }
-  if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay && action.delay > 0) await runPause(action.delay);
   return i;
 }
 
@@ -93,6 +94,6 @@ export async function runScreenshot(ctx, i, action) {
     const back = afterFailure(await fail(i, action, result.error), i);
     if (back !== null) return back;
   }
-  if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay && action.delay > 0) await runPause(action.delay);
   return i;
 }

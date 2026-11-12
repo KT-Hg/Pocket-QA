@@ -8,6 +8,7 @@
 import { state } from '../../state.js';
 import { tabMsg } from '../../tabs.js';
 import { afterFailure } from './flow.js';
+import { runPause } from '../../run-state.js';
 
 // The same wait an action gives its element (content.js findElementWithFallback).
 const ASSERT_WAIT_MS = 5_000;
@@ -75,6 +76,6 @@ export async function runAssert(ctx, i, action) {
   } else if (!res.result) {
     await ctx.recordFail(i, action, ..._falseCheck(type, msg.expectedValue, res));
   }
-  if (action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay > 0) await runPause(action.delay);
   return i;
 }

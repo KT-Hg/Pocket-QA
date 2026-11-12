@@ -11,6 +11,7 @@ import { afterFailure } from './flow.js';
 import { pageReplyTimeout } from './page-reply.js';
 import { markTarget, unmarkTarget } from './page-target.js';
 import { strictFor } from './click-through.js';
+import { runPause } from '../../run-state.js';
 
 export async function runDropdown(ctx, i, action) {
   const { tabId } = ctx;
@@ -28,7 +29,7 @@ export async function runDropdown(ctx, i, action) {
       if (back !== null) return back;
     }
   }
-  if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay && action.delay > 0) await runPause(action.delay);
   return i;
 }
 
@@ -84,6 +85,6 @@ async function _pickItem(ctx, i, action, cssSel) {
     const back = afterFailure(await fail(i, action, reason), i);
     if (back !== null) return back;
   }
-  if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay && action.delay > 0) await runPause(action.delay);
   return i;
 }

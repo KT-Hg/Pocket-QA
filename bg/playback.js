@@ -24,7 +24,7 @@ import { failCountsText, runVerdict, tallyText, tallyVerdicts, verdictLabel } fr
 import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY } from '../shared/storage-keys.js';
 import { captureFailureShot } from './screenshot/capture-tab.js';
 import { withRunPanelHidden } from './run-panel.js';
-import { isAnyPlaybackActive, runClaimed } from './run-state.js';
+import { isAnyPlaybackActive, runClaimed, runPause } from './run-state.js';
 import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
 import { notifyActionFailed, onActionFailed, recordFailure, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
 import { closeOpenSessions } from './cdp/session.js';
@@ -503,7 +503,7 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
         vars: loopVars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
         startFromIndex: 0, failedActions, strict: scenario.clickThrough === false, evidence,
       });
-      if (loop < loops - 1 && loopDelay > 0) await new Promise(r => setTimeout(r, loopDelay));
+      if (loop < loops - 1 && loopDelay > 0) await runPause(loopDelay);
     }
     // Still active: not stopped, the tab not closed.
     completed = state.playback.active;
@@ -594,7 +594,7 @@ async function _playSequence(runList) {
       _seqFailures.push(..._seqItemFailed);
 
       if (i < runList.length - 1 && item.delay > 0) {
-        await new Promise((resolve) => setTimeout(resolve, item.delay));
+        await runPause(item.delay);
       }
     }
     const completed = state.sequencePlayback.active && !_seqTabClosed;
@@ -857,7 +857,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
       if (gracefulStop) break;
 
       if (!isLast && delayBetween > 0) {
-        await new Promise((r) => setTimeout(r, delayBetween));
+        await runPause(delayBetween);
       }
     }
   } catch (err) {

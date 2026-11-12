@@ -4,6 +4,7 @@
 
 import { runScriptViaCdp } from '../../cdp/script.js';
 import { afterFailure } from './flow.js';
+import { runPause } from '../../run-state.js';
 
 export async function runScript(ctx, i, action) {
   const { tabId, fail } = ctx;
@@ -12,6 +13,6 @@ export async function runScript(ctx, i, action) {
     const back = afterFailure(await fail(i, action, `Script error: ${error}`), i);
     if (back !== null) return back;
   }
-  if (action.delay && action.delay > 0) await new Promise(r => setTimeout(r, action.delay));
+  if (action.delay && action.delay > 0) await runPause(action.delay);
   return i;
 }

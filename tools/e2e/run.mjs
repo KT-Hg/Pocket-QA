@@ -2,10 +2,12 @@
  * tools/e2e/run.mjs — e2e suite "run". Run: node tools/e2e.mjs --suite run
  *
  * A run as it shows: the overlays, a schedule, Assert and the Last run card, the run
- * panel, runs grouped on Record & Play.
+ * panel, Play right after Stop, runs grouped on Record & Play.
  *
  *   schedule      a schedule's alarm opens its start URL in a new tab and plays there,
  *                 not on the tab that was active
+ *   stop-then-play  ■ Stop in a long Wait, or in a step's long delay, then Play at once:
+ *                 the new run plays, the stopped one goes no further
  */
 
 import { readdirSync } from 'node:fs';
@@ -316,6 +318,38 @@ export async function checkRunPanel(ctx) {
   check(up && !st?.playing && gone && !log.some((l) => l.startsWith('bg2')), "the panel's ■ Stop ends the run, and the panel goes", { up, playing: st?.playing, gone, log });
 }
 
+// ■ Stop in a long Wait, or in a step's long delay, then Play at once: the new run
+// plays. The stopped run held its claim until its pause would have ended, so the
+// Play was refused ("Already Running") and nothing played.
+export async function checkStopThenPlay(ctx) {
+  const click = (sel, extra) => ({ type: 'click', selector: sel, selectors: { css: sel }, ...extra });
+  const next = await makeScenario(ctx, 'e2e play after stop', [click('#choiceA')]);
+  const cases = [
+    // [where, the stopped run's actions, true on the page once it is in its pause]
+    ['a Wait', [{ type: 'wait', delay: 8000 }, click('#bg2')], 'true'],
+    ["a step's delay", [click('#bg1', { delay: 8000 }), click('#bg2')], `__log.some((e) => e.startsWith('bg1 '))`],
+  ];
+  for (const [where, actions, inPause] of cases) {
+    await reloadTestPage(ctx);
+    const first = await makeScenario(ctx, `e2e stop in ${where}`, actions);
+    await ctx.web.bringToFront();
+    await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: first });
+    let playing = false;
+    for (let waited = 0; !playing && waited < 5_000; waited += POLL_MS) {
+      await sleep(POLL_MS);
+      playing = !!(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing;
+    }
+    const paused = playing && !!(await pageSoon(ctx, inPause, 3_000));
+    await ctx.send({ type: 'STOP_PLAYBACK' });
+    await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: next });
+    const played = !!(await pageSoon(ctx, `__log.some((e) => e.startsWith('choiceA '))`, 3_000));
+    for (let waited = 0; waited < 5_000 && (await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing; waited += POLL_MS) await sleep(POLL_MS);
+    const log = await ctx.web.evaluate('window.__log');
+    check(paused && played && !log.some((e) => e.startsWith('bg2 ')),
+      `Play right after ■ Stop in ${where}: the new run plays, the stopped one goes no further`, { paused, played, log });
+  }
+}
+
 export async function checkRunGroup(ctx) {
   const popup = await openPopup(ctx);
   try {
@@ -368,5 +402,6 @@ export const CHECKS = [
   ['no-checks', 'A run with no Assert says it checked nothing', checkNoChecks],
   ['last-run-live', 'The Last run card hides while a run is on', checkLastRunLive],
   ['run-panel', 'The run panel on the page: progress, off for a screenshot, its Stop', checkRunPanel],
+  ['stop-then-play', 'Play right after ■ Stop in a long Wait or delay', checkStopThenPlay],
   ['run-group', 'Sequence, schedule and CSV run in one group on Record & Play', checkRunGroup],
 ];

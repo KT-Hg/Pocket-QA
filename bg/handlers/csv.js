@@ -11,6 +11,7 @@ import { updateBadge } from '../badge.js';
 import { sendAlertNotification } from '../notify.js';
 import { startCsvPlayback } from '../playback.js';
 import { ssReadAll, ssClear, csvResultReadAll, csvResultClear } from '../idb-screenshots.js';
+import { markStopped } from '../run-state.js';
 
 /**
  * Raise the "run interrupted" notification unless this exact run has already
@@ -71,6 +72,7 @@ export const csvHandlers = {
     state.csvPlayback.active = false;
     state.csvPlayback.stopAfterRow = false;
     state.playback.active = false;
+    markStopped();
     updateBadge();
     // Discard the checkpoint so a user-stopped run is never offered as resumable.
     clearCsvState().catch(() => {});
