@@ -21,9 +21,12 @@
  *
  * Helpers more than one suite uses: tools/e2e/harness.mjs; the test pages: tools/e2e/test-pages.mjs.
  *
- * Usage: node tools/e2e.mjs [--suite <a,b>] [--only <a,b>] [--list] [--ext <extension dir>] [--headed] [--cases <a,b>]
+ * Usage: node tools/e2e.mjs [--suite <a,b> | --changed] [--only <a,b>] [--list] [--ext <extension dir>] [--headed] [--cases <a,b>]
  *        --suite runs only those suites (the names above, or --list); --only runs only the
  *        checks named; both: the checks in both.
+ *        --changed runs the suites the files being edited can break (git diff HEAD and the
+ *        untracked files, through the table in tools/e2e/changed.mjs; a file it does not know
+ *        runs them all, docs and tests none). Before a push, run them all.
  *        --list prints the checks picked, suite by suite, and exits (no browser).
  *        --cases runs only those cases of export-run (and its fails-at-step check when named).
  *        --ext runs another checkout (an older commit, to see a check fail there).
@@ -34,6 +37,7 @@ import { createServer } from 'node:http';
 import { launchWithExtension, sleep } from './lib/cdp-browser.mjs';
 import { EXT, HEADED, PAGE_SETTLE_MS, argValue, args, fail, failures, ok } from './e2e/harness.mjs';
 import { FRAME_PAGE, TEST_PAGE } from './e2e/test-pages.mjs';
+import { changedFiles, suitesFor } from './e2e/changed.mjs';
 import { CHECKS as locateChecks } from './e2e/locate.mjs';
 import { CHECKS as runChecks } from './e2e/run.mjs';
 import { CHECKS as editorChecks } from './e2e/editor.mjs';
@@ -47,6 +51,7 @@ import { CHECKS as pagesChecks } from './e2e/pages.mjs';
 
 const ONLY = argValue('--only')?.split(',') || null;
 const SUITE = argValue('--suite')?.split(',') || null;
+const CHANGED = args.includes('--changed');
 const LIST = args.includes('--list');
 
 /** The browser, the test tab, and helpers shared by the checks. */
@@ -79,9 +84,22 @@ const SUITES = {
 /** Every check as [name, title, run, suite], suite by suite. */
 const CHECKS = Object.entries(SUITES).flatMap(([suite, checks]) => checks.map((c) => [...c, suite]));
 
-/** The checks --suite and --only ask for, in CHECKS order; a name that is not there ends the run. */
+/** --changed: the suites the files being edited can break, each file printed with what it runs. */
+function changedSuites() {
+  const { suites, why } = suitesFor(changedFiles(), Object.keys(SUITES));
+  console.log(why.length ? 'e2e --changed, the files being edited:' : 'e2e --changed: no file is being edited');
+  for (const [path, s] of why) console.log(`  ${path} → ${s === 'all' ? 'every suite' : s.join(', ') || 'none'}`);
+  return suites;
+}
+
+/** The checks --suite (or --changed) and --only ask for, in CHECKS order; a name that is not there ends the run. */
 function pickChecks() {
-  const unknownSuites = (SUITE || []).filter((s) => !Object.hasOwn(SUITES, s));
+  if (CHANGED && SUITE) {
+    console.error('e2e: --changed picks the suites itself; narrow it with --only, not --suite');
+    process.exit(1);
+  }
+  const suites = CHANGED ? changedSuites() : SUITE;
+  const unknownSuites = (suites || []).filter((s) => !Object.hasOwn(SUITES, s));
   if (unknownSuites.length) {
     console.error(`e2e: no suite named ${unknownSuites.map((s) => `"${s}"`).join(', ')} (${Object.keys(SUITES).join(', ')})`);
     process.exit(1);
@@ -91,7 +109,7 @@ function pickChecks() {
     console.error(`e2e: no check named ${unknown.map((n) => `"${n}"`).join(', ')} (${CHECKS.map(([n]) => n).join(', ')})`);
     process.exit(1);
   }
-  return CHECKS.filter(([name, , , suite]) => (!ONLY || ONLY.includes(name)) && (!SUITE || SUITE.includes(suite)));
+  return CHECKS.filter(([name, , , suite]) => (!ONLY || ONLY.includes(name)) && (!suites || suites.includes(suite)));
 }
 
 async function main() {
@@ -102,6 +120,10 @@ async function main() {
       if (s !== suite) console.log((suite = s));
       console.log(`  ${name.padEnd(22)} ${title}`);
     }
+    process.exit(0);
+  }
+  if (!picked.length) {
+    console.log('e2e: nothing to run');
     process.exit(0);
   }
   const server = await new Promise((res) => {
