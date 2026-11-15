@@ -8,7 +8,7 @@ import { clearCsvDoneBar, openPbPanel, setCsvDoneBar } from '../connection.js';
 import { whenTabOn } from '../tab-activation.js';
 import { ui } from '../ui-state.js';
 import { showConfirm, showToast } from '../utils.js';
-import { getInputVarsFromScenario, stopCsvCountdown, updateCsvBadges } from './csv-run.js';
+import { csvMissingColumns, stopCsvCountdown, updateCsvBadges } from './csv-run.js';
 
 /* === CSV state machine: 'idle' | 'running' | 'done' === */
 export function setCsvState(s) {
@@ -133,13 +133,10 @@ export function initCsvState() {
     const delayBetween = !isNaN(delayMs) && delayMs >= 500 ? delayMs : 500;
     ui._csvDelayBetween = delayBetween;
 
-    // Warn if scenario uses ${variables} not present in CSV headers
-    const inputVars = getInputVarsFromScenario(scenarioId);
-    const csvHeaderSet = new Set(ui.csvParsed.headers);
-    const missingCols = [...inputVars].filter(v => !csvHeaderSet.has(v));
-    if (missingCols.length > 0) {
-      showToast(`CSV missing columns used by scenario: ${missingCols.join(", ")}`, "warn");
-    }
+    // Warn if the scenario reads ${variables} that no column, Tools tab variable or step gives
+    csvMissingColumns(scenarioId, ui.csvParsed.headers).then((missingCols) => {
+      if (missingCols.length > 0) showToast(`CSV missing columns used by scenario: ${missingCols.join(", ")}`, "warn");
+    });
 
     updateCsvBadges(0, ui.csvParsed.rows.length, 0, false);
     const status = document.getElementById("csvStatus");

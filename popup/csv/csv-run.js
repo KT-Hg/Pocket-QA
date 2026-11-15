@@ -17,11 +17,21 @@ import { tallyText } from '../../shared/verdict.js';
 
 /* === CSV DATA-DRIVEN RUN === */
 
-// Same field list as playback substitutes — see getReadVarNames in popup/utils.js.
-export function getInputVarsFromScenario(scenarioId) {
-  const scenario = ui.scenariosCache[scenarioId];
-  if (!scenario?.actions) return new Set();
-  return getReadVarNames(scenario.actions);
+/**
+ * The ${names} the steps read that nothing gives a value: no CSV column, no Tools tab
+ * variable (each row runs with those under its own columns) and no step of the scenario
+ * itself (Read DOM, Screenshot → Variable). Same fields as playback substitutes — see
+ * getReadVarNames in popup/utils.js.
+ */
+export function missingCsvColumns(actions, headers, tableNames) {
+  const given = new Set([...headers, ...tableNames, ...(actions || []).flatMap(writtenVarNames)]);
+  return [...getReadVarNames(actions || [])].filter((name) => !given.has(name));
+}
+
+/** missingCsvColumns for scenario `scenarioId`, with the Tools tab's variables as they are now. */
+export async function csvMissingColumns(scenarioId, headers) {
+  const table = await new Promise((r) => chrome.runtime.sendMessage({ type: "GET_VARIABLES" }, (res) => { void chrome.runtime.lastError; r(res); }));
+  return missingCsvColumns(ui.scenariosCache[scenarioId]?.actions, headers, Object.keys(table?.variables || {}));
 }
 
 /**
