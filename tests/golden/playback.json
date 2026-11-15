@@ -56,7 +56,7 @@
   "state": {
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "csvInterrupted": null,
    "recording": false
   },
@@ -3912,7 +3912,7 @@
   "state": {
    "playback": {"active":false,"tabId":1,"scenarioId":"sCsv","scenarioName":"Csv","originalScenarioName":"Csv","actionIndex":3,"totalActions":4,"failPrompt":false},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":2,"scenarioId":"sCsv","delayBetween":20,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":2,"scenarioId":"sCsv","delayBetween":20,"stopAfterRow":false,"doneRows":3,"failRows":2},
    "csvInterrupted": null,
    "recording": false
   },
@@ -4029,7 +4029,7 @@
   "state": {
    "playback": {"active":false,"tabId":1,"scenarioId":"sCsv","scenarioName":"Csv","originalScenarioName":"Csv","actionIndex":0,"totalActions":4},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":0,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":true},
+   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":0,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":true,"doneRows":1,"failRows":0},
    "csvInterrupted": null,
    "recording": false
   },
@@ -4118,14 +4118,14 @@
    "action.setBadgeText [{\"text\":\"\"}]",
    "tabs.sendMessage [1,{\"type\":\"RUN_PANEL\",\"run\":null},{\"frameId\":0}]",
    "storage.sync.get [[\"notifyOnError\"]]",
-   "notifications.create [\"error_1768467782434\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"0 passed · 1 broken of 1 row(s) — \\\"Csv\\\"\"}]",
-   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":1,\"failRows\":1,\"tally\":{\"passed\":0,\"failed\":0,\"broken\":1,\"stopped\":0},\"scenarioName\":\"Csv\"}]"
+   "notifications.create [\"error_1768467782434\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"CSV Run complete\",\"message\":\"1 passed · 1 broken of 2 row(s) — \\\"Csv\\\"\"}]",
+   "runtime.sendMessage [{\"type\":\"CSV_RUN_DONE\",\"total\":2,\"failRows\":1,\"tally\":{\"passed\":1,\"failed\":0,\"broken\":1,\"stopped\":0},\"scenarioName\":\"Csv\"}]"
   ],
   "console": [],
   "state": {
    "playback": {"active":false,"tabId":1,"scenarioId":"sCsv","scenarioName":"Csv","originalScenarioName":"Csv","actionIndex":3,"totalActions":4,"failPrompt":false},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":2,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":2,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":false,"doneRows":2,"failRows":1},
    "csvInterrupted": null,
    "recording": false
   },
@@ -4149,7 +4149,7 @@
   "state": {
    "playback": {"active":false},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":0,"scenarioId":"zz","delayBetween":0,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":0,"scenarioId":"zz","delayBetween":0,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "csvInterrupted": null,
    "recording": false
   },
@@ -4288,7 +4288,7 @@
   "state": {
    "playback": {"active":false,"tabId":1,"scenarioId":"sCsv","scenarioName":"Csv","originalScenarioName":"Csv","actionIndex":0,"totalActions":4,"failPrompt":false},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"}],"currentRow":0,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"}],"currentRow":0,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":false,"doneRows":1,"failRows":1},
    "csvInterrupted": null,
    "recording": false
   },
@@ -4376,7 +4376,7 @@
   "state": {
    "playback": {"active":false,"tabId":1,"scenarioId":"sCsv","scenarioName":"Csv","originalScenarioName":"Csv","actionIndex":1,"totalActions":4,"failPrompt":false},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":0,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":0,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":false,"doneRows":1,"failRows":1},
    "csvInterrupted": null,
    "recording": false
   },
@@ -4490,7 +4490,7 @@
   "state": {
    "playback": {"active":false,"tabId":1,"scenarioId":"sCsv","scenarioName":"Csv","originalScenarioName":"Csv","actionIndex":0,"totalActions":4},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":0,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"bob","inner":"innerShot"},{"user":"carol"},{"user":"dave"}],"currentRow":0,"scenarioId":"sCsv","delayBetween":0,"stopAfterRow":false,"doneRows":1,"failRows":0},
    "csvInterrupted": null,
    "recording": false
   },
@@ -5683,7 +5683,7 @@
   "state": {
    "playback": {"active":false,"tabId":1,"scenarioId":"sCsvNamed","scenarioName":"Named","originalScenarioName":"Named","actionIndex":3,"totalActions":4,"failPrompt":false},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{"user":"bob"},{"user":"carol"}],"currentRow":1,"scenarioId":"sCsvNamed","delayBetween":0,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"bob"},{"user":"carol"}],"currentRow":1,"scenarioId":"sCsvNamed","delayBetween":0,"stopAfterRow":false,"doneRows":2,"failRows":1},
    "csvInterrupted": null,
    "recording": false
   },
@@ -6611,7 +6611,7 @@
   "state": {
    "playback": {"active":false,"tabId":1,"scenarioId":"vFail","scenarioName":"VFail","originalScenarioName":"VFail","actionIndex":2,"totalActions":3},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{}],"currentRow":0,"scenarioId":"vFail","delayBetween":0,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{}],"currentRow":0,"scenarioId":"vFail","delayBetween":0,"stopAfterRow":false,"doneRows":1,"failRows":1},
    "csvInterrupted": null,
    "recording": false
   },
@@ -6679,7 +6679,7 @@
   "state": {
    "playback": {"active":false,"tabId":1,"scenarioId":"vStop","scenarioName":"VStop","originalScenarioName":"VStop","actionIndex":0,"totalActions":2},
    "sequencePlayback": {"active":false},
-   "csvPlayback": {"active":false,"rows":[{},{}],"currentRow":1,"scenarioId":"vStop","delayBetween":0,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{},{}],"currentRow":1,"scenarioId":"vStop","delayBetween":0,"stopAfterRow":false,"doneRows":2,"failRows":0},
    "csvInterrupted": null,
    "recording": false
   },

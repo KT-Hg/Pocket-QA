@@ -53,6 +53,9 @@ export const state = {
     // and its result is written before the loop exits, unlike STOP_CSV_PLAYBACK
     // which clears `active` and drops the partial row.
     stopAfterRow: false,
+    // Rows done and failed so far: a popup opened mid-run counts with these (GET_CSV_STATUS).
+    doneRows: 0,
+    failRows: 0,
   },
   segmentCapture: idleSegmentCapture(),
 

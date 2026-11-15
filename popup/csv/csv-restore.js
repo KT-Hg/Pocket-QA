@@ -57,7 +57,7 @@ export function initCsvRestore() {
 
           if (isActive) {
             if (status) status.textContent = "";
-            updateCsvBadges(csvStatus.currentRow + 1, csvStatus.totalRows, 0, false);
+            updateCsvBadges(csvStatus.doneRows ?? 0, csvStatus.totalRows, csvStatus.failRows ?? 0, false);
             setCsvState('running');
             startCsvPoll(status);
           } else if (hasResults) {

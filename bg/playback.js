@@ -14,13 +14,13 @@ import { resolveRandomVars, interpolateAction } from './interpolate.js';
 import { getActiveTabId, getTabUrl } from './tabs.js';
 // The steps load bg/screenshot.js, whose listeners have always registered at this point.
 import { STEPS, runOnPage, STOP } from './playback/steps/index.js';
-import { ssWrite, ssClear, csvResultWrite, csvResultClear } from './idb-screenshots.js';
+import { ssWrite, ssClear, csvResultWrite, csvResultClear, csvResultReadAll } from './idb-screenshots.js';
 import { beginDbGuard, endDbGuard } from './dbguard.js';
 import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, continueIndex, resumeSegments } from '../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
 import { pickStrings } from '../shared/dropdown-pick.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
-import { failCountsText, runVerdict, tallyText, verdictLabel } from '../shared/verdict.js';
+import { failCountsText, runVerdict, tallyText, tallyVerdicts, verdictLabel } from '../shared/verdict.js';
 import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY } from '../shared/storage-keys.js';
 import { captureFailureShot } from './screenshot/capture-tab.js';
 import { withRunPanelHidden } from './run-panel.js';
@@ -680,7 +680,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
   const isResume = startRowIndex > 0;
   state.csvPlayback = {
     active: true, rows, currentRow: startRowIndex, scenarioId, delayBetween,
-    stopAfterRow: false,
+    stopAfterRow: false, doneRows: 0, failRows: 0,
   };
   state.csvInterrupted = null;
   updateBadge();
@@ -761,6 +761,15 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
         ssClear(),
         csvResultClear(),
       ]);
+    } else {
+      // A resumed run counts the rows it kept, as its result file holds them: the
+      // popup's tally, CSV_ROW_DONE and the closing notification would otherwise
+      // start again from 0 at row startRowIndex.
+      const before = (await csvResultReadAll().catch(() => [])).filter((r) => r.rowIndex < startRowIndex);
+      completedRows = before.length;
+      failedRows = before.filter((r) => r.failures?.length > 0).length;
+      Object.assign(tally, tallyVerdicts(before));
+      Object.assign(state.csvPlayback, { doneRows: completedRows, failRows: failedRows });
     }
     // Always dropped: a leftover single-scenario checkpoint would trigger a false
     // OFFER_RESUME on top of the CSV run.
@@ -802,6 +811,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
       completedRows++;
       if (failedActions.length > 0) failedRows++;
       tally[runVerdict(failedActions, { completed: rowCompleted }).status]++;
+      Object.assign(state.csvPlayback, { doneRows: completedRows, failRows: failedRows });
 
       // Only store variables that are actually referenced by the scenario to
       // keep IDB records lean.

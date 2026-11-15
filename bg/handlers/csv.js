@@ -93,6 +93,9 @@ export const csvHandlers = {
       active: state.csvPlayback.active,
       currentRow: state.csvPlayback.currentRow,
       totalRows: state.csvPlayback.rows.length,
+      // Rows done and failed so far — not the row in flight (popup/csv/csv-state.js, csv-restore.js)
+      doneRows: state.csvPlayback.doneRows ?? 0,
+      failRows: state.csvPlayback.failRows ?? 0,
     });
     return;
   },

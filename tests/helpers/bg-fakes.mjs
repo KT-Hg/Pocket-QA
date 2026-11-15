@@ -316,6 +316,20 @@ export function installIndexedDb(fake) {
           return request(() => { fake.log.push(`idb.put ${JSON.stringify([n, k])} ${shown(v)}`); stores[n].set(k, v); });
         },
         count: () => request(() => stores[n].size),
+        // One onsuccess per record, then one with no cursor: as csvResultReadAll walks it.
+        openCursor: () => {
+          const values = [...stores[n].values()];
+          const r = { result: null, onsuccess: null, onerror: null };
+          let i = 0;
+          open++;
+          const next = () => queueMicrotask(() => {
+            r.result = i < values.length ? { value: values[i], continue: () => { i++; next(); } } : null;
+            r.onsuccess?.({ target: r });
+            if (!r.result && --open === 0) done();
+          });
+          next();
+          return r;
+        },
         clear: () => request(() => { fake.log.push(`idb.clear ${JSON.stringify([n])}`); stores[n].clear(); }),
       });
       return tx;

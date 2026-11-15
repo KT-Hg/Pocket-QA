@@ -566,8 +566,23 @@ await run('sequence: refused while recording', () => startSequence([{ id: 'sBasi
 await run('sequence: already running', () => startSequence([{ id: 'sBasic' }]), { setup: () => { state.playback = { active: true }; } });
 
 const csvRows = [{ user: 'bob', inner: 'innerShot' }, { user: 'carol' }, { user: 'dave' }];
+// GET_CSV_STATUS as a popup opened mid-run asks it, while row 3 reads #total.
+const { csvHandlers } = await import('../bg/handlers/csv.js');
+let csvMidRun = null;
 await run('csv: xlsx run', () => startCsvPlayback('sCsv', csvRows, 20, 'xlsx'), {
-  setup: () => { page['#total'] = [{ value: '10' }, { failed: true, error: 'no total' }, { value: '30' }]; choices = ['skip']; },
+  setup: () => {
+    const totals = [{ value: '10' }, { failed: true, error: 'no total' }];
+    page['#total'] = () => {
+      if (totals.length) return totals.shift();
+      csvHandlers.GET_CSV_STATUS({}, {}, (r) => { csvMidRun = r; });
+      return { value: '30' };
+    };
+    choices = ['skip'];
+  },
+});
+test('csv: a popup opened mid-run is told the rows done and failed so far', () => {
+  // Row 3 plays; row 2 failed. The popup used to count the row in flight as done and no row as failed.
+  assert.deepEqual(csvMidRun, { active: true, currentRow: 2, totalRows: 3, doneRows: 2, failRows: 1 });
 });
 await run('csv: csv run with downloads, stop after row', () => startCsvPlayback('sCsv', csvRows, 0, 'csv'), {
   setup: () => {

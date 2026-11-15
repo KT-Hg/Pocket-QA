@@ -65,8 +65,9 @@ export function startCsvPoll(statusEl) {
     chrome.runtime.sendMessage({ type: "GET_CSV_STATUS" }, (res) => {
       if (!res) { clearInterval(poll); return; }
       if (res.active) {
-        // failRows is kept up-to-date by CSV_ROW_DONE messages; no storage read needed here
-        updateCsvBadges(res.currentRow + 1, res.totalRows, 0, false);
+        // The worker's own count: the row in flight is not done, and the failed rows stay
+        // counted (a 0 here wiped the ✗ that CSV_ROW_DONE had just set, every 800 ms).
+        updateCsvBadges(res.doneRows ?? 0, res.totalRows, res.failRows ?? 0, false);
       } else {
         chrome.runtime.sendMessage({ type: "GET_CSV_RUN_RESULTS" }, (idbData) => {
           const results  = idbData?.results || [];

@@ -66,7 +66,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -278,7 +278,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -319,7 +319,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -360,7 +360,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -447,7 +447,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -479,7 +479,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -535,7 +535,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -574,7 +574,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -630,7 +630,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -686,7 +686,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -742,7 +742,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -795,7 +795,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -848,7 +848,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -896,7 +896,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -958,7 +958,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -1006,7 +1006,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -1051,7 +1051,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -1092,7 +1092,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -1135,7 +1135,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -1475,7 +1475,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":null,"scenarioId":null,"scenarioName":null,"originalScenarioName":null,"actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -2359,7 +2359,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":0,"totalActions":0},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -2433,7 +2433,7 @@
    "csvInterrupted": {"scenarioId":"s2","totalRows":2,"resumeRow":1,"delayBetween":500,"exportFormat":"csv"},
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[],"currentRow":0,"scenarioId":null,"delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -2469,7 +2469,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"active":false,"currentRow":0,"totalRows":0}
+   {"active":false,"currentRow":0,"totalRows":0,"doneRows":0,"failRows":0}
   ],
   "calls": [],
   "console": []
@@ -2528,7 +2528,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"a"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"a"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -2645,7 +2645,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3019,7 +3019,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":true,"tabId":1,"dir":"v","crop":false,"origZoom":1.25,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3081,7 +3081,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3123,7 +3123,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3175,7 +3175,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":true,"tabId":1,"dir":"v","crop":false,"origZoom":1.25,"fromHotkey":true},
    "runVerdict": null
   }
@@ -3224,7 +3224,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3260,7 +3260,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":true,"tabId":2,"dir":"h","crop":true,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3292,7 +3292,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3449,7 +3449,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":true,"tabId":1,"dir":"v","crop":false,"origZoom":1.25,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3483,7 +3483,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3842,7 +3842,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3919,7 +3919,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -3963,7 +3963,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -4007,7 +4007,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -4082,7 +4082,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -4123,7 +4123,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -4164,7 +4164,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -4208,7 +4208,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -4759,7 +4759,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -4817,7 +4817,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -4860,7 +4860,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -4937,7 +4937,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -5046,7 +5046,7 @@
    "csvInterrupted": null,
    "playback": {"active":true,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -5076,7 +5076,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
@@ -5120,7 +5120,7 @@
    "csvInterrupted": null,
    "playback": {"active":false,"tabId":1,"scenarioId":"r1","scenarioName":"Restored","originalScenarioName":"Restored","actionIndex":1,"totalActions":0,"loopCurrent":1,"loopTotal":1},
    "sequencePlayback": {"active":false,"runList":[{"id":"r1","delay":0}],"currentIndex":0},
-   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false},
+   "csvPlayback": {"active":false,"rows":[{"user":"z"}],"currentRow":0,"scenarioId":"r1","delayBetween":500,"stopAfterRow":false,"doneRows":0,"failRows":0},
    "segmentCapture": {"active":false,"tabId":null,"dir":null,"crop":false,"origZoom":null,"fromHotkey":false},
    "runVerdict": null
   }
