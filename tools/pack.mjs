@@ -19,5 +19,5 @@ const out = resolve(root, '..', `${name} ${version}.zip`);
 if (git('status', '--porcelain').trim()) console.warn('Warning: uncommitted changes are NOT in the zip (it packs HEAD).');
 git('archive', '--format=zip', '-9', '-o', out, 'HEAD', '--', '.',
   ':!tests', ':!tools', ':!docs', ':!README.md', ':!.gitattributes', ':!.gitignore',
-  ':!**/*.md', ':!**/*.mjs', ':!**/*.sh', ':!dbtools/e2e');
+  ':!**/*.md', ':!**/*.mjs', ':!**/*.sh', ':!dbtools/e2e', ':!icons/icon1024.png');
 console.log(out);
