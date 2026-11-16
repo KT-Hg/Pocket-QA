@@ -3,7 +3,7 @@
  * scenario a case runs, Continue at, and validation.
  */
 
-import { CASE_COLORS, SWITCH_SELF, addIndex, caseRange, continueIndex, getConditionLayout, getSwitchLayout, isBlockCase, nestedBlockErrors, remapAfterInsert, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
+import { CASE_COLORS, SWITCH_SELF, addIndex, caseLabel, caseRange, continueIndex, getConditionLayout, getSwitchLayout, isBlockCase, nestedBlockErrors, remapAfterInsert, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
 import { scenarioList } from '../dom.js';
 import { ui } from '../ui-state.js';
 import { escHtml, showToast } from '../utils.js';
@@ -139,14 +139,26 @@ function _sameCaseTarget(a, b) {
     n(a.startAt) === n(b.startAt) && n(a.endAt) === n(b.endAt) && !!a.empty === !!b.empty;
 }
 
-/** <option>s listing the scenario's actions (display number + summary). */
-function _actionOptions(selected, { from = 0, skip = -1 } = {}) {
+/** ` · case "admin"` when another case of the form's Switch already runs action `i`, else "". */
+function _ownerNote(i) {
+  const c = ui._switchCases.find((x, k) => {
+    const r = k === _switchEditIdx ? null : caseRange(x);
+    return r && r.start <= i && i <= r.end;
+  });
+  return c ? ` · case ${caseLabel(c)}` : "";
+}
+
+/**
+ * <option>s listing the scenario's actions (display number + summary).
+ * `owners`: say which case of the form's Switch already runs each action.
+ */
+function _actionOptions(selected, { from = 0, skip = -1, owners = false } = {}) {
   const list = candidateActions();
   let html = "";
   for (let i = from; i < list.length; i++) {
     if (i === skip) continue;
     const a = list[i];
-    const txt = `${noOf(i)}  ${a.type} ${a.label || getActionDisplayValue(a) || ""}`.slice(0, 60);
+    const txt = `${noOf(i)}  ${a.type} ${a.label || getActionDisplayValue(a) || ""}`.slice(0, 60) + (owners ? _ownerNote(i) : "");
     html += `<option value="${i}"${i === selected ? " selected" : ""}>${escHtml(txt)}</option>`;
   }
   return html;
@@ -168,10 +180,16 @@ function _fillRangeSelects(fromEl, toEl, c) {
       from = (parseInt(c.startAt, 10) || 1) - 1;
       to = "tail";
     }
-  } else if (self + 1 < candidateActions().length) {
-    from = self + 1;
+  } else {
+    // A new case opens on the first action no case of this Switch runs yet:
+    // right after its block, or right after the Switch — never inside another
+    // case, which would be an overlap as soon as it is added.
+    const ends = ui._switchCases.map(caseRange).filter(Boolean).map(r => r.end);
+    let first = ends.length ? Math.max(...ends) + 1 : self + 1;
+    if (first === self) first++;
+    if (first < candidateActions().length) from = first;
   }
-  let fromHtml = `<option value="none">— nothing —</option>` + _actionOptions(from, { skip: self });
+  let fromHtml = `<option value="none">— nothing —</option>` + _actionOptions(from, { skip: self, owners: true });
   if (typeof from === "number" && from >= candidateActions().length) {
     fromHtml += `<option value="${from}" selected>#${from + 1} (missing)</option>`;
   }
@@ -184,7 +202,7 @@ function _fillRangeSelects(fromEl, toEl, c) {
     toEl.disabled = false;
     const fi = Number(f);
     toEl.innerHTML = `<option value="only">Only this action</option>`
-      + _actionOptions(-1, { from: fi + 1, skip: self })
+      + _actionOptions(-1, { from: fi + 1, skip: self, owners: true })
       + `<option value="tail">To the end (old-style jump)</option>`;
     toEl.value = [...toEl.options].some(o => o.value === String(want)) ? String(want) : "only";
   };

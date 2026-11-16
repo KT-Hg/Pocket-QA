@@ -1052,7 +1052,50 @@ export async function checkFormRoundtrip(ctx) {
   await popup.close();
 }
 
+/** #1 Switch ${role}: "A" runs #2, "B" #3, "C" #4–#5; then #6. */
+function threeCaseSwitch() {
+  const wait = (label) => ({ type: 'wait', delay: 100, label });
+  const own = (value, startAt, endAt) => ({ value, scenarioId: '__self__', scenarioName: '↻ This scenario (jump)', startAt, endAt });
+  return [
+    { type: 'switch', switchVar: '${role}', cases: [own('A', 2, 2), own('B', 3, 3), own('C', 4, 5)] },
+    wait('a'), wait('b'), wait('c1'), wait('c2'), wait('after'),
+  ];
+}
+
+export async function checkNewCaseDefault(ctx) {
+  const id = await makeScenario(ctx, 'e2e new case default', threeCaseSwitch());
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    await rowButton(popup, 0, 3);
+    await sleep(POPUP_SETTLE_MS);
+    const form = await popup.evaluate(`(() => {
+      const from = document.getElementById('switchCaseFrom');
+      const text = (v) => [...from.options].find((o) => o.value === v)?.textContent || '';
+      return { from: from.value, validation: document.getElementById('switchValidation').innerText.trim(), c2: text('4'), after: text('5') };
+    })()`);
+    check(form.from === '5' && form.validation === '',
+      'a new case of a Switch with cases opens on the first action after its block, not on another case\'s action', form);
+    check(form.c2.endsWith('· case "C"') && !form.after.includes('case'),
+      'the Actions list says which case already runs an action', form);
+    // The last case's actions gone from the list: nothing is left after the block.
+    await popup.evaluate(`document.getElementById('cancelEdit').click()`);
+    await sleep(SETTLE_MS);
+    await ctx.send({ type: 'REMOVE_ACTION', scenarioId: id, index: 5 });
+    await showScenario(popup, id);
+    await rowButton(popup, 0, 3);
+    await sleep(POPUP_SETTLE_MS);
+    const none = await popup.evaluate(`document.getElementById('switchCaseFrom').value`);
+    check(none === 'none', 'with no action after the block the new case opens on "— nothing —"', none);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
 export const CHECKS = [
+  ['new-case-default', 'A new case of a Switch that has cases: its Actions start after the block', checkNewCaseDefault],
   ['preview-no-flash', 'Disable / Enable an action without the list flashing', checkPreviewNoFlash],
   ['folder-filter', 'The Manage Scenarios folder filter, kept', checkFolderFilter],
   ['switch-draft', 'Switch draft in the popup', checkSwitchDraft],
