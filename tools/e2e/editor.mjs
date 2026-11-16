@@ -18,6 +18,11 @@
  *   case-take     a case added over another case's actions: the overlap error
  *                 has "Take from case …", which cuts the other case back; none
  *                 when that would cut the other case in two
+ *   split-case    the ✂ in the gap between two actions of one case asks for a
+ *                 value and makes the rest of the case a new case; a value in
+ *                 use is refused; Undo; hidden while the Switch is in the form
+ *   add-empty-case  "+ case" under a block's cases adds an empty case; an action
+ *                 dropped on it joins it
  *   form-roundtrip  one action of every type, put in the Add Manual Action form
  *                 with Edit and saved twice, comes back as it was each time — six of
  *                 them with Click through off; the checkbox shows only for those
@@ -1205,7 +1210,86 @@ export async function checkCaseTake(ctx) {
   }
 }
 
+/** Type `value` into the popup's question dialog and confirm it. */
+async function answerPrompt(popup, value) {
+  await popup.evaluate(`(() => { document.getElementById('confirmModalInput').value = ${JSON.stringify(value)}; document.getElementById('confirmModalOk').click(); })()`);
+  await sleep(POPUP_SETTLE_MS);
+}
+
+const storedCases = async (popup, id) => (await storedActions(popup, id))[0].cases
+  .map((c) => `${c.value} ${c.empty ? 'empty' : `${c.startAt}–${c.endAt}`}`).join(' | ');
+
+export async function checkSplitCase(ctx) {
+  const id = await makeScenario(ctx, 'e2e split case', threeCaseSwitch());
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    const gaps = await popup.evaluate(`[...document.querySelectorAll('#actions .ins-gap-split')].map((b) => b.closest('li').dataset.index + ': ' + b.title).join(' | ')`);
+    check(gaps === '3: Split case "C" here: action 5 becomes a new case',
+      'the ✂ is only in the gap between two actions of one case', gaps);
+    const split = () => popup.evaluate(`document.querySelector('#actions li.action[data-index="3"] .ins-gap-split').click()`);
+    await split();
+    await sleep(SETTLE_MS);
+    await answerPrompt(popup, 'A');
+    const dup = { toast: await popup.evaluate(`document.getElementById('toast').textContent`), cases: await storedCases(popup, id) };
+    check(dup.toast === 'Case "A" already exists' && dup.cases === 'A 2–2 | B 3–3 | C 4–5', 'a value another case has is refused, nothing changes', dup);
+    await split();
+    await sleep(SETTLE_MS);
+    await answerPrompt(popup, 'D');
+    const done = { cases: await storedCases(popup, id),
+      heads: await popup.evaluate(`[...document.querySelectorAll('#actions li.sw-case-head .sw-case-head-label')].map((e) => e.textContent).join(' | ')`),
+      place: await popup.evaluate(`document.querySelector('#actions li.action[data-index="4"] .index').title`),
+      gaps: await popup.evaluate(`document.querySelectorAll('#actions .ins-gap-split').length`) };
+    check(done.cases === 'A 2–2 | B 3–3 | C 4–4 | D 5–5' && done.heads === 'case "A" | case "B" | case "C" | case "D"' && done.place === 'Switch 1 › case "D"' && done.gaps === 0,
+      '✂ then a value: the case keeps its first action, the new case runs the rest', done);
+    await popup.evaluate(`document.getElementById('undoAction').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const undone = await storedCases(popup, id);
+    check(undone === 'A 2–2 | B 3–3 | C 4–5', 'Undo gives the case its action back', undone);
+    // While the Switch is open in the form its cases are the form's: no ✂, no "+ case".
+    await rowButton(popup, 0, 3);
+    await sleep(POPUP_SETTLE_MS);
+    const inForm = await popup.evaluate(`[...document.querySelectorAll('#actions .ins-gap-split, #actions .sw-case-add')].filter((e) => getComputedStyle(e).display !== 'none').length`);
+    check(inForm === 0, 'no ✂ and no "+ case" while that Switch is open in the form', inForm);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
+export async function checkAddEmptyCase(ctx) {
+  const id = await makeScenario(ctx, 'e2e add empty case', threeCaseSwitch());
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    await popup.evaluate(`document.querySelector('#actions li.sw-case-add button').click()`);
+    await sleep(SETTLE_MS);
+    await answerPrompt(popup, 'D');
+    const added = { cases: await storedCases(popup, id),
+      head: await popup.evaluate(`[...document.querySelectorAll('#actions li.sw-case-head')].pop().textContent`) };
+    check(added.cases === 'A 2–2 | B 3–3 | C 4–5 | D empty' && added.head.includes('case "D"') && added.head.includes('(empty)'),
+      '"+ case" then a value adds an empty case, listed with the block\'s cases', added);
+    // "after" (#6, below the block) dropped on the empty case's header.
+    const under = await dragRow(popup, 5, 'sw-case-head');
+    await sleep(POPUP_SETTLE_MS);
+    const dropped = { under, cases: await storedCases(popup, id), order: (await storedActions(popup, id)).map((a) => a.label || a.type).join(' ') };
+    check(dropped.cases === 'A 2–2 | B 3–3 | C 4–5 | D 6–6' && dropped.order === 'switch a b c1 c2 after',
+      'an action dropped on that case becomes its first action', dropped);
+    await popup.evaluate(`document.querySelector('#actions li.sw-case-add button').click()`);
+    await sleep(SETTLE_MS);
+    await answerPrompt(popup, '');
+    const def = await storedCases(popup, id);
+    check(def.endsWith('| __default__ empty'), 'an empty value adds the default case', def);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await popup.close();
+  }
+}
+
 export const CHECKS = [
+  ['split-case', 'The ✂ between two actions of a case: the rest becomes a new case', checkSplitCase],
+  ['add-empty-case', '"+ case" under a block\'s cases adds an empty case to drop actions on', checkAddEmptyCase],
   ['case-take', 'A case added over another case\'s actions: "Take from case …" on the overlap error', checkCaseTake],
   ['new-case-default', 'A new case of a Switch that has cases: its Actions start after the block', checkNewCaseDefault],
   ['preview-no-flash', 'Disable / Enable an action without the list flashing', checkPreviewNoFlash],

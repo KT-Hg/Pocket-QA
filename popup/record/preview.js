@@ -3,16 +3,16 @@
  * Conditions with their numbering, collapsing, drag & drop and row buttons.
  */
 
-import { CASE_COLORS, SWITCH_SELF, actionUnit, anyBlocks, anyConditions, caseLabel, conditionChoices, conditionSkip, getConditionLayout, getSwitchLayout, insertActions, isAlwaysSwitch, isBlockCase, planDrop, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
+import { CASE_COLORS, SWITCH_SELF, actionUnit, anyBlocks, anyConditions, caseLabel, caseValueError, conditionChoices, conditionSkip, getConditionLayout, getSwitchLayout, insertActions, isAlwaysSwitch, isBlockCase, planDrop, splitCaseAt, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef } from '../../shared/var-name.js';
 import { actionCount, actionsEl, conditionSkipCount, preview, runListDisplay, scenarioList } from '../dom.js';
 import { updateRunListDisplay } from '../run/playback-controls.js';
 import { ui } from '../ui-state.js';
-import { escHtml, getActionIcon, getDragAfterElement, showConfirm, showToast } from '../utils.js';
+import { escHtml, getActionIcon, getDragAfterElement, showConfirm, showPrompt, showToast } from '../utils.js';
 import { followListEdit, startEdit } from './action-form.js';
 import { debouncedSaveDraft } from './draft.js';
 import { anchorAfterUnit, clearInsertPoint, fitInsertPoint, gapAnchor, insertAnchor, moveInsertPoint, pickInsertAfter, renderInsertPoint } from './insert-point.js';
-import { candidateActions, noOf, setSwitchContext, swCtx, switchSelfIdx, switchStartSuffix } from './switch-case-builder.js';
+import { SWITCH_SELF_LABEL, candidateActions, noOf, setSwitchContext, swCtx, switchSelfIdx, switchStartSuffix } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 
 export function getActionDisplayValue(a) {
@@ -355,6 +355,100 @@ function _paste(anchor, keepPlace) {
     previewActions(() => revealAction(res?.index));
     updateUndoRedoState();
   });
+}
+
+/** The Switch at `s` is open in the form: its cases are the form's to change until it is saved. */
+const _switchInForm = (s, scenarioId) => !!ui.editing && ui.editing.index === s && (ui.editing.scenarioId || null) === (scenarioId || null);
+
+/** Store `action` as the Switch at `s` — its cases changed from the list — and redraw. */
+function _saveSwitchCases(s, action, scenarioId, done) {
+  chrome.runtime.sendMessage({ type: "UPDATE_ACTION", scenarioId, index: s, action }, (res) => {
+    if (res?.success) done?.();
+    else showToast("Could not change the Switch", "error");
+    previewActions();
+    updateUndoRedoState();
+  });
+}
+
+/** Ask for a new case's value; `onValue` gets it ('__default__' when left empty) unless a case has it already. */
+function _askCaseValue(s, msg, onValue) {
+  showPrompt(msg, (raw) => {
+    const value = raw === "" ? "__default__" : raw;
+    const sw = swCtx.actions[s];
+    const taken = sw?.type === "switch" ? caseValueError(sw.cases, value) : "The Switch is no longer there";
+    if (taken) { showToast(taken, "error"); return; }
+    onValue(value);
+  }, { title: "New case", okLabel: "Add case" });
+}
+
+/**
+ * The ✂ in the gap above action `i`, when the case it is in can be split there
+ * (splitCaseAt): action `i` and the rest of the case become a new case. Null
+ * when it cannot, or while that Switch is open in the form (setEditing hides
+ * the ones already drawn: data-cases-of).
+ */
+function _splitBtn(i, scenarioId) {
+  const split = splitCaseAt(swCtx.actions, i, "", swCtx.layout, swCtx.condLayout);
+  if (!split || _switchInForm(split.switchIdx, scenarioId)) return null;
+  const old = swCtx.actions[split.switchIdx].cases[split.caseIdx];
+  const moved = split.action.cases[split.action.cases.length - 1];
+  const many = moved.endAt > moved.startAt;
+  const what = `action${many ? "s" : ""}${switchStartSuffix(moved)}`;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "ins-gap ins-gap-split";
+  b.dataset.casesOf = split.switchIdx;
+  b.textContent = "✂";
+  b.title = `Split case ${caseLabel(old)} here: ${what} become${many ? "" : "s"} a new case`;
+  b.setAttribute("aria-label", b.title);
+  b.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    _askCaseValue(split.switchIdx, `Value of the new case — it takes ${what} from case ${caseLabel(old)}. Empty = default.`, (value) => {
+      // The list as it is now: it may have changed while the question was open.
+      const now = splitCaseAt(swCtx.actions, i, value, swCtx.layout, swCtx.condLayout);
+      if (!now) { showToast("That case can no longer be split here", "error"); return; }
+      const cases = now.action.cases;
+      _saveSwitchCases(now.switchIdx, now.action, scenarioId, () => showToast(
+        `Case ${caseLabel(cases[cases.length - 1])} runs${switchStartSuffix(cases[cases.length - 1])} · case ${caseLabel(cases[now.caseIdx])} runs${switchStartSuffix(cases[now.caseIdx])}`, "success"));
+    });
+  });
+  return b;
+}
+
+/**
+ * The "+ case" row closing a block's cases: asks for a value and adds an empty
+ * case to the Switch at `s` — drop actions on it, or + one in. Never a drop
+ * target: it is hidden while dragging (12-switch-blocks.css).
+ */
+function _addCaseLi(s, layout, scenarioId) {
+  const li = document.createElement("li");
+  li.className = "sw-case-add";
+  li.dataset.switch = s;
+  li.dataset.casesOf = s;
+  const sw = layout[s];
+  const n = swCtx.actions[s].cases.length;
+  _applyBlockStyle(li, sw.depth + 1 + _condsOf(s).length, n % CASE_COLORS);
+  const keys = _blockKeys(sw.chain);
+  li.dataset.blocks = _withConds(`${keys.blocks} ${s}`.trim(), _condsOf(s));
+  if (keys.cases) li.dataset.cases = keys.cases;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "secondary sw-case-add-btn";
+  b.textContent = "+ case";
+  b.title = `Add an empty case to Switch ${s + 1} — then drop actions on it`;
+  b.setAttribute("aria-label", b.title);
+  b.addEventListener("click", () => {
+    _askCaseValue(s, `Value of the new case of Switch ${s + 1}. Empty = default.`, (value) => {
+      const cur = swCtx.actions[s];
+      const added = { value, scenarioId: SWITCH_SELF, scenarioName: SWITCH_SELF_LABEL, empty: true };
+      _saveSwitchCases(s, { ...cur, cases: [...cur.cases, added] }, scenarioId,
+        () => showToast(`Case ${caseLabel(added)} added — drop an action on it`, "success"));
+    });
+  });
+  const rule = document.createElement("span");
+  rule.className = "sw-case-head-rule";
+  li.append(b, rule);
+  return li;
 }
 
 /**
@@ -716,6 +810,9 @@ function createActionListItem(a, i, scenarioId, view = null) {
   btnRow.appendChild(delBtn);
   li.appendChild(btnRow);
   li.appendChild(_gapBtn(li, `Insert an action below action ${no}`));
+  // ✂ beside that +: split the case between this action and the next.
+  const splitBtn = view ? _splitBtn(i + 1, scenarioId) : null;
+  if (splitBtn) li.appendChild(splitBtn);
   return li;
 }
 
@@ -755,6 +852,7 @@ function _renderActionRows(actions, scenarioId) {
           if (!cc.isBlock) actionsEl.appendChild(_otherCaseLi(s, cc.caseIdx, actions, layout));
           else if (cc.start == null) actionsEl.appendChild(_caseHeadLi(s, cc.caseIdx, actions, layout, true));
         });
+        if (!_switchInForm(s, scenarioId)) actionsEl.appendChild(_addCaseLi(s, layout, scenarioId));
         actionsEl.appendChild(_outsideLi(s, layout));
       });
   });

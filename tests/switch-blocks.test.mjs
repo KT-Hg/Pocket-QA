@@ -5,7 +5,7 @@ import {
   getSwitchLayout, validateSwitch, conditionSkipTarget, resumeSegments,
   remapAfterRemove, remapAfterReorder, planDrop, continueIndex, blockEnd, isAlwaysSwitch,
   addIndex, remapAfterInsert, remapDraftSwitch, nestedBlockErrors, SWITCH_SELF,
-  actionUnit, appendUnit, getConditionLayout, insertActions, carveCases, caseValueError,
+  actionUnit, appendUnit, getConditionLayout, insertActions, carveCases, caseValueError, splitCaseAt,
 } from '../shared/switch-blocks.js';
 
 const act = (label) => ({ type: 'click', selector: `#${label}`, label });
@@ -509,4 +509,50 @@ test('caseValueError: a value another case has, but not the case being edited', 
   assert.equal(caseValueError(cases, '__default__'), 'Case default already exists');
   assert.equal(caseValueError(cases, 'A', 0), null);
   assert.equal(caseValueError(cases, 'B'), null);
+});
+
+// ── splitCaseAt ──────────────────────────────────────────────────────────────
+
+test('splitCaseAt: the case keeps what is before, a new last case runs the rest', () => {
+  // #1 Switch  "1" → #2..#3 | "2" → #4..#5,  #6 after
+  const out = splitCaseAt(sample(), 2, 'new');
+  assert.equal(out.switchIdx, 0);
+  assert.equal(out.caseIdx, 0);
+  assert.deepEqual(out.action.cases, [blk('1', 2, 2), blk('2', 4, 5), blk('new', 3, 3)]);
+  const list = sample(); list[0] = out.action;
+  assert.deepEqual(validateSwitch(list, 0).errors, []);
+  assert.deepEqual(places(list), ['-', '1.1', '1.3', '1.2', '1.2', '-']);
+});
+
+test('splitCaseAt: null on the first action of a case, outside the block, on the Switch', () => {
+  assert.equal(splitCaseAt(sample(), 1, 'x'), null, 'first action of case "1"');
+  assert.equal(splitCaseAt(sample(), 3, 'x'), null, 'first action of case "2"');
+  assert.equal(splitCaseAt(sample(), 5, 'x'), null, 'after the block');
+  assert.equal(splitCaseAt(sample(), 0, 'x'), null, 'the Switch itself');
+  assert.equal(splitCaseAt(sample(), 9, 'x'), null, 'no such action');
+});
+
+test('splitCaseAt: in a nested Switch it is the inner case that splits; the outer one after its block', () => {
+  // #1 Switch "o" → #2..#6 ; #2 Switch "i" → #3..#4 ; #5, #6 in "o" ; #7 after
+  const nested = () => [
+    sw([blk('o', 2, 6)]),
+    sw([blk('i', 3, 4)]), act('A'), act('B'), act('C'), act('D'), act('E'),
+  ];
+  const inner = splitCaseAt(nested(), 3, 'n');
+  assert.equal(inner.switchIdx, 1);
+  assert.deepEqual(inner.action.cases, [blk('i', 3, 3), blk('n', 4, 4)]);
+  const outer = splitCaseAt(nested(), 5, 'n');
+  assert.equal(outer.switchIdx, 0);
+  assert.deepEqual(outer.action.cases, [blk('o', 2, 5), blk('n', 6, 6)]);
+  assert.equal(splitCaseAt(nested(), 2, 'n'), null, 'first action of the inner case');
+});
+
+test('splitCaseAt: not between a Condition and the actions it guards', () => {
+  // #1 Switch "1" → #2..#4 ; #2 Condition guarding #3 ; #4
+  const list = [
+    sw([blk('1', 2, 4)]),
+    { type: 'condition', skipCount: 1 }, act('A'), act('B'),
+  ];
+  assert.equal(splitCaseAt(list, 2, 'x'), null, 'the guarded action would leave its Condition');
+  assert.deepEqual(splitCaseAt(list, 3, 'x').action.cases, [blk('1', 2, 3), blk('x', 4, 4)]);
 });

@@ -612,6 +612,8 @@
 #actions li .ins-gap:hover { background: var(--primary-fill-hover); }
 /* 📋 beside the +, when something was copied: paste right here. */
 #actions li .ins-gap-paste { left: calc(50% + 22px); font-size: 10px !important; }
+/* ✂ on the other side of the +, between two actions of one case: split the case here. */
+#actions li .ins-gap-split { left: calc(50% - 22px); font-size: 10px !important; }
 #actions li:hover > .ins-gap,
 #actions li > .ins-gap:focus-visible { opacity: 1; }
 /* The gap the + inserts into. */

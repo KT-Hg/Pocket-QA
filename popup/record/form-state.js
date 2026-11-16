@@ -82,6 +82,11 @@ export function setEditing(editing) {
   if (title) title.textContent = editing ? `Edit Action #${editing.index + 1}` : "Add Manual Action";
   addManualAction.textContent = editing ? "Save Edit" : "Add Action";
   cancelEdit.title = editing ? "Cancel the edit — the action stays as it was" : "Cancel the new action — clears this card";
+  // A Switch open here has its cases in this form until it is saved: the list's
+  // ✂ and "+ case" for that Switch (record/preview.js) are off meanwhile.
+  document.querySelectorAll("#actions [data-cases-of]").forEach((el) => {
+    el.classList.toggle("sw-form-owned", !!editing && Number(el.dataset.casesOf) === editing.index);
+  });
 }
 
 export function applyManualFormState(state) {

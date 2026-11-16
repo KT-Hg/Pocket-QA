@@ -21,7 +21,7 @@ let _takeIdx = -1;
 // A case targeting SWITCH_SELF (shared/switch-blocks.js) stays in the scenario being
 // played: with an end action it owns that block of actions, without one it
 // jumps and plays on (the original behaviour).
-const SWITCH_SELF_LABEL = "↻ This scenario (jump)";
+export const SWITCH_SELF_LABEL = "↻ This scenario (jump)";
 
 /* The scenario on screen and its Switch layout. The form lists actions by the
    numbers the preview shows, so it reads the list the preview read. */

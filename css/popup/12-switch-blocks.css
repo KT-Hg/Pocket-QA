@@ -130,3 +130,26 @@
 /* "Take from case …" on an overlap error: the case added last keeps the actions. */
 .sw-val-error .sw-take { margin-left: 6px !important; }
 .sw-frame-note { display: block; margin-top: 4px; color: var(--secondary); }
+
+/* The "+ case" row closing a block's cases (record/preview.js). */
+.actions li.sw-case-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  background: transparent;
+  cursor: default;
+}
+.actions li.sw-case-add::before { content: none; }
+.actions li.sw-case-add:hover { background: transparent; }
+.actions li.sw-case-add .sw-case-add-btn {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 7px;
+  font-size: 10px;
+  line-height: 16px;
+}
+.actions.sw-dragging li.sw-case-add { display: none; }
+/* The Switch is open in the form (form-state.js setEditing): its ✂ and "+ case" are off. */
+.actions .sw-form-owned { display: none !important; }

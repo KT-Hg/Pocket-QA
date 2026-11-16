@@ -974,6 +974,33 @@ export function planDrop(actions, dragged, anchor) {
   return { newOrder, move, actions: next };
 }
 
+/**
+ * Split the block case holding action `idx` in two, there: the case keeps its
+ * actions before `idx`, and a new case `value` — added last, so no case
+ * changes its colour — runs `idx` to where the case ended. The case is the
+ * innermost one, so in a nested Switch it is that Switch's case.
+ *
+ * Returns { switchIdx, caseIdx, action } — the Switch to store at `switchIdx`
+ * and the case that was split — or null when `idx` is in no block case, is the
+ * first action of its case, or is guarded by a Condition that would stay behind
+ * in the old case.
+ */
+export function splitCaseAt(actions, idx, value, layout = null, condLayout = null) {
+  const list = Array.isArray(actions) ? actions : [];
+  const lay = layout || getSwitchLayout(list);
+  const inner = lay[idx]?.chain?.[lay[idx].chain.length - 1];
+  if (!inner || inner.caseIdx == null || idx <= inner.start) return null;
+  const sw = list[inner.switchIdx];
+  const c = sw?.cases?.[inner.caseIdx];
+  const r = caseRange(c);
+  if (!r || idx > r.end) return null;
+  const cl = condLayout || getConditionLayout(list, lay);
+  if ((cl[idx]?.conds || []).some((g) => g >= inner.start && g < idx)) return null;
+  const cases = sw.cases.map((x, k) => (k === inner.caseIdx ? { ...x, endAt: idx } : x));
+  cases.push({ value, scenarioId: SWITCH_SELF, ...(c.scenarioName ? { scenarioName: c.scenarioName } : {}), startAt: idx + 1, endAt: r.end + 1 });
+  return { switchIdx: inner.switchIdx, caseIdx: inner.caseIdx, action: { ...sw, cases } };
+}
+
 /** True when any action in the list is a block Switch. */
 export function anyBlocks(actions) {
   return (Array.isArray(actions) ? actions : []).some(hasBlock);
