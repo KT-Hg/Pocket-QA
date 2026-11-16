@@ -1079,9 +1079,18 @@ test('a step a Condition skips is not in the trace; a step of a Switch case of t
   assert.ok(!trace.includes(2) && trace.includes(4));
 });
 test('a first failure inside another scenario is marked nested; one of the scenario itself is not', () => {
-  const f = evid['evidence: a failure inside another scenario says so'].lastRun.failures[0];
-  assert.deepEqual([f.index, f.nested, f.trace], [2, true, [0, 1]]);
+  const { lastRun } = evid['evidence: a failure inside another scenario says so'];
+  const f = lastRun.failures[0];
+  // The steps of the other scenario are in the trace, and its actions in the run, for the report.
+  const inV = (i) => ({ scenarioId: 'vFail', i, depth: 1 });
+  assert.deepEqual([f.index, f.nested, f.trace], [2, true, [0, 1, inV(0), inV(1)]]);
+  assert.deepEqual(Object.keys(lastRun.otherActions), ['vFail']);
+  assert.equal(lastRun.otherActions.vFail.length, 3);
+  assert.equal(evid['evidence: trace and the first failure'].lastRun.otherActions, undefined);
   assert.equal(evid['evidence: trace and the first failure'].lastRun.failures[0].nested, undefined);
+  // Which scenario its #2 is of: without it the popup showed step #2 of ENested.
+  assert.deepEqual([f.scenarioId, f.scenarioName], ['vFail', 'VFail']);
+  assert.equal(evid['evidence: trace and the first failure'].lastRun.failures[0].scenarioId, undefined);
 });
 test('a retried step is in the trace once; the trace is the loop the failure is in', () => {
   assert.deepEqual(evid['evidence: a retried step is in the trace once'].lastRun.failures[0].trace, [0, 1]);

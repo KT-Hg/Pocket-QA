@@ -125,6 +125,12 @@ async function _evidence(tabId, evidence) {
   return { url, at: Date.now(), loop: evidence.loop, trace: [...evidence.trace] };
 }
 
+/** Add `step` to the trace unless it is the last one there (a retry). */
+function _traceStep(trace, step) {
+  const last = trace.at(-1);
+  if (typeof step === 'number' ? last !== step : last?.scenarioId !== step.scenarioId || last.i !== step.i) trace.push(step);
+}
+
 /* ── Screenshot settings cache ──────────────────────────────────────────────── */
 
 // Cached per playback run so repeated screenshot actions don't each issue a
@@ -170,16 +176,22 @@ function _saveCheckpoint(frames, tabId) {
  * past without asking (a false Assert). A Play or Resume's first failure carries
  * its bug report's facts (_evidence), taken before a prompt shows, and `nested`
  * when it is a step of another scenario a Switch plays (its index is that one's).
+ * A step of another scenario (`scenarioId`) says which, every time: its index is
+ * that scenario's, and without it the popup told it on the step of that number
+ * of the scenario that was played.
  */
-function _failureRecorders(tabId, actions, failedActions, evidence, traced) {
+function _failureRecorders(tabId, actions, failedActions, { evidence, scenarioId }) {
   const firstFacts = async () => (evidence && !failedActions?.length
-    ? { ...(await _evidence(tabId, evidence)), ...(traced ? {} : { nested: true }) }
+    ? { ...(await _evidence(tabId, evidence)), ...(scenarioId ? { nested: true } : {}) }
+    : {});
+  const where = async () => (scenarioId
+    ? { scenarioId, scenarioName: (await getScenarios())[scenarioId]?.name || scenarioId }
     : {});
   return {
     fail: async (i, action, reason, record) =>
-      onActionFailed({ tabId, i, actions, action, reason, failedActions, record, facts: await firstFacts() }),
+      onActionFailed({ tabId, i, actions, action, reason, failedActions, record, facts: { ...(await where()), ...(await firstFacts()) } }),
     recordFail: async (i, action, reason, facts) =>
-      recordFailure({ i, action, reason, failedActions, facts: { ...facts, ...(await firstFacts()) } }),
+      recordFailure({ i, action, reason, failedActions, facts: { ...facts, ...(await where()), ...(await firstFacts()) } }),
   };
 }
 
@@ -191,13 +203,12 @@ function _failureRecorders(tabId, actions, failedActions, evidence, traced) {
  * (scenario.clickThrough === false) — see steps/click-through.js.
  * `screenshotNames`: a CSV row's { varName: Filename } of its Screenshot →
  * Variable steps, the names their images get in the ZIP export.
- * `evidence`: a Play or Resume's { trace, loop, shot } — see _evidence; `traced`:
- * the steps played here go into its trace (not those of another scenario).
+ * `evidence`: a Play or Resume's { trace, loop, shot } — see _evidence.
  */
 export async function playActionsOnTab(tabId, actions, {
   vars = null, screenshotsResult = null, forceAutoSave = false, skipDownload = false,
   startFromIndex = 0, failedActions = null, depth = 0, endAtIndex = null, frames = null, strict = false,
-  screenshotNames = null, evidence = null, traced = true,
+  screenshotNames = null, evidence = null,
 } = {}) {
   if (depth > 10) {
     console.error('[PLAYBACK] Max switch/nested-scenario depth (10) exceeded — aborting branch');
@@ -233,7 +244,10 @@ export async function playActionsOnTab(tabId, actions, {
     ? actions.length - 1
     : Math.min(endAtIndex, actions.length - 1);
 
-  const { fail, recordFail } = _failureRecorders(tabId, actions, failedActions, evidence, traced);
+  // The other scenario these actions are of, if a Switch went into one; a block
+  // case shares its scenario's frames.
+  const _otherId = _frames.findLast((f) => f.scenarioId)?.scenarioId;
+  const { fail, recordFail } = _failureRecorders(tabId, actions, failedActions, { evidence, scenarioId: _otherId });
 
   // Sticky fallback resolution: if the content script resolved a {fallback:...}
   // variable, persist the winning value into resolvedVars so every subsequent
@@ -258,7 +272,7 @@ export async function playActionsOnTab(tabId, actions, {
       vars: nestedVars, screenshotsResult, screenshotNames, forceAutoSave, skipDownload, startFromIndex: start,
       failedActions, depth: depth + 1, endAtIndex: end, strict: other ? other.strict : strict,
       frames: other ? [..._frames, { scenarioId: other.scenarioId, actionIndex: start, endAtIndex: end }] : _frames,
-      evidence, traced: other ? false : traced,
+      evidence,
     }),
   });
 
@@ -282,8 +296,9 @@ export async function playActionsOnTab(tabId, actions, {
           if (_layout && hasBlock(action)) i = blockEnd(actions, i);
           continue;
         }
-        // Once per step: Retry plays the same step again.
-        if (evidence && traced && evidence.trace.at(-1) !== i) evidence.trace.push(i);
+        // Once per step: Retry plays the same step again. A step of another
+        // scenario a Switch went into: { scenarioId, i, depth } (Switches deep).
+        if (evidence) _traceStep(evidence.trace, _otherId ? { scenarioId: _otherId, i, depth: _frames.length - 1 } : i);
         if (action.type === 'assert') _checksRun++;
 
         // Each action type is a step in bg/playback/steps/; any other is played by
@@ -351,7 +366,7 @@ async function _resumeNested(tabId, scenarios, rootSwitchIdx, nested, { failedAc
         vars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
         startFromIndex: seg.start, failedActions, depth: k + 1, endAtIndex: end,
         frames: [...outer, { scenarioId, actionIndex: seg.start, endAtIndex }],
-        strict: scenarios[scenarioId].clickThrough === false, evidence, traced: false,
+        strict: scenarios[scenarioId].clickThrough === false, evidence,
       });
     }
   }
@@ -416,7 +431,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
     delete verdict.checks;
     updateBadge();
     chrome.storage.local.remove('playbackCheckpoint');
-    _saveLastRun(scenarioId, scenario, {
+    _saveLastRun(scenarioId, scenarios, {
       startedAt, loops: 1, completed, verdict, failures: failedActions, shot: evidence.shot, resumed: true,
     });
     await _notifyVerdict(`"${scenario.name}"`, verdict,
@@ -429,13 +444,17 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
  * The run Play or Resume just ended, for the popup's Last run card and its bug
  * report; its first failure's screenshot, if one was taken, as lastRunShot.
  */
-function _saveLastRun(scenarioId, scenario, run) {
+function _saveLastRun(scenarioId, scenarios, run) {
+  const scenario = scenarios[scenarioId];
+  // The other scenarios the first failure's steps ran in, Switched into.
+  const otherIds = new Set((run.failures[0]?.trace || []).filter((t) => typeof t === 'object').map((t) => t.scenarioId));
   const lastRun = {
     scenarioId, scenarioName: scenario.name || scenarioId, startedAt: run.startedAt, endedAt: Date.now(),
     loops: run.loops, completed: run.completed, verdict: run.verdict, failures: run.failures,
     ...(run.resumed ? { resumed: true } : {}),
     // As saved, before variables: the report tells the steps, the scenario may change after.
     actions: scenario.actions || [],
+    ...(otherIds.size ? { otherActions: Object.fromEntries([...otherIds].map((id) => [id, scenarios[id]?.actions || []])) } : {}),
   };
   // A shot of a failure retried away is not the run's: it has no failure then.
   const shot = run.failures.length ? run.shot : null;
@@ -515,7 +534,7 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
     const verdict = _endVerdict(failedActions, completed);
     updateBadge();
     chrome.storage.local.remove('playbackCheckpoint');
-    _saveLastRun(scenarioId, scenario, { startedAt, loops, completed, verdict, failures: failedActions, shot: evidence.shot });
+    _saveLastRun(scenarioId, scenarios, { startedAt, loops, completed, verdict, failures: failedActions, shot: evidence.shot });
     await _notifyVerdict(`"${scenario.name}"`, verdict, completed
       ? `"${scenario.name}" finished${loops > 1 ? ` (${loops} loops)` : ''}`
       : `"${scenario.name}" stopped before its end`);

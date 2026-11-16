@@ -30,7 +30,9 @@ export function initNotices() {
     if (msg.type !== "ACTION_FAILED") return;
     const label = msg.action?.type ? `[${msg.action.type}]` : "";
     const reason = msg.reason || "element not found";
-    showToast(`Action ${msg.index + 1} failed ${label} — ${reason}`, "error");
+    // A step of another scenario a Switch played: its number is that one's.
+    const where = msg.scenarioName ? ` in "${msg.scenarioName}"` : "";
+    showToast(`Action ${msg.index + 1}${where} failed ${label} — ${reason}`, "error");
   });
   // Notify user when a Switch action branches to another scenario
   chrome.runtime.onMessage.addListener((msg) => {

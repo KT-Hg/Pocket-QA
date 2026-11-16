@@ -24,8 +24,10 @@ function _formatBug(failures) {
   if (!failures || failures.length === 0) return "";
   return failures.map(f => {
     const label = f.label ? ` "${f.label}"` : "";
+    // A step of another scenario a Switch played: its number is that one's.
+    const where = f.scenarioId ? ` in "${f.scenarioName || f.scenarioId}"` : "";
     // A failure recorded before reasons were kept reads as it did.
-    return `[${f.index}] ${f.type}${label}${f.reason ? `: ${f.reason}` : ""}`;
+    return `[${f.index}${where}] ${f.type}${label}${f.reason ? `: ${f.reason}` : ""}`;
   }).join("; ");
 }
 

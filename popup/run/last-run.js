@@ -57,11 +57,13 @@ function _failureButton(run, f) {
   button.type = 'button';
   button.className = 'lr-failure';
   button.dataset.kind = f.kind === 'assert' ? 'assert' : 'broken';
+  // A step of another scenario a Switch played: its number is that one's.
+  const where = f.scenarioId ? ` in "${f.scenarioName || f.scenarioId}"` : '';
   // textContent: the reason holds text read from the page under test.
-  button.textContent = `${f.kind === 'assert' ? '✗' : '⚠'} #${f.index} ${f.label || f.type} — ${f.reason}`;
+  button.textContent = `${f.kind === 'assert' ? '✗' : '⚠'} #${f.index}${where} ${f.label || f.type} — ${f.reason}`;
   // In full: the line is cut to the card's width.
   button.title = `${button.textContent}\nClick to show this action in the list`;
-  button.addEventListener('click', () => _showAction(run.scenarioId, f.index - 1));
+  button.addEventListener('click', () => _showAction(f.scenarioId || run.scenarioId, f.index - 1));
   const li = document.createElement('li');
   li.append(button);
   return li;

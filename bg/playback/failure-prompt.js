@@ -20,16 +20,19 @@ const PROMPT_CLOSE_TIMEOUT_MS = 2_000;
 const RELOAD_WAIT_MS = 10_000;
 const CONTENT_SCRIPT_SETTLE_MS = 300;
 
-export function notifyActionFailed(index, action, reason, { toPopup = true } = {}) {
+// ' in "Checkout"': a step of another scenario a Switch played; its number is that one's.
+const _in = (scenarioName) => (scenarioName ? ` in "${scenarioName}"` : '');
+
+export function notifyActionFailed(index, action, reason, { toPopup = true, scenarioName = '' } = {}) {
   const r = reason || 'element not found';
-  if (toPopup) chrome.runtime.sendMessage({ type: 'ACTION_FAILED', index, action, reason: r }).catch(() => {});
+  if (toPopup) chrome.runtime.sendMessage({ type: 'ACTION_FAILED', index, action, reason: r, ...(scenarioName ? { scenarioName } : {}) }).catch(() => {});
   if (!state.csvPlayback.active) {
     const label = action?.label || action?.type || '';
     // Stable id: playback continues past a failed action, so without one a run
     // with many failures buries the notification centre under a separate entry
     // per action. Re-using the id keeps a single, always-current "latest failure".
     sendAlertNotification(
-      `⚠ Action ${index + 1} Failed`,
+      `⚠ Action ${index + 1}${_in(scenarioName)} Failed`,
       label ? `${label}: ${r}` : r,
       'action_failed',
     );
@@ -102,7 +105,7 @@ async function _askOnFailure(tabId, info) {
  * to the record: `kind` (shared/verdict.js), what was expected and found.
  */
 export function recordFailure({ i, action, reason, failedActions, facts = {} }) {
-  notifyActionFailed(i, action, reason);
+  notifyActionFailed(i, action, reason, { scenarioName: facts.scenarioName });
   failedActions?.push({ index: i + 1, type: action?.type || 'unknown', label: action?.label || '', reason, ...facts });
 }
 
@@ -112,7 +115,8 @@ export function recordFailure({ i, action, reason, failedActions, facts = {} }) 
  */
 export async function onActionFailed({ tabId, i, actions, action, reason, failedActions, record = reason, facts = {} }) {
   const r = reason || 'element not found';
-  chrome.runtime.sendMessage({ type: 'ACTION_FAILED', index: i, action, reason: r }).catch(() => {});
+  const scenarioName = facts.scenarioName || '';
+  chrome.runtime.sendMessage({ type: 'ACTION_FAILED', index: i, action, reason: r, ...(scenarioName ? { scenarioName } : {}) }).catch(() => {});
   // The run now waits for a click in the page, for as long as it takes. Without
   // this, a run nobody is watching (a scheduled one, a tab in another window)
   // sat paused with no sign anywhere. Same id as the other failure notices, and
@@ -120,7 +124,7 @@ export async function onActionFailed({ tabId, i, actions, action, reason, failed
   // Awaited, so the clear below can never overtake it (a prompt can end at once).
   const label = action?.label || action?.type || '';
   await sendAlertNotification(
-    `⚠ Action ${i + 1} failed — run paused`,
+    `⚠ Action ${i + 1}${_in(scenarioName)} failed — run paused`,
     `${label ? `${label}: ` : ''}${r} — Retry, Skip or Stop on the page`,
     'action_failed',
   );
@@ -129,7 +133,7 @@ export async function onActionFailed({ tabId, i, actions, action, reason, failed
   const choice = await _askOnFailure(tabId, {
     index: i, total: actions.length, reason: r,
     actionType: action?.type || '', label: action?.label || '',
-    scenarioName: state.playback.scenarioName || '',
+    scenarioName: scenarioName || state.playback.scenarioName || '',
     row: csv ? state.csvPlayback.currentRow + 1 : null,
     rows: csv ? state.csvPlayback.rows?.length || 0 : null,
   });
@@ -138,7 +142,7 @@ export async function onActionFailed({ tabId, i, actions, action, reason, failed
   // goes on (outside a CSV run, notifyActionFailed below says so instead).
   chrome.notifications.clear('action_failed', ignoreLastError);
   if (choice === FAIL_RETRY) return FAIL_RETRY;
-  if (!choice) notifyActionFailed(i, action, r, { toPopup: false });
+  if (!choice) notifyActionFailed(i, action, r, { toPopup: false, scenarioName });
   if (failedActions) {
     failedActions.push({ index: i + 1, type: action?.type || 'unknown', label: action?.label || '', reason: record || r, ...facts });
   }

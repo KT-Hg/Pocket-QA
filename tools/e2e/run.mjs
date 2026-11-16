@@ -203,6 +203,42 @@ export async function checkLastRun(ctx) {
   await popup.close();
 }
 
+// A step of another scenario a Switch played: its number is that one's. The card
+// marked the step of that number of the scenario played instead.
+export async function checkLastRunSwitch(ctx) {
+  await reloadTestPage(ctx);
+  const bId = await makeScenario(ctx, 'e2e switch B', [
+    { type: 'click', selector: '#bg1', selectors: { css: '#bg1' } },
+    { type: 'assert', conditionType: 'textEquals', selector: '#bg2', selectors: { css: '#bg2' }, expectedValue: 'nope', label: 'B says nope' },
+  ]);
+  const aId = await makeScenario(ctx, 'e2e switch A', [
+    { type: 'click', selector: '#bg1', selectors: { css: '#bg1' } },
+    { type: 'click', selector: '#bg2', selectors: { css: '#bg2' } },
+    { type: 'switch', switchVar: '', cases: [{ value: '__default__', scenarioId: bId, scenarioName: 'e2e switch B' }] },
+  ]);
+  await play(ctx, aId);
+  const popup = await openPopup(ctx);
+  const failure = await popup.evaluate(`document.querySelector('#lastRunCard .lr-failure')?.textContent`);
+  check(/#2 in "e2e switch B" B says nope/.test(failure || ''), 'a failure in the scenario a Switch played names that scenario', failure);
+  await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabRecord"]').click();
+    document.querySelector('#lastRunCard .lr-failure').click();`);
+  await sleep(SETTLE_MS * 2);
+  const jumped = await popup.evaluate(`({ selected: document.getElementById('scenarioList').value,
+    row: document.querySelector('#actions li.action.lr-target')?.dataset.index })`);
+  check(jumped.selected === bId && jumped.row === '1', 'and leads to its step there, not to step #2 of the scenario played', jumped);
+  // The bug report lists that scenario's steps under the Switch.
+  await popup.evaluate(`document.getElementById('lastRunBugReport').click()`);
+  await sleep(SETTLE_MS);
+  const report = await popup.evaluate(`document.getElementById('bugReportText').value`);
+  check(report.includes(', step #2 in "e2e switch B"')
+    && report.includes('3. Run the scenario "e2e switch B"\n   1. Click `#bg1`\n   2. ✗ Check that the text of `#bg2` is "nope" — B says nope\n'),
+  'its bug report lists the steps of that scenario under the Switch', report);
+  await popup.evaluate(`document.getElementById('bugReportClose').click()`);
+  if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  await popup.close();
+  for (const id of [aId, bId]) await ctx.send({ type: 'DELETE_SCENARIO', scenarioId: id });
+}
+
 export async function checkNoChecks(ctx) {
   const lastVerdict = () => ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('lastRun', (x) => r(x.lastRun?.verdict || null)))`);
   const card = async () => {
@@ -399,6 +435,7 @@ export const CHECKS = [
   ['schedule', 'A scheduled run on its start URL', checkSchedule],
   ['assert', 'Assert: waited for, and a false one does not stop the run', checkAssert],
   ['last-run', 'The Last run card in the popup', checkLastRun],
+  ['last-run-switch', 'A failure in the scenario a Switch played leads there', checkLastRunSwitch],
   ['no-checks', 'A run with no Assert says it checked nothing', checkNoChecks],
   ['last-run-live', 'The Last run card hides while a run is on', checkLastRunLive],
   ['run-panel', 'The run panel on the page: progress, off for a screenshot, its Stop', checkRunPanel],

@@ -133,4 +133,14 @@ test('a failure inside another scenario is told by the Switch that ran it', () =
   // Its step #2, under a Switch that is step #2 too: the run's `nested` flag tells.
   const same = { ...nested, failures: [{ ...nested.failures[0], index: 2, nested: true }] };
   assert.ok(buildBugReport(same, { env: ENV }).includes('2. ⚠ Run the scenario "Pay" — it failed at its step #2'));
+  // The steps of the other scenario, traced: a list under the Switch, the failed one marked.
+  const traced = buildBugReport({ ...nested,
+    otherActions: { other: [{ type: 'click', ...sel('#p1') }, { type: 'click', ...sel('#p2') }, { type: 'click', ...sel('#pay') }] },
+    failures: [{ ...nested.failures[0], scenarioId: 'other', scenarioName: 'Pay', nested: true,
+      trace: [0, 1, ...[0, 2].map((i) => ({ scenarioId: 'other', i, depth: 1 }))] }] }, { env: ENV });
+  assert.ok(traced.includes(['1. Click `#a`', '2. Run the scenario "Pay"', '   1. Click `#p1`', '   2. ⚠ Click `#pay`', ''].join('\n')), traced);
+  assert.ok(!traced.includes('it failed at its step'), traced);
+  // The run says which scenario: the title and the failure name it.
+  const named = buildBugReport({ ...nested, failures: [{ ...nested.failures[0], scenarioId: 'other', scenarioName: 'Pay' }] }, { env: ENV });
+  assert.ok(named.includes(', step #3 in "Pay"') && named.includes('- **Failure:** ⚠ #3 in "Pay" click'), named);
 });

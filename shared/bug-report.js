@@ -131,43 +131,64 @@ export function stepText(action, { showValues = false } = {}) {
 }
 
 const _mark = (f) => (f.kind === 'assert' ? '✗' : '⚠');
+// ' in "Pay"': a step of another scenario a Switch played; its number is that one's.
+const _in = (f) => (f.scenarioId ? ` in "${f.scenarioName || f.scenarioId}"` : '');
 
 /** "2026-10-18 14:03:05", local time. */
 function _when(ms) {
   return formatStamp(new Date(ms)).replace('_', ' ').replace(/-(\d\d)-(\d\d)$/, ':$1:$2');
 }
 
+/** The action of a trace step: an index of the scenario, or { scenarioId, i } of another a Switch played. */
+const _traceAction = (run, step) => (typeof step === 'number'
+  ? run.actions?.[step]
+  : run.otherActions?.[step?.scenarioId]?.[step?.i]);
+
 /**
  * The numbered steps: those run up to the failure (its trace), or — with no
- * trace — the scenario's steps up to the failed one, said so. A failure inside
- * another scenario is told on the Switch that ran it.
+ * trace — the scenario's steps up to the failed one, said so. The steps of another
+ * scenario a Switch played are a list under that Switch, one level per Switch
+ * deep. A trace kept before those were traced ends on that Switch, which tells
+ * the failure instead.
  */
 function _steps(run, first, showValues) {
   const acts = run.actions || [];
   const failedAt = first.index - 1;
-  let indices = first.trace;
+  let trace = first.trace;
   const lines = [];
-  if (!Array.isArray(indices)) {
+  if (!Array.isArray(trace)) {
     lines.push('_Steps as defined in the scenario, not as run._', '');
-    indices = acts.slice(0, failedAt + 1).map((a, i) => (a?.disabled ? -1 : i)).filter((i) => i >= 0);
+    trace = acts.slice(0, failedAt + 1).map((a, i) => (a?.disabled ? -1 : i)).filter((i) => i >= 0);
   }
-  const last = indices.at(-1);
-  indices.forEach((i, k) => {
-    if (!acts[i]) return;
-    let text = stepText(acts[i], { showValues });
-    if (i === last) {
+  // Per list level: its count so far, and the indent of its items (past the
+  // number of the item it is under, as Markdown wants).
+  const counts = [];
+  const pads = [''];
+  let depth = -1;
+  trace.forEach((step, k) => {
+    const action = _traceAction(run, step);
+    if (!action) return;
+    const other = typeof step === 'number' ? null : step;
+    // A resume inside another scenario starts deep, with no Switch above it.
+    const d = other ? Math.min(other.depth || 1, depth + 1) : 0;
+    counts.length = d + 1;
+    counts[d] = (counts[d] || 0) + 1;
+    pads[d + 1] = pads[d] + ' '.repeat(String(counts[d]).length + 2);
+    depth = d;
+    let text = stepText(action, { showValues });
+    if (k === trace.length - 1) {
       text = `${_mark(first)} ${text}`;
-      // A step of another scenario: flagged by the run (`nested`), else told by its index.
-      if (first.nested || i !== failedAt) text += ` — it failed at its step #${first.index}`;
+      // The Switch a trace of old ends on: flagged by the run (`nested`), else told by its index.
+      if (!other && (first.nested || step !== failedAt)) text += ` — it failed at its step #${first.index}`;
     }
-    lines.push(`${k + 1}. ${text}`);
+    lines.push(`${pads[d]}${counts[d]}. ${text}`);
   });
   return lines;
 }
 
 /** The variables the listed steps refer to, with the values the caller knows (`vars`). */
 function _variables(run, first, vars, showValues) {
-  const acts = Array.isArray(first.trace) ? first.trace.map((i) => run.actions?.[i]) : run.actions || [];
+  const acts = Array.isArray(first.trace) ? first.trace.map((step) => _traceAction(run, step)) : run.actions || [];
   const names = [...new Set((JSON.stringify(acts).match(VAR_REF) || []).map((r) => r.slice(2, -1)))];
   return names.map((n) => {
     let value = '(not set)';
@@ -191,9 +212,9 @@ function _head(run, first, env) {
   ].filter(Boolean).join(' · ');
   const counts = failCountsText(run.verdict || {});
   return [
-    `## ${verdictLabel(status)} — ${_md(run.scenarioName || run.scenarioId)}, step #${first.index}`,
+    `## ${verdictLabel(status)} — ${_md(run.scenarioName || run.scenarioId)}, step #${first.index}${_md(_in(first))}`,
     '',
-    `- **Failure:** ${_mark(first)} #${first.index} ${_md(first.label || first.type)} — ${_md(first.reason)}`,
+    `- **Failure:** ${_mark(first)} #${first.index}${_md(_in(first))} ${_md(first.label || first.type)} — ${_md(first.reason)}`,
     ...(first.url ? [`- **Page:** ${String(first.url).replace(/\s+/g, '')}`] : []),
     `- **When:** ${where}`,
     `- **Result:** ${verdictLabel(status)}${counts ? ` — ${counts}` : ''}`,
@@ -213,7 +234,7 @@ export function buildBugReport(run, { showValues = false, env = {}, shotName = n
   ];
   if (others.length) {
     out.push('', '### Other failures in this run', '',
-      ...others.map((f) => `- ${_mark(f)} #${f.index} ${_md(f.label || f.type)} — ${_md(f.reason)}`));
+      ...others.map((f) => `- ${_mark(f)} #${f.index}${_md(_in(f))} ${_md(f.label || f.type)} — ${_md(f.reason)}`));
   }
   const variables = _variables(run, first, vars, showValues);
   if (variables.length) out.push('', '### Variables', '', ...variables, '', '_Values as saved now, not necessarily those of the run._');
