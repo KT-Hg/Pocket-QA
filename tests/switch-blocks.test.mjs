@@ -5,7 +5,7 @@ import {
   getSwitchLayout, validateSwitch, conditionSkipTarget, resumeSegments,
   remapAfterRemove, remapAfterReorder, planDrop, continueIndex, blockEnd, isAlwaysSwitch,
   addIndex, remapAfterInsert, remapDraftSwitch, nestedBlockErrors, SWITCH_SELF,
-  actionUnit, appendUnit, getConditionLayout, insertActions,
+  actionUnit, appendUnit, getConditionLayout, insertActions, carveCases, caseValueError,
 } from '../shared/switch-blocks.js';
 
 const act = (label) => ({ type: 'click', selector: `#${label}`, label });
@@ -475,4 +475,38 @@ test('insertActions: no anchor, or one at the very end — added last', () => {
   assert.equal(insertActions(sample(), [act('X')], null).index, 6);
   assert.equal(insertActions(sample(), [act('X')], { kind: 'after', index: 5 }).index, 6);
   assert.equal(insertActions(sample(), [act('X')], { kind: 'nonsense' }).index, 6);
+});
+
+// ── carveCases / caseValueError ──────────────────────────────────────────────
+
+test('carveCases: a case taking the end of another cuts that one back', () => {
+  const cases = [blk('A', 2, 2), blk('C', 4, 5), blk('D', 5, 5)];
+  const out = carveCases(cases, 2);
+  assert.deepEqual(out, [blk('A', 2, 2), blk('C', 4, 4), blk('D', 5, 5)]);
+  assert.equal(out[0], cases[0], 'a case it does not touch is the same object');
+  assert.equal(out[2], cases[2]);
+});
+
+test('carveCases: a case taking the start of another moves that one\'s start', () => {
+  assert.deepEqual(carveCases([blk('C', 4, 6), blk('D', 3, 4)], 1), [blk('C', 5, 6), blk('D', 3, 4)]);
+});
+
+test('carveCases: a case covering another empties it; several cases at once', () => {
+  const out = carveCases([blk('A', 2, 3), blk('B', 4, 4), blk('D', 3, 5)], 2);
+  assert.deepEqual(out, [blk('A', 2, 2), { value: 'B', scenarioId: '__self__', empty: true }, blk('D', 3, 5)]);
+});
+
+test('carveCases: null inside another case, with no overlap, and for a case without a range', () => {
+  assert.equal(carveCases([blk('C', 4, 6), blk('D', 5, 5)], 1), null, 'would cut C in two');
+  assert.equal(carveCases([blk('A', 2, 2), blk('D', 5, 5)], 1), null, 'nothing overlaps');
+  assert.equal(carveCases([blk('A', 2, 2), { value: 'D', scenarioId: '__self__', empty: true }], 1), null);
+  assert.equal(carveCases([blk('A', 2, 2), { value: 'D', scenarioId: 'other' }], 1), null);
+});
+
+test('caseValueError: a value another case has, but not the case being edited', () => {
+  const cases = [blk('A', 2, 2), blk('__default__', 3, 3)];
+  assert.equal(caseValueError(cases, 'A'), 'Case "A" already exists');
+  assert.equal(caseValueError(cases, '__default__'), 'Case default already exists');
+  assert.equal(caseValueError(cases, 'A', 0), null);
+  assert.equal(caseValueError(cases, 'B'), null);
 });

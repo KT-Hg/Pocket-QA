@@ -3,7 +3,7 @@
  * scenario a case runs, Continue at, and validation.
  */
 
-import { CASE_COLORS, SWITCH_SELF, addIndex, caseLabel, caseRange, continueIndex, getConditionLayout, getSwitchLayout, isBlockCase, nestedBlockErrors, remapAfterInsert, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
+import { CASE_COLORS, SWITCH_SELF, addIndex, carveCases, caseLabel, caseRange, caseValueError, continueIndex, getConditionLayout, getSwitchLayout, isBlockCase, nestedBlockErrors, remapAfterInsert, validateExternalCase, validateSwitch } from '../../shared/switch-blocks.js';
 import { scenarioList } from '../dom.js';
 import { ui } from '../ui-state.js';
 import { escHtml, showToast } from '../utils.js';
@@ -13,6 +13,10 @@ import { getActionDisplayValue } from './preview.js';
 
 // Index of the case loaded into the case editor, -1 while it describes a new case.
 let _switchEditIdx = -1;
+
+// Index of the case added or saved last: on an overlap it is the one that can
+// take the actions from the other case ("Take from case …"). -1: not known.
+let _takeIdx = -1;
 
 // A case targeting SWITCH_SELF (shared/switch-blocks.js) stays in the scenario being
 // played: with an end action it owns that block of actions, without one it
@@ -304,6 +308,7 @@ function _syncAddRowMode() {
 /** Put the case editor back to "+ New case". */
 export function resetCaseEditor() {
   _switchEditIdx = -1;
+  _takeIdx = -1;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   set("switchCaseValue", "");
   set("switchCaseStart", "");
@@ -380,6 +385,7 @@ function _renderSwitchValidation() {
   const box = document.getElementById("switchValidation");
   if (!box) return;
   const { errors, warnings } = checkPlacedSwitch();
+  const takes = _overlapTakes();
   // An Always Switch with no scenario picked yet is not an error until it is saved.
   const alwaysErr = ui._switchCases.length ? alwaysSwitchError() : null;
   if (alwaysErr) errors.push(alwaysErr);
@@ -388,10 +394,50 @@ function _renderSwitchValidation() {
     if (err) errors.push(err);
   }
   box.innerHTML = [
-    ...errors.map(m => `<div class="sw-val-error">⚠ ${escHtml(m)}</div>`),
+    ...errors.map(m => `<div class="sw-val-error">⚠ ${escHtml(m)}${_takeButton(takes.get(m))}</div>`),
     ...warnings.map(m => `<div class="sw-val-warn">⚠ ${escHtml(m)}</div>`),
   ].join("");
   box.style.display = errors.length || warnings.length ? "block" : "none";
+  box.querySelectorAll(".sw-take").forEach(btn => btn.addEventListener("click", () => _takeFrom(Number(btn.dataset.taker))));
+}
+
+/**
+ * The overlap errors a button can settle: message (as validateSwitch words it)
+ * → { taker, from }. The taker is the case added or saved last, else the later
+ * one of the pair — new cases go last. No entry when the taker lies inside the
+ * other case: taking would cut that case in two.
+ */
+function _overlapTakes() {
+  const takes = new Map();
+  const cs = ui._switchCases;
+  for (let x = 0; x < cs.length; x++) {
+    for (let y = x + 1; y < cs.length; y++) {
+      const p = caseRange(cs[x]), q = caseRange(cs[y]);
+      if (!p || !q || p.start > q.end || q.start > p.end) continue;
+      const taker = _takeIdx === x ? x : y;
+      if (!carveCases(cs, taker)) continue;
+      takes.set(`Case ${caseLabel(cs[x])} and Case ${caseLabel(cs[y])} overlap`, { taker, from: taker === x ? y : x });
+    }
+  }
+  return takes;
+}
+
+function _takeButton(take) {
+  if (!take) return "";
+  const from = caseLabel(ui._switchCases[take.from]), to = caseLabel(ui._switchCases[take.taker]);
+  return ` <button type="button" class="secondary sw-case-btn sw-take" data-taker="${take.taker}" title="Case ${escHtml(to)} keeps these actions; case ${escHtml(from)} gives them up">Take from case ${escHtml(from)}</button>`;
+}
+
+/** Case `taker` keeps its range; the cases it overlaps give those actions up. */
+function _takeFrom(taker) {
+  const next = carveCases(ui._switchCases, taker);
+  if (!next) return;
+  const changed = next.filter((c, i) => c !== ui._switchCases[i]);
+  ui._switchCases = next;
+  _takeIdx = -1;
+  refreshSwitchForm();
+  debouncedSaveDraft?.();
+  showToast(changed.map(c => `Case ${caseLabel(c)} now ${c.empty ? "does nothing" : `runs${switchStartSuffix(c)}`}`).join(" · "), "info");
 }
 
 export function populateSwitchScenarioSelect() {
@@ -478,8 +524,11 @@ export function renderSwitchCaseList() {
     btn.addEventListener("click", () => {
       const idx = Number(btn.dataset.idx);
       ui._switchCases.splice(idx, 1);
+      const take = _takeIdx;
       if (idx === _switchEditIdx) resetCaseEditor();
       else if (idx < _switchEditIdx) _switchEditIdx--;
+      if (take === idx) _takeIdx = -1;
+      else _takeIdx = take > idx ? take - 1 : take;
       refreshSwitchForm();
       debouncedSaveDraft?.();
     });
@@ -494,14 +543,14 @@ function _commitCase() {
   if (!isSelf && !selEl?.value) { showToast("Select a scenario for this case", "error"); return false; }
   const rawVal  = valEl?.value?.trim();
   const caseVal = rawVal === "" ? "__default__" : rawVal;
-  if (ui._switchCases.some((c, i) => i !== _switchEditIdx && c.value === caseVal)) {
-    showToast(`Case "${caseVal === "__default__" ? "default" : caseVal}" already exists`, "error"); return false;
-  }
+  const taken = caseValueError(ui._switchCases, caseVal, _switchEditIdx);
+  if (taken) { showToast(taken, "error"); return false; }
   const target = isSelf
     ? _switchSelfTarget(document.getElementById("switchCaseFrom")?.value, document.getElementById("switchCaseTo")?.value)
     : _switchCaseTarget(selEl.value, selEl.options[selEl.selectedIndex]?.textContent || selEl.value,
         document.getElementById("switchCaseStart")?.value, document.getElementById("switchCaseEnd")?.value);
   const next = { value: caseVal, ...target };
+  const at = _switchEditIdx >= 0 ? _switchEditIdx : ui._switchCases.length;
   if (_switchEditIdx >= 0) {
     const old = ui._switchCases[_switchEditIdx];
     // Unchanged → keep the saved case as it was (same JSON on save).
@@ -510,6 +559,7 @@ function _commitCase() {
     ui._switchCases.push(next);
   }
   resetCaseEditor();
+  _takeIdx = at;
   refreshSwitchForm();
   debouncedSaveDraft?.();
   return true;

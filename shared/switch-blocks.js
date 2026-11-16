@@ -63,6 +63,42 @@ export function caseRange(c) {
   return { start, end };
 }
 
+/** Why a case cannot take `value` ('__default__' for the default), or null. `skipIdx`: the case being edited. */
+export function caseValueError(cases, value, skipIdx = -1) {
+  const taken = (Array.isArray(cases) ? cases : []).some((c, i) => i !== skipIdx && c?.value === value);
+  return taken ? `Case ${caseLabel({ value })} already exists` : null;
+}
+
+/**
+ * The cases with case `k`'s range taken out of the other block cases: a case it
+ * covers becomes empty, a case it overlaps at its start or its end is cut back
+ * to what is left. Cases it does not touch are returned as they are.
+ *
+ * Null when case `k` overlaps nothing, or lies inside another case — taking
+ * that would cut the other case in two.
+ */
+export function carveCases(cases, k) {
+  const list = Array.isArray(cases) ? cases : [];
+  const r = caseRange(list[k]);
+  if (!r) return null;
+  let changed = false;
+  const out = [];
+  for (let o = 0; o < list.length; o++) {
+    const c = list[o];
+    const q = o === k ? null : caseRange(c);
+    if (!q || r.start > q.end || q.start > r.end) { out.push(c); continue; }
+    changed = true;
+    if (r.start <= q.start && r.end >= q.end) {
+      const emptied = { ...c, empty: true };
+      delete emptied.startAt; delete emptied.endAt;
+      out.push(emptied);
+    } else if (r.start <= q.start) out.push({ ...c, startAt: r.end + 2 });
+    else if (r.end >= q.end) out.push({ ...c, endAt: r.start });
+    else return null;
+  }
+  return changed ? out : null;
+}
+
 /** True when the action is a Switch with at least one block case. */
 export function hasBlock(action) {
   return action?.type === 'switch' && Array.isArray(action.cases) && action.cases.some(isBlockCase);

@@ -127,4 +127,6 @@
 .sw-validation { margin-top: 6px; font-size: 11px; }
 .sw-val-error { color: var(--danger); }
 .sw-val-warn  { color: var(--warning-text); }
+/* "Take from case …" on an overlap error: the case added last keeps the actions. */
+.sw-val-error .sw-take { margin-left: 6px !important; }
 .sw-frame-note { display: block; margin-top: 4px; color: var(--secondary); }

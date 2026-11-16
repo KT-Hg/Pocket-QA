@@ -12,6 +12,12 @@
  *                 folder shown stays chosen; a deleted folder falls back to all
  *   switch-draft  the popup reopened on a Switch draft lists the scenarios in the
  *                 case editor; a scenario picked there survives a reload of the list
+ *   new-case-default  a new case of a Switch that has cases opens on the first
+ *                 action after its block (or "nothing"), and the Actions lists
+ *                 name the case that already runs an action
+ *   case-take     a case added over another case's actions: the overlap error
+ *                 has "Take from case …", which cuts the other case back; none
+ *                 when that would cut the other case in two
  *   form-roundtrip  one action of every type, put in the Add Manual Action form
  *                 with Edit and saved twice, comes back as it was each time — six of
  *                 them with Click through off; the checkbox shows only for those
@@ -358,6 +364,13 @@ export async function checkInsertPoint(ctx) {
     await popup.evaluate(`document.getElementById('undoAction').click()`);
     await sleep(POPUP_SETTLE_MS);
     check(await note() === '' && !(await popup.evaluate(`!!document.querySelector('#actions li.action-ghost')`)), 'Undo drops the insertion point', await note());
+    // 📋 beside the + (something is copied): pastes right under that row, in one click.
+    const before = (await storedActions(popup, id)).length;
+    await popup.evaluate(`document.querySelector('#actions li.action[data-index="1"] .ins-gap-paste').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const gapPasted = (await storedActions(popup, id)).map((a) => a.selector);
+    check(gapPasted.length === before + 1 && gapPasted.slice(0, 4).join(' | ') === '#a | #b | #a | #c' && await note() === '',
+      '📋 in the gap under row 2 pastes the copied action right there', gapPasted);
     if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
   } finally {
     await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
@@ -1094,7 +1107,56 @@ export async function checkNewCaseDefault(ctx) {
   }
 }
 
+export async function checkCaseTake(ctx) {
+  const id = await makeScenario(ctx, 'e2e case take', threeCaseSwitch());
+  const popup = await openPopup(ctx);
+  try {
+    await showScenario(popup, id);
+    await rowButton(popup, 0, 3);
+    await sleep(POPUP_SETTLE_MS);
+    // Case "D" on action 5, the second action of case "C".
+    const addCase = (value, from, to) => popup.evaluate(`(async () => {
+      document.getElementById('switchCaseValue').value = ${JSON.stringify(value)};
+      const f = document.getElementById('switchCaseFrom'); f.value = ${JSON.stringify(from)}; f.dispatchEvent(new Event('change'));
+      if (${JSON.stringify(to)}) document.getElementById('switchCaseTo').value = ${JSON.stringify(to)};
+      document.getElementById('switchAddCase').click();
+      await new Promise((r) => setTimeout(r, 300));
+      const box = document.getElementById('switchValidation');
+      return { errors: [...box.querySelectorAll('.sw-val-error')].map((e) => e.firstChild.textContent.trim()), take: [...box.querySelectorAll('.sw-take')].map((b) => b.textContent) };
+    })()`);
+    const caseRows = () => popup.evaluate(`[...document.querySelectorAll('#switchCaseList .sw-case-row-view')].map((r) => r.querySelector('.sw-case-label').textContent + ' ' + r.querySelector('.sw-case-target').textContent).join(' | ')`);
+    const added = await addCase('D', '4', '');
+    check(added.errors.join() === '⚠ Case "C" and Case "D" overlap' && added.take.join() === 'Take from case "C"',
+      'a new case on an action of case "C": the overlap error offers "Take from case "C""', added);
+    const took = await popup.evaluate(`(async () => {
+      document.querySelector('#switchValidation .sw-take').click();
+      await new Promise((r) => setTimeout(r, 300));
+      return { validation: document.getElementById('switchValidation').innerText.trim(), toast: document.getElementById('toast').textContent };
+    })()`);
+    const rows = await caseRows();
+    check(took.validation === '' && took.toast === 'Case "C" now runs 4' && rows === '"A" Run 2 | "B" Run 3 | "C" Run 4 | "D" Run 5',
+      'Take: case "C" gives the action up, the error is gone', { took, rows });
+    // "W" over actions 2–4 covers A, B and C; "Y" on action 3 lies inside "W".
+    const wide = await addCase('W', '1', '3');
+    check(wide.take.join(' | ') === 'Take from case "A" | Take from case "B" | Take from case "C"', 'a case over three others offers Take on each error', wide);
+    const inside = await addCase('Y', '2', '');
+    check(inside.errors.length === 5 && inside.take.length === 3,
+      'a case inside another one would cut it in two: its errors have no Take', inside);
+    for (const idx of [5, 4]) await popup.evaluate(`document.querySelector('#switchCaseList .sw-case-del[data-idx="${idx}"]').click()`);
+    await sleep(SETTLE_MS);
+    await popup.evaluate(`document.getElementById('addManualAction').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const saved = (await storedActions(popup, id))[0].cases.map((c) => `${c.value} ${c.startAt}–${c.endAt}`).join(' | ');
+    check(saved === 'A 2–2 | B 3–3 | C 4–4 | D 5–5', 'Save Edit stores the cases as taken', saved);
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
 export const CHECKS = [
+  ['case-take', 'A case added over another case\'s actions: "Take from case …" on the overlap error', checkCaseTake],
   ['new-case-default', 'A new case of a Switch that has cases: its Actions start after the block', checkNewCaseDefault],
   ['preview-no-flash', 'Disable / Enable an action without the list flashing', checkPreviewNoFlash],
   ['folder-filter', 'The Manage Scenarios folder filter, kept', checkFolderFilter],
