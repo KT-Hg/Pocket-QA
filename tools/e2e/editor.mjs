@@ -378,6 +378,56 @@ export async function checkInsertPoint(ctx) {
   }
 }
 
+export async function checkGapPaste(ctx) {
+  const click = (id) => ({ type: 'click', selector: `#${id}`, selectors: { css: `#${id}` } });
+  // The block of switchBlockActions, then a second Switch whose one case runs #p1.
+  const id = await makeScenario(ctx, 'e2e gap paste', [
+    ...switchBlockActions(),
+    { type: 'switch', switchVar: '${plan}', cases: [{ value: 'pro', scenarioId: '__self__', scenarioName: '↻ This scenario (jump)', startAt: 11, endAt: 11 }] },
+    click('p1'), click('tail'),
+  ]);
+  const popup = await openPopup(ctx);
+  const shape = async () => (await storedActions(popup, id))
+    .map((a) => (a.type === 'switch' ? `switch ${a.cases.map((c) => `${c.startAt}–${c.endAt}`).join(' ')}` : a.selector)).join(' | ');
+  const gapPaste = async (rowSel) => { await popup.evaluate(`document.querySelector('#actions ${rowSel} > .ins-gap-paste').click()`); await sleep(POPUP_SETTLE_MS); };
+  try {
+    await showScenario(popup, id);
+    const none = await popup.evaluate(`document.querySelectorAll('#actions .ins-gap-paste').length`);
+    check(none === 0, 'nothing copied: no 📋 in the gaps', none);
+
+    // A Switch with its block, into the case of another Switch.
+    await rowButton(popup, 3, 2);
+    await gapPaste('li.action[data-index="10"]');
+    const block = await shape();
+    const invalid = await popup.evaluate(`document.querySelectorAll('#actions li.sw-invalid, #actions .sw-warn').length`);
+    check(invalid === 0
+      && block === '#a | #b | #c | switch 5–6 7–7 | #menu | #settings | #profile | #logout | #new | switch 11–15 | #p1 | switch 13–14 15–15 | #menu | #settings | #profile | #tail',
+    '📋 under a row in a case: the copied Switch and its block join that case, running their own copies', { invalid, block });
+    await popup.evaluate(`document.getElementById('undoAction').click()`);
+    await sleep(POPUP_SETTLE_MS);
+    const undone = (await storedActions(popup, id)).length;
+    check(undone === 12, 'one Undo takes the whole pasted block away', undone);
+
+    // Under a case header: first in that case.
+    await rowButton(popup, 0, 2);
+    await gapPaste('li.sw-case-head[data-switch="3"][data-case="1"]:not(.sw-case-other)');
+    const first = await shape();
+    check(first === '#a | #b | #c | switch 5–6 7–8 | #menu | #settings | #a | #profile | #logout | #new | switch 12–12 | #p1 | #tail',
+      '📋 under a case header: the copied action goes first in that case', first);
+
+    // A row being edited: the 📋 says so and pastes nothing.
+    await rowButton(popup, 1, 3);
+    await gapPaste('li.action[data-index="0"]');
+    const toast = await popup.evaluate(`document.getElementById('toast').textContent`);
+    const kept = await shape();
+    check(/Save or cancel the edit first/.test(toast) && kept === first, 'with a row being edited the 📋 pastes nothing and says why', { toast, kept });
+    if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  } finally {
+    await ctx.ext.evaluate(`chrome.storage.local.remove('manualFormDraft')`);
+    await popup.close();
+  }
+}
+
 /** The popup opened again as the toolbar button opens it: one load, so it restores what was kept once. */
 async function reopenPopup(ctx) {
   const popup = await ctx.browser.openPage(ctx.extUrl('popup.html'), { initScript: asActiveTab(`${ctx.base}/page`), ...POPUP_VIEWPORT });
@@ -1172,6 +1222,7 @@ export const CHECKS = [
   ['switch-other-case', 'A Switch case running another scenario: listed, never dropped into', checkSwitchOtherCase],
   ['copy-switch-block', 'Copy and Paste a Switch with its block', checkCopySwitchBlock],
   ['insert-point', 'The + between rows: the dummy row, adds and a paste at that place', checkInsertPoint],
+  ['gap-paste', 'The 📋 in the gap: a block into a case, under a case header, and while editing', checkGapPaste],
   ['insert-point-pick', 'The place picked by + kept across 🎯 Pick and a reopened draft', checkInsertPointPick],
   ['show-on-page', 'The picked element named in the form; 👁 and its name outline it on the page or scroll to it', checkShowOnPage],
   ['add-cancel','Cancel while adding, and the dummy row\'s ✕, empty the Add Action card', checkAddCancel],
