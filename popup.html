@@ -563,6 +563,8 @@
           <ul>
             <li>Cases are checked top to bottom; the first whose value equals the variable runs. A case with an empty value is the <strong>default</strong> — it runs when nothing else matches.</li>
             <li><strong>↻ Run actions here</strong> — the case owns a block of this scenario's actions (<strong>Actions</strong> from / to). Only the matching case's block runs, then playback continues after the Switch. Drag the Switch above those actions first, then pick them.</li>
+            <li>A new case starts after the block. When it shares actions with another case, <strong>Take from case …</strong> beside the error gives them to this case and cuts the other one back.</li>
+            <li>Once the Switch is saved, its cases can change in the action list too: <strong>✂</strong> in the gap between two actions of a case (hover the row) makes the lower part a new case, and <strong>+ case</strong> under the last case adds an empty one to drop actions on.</li>
             <li><strong>To the end</strong> in the second list keeps the old jump: play from that action to the end of the scenario.</li>
             <li><strong>▶ Play another scenario</strong> — <strong>#</strong> / <strong>to #</strong> are its first / last action (empty = from the start / to the end).</li>
             <li><strong>Always</strong> — no variable and no cases: the chosen scenario plays every time (from <strong>#</strong> to <strong>to #</strong>), then the rest of this scenario runs.</li>

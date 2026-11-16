@@ -190,6 +190,12 @@ a = 1 → 1, 2, 3, 6      a = 2 → 1, 4, 5, 6      other → 1, 6
   scenario are never rewritten — they get ⚠ when their range no longer fits. Undo restores ranges and actions
   together. An action open in the form follows a drag or a Delete, so Save Edit writes it and keeps the ranges
   the edit made; Undo / Redo wait until the edit is saved or cancelled.
+- **Cases from the list**: ✂ in the gap between two actions of a case splits it there (`splitCaseAt`) — the
+  lower actions become a new case, added last; not between a Condition and the actions it guards. "+ case"
+  under the last case adds an empty one. Both ask for the value, refuse one a case already has
+  (`caseValueError`), store the Switch with `UPDATE_ACTION` (one Undo), and are hidden while that Switch is
+  open in the form. In the form a new case starts after the block, and a case overlapping another offers
+  "Take from case …" (`carveCases`): the other cases are cut back, or emptied.
 - **A new Switch over actions already there**: picking existing actions in a new Switch's cases (the form lists
   them as the preview numbers them now) adds the Switch right in front of the first of them (`addIndex` +
   `remapAfterInsert`): it takes that action's place — its case, the Conditions guarding it, a `continueAt` or
