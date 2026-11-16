@@ -11,7 +11,7 @@ import { ui } from '../ui-state.js';
 import { escHtml, getActionIcon, getDragAfterElement, showConfirm, showToast } from '../utils.js';
 import { followListEdit, startEdit } from './action-form.js';
 import { debouncedSaveDraft } from './draft.js';
-import { anchorAfterUnit, clearInsertPoint, fitInsertPoint, insertAnchor, moveInsertPoint, pickInsertAfter, renderInsertPoint } from './insert-point.js';
+import { anchorAfterUnit, clearInsertPoint, fitInsertPoint, gapAnchor, insertAnchor, moveInsertPoint, pickInsertAfter, renderInsertPoint } from './insert-point.js';
 import { candidateActions, noOf, setSwitchContext, swCtx, switchSelfIdx, switchStartSuffix } from './switch-case-builder.js';
 import { updateUndoRedoState } from './undo-redo.js';
 
@@ -322,7 +322,39 @@ function _gapBtn(li, title) {
   b.title = title;
   b.setAttribute("aria-label", title);
   b.addEventListener("click", (ev) => { ev.stopPropagation(); pickInsertAfter(li); });
-  return b;
+  if (!ui.actionClipboard?.length) return b;
+  // Something was copied: a 📋 beside the + pastes it right here, in one click.
+  const wrap = document.createDocumentFragment();
+  const p = document.createElement("button");
+  p.type = "button";
+  p.className = "ins-gap ins-gap-paste";
+  p.textContent = "📋";
+  p.title = title.replace(/^Insert an action/, "Paste the copied action");
+  p.setAttribute("aria-label", p.title);
+  p.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    const anchor = gapAnchor(li);
+    if (anchor) _paste(anchor, false);
+  });
+  wrap.append(b, p);
+  return wrap;
+}
+
+/** Paste the clipboard at `anchor` (last when none); `keepPlace`: the insertion point moves past it. */
+function _paste(anchor, keepPlace) {
+  const clip = ui.actionClipboard;
+  if (!clip?.length) return;
+  const unit = JSON.parse(JSON.stringify(clip));
+  // Pasted switched on — and the actions under it, if switching it off took them along.
+  if (clip[0].disabled) unit.forEach((x) => delete x.disabled);
+  const sid = scenarioList.value || null;
+  chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", actions: unit, scenarioId: sid, anchor }, (res) => {
+    showToast(clip.length > 1 ? `Pasted ${clip.length} actions` : "Action pasted", "success");
+    // A place picked elsewhere is a place in the list as it was.
+    if (res?.success) { if (keepPlace) moveInsertPoint(anchorAfterUnit(res.index, unit)); else ui.insertPoint = null; }
+    previewActions(() => revealAction(res?.index));
+    updateUndoRedoState();
+  });
 }
 
 /**
@@ -752,20 +784,8 @@ function _appendPasteRow() {
   const pasteBtn = document.createElement("button");
   pasteBtn.textContent = `📋 Paste: ${head.type}${head.label ? ` (${head.label})` : ""}${more ? ` + ${more} action${more === 1 ? "" : "s"}` : ""}`;
   pasteBtn.className = "secondary action-paste-btn";
-  pasteBtn.addEventListener("click", () => {
-    const unit = JSON.parse(JSON.stringify(clip));
-    // Pasted switched on — and the actions under it, if switching it off took them along.
-    if (head.disabled) unit.forEach((x) => delete x.disabled);
-    const sid = scenarioList.value || null;
-    // At the insertion point, when one is picked — and the next paste goes after this one.
-    const anchor = insertAnchor();
-    chrome.runtime.sendMessage({ type: "ADD_MANUAL_ACTION", actions: unit, scenarioId: sid, anchor }, (res) => {
-      showToast(more ? `Pasted ${clip.length} actions` : "Action pasted", "success");
-      if (anchor && res?.success) moveInsertPoint(anchorAfterUnit(res.index, unit));
-      previewActions(() => revealAction(res?.index));
-      updateUndoRedoState();
-    });
-  });
+  // At the insertion point, when one is picked — and the next paste goes after this one.
+  pasteBtn.addEventListener("click", () => { const anchor = insertAnchor(); _paste(anchor, !!anchor); });
   const clearClipboardBtn = document.createElement("button");
   clearClipboardBtn.textContent = "✕";
   clearClipboardBtn.className = "secondary action-paste-btn";

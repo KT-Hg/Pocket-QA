@@ -114,15 +114,22 @@ export function anchorAfterUnit(index, unit) {
 const _isOpenBlockSwitch = (el) => el.matches("li.action.action-switch") && !!el.querySelector(".sw-type-toggle")
   && !el.classList.contains("sw-collapsed");
 
-/** "+" under row or header `el`: the next action goes right below it. */
-export function pickInsertAfter(el) {
+/** The place right below row or header `el`; null (and a toast) while a row is being edited. */
+export function gapAnchor(el) {
   if (ui.editing) {
     showToast("Save or cancel the edit first — then pick where the new action goes", "info");
-    return;
+    return null;
   }
   // Right under an open Switch is the start of its first case: below its header.
   if (_isOpenBlockSwitch(el) && el.nextElementSibling?.matches("li.sw-case-head:not(.sw-case-other)")) el = el.nextElementSibling;
-  setInsertPoint(anchorOf(el));
+  return anchorOf(el);
+}
+
+/** "+" under row or header `el`: the next action goes right below it. */
+export function pickInsertAfter(el) {
+  const anchor = gapAnchor(el);
+  if (!anchor) return;
+  setInsertPoint(anchor);
   const card = document.getElementById("addManualActionCard");
   if (card?.classList.contains("collapsed")) setCardOpen(card, true);
   card?.querySelector("h3")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
