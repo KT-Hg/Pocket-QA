@@ -328,7 +328,7 @@ function _gapBtn(li, title) {
   const p = document.createElement("button");
   p.type = "button";
   p.className = "ins-gap ins-gap-paste";
-  p.textContent = "📋";
+  p.textContent = "📋\uFE0E";   // text form: one colour, as the + and the ✂
   p.title = title.replace(/^Insert an action/, "Paste the copied action");
   p.setAttribute("aria-label", p.title);
   p.addEventListener("click", (ev) => {
