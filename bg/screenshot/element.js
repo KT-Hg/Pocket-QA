@@ -3,8 +3,9 @@
  * element is bigger than the viewport.
  *
  * _takeElementScreenshot: attachDebugger (cdp.js), hide the scrollbar and our
- * overlays, locateElement, measureViewport (cdp.js), captureElementTiles, put the
- * page back, stitchTiles, detach, save. The catch restores the page and the zoom.
+ * overlays, pin sticky elements in the flow, locateElement, measureViewport (cdp.js),
+ * captureElementTiles, put the page back, stitchTiles, detach, save. The catch
+ * restores the page and the zoom.
  */
 
 import { markSessionClosed } from '../cdp/session.js';
@@ -14,7 +15,10 @@ import { attachDebugger, cdpRaf, measureViewport, DETACH_SETTLE_MS, TILE_SETTLE_
 import { openCropUI } from './crop.js';
 import { downloadDataUrl } from './download.js';
 import { buildDateFolder, buildScreenshotFilename, typeTagEnabled } from './filename.js';
-import { CDP_HIDE_EXT_OVERLAYS, CDP_HIDE_SCROLLBAR, CDP_SHOW_EXT_OVERLAYS, CDP_SHOW_FIXED, CDP_SHOW_SCROLLBAR, cdpEval, restorePageDom, scriptingExec } from './page-scripts.js';
+import {
+  CDP_HIDE_EXT_OVERLAYS, CDP_HIDE_SCROLLBAR, CDP_PIN_STICKY, CDP_SHOW_EXT_OVERLAYS, CDP_SHOW_FIXED, CDP_SHOW_SCROLLBAR,
+  CDP_UNPIN_STICKY, cdpEval, restorePageDom, scriptingExec,
+} from './page-scripts.js';
 import { queueScreenshot } from './queue.js';
 import { applyWatermark } from './watermark.js';
 
@@ -94,6 +98,10 @@ async function _takeElementScreenshot(tabId, {
     await cdpEval(tabId, CDP_HIDE_SCROLLBAR);
     await cdpRaf(tabId);
     await cdpEval(tabId, CDP_HIDE_EXT_OVERLAYS);
+    // Measured and tiled from scroll 0, where a sticky footer further down sticks
+    // to the first viewport — over the element, if it is there. In the flow instead,
+    // as the full-page capture lays it out (pinStickyFn in page-scripts.js).
+    await cdpEval(tabId, CDP_PIN_STICKY);
     await cdpRaf(tabId);
 
     const rect = await locateElement(tabId, selector, selectors, { ...rect0, frameId }, viewportHeight);
@@ -112,6 +120,7 @@ async function _takeElementScreenshot(tabId, {
     // build (or an interrupted run) still gets its fixed/sticky elements back.
     await cdpEval(tabId, CDP_SHOW_FIXED);
     await cdpEval(tabId, CDP_SHOW_EXT_OVERLAYS);
+    await cdpEval(tabId, CDP_UNPIN_STICKY);
 
     let dataUrl = await stitchTiles(tiles, rect.width, rect.height);
 

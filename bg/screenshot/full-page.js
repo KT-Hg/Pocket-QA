@@ -6,10 +6,11 @@
  *   resetZoomTo100       full / scroll captures are measured and taken at 100 %
  *   clearLeftoverTiling  undo what an interrupted capture may have left
  *   attachDebugger       (cdp.js) detach a stale session, attach
- *   prepareForCapture    let the session settle, hide the scrollbar and our overlays
+ *   prepareForCapture    let the session settle, hide the scrollbar and our overlays,
+ *                        pin sticky elements in the flow, load lazy images and frames
  *   measureViewport      (cdp.js) the real viewport and page size
- *   captureOnce          regions within the limit: one CDP shot
- *   captureTiles         larger ones: tile by tile …
+ *   captureOnce          regions within the limit and with no frame in them: one CDP shot
+ *   captureTiles         larger ones, or ones with a frame (a YouTube embed): tile by tile …
  *   stitchBands          … stitched in 4 000 px bands
  *   restoreAfterCapture  give the page back and detach
  *   restoreAfterError    the same from the catch, when anything above threw
@@ -23,7 +24,10 @@ import { attachDebugger, cdpRaf, measureViewport, DETACH_SETTLE_MS, RAF_TIMEOUT_
 import { openCropUI } from './crop.js';
 import { downloadDataUrl } from './download.js';
 import { buildDateFolder, buildScreenshotFilename, typeTagEnabled } from './filename.js';
-import { CDP_HIDE_EXT_OVERLAYS, CDP_HIDE_SCROLLBAR, CDP_SHOW_EXT_OVERLAYS, CDP_SHOW_FIXED, CDP_SHOW_SCROLLBAR, cdpEval, restorePageDom, scriptingExec } from './page-scripts.js';
+import {
+  CDP_FRAME_RECTS, CDP_HIDE_EXT_OVERLAYS, CDP_HIDE_SCROLLBAR, CDP_PIN_STICKY, CDP_RESTORE_LAZY, CDP_SHOW_EXT_OVERLAYS,
+  CDP_SHOW_FIXED, CDP_SHOW_SCROLLBAR, CDP_UNPIN_STICKY, cdpEval, cdpLoadLazy, cdpValue, restorePageDom, scriptingExec,
+} from './page-scripts.js';
 import { queueScreenshot } from './queue.js';
 import { applyWatermark } from './watermark.js';
 
@@ -40,6 +44,13 @@ const REPAINT_TIMEOUT_MS = 3000;
 const PREPARE_SETTLE_MS = 300;
 // Tiles never exceed the capture limit described at needsStitch, in CSS px.
 const MAX_TILE_PX = 4000;
+// Lazy images and frames loaded for the capture are waited for this long at most,
+// then given a moment to paint what they loaded (a player draws its poster after load).
+const LAZY_LOAD_MAX_MS = 4000;
+const LAZY_PAINT_MS = 600;
+// A tile with a frame in it: the frame paints in its own renderer only once it is
+// on screen, a few frames after the shift brings it there.
+const FRAME_TILE_SETTLE_MS = 300;
 
 /* ── Full Page / Segment Screenshot ─────────────────────────────────────────── */
 
@@ -108,7 +119,9 @@ async function _takeFullPageScreenshot(tabId, {
 
   try {
     await attachDebugger(tabId);
-    await prepareForCapture(tabId, effectiveDir, _checkCancel);
+    // A segment's clip was drawn on the page as it is: loading lazy content now
+    // could move what it points at, so only full and scroll captures load it.
+    await prepareForCapture(tabId, effectiveDir, _checkCancel, { loadLazy: !segmentClip });
 
     // Authoritative full-page size, straight from CDP. The content-script
     // window.scrollHeight/innerWidth read earlier can lag the zoom reset, so a zoomed
@@ -135,6 +148,10 @@ async function _takeFullPageScreenshot(tabId, {
     const { clipX, clipY, clipWidth, clipHeight } = captureClip(segmentClip, scrollDir,
       { scrollX, scrollY, viewportWidth, viewportHeight, fullWidth, fullHeight });
 
+    // The frames in the clip (iframes: a YouTube embed, a map, an ad), in page px.
+    const frames = (await cdpValue(tabId, CDP_FRAME_RECTS, [])).filter((f) => overlaps(f,
+      { x: clipX, y: clipY, width: clipWidth, height: clipHeight }));
+
     // CDP Page.captureScreenshot with captureBeyondViewport silently corrupts or
     // returns empty data for regions whose physical pixel dimension exceeds ~4 000.
     // Exceeding regions must be tiled and stitched instead.
@@ -145,8 +162,13 @@ async function _takeFullPageScreenshot(tabId, {
     // site into its narrow/mobile layout. The tile path uses captureBeyondViewport:false
     // and shifts the page with a CSS transform, so it captures exactly what is rendered
     // on screen at the current zoom — the "keep zoom, capture faithfully" behaviour.
+    //
+    // So does a clip with a frame in it. captureBeyondViewport draws only what the
+    // page's own renderer paints; a frame of another origin paints in its own, and
+    // only while it is on screen — below the fold it came out as a white box, even
+    // after it had been scrolled past. The tiles bring each part on screen in turn.
     const MAX_CAPTURE_DIM = 4000;
-    const needsStitch = !!segmentClip
+    const needsStitch = !!segmentClip || frames.length > 0
       || (clipWidth * dpr > MAX_CAPTURE_DIM) || (clipHeight * dpr > MAX_CAPTURE_DIM);
 
     let result;
@@ -158,7 +180,7 @@ async function _takeFullPageScreenshot(tabId, {
       _checkCancel();
       result = await captureOnce(tabId, { clipX, clipY, clipWidth, clipHeight });
     } else {
-      const tiled = await captureTiles(tabId, { clipX, clipY, clipWidth, clipHeight }, { vpW, vpH }, { scrollX, scrollY });
+      const tiled = await captureTiles(tabId, { clipX, clipY, clipWidth, clipHeight }, { vpW, vpH }, { scrollX, scrollY }, frames);
       partialCapture = tiled.partial;
       result = await stitchBands(tiled.tiles, clipWidth, tiled.captHeight, dpr);
     }
@@ -216,6 +238,11 @@ function captureClip(segmentClip, scrollDir, { scrollX, scrollY, viewportWidth, 
   return { clipX, clipY, clipWidth: fullWidth, clipHeight: fullHeight };
 }
 
+/** Whether two {x, y, width, height} boxes share any area. */
+function overlaps(a, b) {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
 /** The file-name kind of a segment capture: segH, elem or segV. */
 function segmentKind(segmentDir) {
   if (segmentDir === 'horizontal') return 'segH';
@@ -265,7 +292,7 @@ async function clearLeftoverTiling(tabId) {
  * Then hide the scrollbar and our own overlays; a full capture also starts from
  * the top, untransformed.
  */
-async function prepareForCapture(tabId, effectiveDir, _checkCancel) {
+async function prepareForCapture(tabId, effectiveDir, _checkCancel, { loadLazy = true } = {}) {
   await new Promise(r => setTimeout(r, ATTACH_ACK_MS));
   _checkCancel();
 
@@ -291,35 +318,60 @@ async function prepareForCapture(tabId, effectiveDir, _checkCancel) {
 
   await cdpEval(tabId, CDP_HIDE_SCROLLBAR);
   await cdpEval(tabId, CDP_HIDE_EXT_OVERLAYS);
+  // Both paths render the page from scroll 0, where a sticky footer further down
+  // sticks to the first viewport and leaves a white band in its own place: lay the
+  // page's sticky elements out in the flow for the capture (see pinStickyFn).
+  await cdpEval(tabId, CDP_PIN_STICKY);
 
   if (effectiveDir === 'full') {
     await cdpEval(tabId, `document.documentElement.style.transform='';document.body.style.transform='';window.scrollTo(0,0);`);
+  }
+
+  // Lazy images and frames below the fold have never been asked for (see loadLazyFn).
+  if (loadLazy && await cdpValue(tabId, cdpLoadLazy(LAZY_LOAD_MAX_MS), 0, LAZY_LOAD_MAX_MS + 1000) > 0) {
+    _checkCancel();
+    await new Promise(r => setTimeout(r, LAZY_PAINT_MS));
   }
 
   await cdpRaf(tabId, REPAINT_TIMEOUT_MS);
   await new Promise(r => setTimeout(r, PREPARE_SETTLE_MS));
 }
 
-/** One CDP shot of the whole clip, for regions within the 4 000 px limit. */
-function captureOnce(tabId, { clipX, clipY, clipWidth, clipHeight }) {
-  return new Promise((resolve, reject) => {
-    chrome.debugger.sendCommand({ tabId }, 'Page.captureScreenshot', {
-      format: 'png', captureBeyondViewport: true,
-      clip: { x: clipX, y: clipY, width: clipWidth, height: clipHeight, scale: 1 },
-    }, (res) => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve(res);
+/**
+ * One CDP shot of the whole clip, for regions within the 4 000 px limit and with
+ * no frame in them.
+ *
+ * Shot with the root shifted by nothing — `translate(0, 0)` — as the tiles are
+ * shifted: a transformed root is the containing block of the page's fixed
+ * elements, so a fixed bottom bar is drawn once at the bottom of the page, as the
+ * tile path draws it, instead of across the content at the bottom of the first
+ * viewport.
+ */
+async function captureOnce(tabId, { clipX, clipY, clipWidth, clipHeight }) {
+  await cdpEval(tabId, `document.documentElement.style.transform='translate(0px,0px)'`);
+  await cdpRaf(tabId);
+  try {
+    return await new Promise((resolve, reject) => {
+      chrome.debugger.sendCommand({ tabId }, 'Page.captureScreenshot', {
+        format: 'png', captureBeyondViewport: true,
+        clip: { x: clipX, y: clipY, width: clipWidth, height: clipHeight, scale: 1 },
+      }, (res) => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve(res);
+      });
     });
-  });
+  } finally {
+    await cdpEval(tabId, `document.documentElement.style.transform=''`);
+  }
 }
 
 /**
  * Larger regions: shift the page tile by tile and capture each, then put the page
  * back to `scrollX`, `scrollY`. Resolves { tiles (rows of tiles), captHeight,
  * partial }; a cancel keeps the rows taken so far (partial), or throws when there
- * are none.
+ * are none. A tile over one of `frames` (page px) waits for the frame to paint.
  */
-async function captureTiles(tabId, { clipX, clipY, clipWidth, clipHeight }, { vpW, vpH }, { scrollX, scrollY }) {
+async function captureTiles(tabId, { clipX, clipY, clipWidth, clipHeight }, { vpW, vpH }, { scrollX, scrollY }, frames = []) {
   const chunkW = Math.min(MAX_TILE_PX, vpW);
   const chunkH = Math.min(MAX_TILE_PX, vpH);
   const tiles  = [];
@@ -334,8 +386,9 @@ async function captureTiles(tabId, { clipX, clipY, clipWidth, clipHeight }, { vp
   // Fixed and sticky elements are deliberately NOT hidden here. A transform on
   // documentElement makes it the containing block for its fixed descendants, so a
   // fixed header is positioned relative to (and translates with) the page — it
-  // renders once at the top instead of repeating per tile. Sticky elements never
-  // enter their stuck state at scroll 0, so they likewise render once in flow.
+  // renders once at the top instead of repeating per tile. Sticky elements were
+  // laid out in the flow by prepareForCapture (a sticky footer would otherwise
+  // stick to the first viewport at scroll 0), so they likewise render once in flow.
   // Hiding either would simply drop them from the screenshot (e.g. a site's main
   // header losing its background bar).
   let rowY = 0;
@@ -354,6 +407,13 @@ async function captureTiles(tabId, { clipX, clipY, clipWidth, clipHeight }, { vp
       await cdpEval(tabId, `document.documentElement.style.transform='translate(${-(clipX+colX)}px,${-(clipY+rowY)}px)'`);
       await cdpRaf(tabId);
       await new Promise(r => setTimeout(r, TILE_SETTLE_MS));
+      // A frame in this tile was off screen until now, and so not painted (another
+      // origin's frame paints in its own renderer, only while it is visible).
+      if (frames.some((f) => overlaps(f, { x: clipX + colX, y: clipY + rowY, width: tileW, height: tileH }))) {
+        await cdpRaf(tabId);
+        await new Promise(r => setTimeout(r, FRAME_TILE_SETTLE_MS));
+        await cdpRaf(tabId);
+      }
 
       const cap = await new Promise((resolve) => {
         chrome.debugger.sendCommand({ tabId }, 'Page.captureScreenshot', {
@@ -451,10 +511,12 @@ async function stitchBands(tiles, clipWidth, captHeight, dpr) {
   }
 }
 
-/** Give the page back after a capture — scrollbar, overlays, metrics — and detach. */
+/** Give the page back after a capture — scrollbar, overlays, sticky, lazy, metrics — and detach. */
 async function restoreAfterCapture(tabId) {
   await cdpEval(tabId, CDP_SHOW_SCROLLBAR);
   await cdpEval(tabId, CDP_SHOW_EXT_OVERLAYS);
+  await cdpEval(tabId, CDP_UNPIN_STICKY);
+  await cdpEval(tabId, CDP_RESTORE_LAZY);
   await new Promise((resolve) => {
     chrome.debugger.sendCommand({ tabId }, 'Emulation.clearDeviceMetricsOverride', {}, resolve);
   });
@@ -474,6 +536,8 @@ async function restoreAfterError(tabId, scrollX, scrollY) {
   await cdpEval(tabId, CDP_SHOW_FIXED).catch(() => {});
   await cdpEval(tabId, CDP_SHOW_EXT_OVERLAYS).catch(() => {});
   await cdpEval(tabId, CDP_SHOW_SCROLLBAR).catch(() => {});
+  await cdpEval(tabId, CDP_UNPIN_STICKY).catch(() => {});
+  await cdpEval(tabId, CDP_RESTORE_LAZY).catch(() => {});
   await cdpEval(tabId, `window.scrollTo(${scrollX}, ${scrollY})`).catch(() => {});
   await new Promise((resolve) => {
     chrome.debugger.sendCommand({ tabId }, 'Emulation.clearDeviceMetricsOverride', {}, () => { void chrome.runtime.lastError; resolve(); });
