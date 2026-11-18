@@ -35,10 +35,25 @@ export const pickerHandlers = {
   START_PICK_MODE: pickMode,
   STOP_PICK_MODE: pickMode,
 
+  /* --- A frame's hovered element, for the picker bar the top frame shows --- */
+  PICKER_HOVER(request, sender, sendResponse) {
+    const tabId = sender.tab?.id;
+    if (tabId && sender.frameId) {
+      chrome.tabs.sendMessage(tabId, { type: 'PICKER_HOVER', label: String(request.label || '') }, { frameId: 0 })
+        .catch(() => {});
+    }
+    sendResponse({ ok: true });
+    return;
+  },
+
   /* --- Element picked → reopen popup or trigger element screenshot --- */
   ELEMENT_PICKED(request, sender, sendResponse) {
     state.pickMode = false;
     updateBadge();
+    // Every frame of the tab was picking; the one picked from has stopped, the
+    // others (and the top frame's bar) are told to.
+    const pickedTab = targetTab(request, sender);
+    if (pickedTab) chrome.tabs.sendMessage(pickedTab, { type: 'STOP_PICK_MODE' }).catch(() => {});
     // Routed through sendCaptureNotification rather than chrome.notifications
     // directly: this path used to build its own notification with a 1×1
     // transparent icon and no category, so it was the one capture notification

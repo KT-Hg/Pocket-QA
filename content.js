@@ -1803,25 +1803,48 @@ function _extOverlay({
 
 let _pickerBar = null;
 
+// START_PICK_MODE reaches every frame of the tab (this script runs in all of
+// them), and every frame must pick: an element inside an iframe is picked in
+// that frame. The bar, though, is the tab's, and only the top frame shows it —
+// one bar per frame put a second and third "ESC to cancel" bar on any page with
+// an iframe (a YouTube embed, an ad). A frame without the bar reports what the
+// pointer is on to the top frame's bar (PICKER_HOVER) and handles ESC itself.
+const _PICKER_IDLE_LABEL = '🎯 Click an element to select it';
+// What a frame may put in the top frame's bar.
+const _PICKER_LABEL_MAX = 120;
+
+/** Leave pick mode in this frame and tell the worker, which tells every frame. */
+function _cancelPick() {
+  pickerMode = false;
+  clearPickerUI();
+  safeSend({ type: 'STOP_PICK_MODE' });
+}
+
 function showPickerBar() {
-  if (_pickerBar) return;
+  if (_pickerBar || window.top !== window) return;
   _pickerBar = _extOverlay({
     id: '__picker_bar',
     variant: 'bar',
     // Headers and nav sit right under a top bar; the user must still reach them.
     dodge: true,
-    label: '🎯 Click an element to select it',
-    onCancel: () => {
-      pickerMode = false;
-      clearPickerUI();
-      safeSend({ type: 'STOP_PICK_MODE' });
-    },
+    label: _PICKER_IDLE_LABEL,
+    onCancel: _cancelPick,
   }).mount();
 }
 
 function hidePickerBar() {
   _pickerBar?.destroy();
   _pickerBar = null;
+}
+
+let _relayedPickerLabel = null;
+
+function _setPickerLabel(text) {
+  if (_pickerBar) { _pickerBar.setLabel(text); return; }
+  // In a frame: the bar is the top frame's. Sent when it changes, not per mouseover.
+  if (window.top === window || text === _relayedPickerLabel) return;
+  _relayedPickerLabel = text;
+  safeSend({ type: 'PICKER_HOVER', label: text });
 }
 
 chrome.runtime.onMessage.addListener((msg) => {
@@ -1833,6 +1856,9 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'STOP_PICK_MODE') {
     pickerMode = false;
     clearPickerUI();
+  }
+  if (msg.type === 'PICKER_HOVER' && _pickerBar && pickerMode) {
+    _pickerBar.setLabel(String(msg.label || _PICKER_IDLE_LABEL).slice(0, _PICKER_LABEL_MAX));
   }
 });
 
@@ -1861,13 +1887,11 @@ function _updatePickerOverlay(el) {
 
   // Only the label changes on hover — the hint and cancel button stay put, so
   // the bar never reflows and the way out is always in the same place.
-  if (_pickerBar) {
-    const tag = el.tagName.toLowerCase();
-    const id  = el.id   ? `#${el.id}`   : '';
-    const cls = el.className && typeof el.className === 'string'
-      ? '.' + el.className.trim().split(/\s+/)[0] : '';
-    _pickerBar.setLabel(`🎯 ${tag}${id || cls} — click to select`);
-  }
+  const tag = el.tagName.toLowerCase();
+  const id  = el.id   ? `#${el.id}`   : '';
+  const cls = el.className && typeof el.className === 'string'
+    ? '.' + el.className.trim().split(/\s+/)[0] : '';
+  _setPickerLabel(`🎯 ${tag}${id || cls} — click to select`.slice(0, _PICKER_LABEL_MAX));
 }
 
 function _removePickerOverlay() {
@@ -1918,6 +1942,7 @@ function clearPickerUI() {
   document.body.style.cursor = 'auto';
   hidePickerBar();
   _removePickerOverlay();
+  _relayedPickerLabel = null;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -2511,6 +2536,9 @@ document.addEventListener('keydown', (e) => {
   // One branch for every overlay: the template's ESC stack dismisses whichever
   // one is on top, running that overlay's own cancel path.
   if (e.key === 'Escape' && _extDismissTop()) { e.preventDefault(); return; }
+  // Picking in a frame: the bar (and its ESC) is the top frame's, but the key
+  // comes here while the frame has the focus.
+  if (e.key === 'Escape' && pickerMode && !_pickerBar) { e.preventDefault(); _cancelPick(); return; }
 
   const tag = document.activeElement?.tagName;
   if (['INPUT', 'TEXTAREA'].includes(tag)) return;
