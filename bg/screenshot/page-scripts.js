@@ -259,11 +259,14 @@ export function cdpValue(tabId, expression, fallback = null, timeout = 10_000) {
   });
 }
 
-export const CDP_PIN_STICKY = `(${pinStickyFn})()`;
-export const CDP_UNPIN_STICKY = `(${unpinStickyFn})()`;
-export const cdpLoadLazy = (maxMs) => `(${loadLazyFn})(${Number(maxMs) || 0})`;
-export const CDP_RESTORE_LAZY = `(${restoreLazyFn})()`;
-export const CDP_FRAME_RECTS = `(${frameRectsFn})()`;
+// A function's source keeps the file's line endings (CRLF in a Windows checkout):
+// send LF so the expression is the same on every checkout.
+const src = (fn) => String(fn).replace(/\r\n/g, '\n');
+export const CDP_PIN_STICKY = `(${src(pinStickyFn)})()`;
+export const CDP_UNPIN_STICKY = `(${src(unpinStickyFn)})()`;
+export const cdpLoadLazy = (maxMs) => `(${src(loadLazyFn)})(${Number(maxMs) || 0})`;
+export const CDP_RESTORE_LAZY = `(${src(restoreLazyFn)})()`;
+export const CDP_FRAME_RECTS = `(${src(frameRectsFn)})()`;
 
 export const CDP_HIDE_SCROLLBAR = `(function(){
   if(!document.getElementById('__ext_no_scroll')){
