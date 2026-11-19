@@ -101,8 +101,10 @@ try {
 } catch (_) { /* extension context invalidated: keep frame 0, not recording */ }
 
 chrome.runtime.onMessage.addListener((msg) => {
+  if (msg?.type === 'RECORD_CHECK_ARM') { _setCheckArmed(msg.armed === true && _isRecording); return; }
   if (msg?.type !== 'RECORDING_STATE') return;
   _isRecording = !!msg.recording;
+  if (!_isRecording) { _setCheckArmed(false); _checkMenu?.close(); }
   _syncRecordingPill();
 });
 
@@ -129,9 +131,14 @@ function _syncRecordingPill() {
       lead: _extSpan('●', ['color:' + _EXT_DANGER, 'font-size:14px', 'line-height:1']),
       label: 'Recording — Pocket QA',
       hint: null,
-      buttons: [{ key: 'stop', label: '■ Stop', tone: 'danger', onClick: () => safeSend({ type: 'STOP_RECORD' }) }],
+      buttons: [
+        { key: 'check', label: '✓ Check', onClick: () => safeSend({ type: 'RECORD_CHECK_ARM', armed: !_checkArmed }) },
+        { key: 'stop', label: '■ Stop', tone: 'danger', onClick: () => safeSend({ type: 'STOP_RECORD' }) },
+      ],
       extra: _BOTTOM_PILL,
     }).mount();
+    _recordingPill.buttons.check.title = 'Click what to check next: an Assert is added (Alt + click does the same)';
+    _paintCheckButton();
   } else if (!show && _recordingPill) {
     _recordingPill.destroy();
     _recordingPill = null;
@@ -497,6 +504,68 @@ function _innermostWithText(text) {
   return hit;
 }
 
+/* <locator-note> — tests/locator-note.test.mjs loads this block into a sandbox. */
+/**
+ * What the other locators of an action say about the element it acted on, for
+ * the 🩹 line of the Last run card; null when there is nothing to tell.
+ * Playback uses the element the first locator in _locators order finds, as the
+ * code exports do (shared/locator-order.js): this changes nothing, it only looks.
+ *
+ * `hits`: [{ by, el }], what each locator finds now, in that order (el null: it
+ * found nothing). The element used is the first one found.
+ *   split   — another element is found by at least as many locators as the one
+ *             used: a field put at the top of the form moved the full XPath onto
+ *             it, and the run typed into the wrong field.
+ *   fragile — fewer than half of the locators still find the element used: one
+ *             more change to the page and the step breaks.
+ * A text or a name that matches another element with the same words, while most
+ * locators agree, is not told: it was ambiguous when it was recorded.
+ */
+function _locatorVerdict(hits) {
+  if (hits.length < 2) return null;
+  const used = hits.find((h) => h.el)?.el;
+  if (!used) return null;
+  const votes = new Map();
+  for (const h of hits) if (h.el) votes.set(h.el, [...(votes.get(h.el) || []), h.by]);
+  const usedBy = votes.get(used);
+  let other = null;
+  for (const [el, by] of votes) {
+    if (el !== used && by.length >= usedBy.length && (!other || by.length > other.by.length)) other = { el, by };
+  }
+  const missed = hits.filter((h) => !h.el).map((h) => h.by);
+  if (other) return { kind: 'split', used: { el: used, by: usedBy }, other, missed };
+  if (usedBy.length * 2 < hits.length) return { kind: 'fragile', used: { el: used, by: usedBy }, missed };
+  return null;
+}
+/* </locator-note> */
+
+/**
+ * The 🩹 note of an action whose element was found (_locatorVerdict), as the
+ * worker keeps it: each element's { tag, name, id } and its locators taken again now, which
+ * the popup can write into the action. null when the locators agree, or when the
+ * selector type was chosen in the form: that is the user's word.
+ */
+function _locatorNote(selectors, selector, prefer) {
+  if (prefer) return null;
+  const hits = [];
+  for (const s of _locators(_withPlain(selectors, selector))) {
+    if (s.type === 'cssShadow') {
+      // The CSS locator again, through open shadow roots: it counts as CSS, and is
+      // walked only where playback walks it, when nothing before it found anything.
+      const css = hits.find((h) => h.by === 'css');
+      if (css && !hits.some((h) => h.el)) { try { css.el = s.fn() || null; } catch (_) { /* invalid CSS */ } }
+      continue;
+    }
+    let el = null;
+    try { el = s.fn() || null; } catch (_) { /* selector invalid for this strategy */ }
+    hits.push({ by: s.type, el });
+  }
+  const v = _locatorVerdict(hits);
+  if (!v) return null;
+  const about = ({ el, by }) => ({ label: _previewLabel(el), by, selectors: getAllSelectors(el) });
+  return { kind: v.kind, used: about(v.used), ...(v.other ? { other: about(v.other) } : {}), missed: v.missed };
+}
+
 /** The element the first strategy that finds one returns, or null. */
 function _firstLocated(strategies) {
   for (const strategy of strategies) {
@@ -756,6 +825,110 @@ function waitForElement(selector, timeout = 5000) {
 // checkbox twice, back to where it started.
 let _labelForwardTarget = null;
 
+/* ── ✓ Check: an Assert added while recording ─────────────────────────────────
+ * Alt + click an element, or click it after ✓ Check on the recording pill: a menu
+ * (content-overlays.js, loaded then) offers the checks the element allows, and
+ * the one chosen is recorded as an Assert. ✓ Check holds in every frame of the
+ * tab (RECORD_CHECK_ARM, through the worker) until the next pick or Esc. The page
+ * gets none of that click, nor of a click that closes the menu.
+ */
+let _checkArmed = false;
+let _checkMenu = null;   // the open menu: { close }
+let _checkCursor = null; // the crosshair while ✓ Check is on
+// A text longer than this is a paragraph: "Text contains" only.
+const CHECK_TEXT_MAX = 80;
+
+function _paintCheckButton() {
+  const b = _recordingPill?.buttons.check;
+  if (!b) return;
+  const t = _extTokens();
+  Object.assign(b.style, _checkArmed
+    ? { background: _EXT_ACCENT, color: '#ffffff', borderColor: _EXT_ACCENT }
+    : { background: t.btnBg, color: t.text, borderColor: t.btnBorder });
+  _recordingPill.setLabel(_checkArmed ? 'Click what to check — Esc to cancel' : 'Recording — Pocket QA');
+}
+
+function _setCheckArmed(on) {
+  _checkArmed = on;
+  if (on && !_checkCursor) {
+    _checkCursor = _extMarkOverlay(document.createElement('style'));
+    _checkCursor.textContent = '*{cursor:crosshair!important}';
+    document.documentElement.append(_checkCursor);
+  } else if (!on) {
+    _checkCursor?.remove();
+    _checkCursor = null;
+  }
+  _paintCheckButton();
+}
+
+/** The checks `el` allows, as the menu offers them; the value of a password field never. */
+function _checkItems(el) {
+  const items = [];
+  if (el.matches?.('input, textarea, select')) {
+    if (el.type === 'password') items.push({ text: 'Value — not read from a password field', off: true });
+    else if (!/^(checkbox|radio|file|submit|button|reset|image|hidden)$/i.test(el.type || '')) {
+      items.push({ text: `Value is “${el.value}”`, conditionType: 'valueEquals', expectedValue: el.value });
+    }
+  } else {
+    const text = (el.textContent || '').trim();
+    if (text && text.length <= CHECK_TEXT_MAX) items.push({ text: `Text is “${text}”`, conditionType: 'textEquals', expectedValue: text });
+    if (text) items.push({ text: 'Text contains', conditionType: 'textContains', expectedValue: text.slice(0, 40), edit: true });
+  }
+  items.push({ text: 'Is visible', conditionType: 'elementVisible', expectedValue: '' });
+  items.push({ text: `URL contains “${location.pathname}”`, conditionType: 'urlContains', expectedValue: location.pathname, url: true });
+  return items;
+}
+
+/** The Assert recorded for `item` of `el`'s menu, `value` as the menu left it. */
+function _checkAction(el, item, value) {
+  if (item.url) return { type: 'assert', conditionType: item.conditionType, expectedValue: value, label: 'URL', frameId: _myFrameId };
+  const selectors = getAllSelectors(el);
+  return {
+    type: 'assert', conditionType: item.conditionType, expectedValue: value,
+    selector: selectors.css, selectors, frameId: _myFrameId, ..._stepName(el),
+  };
+}
+
+/** content-overlays.js in this frame, then `fn`. */
+function _withOverlays(fn) {
+  if (window.__pqaOverlays) { fn(); return; }
+  try {
+    chrome.runtime.sendMessage({ type: 'LOAD_OVERLAYS' }, () => {
+      void chrome.runtime.lastError;
+      if (window.__pqaOverlays) fn();
+    });
+  } catch (_) { /* extension reloaded under this page */ }
+}
+
+function _openCheckMenu(el) {
+  if (_checkArmed) safeSend({ type: 'RECORD_CHECK_ARM', armed: false });
+  _setCheckArmed(false);
+  // What was typed before comes before the check, as before a click.
+  _flushPendingInputs();
+  const items = _checkItems(el);
+  _withOverlays(() => {
+    _checkMenu?.close();
+    _checkMenu = window.__pqaOverlays.openCheckMenu({
+      rect: el.getBoundingClientRect(),
+      title: `✓ Check ${_previewChipText(_previewLabel(el))}`,
+      items,
+      onPick: (item, value) => {
+        if (_isRecording) safeSend({ type: 'RECORDED_ACTION', action: _checkAction(el, item, value) });
+      },
+      onClose: () => { _checkMenu = null; },
+    });
+  });
+}
+
+// The press of a click that picks what to check, or closes the menu: the page
+// gets none of it (no submit, no link opened or downloaded by Alt + click).
+for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup']) {
+  document.addEventListener(type, (event) => {
+    if (!_isRecording || pickerMode || !event.isTrusted || _extIsOurChrome(event.target)) return;
+    if (event.altKey || _checkArmed || _checkMenu) { event.preventDefault(); event.stopImmediatePropagation(); }
+  }, true);
+}
+
 document.addEventListener('click', (event) => {
   if (!_isRecording || pickerMode) return;
   // What the page's own scripts dispatch is not something the user did: a widget
@@ -764,6 +937,14 @@ document.addEventListener('click', (event) => {
   // The extension's own overlays (a prompt, a countdown, a highlight note) are
   // not part of the page being tested.
   if (_extIsOurChrome(event.target)) return;
+  // ✓ Check: this click picks what to check, or closes the menu; it is not a step.
+  if (event.altKey || _checkArmed || _checkMenu) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.altKey || _checkArmed) _openCheckMenu(event.target);
+    else _checkMenu.close();
+    return;
+  }
   if (_labelForwardTarget && event.target === _labelForwardTarget) {
     _labelForwardTarget = null;
     return;
@@ -1232,7 +1413,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     // action.  Sent back in every success response so playback.js can persist
     // sticky values into resolvedVars for the rest of the run.
     const _rf = {};
-    const _ok = (data = {}) => sendResponse({ ...data, resolvedFallbacks: _rf });
+    // What the action's other locators say of its element (🩹), taken before it acts.
+    let locator = null;
+    const _ok = (data = {}) => sendResponse({ ...data, resolvedFallbacks: _rf, ...(locator ? { locator } : {}) });
 
     /* ── dropdown, opened by the worker: choose its item ── */
     if (action.type === 'dropdown' && msg.pickStage === 'items') {
@@ -1303,6 +1486,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.strict) {
       const why = _blockedReason(target);
       if (why) { sendResponse({ failed: true, blocked: true, error: why }); return; }
+    }
+    if (action.selectors && typeof action.selectors === 'object') {
+      locator = _locatorNote(action.selectors, action.selector, action.selectorType);
     }
     target.focus();
 
@@ -2394,7 +2580,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       sendResponse({ result: false, error: e?.message || String(e) });
       return;
     }
-    sendResponse(result ? { result } : { result, ..._checkedFacts(conditionType, looked, expectedValue) });
+    // An element looked at and found: what its other locators say of it (🩹).
+    const locator = looked && selectorMap && typeof selectorMap === 'object'
+      ? _locatorNote(selectorMap, selector, msg.selectorType) : null;
+    const facts = result ? {} : _checkedFacts(conditionType, looked, expectedValue);
+    sendResponse({ result, ...facts, ...(locator ? { locator } : {}) });
   }
 });
 
@@ -2536,6 +2726,7 @@ document.addEventListener('keydown', (e) => {
   // One branch for every overlay: the template's ESC stack dismisses whichever
   // one is on top, running that overlay's own cancel path.
   if (e.key === 'Escape' && _extDismissTop()) { e.preventDefault(); return; }
+  if (e.key === 'Escape' && _checkArmed) { e.preventDefault(); safeSend({ type: 'RECORD_CHECK_ARM', armed: false }); return; }
   // Picking in a frame: the bar (and its ESC) is the top frame's, but the key
   // comes here while the frame has the focus.
   if (e.key === 'Escape' && pickerMode && !_pickerBar) { e.preventDefault(); _cancelPick(); return; }
@@ -2597,7 +2788,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 window.__pqaContent = {
   safeSend, getAllSelectors, findElementWithFallback, _isDynamicId, _DYNAMIC_ID_RE,
-  _extOverlay, _extTokens, _extRegisterThemed, _EXT_THEMES, _EXT_ACCENT, _extSpan, _EXT_DANGER,
+  _extOverlay, _extTokens, _extRegisterThemed, _EXT_THEMES, _EXT_ACCENT, _extSpan, _EXT_DANGER, _extButton, _EXT_FONT,
 };
 
 function _loadHighlightEngine() {

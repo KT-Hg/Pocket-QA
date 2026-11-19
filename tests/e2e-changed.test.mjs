@@ -15,6 +15,7 @@ test('a file of one area runs its suites, in suite order', () => {
   assert.deepEqual(run('popup/export-selenium.js'), ['export', 'export-run']);
   assert.deepEqual(run('popup/record/recorder.js'), ['record']);
   assert.deepEqual(run('popup/record/insert-point.js'), ['editor', 'vars']);
+  assert.deepEqual(run('popup/run/run-history.js', 'shared/run-history.js'), ['run', 'record']);
 });
 
 test('a suite file runs itself; the runner and harness run everything', () => {

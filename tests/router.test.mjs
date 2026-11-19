@@ -386,7 +386,22 @@ await send('from a web page: a name that is not text is dropped', { type: 'RECOR
 await send('from a web page: typing into a password field is marked', { type: 'RECORDED_ACTION', action: {
   type: 'input', selector: '#pw', value: 's3cret', secret: true,
 } }, { sender: PAGE_SENDER });
+// ✓ Check while recording: an Assert of one of the checks it offers, with a value
+// of text no longer than 500; anything else is dropped.
+await send('from a web page: a recorded Assert keeps its check', { type: 'RECORDED_ACTION', action: {
+  type: 'assert', conditionType: 'textEquals', expectedValue: 'Saved', selector: '#toast', selectors: { css: '#toast', id: 'toast' }, label: 'Toast', code: 'x',
+} }, { sender: PAGE_SENDER });
+await send('from a web page: an Assert of a check it does not offer is dropped', { type: 'RECORDED_ACTION', action: {
+  type: 'assert', conditionType: 'hasAttribute', expectedValue: 'x', selector: '#a',
+} }, { sender: PAGE_SENDER });
+await send('from a web page: an Assert with a value too long is dropped', { type: 'RECORDED_ACTION', action: {
+  type: 'assert', conditionType: 'textContains', expectedValue: 'x'.repeat(501), selector: '#a',
+} }, { sender: PAGE_SENDER });
+await send('from a web page: ✓ Check is passed to every frame of the recording tab', { type: 'RECORD_CHECK_ARM', armed: true }, { sender: PAGE_SENDER });
+await send('from another tab: ✓ Check is not passed on', { type: 'RECORD_CHECK_ARM', armed: true }, { sender: OTHER_TAB_SENDER });
+await send('from a web page: the ✓ Check menu is loaded into the asking frame', { type: 'LOAD_OVERLAYS' }, { sender: { ...PAGE_SENDER, frameId: 3 } });
 await send('stop record (page actions)', { type: 'STOP_RECORD' });
+await send('not recording: the ✓ Check menu is not loaded', { type: 'LOAD_OVERLAYS' }, { sender: PAGE_SENDER });
 
 // An import says what it holds that reaches beyond the page: Run JS, and the
 // local folders Upload File actions hand files from (each named once).
@@ -593,7 +608,7 @@ test('a web page cannot drive the window capture', () => {
   assert.ok(!calls.some((c) => c.startsWith('windows.remove')), 'no window closed');
   assert.ok(!calls.some((c) => c.startsWith('downloads.download')), 'nothing downloaded');
 });
-test('from a web page, a recorded action is a click or an input with known fields only', () => {
+test('from a web page, a recorded action is a click, an input or an Assert with known fields only', () => {
   assert.deepEqual(_stepOf('from a web page: recorded uploadFile dropped')?.responses, [{ received: false }]);
   assert.deepEqual(_stepOf('from a web page: recorded script dropped')?.responses, [{ received: false }]);
   assert.deepEqual(_stepOf('stop record (page actions)')?.responses?.[0]?.actions, [{
@@ -603,7 +618,22 @@ test('from a web page, a recorded action is a click or an input with known field
     type: 'input', selector: '#q', value: 'x', frameId: 0, delay: 500, // its name was not text, its mark not true: neither kept
   }, {
     type: 'input', selector: '#pw', value: 's3cret', secret: true, frameId: 0, delay: 500,
+  }, {
+    // ✓ Check: the check and its value kept, the rest as for a click; a check it does not
+    // offer, and a value over 500 characters, dropped.
+    type: 'assert', conditionType: 'textEquals', expectedValue: 'Saved', selector: '#toast', selectors: { css: '#toast', id: 'toast' },
+    label: 'Toast', frameId: 0, delay: 500,
   }]);
+  assert.deepEqual(_stepOf('from a web page: an Assert of a check it does not offer is dropped')?.responses, [{ received: false }]);
+  assert.deepEqual(_stepOf('from a web page: an Assert with a value too long is dropped')?.responses, [{ received: false }]);
+});
+test('✓ Check goes to every frame of the recording tab only; its menu is loaded only while recording', () => {
+  const sent = (step) => _stepOf(step)?.calls?.filter((c) => c.startsWith('tabs.sendMessage') || c.startsWith('scripting.executeScript')) || [];
+  assert.deepEqual(sent('from a web page: ✓ Check is passed to every frame of the recording tab'), ['tabs.sendMessage [1,{"type":"RECORD_CHECK_ARM","armed":true}]']);
+  assert.deepEqual(sent('from another tab: ✓ Check is not passed on'), []);
+  assert.deepEqual(sent('from a web page: the ✓ Check menu is loaded into the asking frame'),
+    ['scripting.executeScript [{"target":{"tabId":1,"frameIds":[3]},"files":["content-overlays.js"]}]']);
+  assert.deepEqual(_stepOf('not recording: the ✓ Check menu is not loaded')?.responses, [{ ok: false }]);
 });
 test('an import names its Run JS actions and the folders its Upload File actions read', () => {
   const one = _stepOf('import scenario with uploadFile')?.responses?.[0];

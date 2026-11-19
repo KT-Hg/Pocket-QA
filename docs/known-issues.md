@@ -8,7 +8,9 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 
 ## Còn lại sau đợt sửa review (2026-10)
 
-- **`content.js` có 2.491 dòng** (`wc -l`; từ 3.343; 2.273 trước khi thêm Element preview — 👁 và tên phần tử đã pick). Đợt plan 9 chuyển countdown, prompt khi action lỗi và thanh
+- **`content.js` có 2.814 dòng** (`wc -l`; từ 3.343; 2.273 trước khi thêm Element preview — 👁 và tên phần tử đã pick;
+  2.623 trước plan 22, thêm khoảng 70 dòng cho 🩹 `_locatorNote` và 120 dòng cho ✓ Check lúc ghi — menu của nó nằm ở
+  `content-overlays.js`). Đợt plan 9 chuyển countdown, prompt khi action lỗi và thanh
   segment sang `content-overlays.js`, worker chỉ nạp khi cần (2.278 → 2.040), rồi thêm khoảng 100 dòng cho
   "Choose item #" trong danh sách ảo hoá, rồi khoảng 25 dòng cho Assert (plan 10: `CHECK_CONDITION` trả thêm `found` /
   `actual`), rồi khoảng 105 dòng ở plan 16 (tên bước `_humanName`, khung đang ghi, câu "not found"). Xuống dưới 2.000 phải chuyển cả Element picker: popup gửi `START_PICK_MODE`
@@ -79,6 +81,17 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   đang là chỗ thả khi kéo action (`02-action-list.css`) và vòng focus của công tắc Highlight (`11-highlight.css`).
   Màu dự phòng phải đặt trong `@supports`: viết ngay phía trên thì không có tác dụng, vì khai báo dùng `var()` không
   bị bỏ qua lúc parse.
+
+- **🩹 Kiểm bộ định vị (plan 22) chỉ có ở bước chạy qua `PLAY_ACTION` (click, input, hover, kéo thả) và ở Assert /
+  Condition.** Read DOM, Upload File, Dropdown mở qua CDP và chụp phần tử chưa ghi chú. Chỉ Play và Resume giữ ghi chú
+  (Sequence và CSV không có thẻ Last run). Phát lại vẫn dùng locator đầu tiên tìm ra phần tử, như 5 định dạng xuất:
+  ghi chú chỉ báo, không đổi phần tử được bấm.
+- **Lịch sử chạy (plan 22) chỉ hiện trên thẻ Last run**, tức là cho scenario của lần Play / Resume gần nhất. Scenario
+  chỉ chạy bằng Sequence hay CSV có lịch sử nhưng chưa có chỗ hiện. Lần chạy CSV và lần bị Stop không được tính vào
+  Flaky? / Failing since.
+- **✓ Check lúc ghi (plan 22):** khi đã bấm ✓ Check, trang chỉ đổi con trỏ thành dấu thập, chưa viền phần tử dưới chuột.
+  Listener capture đặt ở `window` của trang vẫn thấy `pointerdown` / `mousedown` của cú bấm chọn; listener ở document
+  trở xuống thì không.
 
 ## Cố ý giữ (không coi là bug)
 

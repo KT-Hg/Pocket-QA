@@ -1,17 +1,21 @@
 /**
  * run/last-run.js — the Last run card: how the last Play or Resume came out
  * (bg/playback.js keeps it as lastRun), its failures, each leading to its action
- * in the list, and its bug report (shared/bug-report.js) to copy into an issue.
+ * in the list, its bug report (shared/bug-report.js) to copy into an issue, and
+ * the steps whose locators did not agree (run/locator-review.js) and the last
+ * runs of its scenario (run/run-history.js).
  */
 
 import { buildBugReport } from '../../shared/bug-report.js';
-import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY } from '../../shared/storage-keys.js';
+import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY, RUN_HISTORY_KEY } from '../../shared/storage-keys.js';
 import { formatStamp } from '../../shared/time-format.js';
 import { activeValueText } from '../../shared/var-spec.js';
 import { verdictLabel } from '../../shared/verdict.js';
 import { scenarioList } from '../dom.js';
 import { downloadBlob, safeFileName } from '../lib/download.js';
 import { previewActions } from '../record/preview.js';
+import { initLocatorReview, renderNotesLine } from './locator-review.js';
+import { initRunHistory, renderHistory } from './run-history.js';
 import { attachModalKeyHandlers, closeModal, openModal } from '../ui/modal.js';
 import { ui } from '../ui-state.js';
 import { showToast } from '../utils.js';
@@ -69,7 +73,8 @@ function _failureButton(run, f) {
   return li;
 }
 
-function _render(card, run, dismissedAt) {
+/** `history`: the runs of its scenario, oldest first (run/run-history.js). */
+function _render(card, run, dismissedAt, history) {
   card.hidden = !run?.endedAt || run.endedAt === dismissedAt;
   if (card.hidden) return;
   const status = run.verdict?.status || 'stopped';
@@ -88,6 +93,8 @@ function _render(card, run, dismissedAt) {
   // A report tells a failure: a run that passed, or stopped with none, has nothing to report.
   const report = document.getElementById('lastRunBugReport');
   if (report) report.hidden = status !== 'failed' && status !== 'broken';
+  renderNotesLine(run);
+  renderHistory(history);
 }
 
 /** The browser, the OS and Pocket QA's version, for the report. */
@@ -161,9 +168,11 @@ export function initLastRun() {
   const card = document.getElementById('lastRunCard');
   if (!card) return;
   let shown = null;
-  const load = () => chrome.storage.local.get([LAST_RUN_KEY, DISMISSED_KEY], (x) => {
+  let history = [];
+  const load = () => chrome.storage.local.get([LAST_RUN_KEY, DISMISSED_KEY, RUN_HISTORY_KEY], (x) => {
     shown = x[LAST_RUN_KEY] || null;
-    _render(card, shown, x[DISMISSED_KEY]);
+    history = (shown && x[RUN_HISTORY_KEY]?.[shown.scenarioId]) || [];
+    _render(card, shown, x[DISMISSED_KEY], history);
   });
   // The card tells the verdict now; the badge stops telling it.
   const clearBadge = () => chrome.runtime.sendMessage({ type: 'CLEAR_RUN_VERDICT' }, () => void chrome.runtime.lastError);
@@ -172,11 +181,15 @@ export function initLastRun() {
     if (shown?.endedAt) chrome.storage.local.set({ [DISMISSED_KEY]: shown.endedAt });
   });
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !changes[LAST_RUN_KEY]) return;
-    load();
-    clearBadge(); // a run that ended while the popup was open
+    if (area !== 'local') return;
+    if (changes[LAST_RUN_KEY]) {
+      load();
+      clearBadge(); // a run that ended while the popup was open
+    } else if (changes[RUN_HISTORY_KEY]) load(); // written right after lastRun
   });
   _initBugReport(() => shown);
+  initLocatorReview(() => shown, _showAction);
+  initRunHistory(() => ({ name: shown?.scenarioName || shown?.scenarioId || '', entries: history }));
   load();
   clearBadge();
 }

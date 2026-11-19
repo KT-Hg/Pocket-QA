@@ -533,6 +533,68 @@ body[data-running] .last-run { display: none; }
 .lr-report { display: block; width: auto; margin: 6px 0 0; padding: 4px 10px; font-size: 12px; }
 .lr-report[hidden] { display: none; }
 
+/* The last runs of the card's scenario (popup/run/run-history.js) */
+.lr-history { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+.lr-history[hidden], .lr-hist-flag[hidden], .lr-hist-detail[hidden] { display: none; }
+.lr-dots { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+.lr-dot {
+  width: 11px; height: 11px; min-width: 0; margin: 0; padding: 0; border: none; border-radius: 50%;
+  background: var(--success); cursor: pointer; flex: 0 0 auto;
+}
+.lr-dot[data-status="failed"] { background: var(--danger); }
+.lr-dot[data-status="broken"] { background: var(--warning); }
+.lr-dot[data-status="stopped"] { background: var(--muted); }
+.lr-dot:last-child { width: 13px; height: 13px; }
+.lr-dot:hover { transform: none; filter: brightness(1.15); }
+.lr-dot.sel, .lr-dot:focus-visible { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--primary); }
+.lr-hist-sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-hist-all {
+  width: auto; flex: 0 0 auto; margin: 0; padding: 0; border: none; background: none;
+  color: var(--primary); font-size: 11px; text-decoration: underline; cursor: pointer;
+}
+.lr-hist-all:hover { background: none; transform: none; }
+.lr-hist-flag { margin: 4px 0 0; padding: 3px 6px; font-size: 12px; border-radius: 4px; background: var(--secondary-bg); }
+.lr-hist-detail {
+  margin: 4px 0 0; padding: 2px 6px; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere;
+  border-left: 3px solid var(--border);
+}
+.lr-hist-detail[data-status="failed"] { border-left-color: var(--danger); }
+.lr-hist-detail[data-status="broken"] { border-left-color: var(--warning); }
+.lr-hist-detail[data-status="passed"] { border-left-color: var(--success); }
+.run-history-content { width: min(460px, 94vw); max-height: 88vh; display: flex; flex-direction: column; }
+.run-history-wrap { overflow: auto; min-height: 0; }
+.run-history-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.run-history-table th, .run-history-table td { text-align: left; padding: 4px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+.run-history-table th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--card); }
+.run-history-table td:nth-child(2) { white-space: nowrap; }
+.rh-passed { color: var(--success); white-space: nowrap; }
+.rh-failed { color: var(--danger); white-space: nowrap; }
+.rh-broken { color: var(--warning); white-space: nowrap; }
+.rh-stopped { color: var(--muted); white-space: nowrap; }
+
+/* 🩹 steps whose locators did not agree (popup/run/locator-review.js) */
+.lr-notes { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 0; padding: 2px 6px; font-size: 12px; }
+.lr-notes[hidden] { display: none; }
+.lr-mini { width: auto; flex: 0 0 auto; margin: 0; padding: 2px 10px; font-size: 11px; }
+.locator-review-content { width: min(440px, 94vw); max-height: 88vh; overflow-y: auto; }
+.lrv-intro { margin: 0 0 8px; font-size: 11px; color: var(--muted); }
+.lrv-step { border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin: 0 0 8px; }
+.lrv-step.lrv-done { border-color: var(--success); }
+.lrv-head { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.lrv-why { margin: 2px 0 4px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.lrv-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 0 0 6px; table-layout: fixed; }
+.lrv-table th, .lrv-table td { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+.lrv-table th { color: var(--muted); font-weight: 600; }
+.lrv-table th:first-child { width: 22%; }
+.lrv-table code { font-size: 10.5px; }
+.lrv-ok { color: var(--success); }
+.lrv-other { color: var(--danger); font-weight: 600; }
+.lrv-miss { color: var(--muted); }
+.lrv-buttons { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lrv-buttons button { width: auto; margin: 0; padding: 4px 10px; font-size: 11px; }
+.lrv-fixed { color: var(--success); font-size: 12px; }
+.lrv-cannot { color: var(--muted); font-size: 11px; flex: 1 1 100%; }
+
 /* === Bug report window (popup/run/last-run.js) === */
 .bug-report-content { width: min(440px, 94vw); }
 .bug-report-text {

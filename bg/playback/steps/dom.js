@@ -19,6 +19,7 @@ export async function runOnPage(ctx, i, action) {
   const result = await tabMsg(tabId, { type: 'PLAY_ACTION', action, ...strictFor(ctx, action) }, pageReplyTimeout(action), action.frameId);
 
   _stickFallbacks(result);
+  if (result?.locator && !result.failed) ctx.noteLocator(i, action, result.locator);
 
   // If a click/select caused an immediate navigation, the content script may
   // have become unreachable before it could send a response.  Detect this by

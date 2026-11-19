@@ -1169,6 +1169,66 @@ test('Play and Resume keep their last run; a Sequence or a CSV run does not', ()
   assert.deepEqual(ended['verdict: csv'].lastRun, SENTINEL);
 });
 
+// ── 🩹 locator notes ────────────────────────────────────────────────────────
+// A step whose other locators do not agree on its element comes back with a
+// `locator` note (content.js _locatorNote); a Play or Resume keeps one note a
+// step in lastRun.notes, for the Last run card. A Sequence or a CSV run keeps none.
+const NOTE = { kind: 'fragile', used: { label: { tag: 'button', name: 'Go', id: '' }, by: ['text'], selectors: { css: '#go2' } }, missed: ['id', 'css'] };
+const notesOf = {};
+const notesEnd = (step) => () => { notesOf[step] = JSON.parse(JSON.stringify(fake.data.local.lastRun ?? null)); };
+Object.assign(fake.data.local.scenarios, {
+  nInner: { name: 'NInner', actions: [hover('#nIn')] },
+  nNotes: { name: 'NNotes', actions: [
+    hover('#nA', { label: 'A' }),
+    hover('#nFail'),
+    assertOf('#nCheck', 'elementVisible'),
+    { type: 'condition', conditionType: 'elementExists', selector: '#nCond', skipCount: 1 },
+    hover('#nB'),
+    { type: 'switch', switchVar: '', cases: [{ value: '__default__', scenarioId: 'nInner', scenarioName: 'NInner' }] },
+  ] },
+});
+const noteReplies = () => {
+  page['#nA'] = { locator: NOTE };
+  page['#nFail'] = { failed: true, error: 'Element not found', locator: NOTE };
+  page['#nB'] = {};
+  page['#nIn'] = { locator: NOTE };
+  conditions['#nCheck'] = { result: true, locator: NOTE };
+  conditions['#nCond'] = { result: true, locator: NOTE };
+  choices = ['skip', 'skip'];
+};
+await run('notes: a Play keeps one note a step', () => startPlayback('nNotes', 2), { setup: noteReplies, teardown: notesEnd('notes: a Play keeps one note a step') });
+await run('notes: a Sequence keeps none', () => startSequence([{ id: 'nNotes', delay: 0 }]), {
+  setup: () => { noteReplies(); fake.data.local.lastRun = SENTINEL; },
+  teardown: notesEnd('notes: a Sequence keeps none'),
+});
+
+test('a Play keeps one 🩹 note a step, from actions, Asserts and Conditions, none for a failed step', () => {
+  const { notes } = notesOf['notes: a Play keeps one note a step'];
+  assert.deepEqual(notes.map((n) => [n.index, n.type, n.scenarioId ?? null]),
+    [[1, 'hover', null], [3, 'assert', null], [4, 'condition', null], [1, 'hover', 'nInner']]);
+  assert.equal(notes[0].label, 'A');
+  assert.deepEqual(notes[0].locator, NOTE);
+});
+// ── 📈 run history ──────────────────────────────────────────────────────────
+// Every run that ends adds an entry to its scenario's runHistory (shared/run-history.js).
+test('a Play, a Resume, each scenario of a Sequence and a CSV run each add to their scenario\'s history', () => {
+  const h = fake.data.local.runHistory;
+  const of = (id) => (h[id] || []).map((e) => `${e.how} ${e.status}${e.rows ? ` ${e.rows.failed}/${e.rows.passed}` : ''}`);
+  assert.deepEqual(of('vFail').slice(0, 4), ['play failed', 'resume failed', 'sequence failed', 'csv failed 1/0']);
+  assert.deepEqual(of('vPass').slice(0, 2), ['play passed', 'sequence passed']);
+  assert.deepEqual(of('vStop')[0], 'play stopped');
+  assert.equal(of('vLoop')[0], 'play failed', 'three loops are one run');
+  const first = h.vFail[0];
+  assert.deepEqual({ ...first.first, reason: undefined }, { index: 2, kind: 'assert', label: 'assert', reason: undefined });
+  assert.equal(typeof first.fp, 'string');
+  assert.ok(first.endedAt >= first.startedAt);
+  assert.equal(h.vFail.find((e) => e.how === 'csv').first.row, 1);
+});
+
+test('a Sequence keeps no notes (it has no Last run card)', () => {
+  assert.deepEqual(notesOf['notes: a Sequence keeps none'], SENTINEL);
+});
+
 // ── compare ─────────────────────────────────────────────────────────────────
 function stringify(v, depth = 3, pad = '') {
   if (depth === 0 || v === null || typeof v !== 'object' || !Object.keys(v).length) return JSON.stringify(v);

@@ -43,7 +43,7 @@ const RULES = [
   [['popup/record/', 'popup/scenarios/', 'bg/handlers/folders.js', 'css/popup/02-action-list.css',
     'css/popup/04-lists-cards-forms.css', 'css/popup/12-switch-blocks.css'], ['editor', 'vars']],
   [['css/popup/07-switch-loop-csv.css'], ['editor', 'csv']],
-  [['popup/run/', 'bg/schedule-alarms.js', 'bg/handlers/schedules.js'], ['run', 'record']],
+  [['popup/run/', 'bg/schedule-alarms.js', 'bg/handlers/schedules.js', 'shared/run-history.js'], ['run', 'record']],
   [['popup/theme.js'], [...POPUP, 'pages']],
   [['popup.html', 'popup/main.js', 'popup/init.js', 'popup/dom.js', 'popup/utils.js', 'popup/connection.js',
     'popup/ui-state.js', 'popup/settings.js', 'popup/tab-activation.js', 'popup/notices.js', 'popup/update-banner.js',

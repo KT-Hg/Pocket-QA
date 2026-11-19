@@ -21,6 +21,7 @@ export async function runCondition(ctx, i, action) {
     // Tried first, as an action tries it (content.js locateNow).
     ...(action.selectorType ? { selectorType: action.selectorType } : {}),
   }, CHECK_TIMEOUT_MS, action.frameId);
+  if (condResult?.locator) ctx.noteLocator(i, action, condResult.locator);
   let passed = !!condResult?.result;
   // The page could not evaluate it (an unknown type, an exception): neither true
   // nor false. Skip leaves the guarded actions to run, as they always did then.

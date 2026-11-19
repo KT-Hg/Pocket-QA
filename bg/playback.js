@@ -21,7 +21,8 @@ import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } f
 import { pickStrings } from '../shared/dropdown-pick.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { failCountsText, runVerdict, tallyText, tallyVerdicts, verdictLabel } from '../shared/verdict.js';
-import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY } from '../shared/storage-keys.js';
+import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY, RUN_HISTORY_KEY } from '../shared/storage-keys.js';
+import { historyEntry, pushHistory } from '../shared/run-history.js';
 import { captureFailureShot } from './screenshot/capture-tab.js';
 import { withRunPanelHidden } from './run-panel.js';
 import { isAnyPlaybackActive, runClaimed, runPause } from './run-state.js';
@@ -125,6 +126,22 @@ async function _evidence(tabId, evidence) {
   return { url, at: Date.now(), loop: evidence.loop, trace: [...evidence.trace] };
 }
 
+// A run keeps this many 🩹 notes (bg/playback/steps → noteLocator), one a step.
+const NOTES_MAX = 20;
+
+/**
+ * How a run keeps its 🩹 notes (`notes`; null keeps none) for the steps of
+ * `scenarioId` (a scenario a Switch went into; none: the one played): one note a
+ * step, the first seen — a loop or a retry plays it again.
+ */
+function _locatorNoter(notes, scenarioId) {
+  return (i, action, locator) => {
+    if (!notes || notes.length >= NOTES_MAX) return;
+    if (notes.some((n) => n.index === i + 1 && n.scenarioId === scenarioId)) return;
+    notes.push({ index: i + 1, type: action.type, label: action.label || '', ...(scenarioId ? { scenarioId } : {}), locator });
+  };
+}
+
 /** Add `step` to the trace unless it is the last one there (a retry). */
 function _traceStep(trace, step) {
   const last = trace.at(-1);
@@ -204,11 +221,13 @@ function _failureRecorders(tabId, actions, failedActions, { evidence, scenarioId
  * `screenshotNames`: a CSV row's { varName: Filename } of its Screenshot →
  * Variable steps, the names their images get in the ZIP export.
  * `evidence`: a Play or Resume's { trace, loop, shot } — see _evidence.
+ * `notes`: a Play or Resume's 🩹 notes — the steps whose other locators did not
+ * agree on their element (content.js _locatorNote), for the Last run card.
  */
 export async function playActionsOnTab(tabId, actions, {
   vars = null, screenshotsResult = null, forceAutoSave = false, skipDownload = false,
   startFromIndex = 0, failedActions = null, depth = 0, endAtIndex = null, frames = null, strict = false,
-  screenshotNames = null, evidence = null,
+  screenshotNames = null, evidence = null, notes = null,
 } = {}) {
   if (depth > 10) {
     console.error('[PLAYBACK] Max switch/nested-scenario depth (10) exceeded — aborting branch');
@@ -262,7 +281,7 @@ export async function playActionsOnTab(tabId, actions, {
   };
 
   Object.assign(ctx, {
-    layout: _layout, fail, recordFail, stickFallbacks: _stickFallbacks, getSsSettings: _getSsSettings,
+    layout: _layout, fail, recordFail, stickFallbacks: _stickFallbacks, getSsSettings: _getSsSettings, noteLocator: _locatorNoter(notes, _otherId),
     // A Switch case played as a run of its own, one level deeper. It shares this
     // run's screenshots (and their names), save options and failure list; its
     // variables are a copy.
@@ -272,7 +291,7 @@ export async function playActionsOnTab(tabId, actions, {
       vars: nestedVars, screenshotsResult, screenshotNames, forceAutoSave, skipDownload, startFromIndex: start,
       failedActions, depth: depth + 1, endAtIndex: end, strict: other ? other.strict : strict,
       frames: other ? [..._frames, { scenarioId: other.scenarioId, actionIndex: start, endAtIndex: end }] : _frames,
-      evidence,
+      evidence, notes,
     }),
   });
 
@@ -351,7 +370,7 @@ function _afterSwitch(actions, i) {
  * last): the innermost from the action after its checkpoint, then each outer
  * one after the Switch that entered the next. Variables carry over.
  */
-async function _resumeNested(tabId, scenarios, rootSwitchIdx, nested, { failedActions, evidence }) {
+async function _resumeNested(tabId, scenarios, rootSwitchIdx, nested, { failedActions, evidence, notes }) {
   let vars = null;
   for (let k = nested.length - 1; k >= 0; k--) {
     const { scenarioId, actionIndex, endAtIndex = null } = nested[k];
@@ -366,7 +385,7 @@ async function _resumeNested(tabId, scenarios, rootSwitchIdx, nested, { failedAc
         vars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
         startFromIndex: seg.start, failedActions, depth: k + 1, endAtIndex: end,
         frames: [...outer, { scenarioId, actionIndex: seg.start, endAtIndex }],
-        strict: scenarios[scenarioId].clickThrough === false, evidence,
+        strict: scenarios[scenarioId].clickThrough === false, evidence, notes,
       });
     }
   }
@@ -397,6 +416,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
   // had failed along the way — playback does not stop at the first one.
   const failedActions = [];
   const evidence = { trace: [], loop: 1, shot: null };
+  const notes = [];
   const startedAt = Date.now();
   let completed = false;
   try {
@@ -407,7 +427,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
     // Stopped inside another scenario a Switch went into: finish that first,
     // then go on here where the Switch (at the checkpoint's actionIndex) would.
     if (nested?.length) {
-      vars = await _resumeNested(tabId, scenarios, fromIndex - 1, nested, { failedActions, evidence });
+      vars = await _resumeNested(tabId, scenarios, fromIndex - 1, nested, { failedActions, evidence, notes });
       fromIndex = _afterSwitch(actions, fromIndex - 1);
     }
     for (const seg of resumeSegments(actions, fromIndex)) {
@@ -415,7 +435,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
       vars = await playActionsOnTab(tabId, actions, {
         vars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
         startFromIndex: seg.start, failedActions, depth: 0, endAtIndex: seg.end,
-        strict: scenario.clickThrough === false, evidence,
+        strict: scenario.clickThrough === false, evidence, notes,
       });
     }
     // Still active: not stopped, the tab not closed.
@@ -432,8 +452,9 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
     updateBadge();
     chrome.storage.local.remove('playbackCheckpoint');
     _saveLastRun(scenarioId, scenarios, {
-      startedAt, loops: 1, completed, verdict, failures: failedActions, shot: evidence.shot, resumed: true,
+      startedAt, loops: 1, completed, verdict, failures: failedActions, shot: evidence.shot, resumed: true, notes,
     });
+    await _addHistory(scenarioId, actions, { how: 'resume', startedAt, verdict, failures: failedActions });
     await _notifyVerdict(`"${scenario.name}"`, verdict,
       `"${scenario.name}" ${completed ? 'resumed & finished' : 'resumed, stopped before its end'}`);
     await endDbGuard(dbGuard);
@@ -446,12 +467,17 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
  */
 function _saveLastRun(scenarioId, scenarios, run) {
   const scenario = scenarios[scenarioId];
-  // The other scenarios the first failure's steps ran in, Switched into.
-  const otherIds = new Set((run.failures[0]?.trace || []).filter((t) => typeof t === 'object').map((t) => t.scenarioId));
+  // The other scenarios the first failure's steps ran in, Switched into, and those
+  // of the 🩹 notes (the popup checks a step is unchanged before writing to it).
+  const otherIds = new Set([
+    ...(run.failures[0]?.trace || []).filter((t) => typeof t === 'object').map((t) => t.scenarioId),
+    ...(run.notes || []).filter((n) => n.scenarioId).map((n) => n.scenarioId),
+  ]);
   const lastRun = {
     scenarioId, scenarioName: scenario.name || scenarioId, startedAt: run.startedAt, endedAt: Date.now(),
     loops: run.loops, completed: run.completed, verdict: run.verdict, failures: run.failures,
     ...(run.resumed ? { resumed: true } : {}),
+    ...(run.notes?.length ? { notes: run.notes } : {}),
     // As saved, before variables: the report tells the steps, the scenario may change after.
     actions: scenario.actions || [],
     ...(otherIds.size ? { otherActions: Object.fromEntries([...otherIds].map((id) => [id, scenarios[id]?.actions || []])) } : {}),
@@ -465,13 +491,37 @@ function _saveLastRun(scenarioId, scenarios, run) {
   }
 }
 
-/** `tabId`: play on that tab (a scheduled run's own); otherwise on the active tab. */
-export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0, tabId = null) {
-  if (refuseIfRecording()) return;
-  if (!(await runClaimed(() => _playScenario(scenarioId, loopCount, loopDelay, tabId)))) _notifyAlreadyRunning();
+/**
+ * A run of `scenarioId` that just ended, added to its history (shared/run-history.js):
+ * `run` = { how, startedAt, verdict, failures, rows? }; `actions` as played. The
+ * history of a scenario deleted since is dropped on the way.
+ */
+async function _addHistory(scenarioId, actions, run) {
+  try {
+    const entry = historyEntry({ ...run, endedAt: Date.now(), actions });
+    const [all, live] = await Promise.all([
+      new Promise((r) => chrome.storage.local.get(RUN_HISTORY_KEY, (x) => { void chrome.runtime.lastError; r(x?.[RUN_HISTORY_KEY]); })),
+      getScenarios(),
+    ]);
+    const next = pushHistory(all, scenarioId, entry, new Set(Object.keys(live)));
+    const failed = await new Promise((r) => chrome.storage.local.set({ [RUN_HISTORY_KEY]: next }, () => r(chrome.runtime.lastError?.message)));
+    if (failed) throw new Error(failed);
+  } catch (e) {
+    // A history that could not be written (storage full) never ends a run badly.
+    console.warn('[PLAYBACK] Run history not saved:', e?.message || e);
+  }
 }
 
-async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
+/**
+ * `tabId`: play on that tab (a scheduled run's own); otherwise on the active tab.
+ * `how`: what started it, for its history — 'play', or 'schedule'.
+ */
+export async function startPlayback(scenarioId, loopCount = 1, loopDelay = 0, tabId = null, how = 'play') {
+  if (refuseIfRecording()) return;
+  if (!(await runClaimed(() => _playScenario(scenarioId, loopCount, loopDelay, tabId, how)))) _notifyAlreadyRunning();
+}
+
+async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId, how) {
   _ssSettings = null; // reset screenshot settings cache for this run
   _checksRun = 0;
 
@@ -504,6 +554,7 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
   // Accumulates across every loop iteration, so a 10-loop run reports the total.
   const failedActions = [];
   const evidence = { trace: [], loop: 1, shot: null };
+  const notes = [];
   const startedAt = Date.now();
   let completed = false;
   try {
@@ -520,7 +571,7 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
       evidence.loop = loop + 1;
       loopVars = await playActionsOnTab(tabId, actions, {
         vars: loopVars, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
-        startFromIndex: 0, failedActions, strict: scenario.clickThrough === false, evidence,
+        startFromIndex: 0, failedActions, strict: scenario.clickThrough === false, evidence, notes,
       });
       if (loop < loops - 1 && loopDelay > 0) await runPause(loopDelay);
     }
@@ -534,7 +585,8 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
     const verdict = _endVerdict(failedActions, completed);
     updateBadge();
     chrome.storage.local.remove('playbackCheckpoint');
-    _saveLastRun(scenarioId, scenarios, { startedAt, loops, completed, verdict, failures: failedActions, shot: evidence.shot });
+    _saveLastRun(scenarioId, scenarios, { startedAt, loops, completed, verdict, failures: failedActions, shot: evidence.shot, notes });
+    await _addHistory(scenarioId, actions, { how, startedAt, verdict, failures: failedActions });
     await _notifyVerdict(`"${scenario.name}"`, verdict, completed
       ? `"${scenario.name}" finished${loops > 1 ? ` (${loops} loops)` : ''}`
       : `"${scenario.name}" stopped before its end`);
@@ -547,6 +599,31 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId) {
 export async function startSequence(runList) {
   if (refuseIfRecording()) return;
   if (!(await runClaimed(() => _playSequence(runList)))) _notifyAlreadyRunning();
+}
+
+/**
+ * One scenario of a Sequence on `tabId`, added to its history; its failures.
+ * `sequenceGoesOn()`: the Sequence was not stopped, nor its tab closed.
+ */
+async function _playSequenceItem(tabId, scenarioId, scenario, sequenceGoesOn) {
+  const actions = scenario.actions || [];
+  state.playback = {
+    active: true, tabId, scenarioId,
+    scenarioName: scenario.name || scenarioId,
+    originalScenarioName: scenario.name || scenarioId,
+    actionIndex: 0, totalActions: actions.length,
+  };
+  const failures = [];
+  const startedAt = Date.now();
+  await playActionsOnTab(tabId, actions, {
+    vars: null, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
+    startFromIndex: 0, failedActions: failures, strict: scenario.clickThrough === false,
+  });
+  // Still active: this scenario ran to its end — not stopped, its tab not closed.
+  const completed = state.playback.active && sequenceGoesOn();
+  state.playback.active = false;
+  await _addHistory(scenarioId, actions, { how: 'sequence', startedAt, verdict: runVerdict(failures, { completed }), failures });
+  return failures;
 }
 
 async function _playSequence(runList) {
@@ -596,19 +673,7 @@ async function _playSequence(runList) {
       const scenario = scenarios[item.id];
       if (!scenario) continue;
 
-      const actions = scenario.actions || [];
-      state.playback = {
-        active: true, tabId, scenarioId: item.id,
-        scenarioName: scenario.name || item.id,
-        originalScenarioName: scenario.name || item.id,
-        actionIndex: 0, totalActions: actions.length,
-      };
-      const _seqItemFailed = [];
-      await playActionsOnTab(tabId, actions, {
-        vars: null, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
-        startFromIndex: 0, failedActions: _seqItemFailed, strict: scenario.clickThrough === false,
-      });
-      state.playback.active = false;
+      const _seqItemFailed = await _playSequenceItem(tabId, item.id, scenario, () => state.sequencePlayback.active && !_seqTabClosed);
       _seqCompleted++;
       _seqFailures.push(..._seqItemFailed);
 
@@ -713,6 +778,10 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
   let runError      = null;
   let keepaliveOn   = false;
   let dbGuard       = null;
+  // Each row's first failure, with its row, for the run's history: the first decides.
+  const rowFirsts   = [];
+  const startedAt   = Date.now();
+  let allRowsRan    = false;
 
   // The whole run lives inside try/catch/finally, matching startPlayback and
   // startSequence. A throw anywhere — an IndexedDB quota error while writing a
@@ -830,6 +899,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
       completedRows++;
       if (failedActions.length > 0) failedRows++;
       tally[runVerdict(failedActions, { completed: rowCompleted }).status]++;
+      if (failedActions.length) rowFirsts.push({ ...failedActions[0], row: i + 1 });
       Object.assign(state.csvPlayback, { doneRows: completedRows, failRows: failedRows });
 
       // Only store variables that are actually referenced by the scenario to
@@ -879,6 +949,8 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
         await runPause(delayBetween);
       }
     }
+    // Every row ran: not stopped, nor ended early by "Stop after this row".
+    allRowsRan = state.csvPlayback.active && state.csvPlayback.stopAfterRow !== true;
   } catch (err) {
     runError = err;
     console.error('[CSV] Run aborted by an unexpected error:', err);
@@ -909,6 +981,9 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
 
   // Nothing ran: missing scenario or no eligible tab, both already reported above.
   if (!scenario || tabId == null) return;
+  await _addHistory(scenarioId, scenario.actions || [], {
+    how: 'csv', startedAt, verdict: runVerdict(rowFirsts, { completed: allRowsRan && !tally.stopped }), failures: rowFirsts, rows: tally,
+  });
 
   // Rows that failed or broke make it an alert, as for a single run (_notifyVerdict).
   const send = tally.failed || tally.broken ? sendAlertNotification : sendCompletionNotification;

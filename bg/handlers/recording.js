@@ -33,21 +33,28 @@ function _recordsTab(tabId) {
 }
 
 // What content.js records, and the fields of it a page may send.
-const RECORDED_TYPES = new Set(['click', 'input']);
+const RECORDED_TYPES = new Set(['click', 'input', 'assert']);
+// The checks ✓ Check offers while recording (content.js _checkItems), and how long
+// the value checked may be.
+const RECORDED_CHECKS = new Set(['textEquals', 'textContains', 'valueEquals', 'elementVisible', 'urlContains']);
+const EXPECTED_MAX = 500;
 const RECORDED_SELECTOR_KEYS = [...SELECTOR_KEYS, 'textTag'];
 // content.js names a step in 60 characters at most (HUMAN_NAME_MAX).
 const LABEL_MAX = 60;
 
 /**
- * A recorded action as a web page's content script may send it: a click or an
- * input, with the fields content.js records and nothing else; null for anything
+ * A recorded action as a web page's content script may send it: a click, an
+ * input or an Assert (✓ Check), with the fields content.js records and nothing else; null for anything
  * else. A compromised renderer could otherwise put any action into the scenario
  * being recorded — an Upload File handing a local file to the page, a Script —
  * to run on the next Play. The frame is the one Chrome says sent it.
  */
 function _recordedFromPage(action, sender) {
   if (!action || !RECORDED_TYPES.has(action.type)) return null;
+  if (action.type === 'assert' && (!RECORDED_CHECKS.has(action.conditionType) || typeof action.expectedValue !== 'string'
+    || action.expectedValue.length > EXPECTED_MAX)) return null;
   const out = { type: action.type };
+  if (action.type === 'assert') Object.assign(out, { conditionType: action.conditionType, expectedValue: action.expectedValue });
   if (typeof action.selector === 'string') out.selector = action.selector;
   if (action.selectors && typeof action.selectors === 'object') {
     out.selectors = {};
@@ -120,6 +127,27 @@ export const recordingHandlers = {
     sendResponse({ received: true });
     return;
   }),
+
+  // ✓ Check on the recording pill: the next click in any frame of the tab picks what
+  // to check (content.js), and picking it turns that off everywhere.
+  RECORD_CHECK_ARM(request, sender, sendResponse) {
+    const tabId = sender.tab?.id;
+    if (tabId != null && _recordsTab(tabId)) {
+      chrome.tabs.sendMessage(tabId, { type: 'RECORD_CHECK_ARM', armed: request.armed === true }, ignoreLastError);
+    }
+    sendResponse({ received: true });
+  },
+
+  // The ✓ Check menu lives in content-overlays.js: loaded into the document that
+  // asks, while it records, and answered once it is there.
+  LOAD_OVERLAYS(request, sender, sendResponse) {
+    const tabId = sender.tab?.id;
+    if (tabId == null || !_recordsTab(tabId)) { sendResponse({ ok: false }); return; }
+    const target = sender.documentId ? { tabId, documentIds: [sender.documentId] } : { tabId, frameIds: [sender.frameId ?? 0] };
+    chrome.scripting.executeScript({ target, files: ['content-overlays.js'] })
+      .then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }));
+    return true;
+  },
 
   CONTENT_READY(request, sender, sendResponse) {
     const tabId = sender.tab?.id;

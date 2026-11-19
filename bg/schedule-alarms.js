@@ -101,7 +101,7 @@ function _playInNewTab(s, schedName) {
       sendScheduleNotification('⚠ Scheduled run not started', `"${schedName}": could not open ${s.url}`, 'schedule_start');
       return;
     }
-    startPlayback(s.scenarioId, 1, 0, tab.id);
+    startPlayback(s.scenarioId, 1, 0, tab.id, 'schedule');
   });
 }
 
@@ -130,7 +130,7 @@ export function runScheduleAlarm(alarm) {
       );
       if (s.url) _playInNewTab(s, schedName);
       // Saved before schedules had a start URL: the active tab, as it always was.
-      else startPlayback(s.scenarioId);
+      else startPlayback(s.scenarioId, 1, 0, null, 'schedule');
       // A one-shot schedule burns itself only when it actually ran; a slot skipped
       // by the lock stays armed for the next occurrence.
       if (!s.repeat) {

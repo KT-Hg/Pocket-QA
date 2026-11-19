@@ -1,12 +1,14 @@
 /**
  * content-overlays.js — the in-page overlays content.js needs only now and then:
  * the countdown pill before a visible capture (START_VISIBLE_COUNTDOWN), the
- * failed-action prompt of playback (ACTION_FAILED_PROMPT) and the segment
- * capture bar (START_SEGMENT_TAB).
+ * failed-action prompt of playback (ACTION_FAILED_PROMPT), the segment capture
+ * bar (START_SEGMENT_TAB) and the ✓ Check menu while recording
+ * (window.__pqaOverlays.openCheckMenu).
  *
  * A classic script, not in the manifest: the worker injects it (loadOverlays,
- * bg/tabs.js) right before it sends one of those messages, so a page that never
- * takes a screenshot or fails an action never runs it. It runs in content.js's
+ * bg/tabs.js) right before it sends one of those messages, or when content.js
+ * asks for the ✓ Check menu (LOAD_OVERLAYS), so a page that never takes a
+ * screenshot, fails an action or gets a check never runs it. It runs in content.js's
  * isolated world, and what it uses from content.js comes through
  * window.__pqaContent (see HIGHLIGHT ENGINE LOADING there). Its own guard makes
  * a second injection do nothing; a frame without content.js is left alone.
@@ -15,7 +17,7 @@
 if (!window.__pqaOverlaysInjected && window.__pqaContent) {
   window.__pqaOverlaysInjected = true;
 
-const { safeSend, _extOverlay, _extSpan, _EXT_DANGER } = window.__pqaContent;
+const { safeSend, _extOverlay, _extSpan, _EXT_DANGER, _extButton, _extTokens, _EXT_FONT } = window.__pqaContent;
 
 /* ─────────────────────────────────────────────────────────────────────────────
    VISIBLE SCREENSHOT COUNTDOWN
@@ -181,6 +183,87 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     sendResponse({ ok: true });
   }
 });
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ✓ CHECK MENU
+   While recording, the checks content.js offers for the element Alt + clicked
+   (or clicked after ✓ Check on the recording pill): one button each, "Text
+   contains" with its text to edit. Next to the element, below it when it fits.
+   Esc or ✕ closes it; so does any click on the page (content.js).
+───────────────────────────────────────────────────────────────────────────── */
+
+const CHECK_MENU_WIDTH = 300;
+const CHECK_MENU_GAP = 6;
+const CHECK_MENU_MARGIN = 8;
+
+/**
+ * `rect`: the element's, in the viewport; `items`: [{ text, conditionType,
+ * expectedValue, edit?, off? }]; `onPick(item, value)` once one is chosen; `onClose`
+ * whichever way it closes. Returns { close }.
+ */
+function openCheckMenu({ rect, title, items, onPick, onClose }) {
+  let closed = false;
+  const done = () => { if (!closed) { closed = true; onClose(); } };
+  const t = _extTokens();
+  const pick = (item, value) => { onPick(item, value); handle.cancel(); };
+  const line = ['all:initial', 'display:flex', 'gap:6px', 'align-items:center', 'font-family:inherit'];
+
+  const head = document.createElement('div');
+  head.style.cssText = line.join(';');
+  // textContent (_extSpan): the title names the element as the page does.
+  head.append(_extSpan(title, ['flex:1 1 auto', 'min-width:0', 'font-size:12px', 'opacity:0.75',
+    'white-space:nowrap', 'overflow:hidden', 'text-overflow:ellipsis']));
+
+  const rows = items.map((item) => {
+    if (item.edit) {
+      const row = document.createElement('div');
+      row.style.cssText = line.join(';');
+      const input = document.createElement('input');
+      input.value = item.expectedValue;
+      input.setAttribute('aria-label', item.text);
+      input.style.cssText = ['all:initial', 'box-sizing:border-box', 'flex:1 1 auto', 'min-width:0',
+        `font-family:${_EXT_FONT}`, 'font-size:12px', 'padding:5px 8px', 'border-radius:6px',
+        `background:${t.taBg}`, `color:${t.text}`, `border:1px solid ${t.btnBorder}`].join(';');
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); pick(item, input.value); }
+      });
+      const go = _extButton(item.text);
+      go.addEventListener('click', () => pick(item, input.value));
+      row.append(input, go);
+      return row;
+    }
+    const b = _extButton(item.text);
+    Object.assign(b.style, { display: 'block', textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
+    b.title = item.text;
+    if (item.off) Object.assign(b.style, { opacity: '0.5', cursor: 'default' });
+    else b.addEventListener('click', () => pick(item, item.expectedValue));
+    b.disabled = !!item.off;
+    return b;
+  });
+
+  const handle = _extOverlay({
+    id: '__pqa_check_menu',
+    variant: 'panel',
+    hint: null,
+    onCancel: done,
+    compactCancel: true,
+    content: [head, ...rows],
+    extra: ['display:flex', 'top:0', 'left:0', 'visibility:hidden',
+      `width:${CHECK_MENU_WIDTH}px`, `max-width:calc(100vw - ${2 * CHECK_MENU_MARGIN}px)`],
+  }).mount();
+  // The template puts ✕ first in the column: it belongs at the end of the title row.
+  head.append(handle.buttons.cancel);
+
+  const h = handle.el.offsetHeight, w = handle.el.offsetWidth;
+  const below = rect.bottom + CHECK_MENU_GAP;
+  const top = below + h <= window.innerHeight - CHECK_MENU_MARGIN ? below : Math.max(CHECK_MENU_MARGIN, rect.top - h - CHECK_MENU_GAP);
+  const left = Math.min(Math.max(CHECK_MENU_MARGIN, rect.left), window.innerWidth - w - CHECK_MENU_MARGIN);
+  Object.assign(handle.el.style, { top: `${top}px`, left: `${Math.max(CHECK_MENU_MARGIN, left)}px`, visibility: 'visible' });
+  rows.find((r) => r.tagName === 'BUTTON' && !r.disabled)?.focus();
+  return { close: () => handle.cancel() };
+}
+
+window.__pqaOverlays = { openCheckMenu };
 
 /* ─────────────────────────────────────────────────────────────────────────────
    SEGMENT CAPTURE OVERLAY

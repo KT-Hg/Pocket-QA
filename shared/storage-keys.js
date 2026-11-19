@@ -25,3 +25,6 @@ export const LAST_RUN_KEY = 'lastRun';
 
 /** The first failure's screenshot of that run, a JPEG data URL; absent when it had none. */
 export const LAST_RUN_SHOT_KEY = 'lastRunShot';
+
+/** The last runs of each scenario, { [scenarioId]: [entry, …] } oldest first (shared/run-history.js; the Last run card's dots). */
+export const RUN_HISTORY_KEY = 'runHistory';

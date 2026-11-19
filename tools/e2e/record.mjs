@@ -17,6 +17,10 @@
  *                 recording tab still is
  *   record-restart  a recording whose worker stopped before the first action (it
  *                 sleeps after 30 s with nothing to do) still records that action
+ *   record-check  ✓ Check while recording: Alt + click (or ✓ Check on the pill, then a
+ *                 click) opens a menu of checks; the one chosen is recorded as an Assert,
+ *                 after the text typed before it; the clicks that pick or close are not
+ *                 steps, and the page gets none of them (an Alt + click on a link downloads nothing)
  */
 
 import { asActiveTab, sleep } from '../lib/cdp-browser.mjs';
@@ -358,7 +362,7 @@ export async function checkRecordingPill(ctx) {
   await ctx.web.bringToFront();
   await clickAt(ctx, '#bg1');
   await sleep(SETTLE_MS);
-  await clickAt(ctx, '#__pqa_recording button');
+  await clickAt(ctx, '#__pqa_recording button:last-of-type'); // ■ Stop, after ✓ Check
   await sleep(SETTLE_MS * 2);
   const status = await ctx.send({ type: 'GET_EXTENSION_STATUS' });
   const saved = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('scenarios', (x) => r((x.scenarios[${JSON.stringify(id)}].actions || []).map((a) => a.selector))))`);
@@ -389,6 +393,89 @@ export async function checkRecordOtherTab(ctx) {
   }
 }
 
+/** A real click in the middle of `selector` with Alt held (CDP modifiers: Alt = 1). */
+async function altClickAt(ctx, selector) {
+  const { x, y } = await ctx.web.evaluate(`(() => {
+    const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })()`);
+  for (const type of ['mousePressed', 'mouseReleased']) {
+    await ctx.web.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, modifiers: 1 });
+  }
+}
+
+/** A real click on the ✓ Check menu's button whose text starts with `text`. */
+async function clickMenuItem(ctx, text) {
+  const at = await ctx.web.evaluate(`(() => {
+    const b = [...document.querySelectorAll('#__pqa_check_menu button')].find((x) => x.textContent.startsWith(${JSON.stringify(text)}));
+    if (!b) return null;
+    const r = b.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })()`);
+  if (!at) return false;
+  for (const type of ['mousePressed', 'mouseReleased']) {
+    await ctx.web.send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+  }
+  return true;
+}
+
+export async function checkRecordCheck(ctx) {
+  await reloadTestPage(ctx);
+  await ctx.web.evaluate(`document.body.insertAdjacentHTML('afterbegin',
+    '<div id="rcToast" style="padding:4px">Saved!</div><a id="rcLink" href="/rc-file.png" style="display:inline-block;padding:4px">Get the file</a>')`);
+  const menu = () => ctx.web.evaluate(`(() => { const m = document.getElementById('__pqa_check_menu');
+    return m ? [...m.querySelectorAll('button')].map((b) => b.textContent) : null; })()`);
+  const pillLabel = () => ctx.web.evaluate(`document.getElementById('__pqa_recording')?.textContent || ''`);
+  const downloadsBefore = ctx.browser.downloads().length;
+  const urlBefore = await ctx.web.evaluate('location.href');
+  let seen = {};
+  const { actions } = await record(ctx, 'e2e record check', async () => {
+    await clickAt(ctx, '#out');
+    await ctx.web.send('Input.insertText', { text: 'Alice' });
+    await altClickAt(ctx, '#rcToast'); // within the input debounce: the text comes first
+    for (let waited = 0; !(await menu()) && waited < 3_000; waited += POLL_MS) await sleep(POLL_MS);
+    seen.toastMenu = await menu();
+    seen.picked = await clickMenuItem(ctx, 'Text is');
+    await sleep(SETTLE_MS);
+    seen.closedAfterPick = (await menu()) === null;
+
+    // ✓ Check on the pill, then a click on the field: its value; Esc closes, nothing recorded.
+    await clickAt(ctx, '#__pqa_recording button:first-of-type');
+    await sleep(SETTLE_MS);
+    seen.armedLabel = await pillLabel();
+    await clickAt(ctx, '#out');
+    for (let waited = 0; !(await menu()) && waited < 3_000; waited += POLL_MS) await sleep(POLL_MS);
+    seen.fieldMenu = await menu();
+    seen.disarmedLabel = await pillLabel();
+    for (const type of ['keyDown', 'keyUp']) await ctx.web.send('Input.dispatchKeyEvent', { type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await sleep(SETTLE_MS);
+    seen.closedByEsc = (await menu()) === null;
+
+    // Alt + click on a link: no download, no navigation; a click elsewhere closes the menu and is not a step.
+    await altClickAt(ctx, '#rcLink');
+    for (let waited = 0; !(await menu()) && waited < 3_000; waited += POLL_MS) await sleep(POLL_MS);
+    seen.linkMenu = await menu();
+    await clickAt(ctx, '#bg1');
+    await sleep(SETTLE_MS);
+    seen.closedByClick = (await menu()) === null;
+    await sleep(1_000); // a download would have started by now
+  });
+  seen.downloads = ctx.browser.downloads().length - downloadsBefore;
+  seen.url = await ctx.web.evaluate('location.href');
+  check(seen.toastMenu?.some((t) => t === 'Text is “Saved!”') && seen.toastMenu.some((t) => t === 'Is visible')
+    && seen.toastMenu.some((t) => t === 'URL contains “/page”') && seen.toastMenu.includes('Text contains'),
+  'Alt + click while recording opens a menu of the checks the element allows', seen.toastMenu);
+  check(seen.picked && seen.closedAfterPick, 'choosing one closes the menu', seen);
+  check(/Click what to check/.test(seen.armedLabel) && /Recording — Pocket QA/.test(seen.disarmedLabel)
+    && seen.fieldMenu?.includes('Value is “Alice”') && seen.closedByEsc,
+  '✓ Check on the pill: the next click opens the menu (a field: its value), then it is off again; Esc closes the menu', seen);
+  check(!!seen.linkMenu && seen.closedByClick && seen.downloads === 0 && seen.url === urlBefore,
+    'an Alt + click on a link opens the menu, not the link nor a download; a click on the page closes it', seen);
+  const steps = actions.map((a) => (a.type === 'assert' ? `assert ${a.conditionType} ${a.selector} "${a.expectedValue}" ${a.label}` : `${a.type} ${a.selector}`));
+  check(JSON.stringify(steps) === JSON.stringify(['click #out', 'input #out', 'assert textEquals #rcToast "Saved!" Saved!']),
+    'recorded: the text typed first, then the Assert; the clicks that picked or closed are not steps', steps);
+}
+
 // Last in CHECKS: it stops the worker, and ctx.sw stays attached to the one that was stopped.
 export async function checkRecordRestart(ctx) {
   await reloadTestPage(ctx);
@@ -415,5 +502,6 @@ export const CHECKS = [
   ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
   ['record-names', 'Recorded steps named after their elements; "not found" in words', checkRecordNames],
   ['recording-pill', 'Recording shows on the page and in the popup; Stop on the page', checkRecordingPill],
+  ['record-check', '✓ Check while recording adds an Assert', checkRecordCheck],
   ['record-restart', 'A recording across a worker restart', checkRecordRestart],
 ];

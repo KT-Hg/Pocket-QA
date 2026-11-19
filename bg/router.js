@@ -66,6 +66,8 @@ const PLAYBACK_START_TYPES = new Set([
 const CONTENT_SCRIPT_TYPES = new Set([
   'REGISTER_FRAME', 'CONTENT_READY', 'IS_TAB_ACTIVATED', 'RECORDED_ACTION',
   'START_RECORD', 'STOP_RECORD', 'ELEMENT_PICKED', 'STOP_PICK_MODE', 'PICKER_HOVER', 'HL_UPDATED', 'HL_EDIT', 'HL_LOAD',
+  // ✓ Check while recording (content.js): every frame of the recording tab picks; the menu's code.
+  'RECORD_CHECK_ARM', 'LOAD_OVERLAYS',
   // The run panel's Stop: a page may stop only the run playing on it (STOP_RUN).
   'STOP_RUN',
   'TAKE_SCREENSHOT', 'TAKE_SCREENSHOT_FULL', 'TAKE_SCREENSHOT_SCROLL_V', 'TAKE_SCREENSHOT_SCROLL_H',

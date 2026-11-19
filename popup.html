@@ -145,8 +145,21 @@
         <span class="lr-when"></span>
         <button type="button" id="lastRunDismiss" class="lr-dismiss" title="Hide until the next run" aria-label="Hide the last run until the next one">✕</button>
       </div>
+      <!-- The last runs of this scenario (popup/run/run-history.js) -->
+      <div class="lr-history" id="lastRunHistory" hidden>
+        <span class="lr-dots" id="lastRunDots" role="group" aria-label="The last runs of this scenario, oldest first"></span>
+        <span class="lr-hist-sum" id="lastRunHistSum"></span>
+        <button type="button" id="lastRunHistAll" class="lr-hist-all">All runs</button>
+      </div>
+      <p class="lr-hist-flag" id="lastRunHistFlag" hidden></p>
+      <p class="lr-hist-detail" id="lastRunHistDetail" hidden></p>
       <p class="lr-hint" hidden>No Assert ran, so nothing was checked. Add an <b>Assert</b> (Add Manual Action) to check the page shows what it should.</p>
       <ul class="lr-failures" aria-label="Failures of the last run"></ul>
+      <!-- Steps whose other locators did not agree on their element (popup/run/locator-review.js) -->
+      <div class="lr-notes" id="lastRunNotes" hidden>
+        <span id="lastRunNotesText"></span>
+        <button type="button" id="lastRunNotesReview" class="secondary lr-mini" title="What each locator found, and taking them again">Review</button>
+      </div>
       <button type="button" id="lastRunBugReport" class="secondary lr-report" hidden>📋 Bug report</button>
     </div>
 
@@ -1640,6 +1653,25 @@
         <button type="button" id="bugReportShot" class="secondary">Download screenshot</button>
         <button type="button" id="bugReportClose" class="secondary bug-report-close" aria-label="Close the bug report">✕</button>
       </div>
+    </div>
+  </div>
+
+  <!-- RUN HISTORY (popup/run/run-history.js) -->
+  <div id="runHistoryModal" class="random-modal" role="dialog" aria-modal="true" aria-labelledby="runHistoryTitle" aria-hidden="true">
+    <div class="random-modal-content run-history-content">
+      <h4 id="runHistoryTitle" style="margin:0 0 8px;"><span aria-hidden="true">📈</span> <span id="runHistoryName"></span></h4>
+      <div class="run-history-wrap"><table class="run-history-table" id="runHistoryTable"></table></div>
+      <button type="button" id="runHistoryClose" class="secondary" style="margin:8px 0 0;">Close</button>
+    </div>
+  </div>
+
+  <!-- LOCATOR REVIEW (popup/run/locator-review.js) -->
+  <div id="locatorReviewModal" class="random-modal" role="dialog" aria-modal="true" aria-labelledby="locatorReviewTitle" aria-hidden="true">
+    <div class="random-modal-content locator-review-content">
+      <h4 id="locatorReviewTitle" style="margin:0 0 4px;"><span aria-hidden="true">🩹</span> Locators of the last run</h4>
+      <p class="lrv-intro">Each step was played on the element its first locator found, as always. Its other locators found something else, or nothing.</p>
+      <div id="locatorReviewList"></div>
+      <button type="button" id="locatorReviewClose" class="secondary" style="margin:0;">Close</button>
     </div>
   </div>
 

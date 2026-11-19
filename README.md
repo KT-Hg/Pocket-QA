@@ -14,7 +14,7 @@ A Chrome Manifest V3 extension that records browser interactions and replays the
 | **Playback** | Single scenario, sequence, loop N×, scheduled (one-off or daily), CSV data-driven; runs inside iframes and resumes after a mid-playback page reload |
 | **Actions** | 17 action types including upload file, conditions, assertions, switch branching, readDOM, JS script |
 | **Action list** | Drag to reorder (a Switch or Condition takes the actions under it along), **＋** in the gap between rows to add an action right there, Copy / Paste a Switch or Condition with the actions under it (**📋** in a gap pastes right there), Undo / Redo |
-| **Run result** | Every run ends with a verdict — ✓ Passed / ✗ Failed / ⚠ Test broken / ⏹ Stopped — in its notification, on the badge and on the popup's **Last run** card, with a **bug report** (Markdown + screenshot) to paste into an issue |
+| **Run result** | Every run ends with a verdict — ✓ Passed / ✗ Failed / ⚠ Test broken / ⏹ Stopped — in its notification, on the badge and on the popup's **Last run** card, with a **bug report** (Markdown + screenshot) to paste into an issue; the card also shows the scenario's last runs as dots (**Flaky?** / **Failing since …**) and 🩹 the steps whose locators no longer agree, with one click to take them again |
 | **Variables** | 4 types: Static, Random (alpha/numeric/alphanumeric/datetime), Pick, Fallback — `${varName}` substitution across selectors, values, URLs, and scripts |
 | **Upload File** | Inject local files into `<input type="file">` or drag-and-drop zones; supports multiple files and `${variable}` filenames |
 | **Screenshot** | Visible, full page, scroll (V/H), segment, element, whole OS window — with crop editor, standalone image editor, image diff, and watermark |
@@ -63,6 +63,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
   - Only the tab the recording started on is recorded; clicks and input events the page's own scripts dispatch are left out, and text typed just before a click is recorded before it
   - Each recorded step gets a name from the page: the element's aria-label / aria-labelledby, a field's `<label>`, its placeholder, title or alt, the text of the button or link clicked, then its `name` — never what was typed. The list shows the name with the selector under it; Edit → Label changes it
   - While recording, the tab shows a **● Recording — Pocket QA** pill (bottom right) whose **■ Stop** stops and saves like the hotkey, and the popup's Start button reads **● Recording…**
+  - **✓ Check** on the pill, then a click on an element — or **Alt + click** it — opens a menu of checks taken from that element: *Text is “…”*, *Text contains …* (the text to edit), *Value is “…”* (not for a password field), *Is visible*, *URL contains “/path”*. The one chosen is recorded as an **Assert**, after the text typed before it. The click that picks (or closes the menu, or Esc) is not a step, and the page gets none of it — an Alt + click on a link downloads nothing. ✓ Check holds for the next click in any frame of the tab (`RECORD_CHECK_ARM`); the menu is in `content-overlays.js`, loaded into the frame that needs it (`LOAD_OVERLAYS`)
   - **Turn off** in the status bar takes Pocket QA off the tab (the page reloads); scenarios are kept
   - On a tab Pocket QA is off on (grey dot, *Off on this tab*), Start Recording, ▶ Play, a Sequence, a CSV run and 🎯 Pick (Selector and Drop on) start nothing: they all ask the same question (*Off on this tab*, `TAB_OFF` in `popup/tab-activation.js`), whose **Turn on** turns the tab on — remembered until it is turned off or closed — and goes on. A scheduled run and Resume are left as they are: no one is there to ask
   - The status dot is red and blinks while recording, and goes back to green (on) or grey (off) once the recording stops
@@ -266,6 +267,38 @@ ended, and one line per failure (`✗ #2 Toast — Expected text "Saved", got "E
 marks its action in the list. × hides the card until the next run. A Sequence or a CSV run leaves no card. While a
 run is on — paused on a failed step too — the card is hidden: it would tell the run before; it comes back with this
 run's result.
+
+### Run history
+
+Every run that ends — Play, a scheduled run, Resume, each scenario of a Sequence, a whole CSV run (with its rows by
+verdict) — adds an entry to its scenario's history (`runHistory`, the last 20 kept; `shared/run-history.js`): the
+verdict, what started it, when, how long, the first failure in short, and a fingerprint of the actions played. The
+Last run card shows its scenario's last 10 as dots, oldest first, with how many failed; a dot clicked tells that run;
+**All runs** lists all 20. Read together (stopped runs and CSV runs left out — a CSV run fails on its data too):
+
+- **〰 Flaky?** — it failed after a pass and passed again after a failure, with the same steps: a pass that needed no
+  edit. The line names the step it fails on most.
+- **⤵ Failing since …** — the last 2 or more runs failed, right after 2 or more that passed.
+
+A deleted scenario's history goes with the next run of any scenario.
+
+### Locator check (🩹)
+
+Playback acts on the element the first locator finds (see [Selector Strategy](#selector-strategy)), as the code
+exports do. Once a step has found it, its other locators are asked once, without waiting (`_locatorNote`, content.js),
+and the step gets a 🩹 note when:
+
+- **they point elsewhere** — another element is found by at least as many locators as the one used: a field put at the
+  top of a form moves the full XPath onto it, and the run types into the wrong field. A text or name that matches
+  another element with the same words while most locators agree is not told;
+- **few still find it** — fewer than half of the step's locators find the element used: one more change and it breaks.
+
+Notes come from actions played on the page and from Asserts and Conditions, one per step, 20 per run, for Play and
+Resume (`lastRun.notes`); they never change the verdict. A step whose selector type was chosen in the form, or that
+has fewer than 2 locators, gets none. The card says **🩹 N steps: locators to check**; **Review** shows each locator,
+what it recorded and what it found this run, and takes the locators again from the element the run used (**Keep** /
+**Take locators again**) or from the other one (**Use “…”**) — written with `UPDATE_ACTION`, one Undo. Not offered
+when the step's locators use `${…}`, or when the step changed since the run.
 
 ### Bug report
 
@@ -1016,7 +1049,8 @@ All hotkeys are configurable in the **Settings** tab and synced via `chrome.stor
 │  Action execution · Condition evaluation · Hotkey listener  │
 │  + content-highlight.js: highlights, loaded only while on   │
 │  + content-overlays.js: countdown, failed-action prompt,    │
-│    segment bar — injected by the worker when one is needed  │
+│    segment bar, ✓ Check menu — injected by the worker when  │
+│    one is needed                                            │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -1140,9 +1174,10 @@ IndexedDB — FastRecorder_DbtoolsSnapshots (disk, no hard quota)
 | `popupTheme` | `"light"\|"dark"` | UI theme |
 | `manualFormDraft` | `object` | Persisted Add Action form state |
 | `playbackCheckpoint` | `object` | Resume point after mid-playback tab reload (60 s TTL) |
-| `lastRun` | `object` | The last Play or Resume: verdict, failures (the first with `url`, `at`, `loop`, `trace`), loops, `completed`, and its actions as saved |
+| `lastRun` | `object` | The last Play or Resume: verdict, failures (the first with `url`, `at`, `loop`, `trace`), loops, `completed`, its actions as saved, and its 🩹 `notes` |
 | `lastRunShot` | `string` | That run's first-failure screenshot, a JPEG data URL; absent when it had none |
 | `lastRunDismissed` | `number` | The `endedAt` of the run whose Last run card × hid |
+| `runHistory` | `object` | `{ [scenarioId]: [entry, …] }`, oldest first, 20 per scenario: `how`, `status`, `startedAt`, `endedAt`, the first failure in short, `fp` (the actions' fingerprint), `rows` for a CSV run — see [Run history](#run-history) |
 | `hl_v1` | `Record<url, Highlight[]>` | Saved highlights, keyed by the *normalized* URL (a matching pattern, else the page URL minus any `#anchor`). Each entry keeps `srcUrl` — the page it was made on — so the whole store can be re-grouped when patterns change |
 | `hl_patterns_v1` | `string[]` | URL patterns grouping pages under one shared highlight set |
 | `updateStatus` | `object` | Result of the daily Web Store version check |
@@ -1157,7 +1192,7 @@ IndexedDB — FastRecorder_DbtoolsSnapshots (disk, no hard quota)
 
 During recording, `getAllSelectors()` stores up to 8 selector candidates per element: `css`, `xpath`, `fullXpath`, `id`, `name`, `text` (+ `textTag`), `testId`, `dataId`. Unstable ids (React fiber ids like `:r0:`, and UUIDs) are rejected by `_isDynamicId()`; `text` is only stored for link/button/heading-like tags with ≤ 50 characters.
 
-`findElementWithFallback()` turns those into 9 lookup strategies, tried in this order — most precise first, most ambiguous last:
+`findElementWithFallback()` turns those into 9 lookup strategies, tried in this order — most precise first, most ambiguous last (and the run then checks the others, see [Locator check](#locator-check-)):
 
 ```
   1. fullXpath   — Absolute XPath (exact recorded position)

@@ -69,6 +69,7 @@ export async function runAssert(ctx, i, action) {
   };
   const res = await _checkUntilHeld(ctx, msg, action.frameId);
   if (res === null) return i;
+  if (res.locator) ctx.noteLocator(i, action, res.locator);
   if (res.error) {
     const reason = res._noContentScript ? 'Content script not reachable' : `Assert: ${res.error}`;
     const back = afterFailure(await ctx.fail(i, action, reason), i);

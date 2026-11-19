@@ -12,7 +12,7 @@
 
 import { readdirSync } from 'node:fs';
 import { sleep } from '../lib/cdp-browser.mjs';
-import { PAGE_SETTLE_MS, POLL_MS, POPUP_SETTLE_MS, SETTLE_MS, check, clickAt, fail, makeScenario, openPopup, pageSoon, play, reloadTestPage } from './harness.mjs';
+import { PAGE_SETTLE_MS, POLL_MS, POPUP_SETTLE_MS, SETTLE_MS, check, clickAt, fail, makeScenario, openPopup, pageSoon, play, record, reloadTestPage } from './harness.mjs';
 
 // The overlays content.js does not carry (content-overlays.js): loaded by the worker
 // only for a countdown, a failed-action prompt or a segment capture.
@@ -430,7 +430,149 @@ export async function checkSchedule(ctx) {
   check(onTestTab.length === 0, 'not on the tab that was active', onTestTab);
 }
 
+/** Play `id` on the test tab and wait for it to end; lastRun as it left it. */
+async function playToEnd(ctx, id) {
+  await ctx.web.bringToFront();
+  const started = Date.now();
+  await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: id });
+  while (Date.now() - started < 20_000) {
+    await sleep(POLL_MS);
+    if (Date.now() - started > 1_000 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing) break;
+  }
+  await sleep(SETTLE_MS);
+  return ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('lastRun', (x) => r(x.lastRun)))`);
+}
+
+// 🩹 A form recorded, then changed the way a new release changes it: a field put at
+// its top (the full XPath of the email field now finds it), the button moved and
+// given a new id (only its text still finds it). The run says so; Review takes the
+// locators again; the next run has nothing to say.
+export async function checkLocatorCheck(ctx) {
+  await reloadTestPage(ctx);
+  const FORM = `<form id="lcForm" onsubmit="return false"><label>Email <input id="lcEmail" name="lcEmail"></label>
+    <button id="lcGo" type="button">Go now</button></form>`;
+  await ctx.web.evaluate(`document.body.insertAdjacentHTML('beforeend', ${JSON.stringify(FORM)})`);
+  const { id, actions } = await record(ctx, 'e2e locator check', async () => {
+    await clickAt(ctx, '#lcEmail');
+    await ctx.web.send('Input.insertText', { text: 'me@x.test' });
+    await clickAt(ctx, '#lcGo');
+  });
+  check(actions.map((a) => a.type).join() === 'click,input,click' && !!actions[1]?.selectors?.fullXpath,
+    'the form is recorded with all its locators', actions.map((a) => `${a.type} ${JSON.stringify(a.selectors)}`));
+  await ctx.web.evaluate(`(() => {
+    const f = document.getElementById('lcForm');
+    f.insertAdjacentHTML('afterbegin', '<label>Coupon <input id="lcCoupon"></label>');
+    const b = document.getElementById('lcGo'); b.id = 'lcGo2';
+    const box = document.createElement('div'); f.append(box); box.append(b);
+  })()`);
+  const run = await playToEnd(ctx, id);
+  const notes = (run?.notes || []).map((n) => `${n.index} ${n.kind || n.locator.kind}`);
+  const kinds = (run?.notes || []).map((n) => `#${n.index} ${n.locator.kind} used ${n.locator.used.label.id}${n.locator.other ? ` other ${n.locator.other.label.id}` : ''}`);
+  const typedInto = await ctx.web.evaluate(`({ coupon: document.getElementById('lcCoupon').value, email: document.getElementById('lcEmail').value })`);
+  check(JSON.stringify(kinds) === JSON.stringify(['#1 split used lcCoupon other lcEmail', '#2 split used lcCoupon other lcEmail', '#3 fragile used lcGo2']),
+    'the run notes the steps whose locators disagree (full XPath on the new field) and the one only its text still finds', { kinds, notes });
+  check(typedInto.coupon === 'me@x.test' && run.verdict?.status !== 'broken',
+    'playback still uses the first locator, as the exports do; the notes do not change the verdict', { typedInto, verdict: run.verdict });
+
+  const popup = await openPopup(ctx);
+  const line = await popup.evaluate(`(() => { const l = document.getElementById('lastRunNotes'); return l && !l.hidden ? l.textContent.replace(/\\s+/g, ' ').trim() : null; })()`);
+  check(/🩹 3 steps: locators to check/.test(line || ''), 'the Last run card has a 🩹 line with Review', line);
+  await popup.evaluate(`document.getElementById('lastRunNotesReview').click()`);
+  await sleep(SETTLE_MS);
+  const review = await popup.evaluate(`[...document.querySelectorAll('#locatorReviewModal.show .lrv-step')].map((s) => ({
+    head: s.querySelector('.lrv-head').textContent, why: s.querySelector('.lrv-why').textContent,
+    rows: [...s.querySelectorAll('.lrv-table tr')].slice(1).map((r) => r.textContent.replace(/\\s+/g, ' ').trim()),
+    buttons: [...s.querySelectorAll('.lrv-buttons button')].map((b) => b.textContent) }))`);
+  check(review.length === 3 && review[1].buttons.join() === 'Use “Email”,Keep “Coupon”,Show'
+    && review[1].rows.some((r) => r.startsWith('full XPath') && r.includes('≠') === false && r.includes('lcCoupon'))
+    && review[1].rows.some((r) => r.startsWith('ID') && r.includes('≠ input#lcEmail'))
+    && review[2].buttons.join() === 'Take locators again,Show' && /Only text still finds button#lcGo2 “Go now”\. Full XPath, ID, XPath and CSS found nothing/.test(review[2].why),
+  'Review: each locator and what it found; Use / Keep for a split, Take again for a fragile step', { review, errors: popup.errors() });
+
+  // Use “Email” on the input step, Take again on the button.
+  await popup.evaluate(`[...document.querySelectorAll('#locatorReviewModal .lrv-step')][1].querySelector('.lrv-fix').click()`);
+  await sleep(SETTLE_MS * 2);
+  await popup.evaluate(`[...document.querySelectorAll('#locatorReviewModal .lrv-step')][2].querySelector('.lrv-fix').click()`);
+  await sleep(SETTLE_MS * 2);
+  const fixed = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get(['scenarios', 'lastRun'], (x) => {
+    const a = x.scenarios[${JSON.stringify(id)}].actions;
+    r({ input: a[1].selectors, button: a[2].selectors, selector: a[2].selector, done: x.lastRun.notes.map((n) => !!n.done) });
+  }))`);
+  const after = await popup.evaluate(`({ line: document.getElementById('lastRunNotes').hidden ? null : document.getElementById('lastRunNotesText').textContent,
+    done: document.querySelectorAll('#locatorReviewModal .lrv-done').length })`);
+  check(fixed.input?.id === 'lcEmail' && /label\[2\]/.test(fixed.input?.fullXpath || '') && fixed.button?.id === 'lcGo2' && fixed.selector === '#lcGo2'
+    && fixed.done.join() === 'false,true,true' && after.done === 2 && /🩹 1 step:/.test(after.line || ''),
+  'taking the locators again writes them into the step, and the note is done', { fixed, after });
+  // The click into the field too; then the next run has nothing to say, and types where it should.
+  await popup.evaluate(`[...document.querySelectorAll('#locatorReviewModal .lrv-step')][0].querySelector('.lrv-fix').click()`);
+  await sleep(SETTLE_MS * 2);
+  await popup.evaluate(`document.getElementById('locatorReviewClose').click()`);
+  if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  await popup.close();
+  await ctx.web.evaluate(`document.getElementById('lcCoupon').value = ''`);
+  const again = await playToEnd(ctx, id);
+  const typed = await ctx.web.evaluate(`({ coupon: document.getElementById('lcCoupon').value, email: document.getElementById('lcEmail').value })`);
+  check(!again?.notes && typed.email === 'me@x.test' && typed.coupon === '', 'the next run has nothing to say, and types into the email field', { notes: again?.notes, typed });
+  await ctx.send({ type: 'DELETE_SCENARIO', scenarioId: id });
+}
+
+// 📈 Three runs of one scenario, the page changed in between: passed, failed, passed —
+// with the same steps, so the card asks whether it is flaky.
+export async function checkRunHistory(ctx) {
+  await reloadTestPage(ctx);
+  await ctx.web.evaluate(`document.body.insertAdjacentHTML('beforeend', '<div id="rhT">ok</div>')`);
+  const id = await makeScenario(ctx, 'e2e run history', [
+    { type: 'assert', conditionType: 'textEquals', selector: '#rhT', selectors: { css: '#rhT' }, expectedValue: 'ok', label: 'Status', delay: 0 },
+  ]);
+  const setText = (t) => ctx.web.evaluate(`document.getElementById('rhT').textContent = ${JSON.stringify(t)}`);
+  await playToEnd(ctx, id);
+  await setText('down');
+  await playToEnd(ctx, id);
+  await setText('ok');
+  await playToEnd(ctx, id);
+  const stored = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('runHistory', (x) => r((x.runHistory?.[${JSON.stringify(id)}] || []).map((e) => e.how + ' ' + e.status))))`);
+  check(JSON.stringify(stored) === '["play passed","play failed","play passed"]', 'each Play adds to the history of its scenario', stored);
+
+  const popup = await openPopup(ctx);
+  const card = () => popup.evaluate(`({
+    strip: !document.getElementById('lastRunHistory').hidden,
+    dots: [...document.querySelectorAll('#lastRunDots .lr-dot')].map((d) => d.dataset.status),
+    sum: document.getElementById('lastRunHistSum').textContent,
+    flag: document.getElementById('lastRunHistFlag').hidden ? null : document.getElementById('lastRunHistFlag').textContent,
+    detail: document.getElementById('lastRunHistDetail').hidden ? null : document.getElementById('lastRunHistDetail').textContent })`);
+  const shown = await card();
+  check(shown.strip && shown.dots.join() === 'passed,failed,passed' && shown.sum === '1 of the last 3 failed'
+    && /Flaky\? #1 Status failed 1 of the last 3 runs, and passed again with the same steps/.test(shown.flag || ''),
+  'the Last run card shows the runs as dots, how many failed, and asks Flaky?', shown);
+  await popup.evaluate(`document.querySelectorAll('#lastRunDots .lr-dot')[1].click()`);
+  await sleep(SETTLE_MS);
+  const picked = await card();
+  check(/^Run 2 of 3 · ▶ Play · .+ — ✗ Failed\n✗ #1 Status — Expected text "ok", got "down"$/.test(picked.detail || ''),
+    'a dot clicked tells that run and its first failure', picked.detail);
+  await popup.evaluate(`document.getElementById('lastRunHistAll').click()`);
+  await sleep(SETTLE_MS);
+  const all = await popup.evaluate(`({ open: document.getElementById('runHistoryModal').classList.contains('show'),
+    title: document.getElementById('runHistoryName').textContent,
+    rows: [...document.querySelectorAll('#runHistoryTable tr')].slice(1).map((r) => [...r.cells].slice(1).map((c) => c.textContent).join(' | ')) })`);
+  check(all.open && all.title === 'e2e run history · last 3 runs' && all.rows.length === 3
+    && all.rows[1] === '▶ Play | ✗ Failed | ✗ #1 Status — Expected text "ok", got "down"' && all.rows[0].startsWith('▶ Play | ✓ Passed'),
+  'All runs lists every run, newest first', all);
+  await popup.evaluate(`document.getElementById('runHistoryClose').click()`);
+  if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
+  await popup.close();
+
+  // A deleted scenario's runs go with the next run of any scenario.
+  await ctx.send({ type: 'DELETE_SCENARIO', scenarioId: id });
+  const other = await makeScenario(ctx, 'e2e run history other', [{ type: 'wait', delay: 10, value: 10 }]);
+  await playToEnd(ctx, other);
+  const left = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('runHistory', (x) => r(Object.keys(x.runHistory || {}))))`);
+  check(!left.includes(id) && left.includes(other), 'the runs of a deleted scenario are dropped', left);
+  await ctx.send({ type: 'DELETE_SCENARIO', scenarioId: other });
+}
+
 export const CHECKS = [
+  ['locator-check', '🩹 Steps whose locators disagree, and taking them again', checkLocatorCheck],
+  ['run-history', '📈 The last runs of a scenario on the Last run card', checkRunHistory],
   ['overlays', 'The countdown, failed-action prompt and segment bar, loaded when needed', checkOverlays],
   ['schedule', 'A scheduled run on its start URL', checkSchedule],
   ['assert', 'Assert: waited for, and a false one does not stop the run', checkAssert],
