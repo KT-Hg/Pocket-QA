@@ -15,14 +15,16 @@
  *   csv-zip-run   a CSV run (john, kate, john) downloaded as a ZIP from the popup:
  *                 folders "abc ${name}" (abc john_2 for the repeat; _01 … with Add
  *                 row number, downloaded again with no new run), the image of a
- *                 Screenshot → Variable named by its Filename; HTML / XLSX unchanged
+ *                 Screenshot → Variable named by its Filename; HTML / XLSX unchanged.
+ *                 The first popup after the run opens the CSV card; the next one leaves
+ *                 it closed (it used to open on every popup while results were kept)
  */
 
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sleep } from '../lib/cdp-browser.mjs';
-import { PLAY_TIMEOUT_MS, POLL_MS, SETTLE_MS, check, fail, makeScenario, openPopup, reloadTestPage } from './harness.mjs';
+import { PLAY_TIMEOUT_MS, POLL_MS, POPUP_SETTLE_MS, SETTLE_MS, check, closeQuietly, fail, makeScenario, openPopup, reloadTestPage } from './harness.mjs';
 
 export async function checkCsvZipAdvanced(ctx) {
   const state = `(() => { const d = document.getElementById('csvZipAdvanced');
@@ -141,11 +143,19 @@ export async function checkCsvZipRun(ctx) {
   ]);
   await ctx.ext.evaluate(`chrome.storage.local.set(${JSON.stringify({
     csvSessionData: { headers: ['name', 'expect', 'sel'], rows }, csvExportFormat: 'zip', csvZipFolderName: 'abc ${name}', csvZipRowNumber: false })})`);
+  // As the popup's Start does: this run's results are news until a popup has shown them.
+  await ctx.ext.evaluate(`chrome.storage.local.remove(['csvDoneShown', 'collapsibleStates'])`);
   await ctx.web.bringToFront();
   await ctx.send({ type: 'START_CSV_PLAYBACK', scenarioId: id, rows, delayBetween: 100, exportFormat: 'zip' });
   await sleep(SETTLE_MS);
   for (let waited = 0; waited < PLAY_TIMEOUT_MS && (await ctx.send({ type: 'GET_CSV_STATUS' }))?.active; waited += POLL_MS) await sleep(POLL_MS);
-  const popup = await openPopup(ctx);
+  let popup = await openPopup(ctx);
+  const cardOpen = () => popup.evaluate(`!document.getElementById('csvRunCard').classList.contains('collapsed')`);
+  // openPopup loads the popup twice (it reloads it): the first load already was
+  // "the first popup after the run". Shown again here as that first one.
+  await popup.evaluate(`chrome.storage.local.remove('csvDoneShown')`);
+  await popup.reload();
+  await sleep(POPUP_SETTLE_MS);
   // Each Download click (in `format`; the select is locked, code can still set it):
   // the path of the file that appears in the download folder.
   const download = async (format) => {
@@ -184,9 +194,14 @@ export async function checkCsvZipRun(ctx) {
       && xlsx.includes('xl/media/image6.png') && !xlsx.includes('_after'),
     'HTML / XLSX: one column per variable, six images, no Filename', { imgs: (html.match(/<img /g) || []).length });
     if (popup.errors().length) fail(`popup errors: ${popup.errors().join(' | ')}`);
-  } finally {
+    const first = await cardOpen();
     await popup.close();
-    await ctx.ext.evaluate(`chrome.storage.local.remove(['csvSessionData', 'csvExportFormat', 'csvZipFolderName', 'csvZipRowNumber'])`);
+    popup = await openPopup(ctx);
+    const next = await cardOpen();
+    check(first && !next, 'the first popup after the run opens the CSV card; the next one leaves it closed', { first, next });
+  } finally {
+    await closeQuietly(popup);
+    await ctx.ext.evaluate(`chrome.storage.local.remove(['csvSessionData', 'csvExportFormat', 'csvZipFolderName', 'csvZipRowNumber', 'csvDoneShown'])`);
   }
 }
 

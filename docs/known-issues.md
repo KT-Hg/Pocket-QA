@@ -109,6 +109,16 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
   bước này.
 - **🧪 Dữ liệu thử (plan 23):** ngày theo múi giờ của máy chạy (bản export: máy chạy code). Danh sách họ / tên nhỏ (15 họ,
   10 đệm, 20 tên tiếng Việt; 12 + 12 tiếng Anh) nên tên có thể trùng giữa các lần chạy; email và UUID thì gần như không.
+- **📋 Copy sau khi chụp (plan 24):** chỉ trang có focus và là secure context mới ghi được clipboard. Trang `http://`
+  (không phải localhost), trang mất focus lúc chụp xong, `chrome://` → không copy, toast / thông báo nói vậy; 📋 Copy
+  trong Recent captures (popup) thì luôn được. Window capture copy khung hình *trước* khi worker đóng watermark, nên ảnh
+  trong clipboard không có watermark (file đã lưu thì có).
+- **🖼 Recent captures (plan 24):** không nằm trong Backup / Restore (tới 50 MB ảnh). Ảnh chỉ ở máy này, trong IndexedDB
+  của extension; gỡ extension là mất.
+- **🖍 Highlight vẽ bằng CSS Custom Highlight API (plan 24):** trang tự đổi chữ bên trong một đoạn đã tô thì Range co lại
+  và highlight không hiện nữa (trang thì vẫn đúng); lần khôi phục sau tìm lại theo chữ đã lưu. Highlight chỉ có thể
+  tô nền, màu chữ, gạch chân — không viền, không bo góc. Bấm vào chữ đã tô lúc **đang ghi** thì trang nhận click, không
+  mở bảng sửa.
 
 ## Cố ý giữ (không coi là bug)
 

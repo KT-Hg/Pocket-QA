@@ -79,7 +79,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - **Run several · on a schedule · from a CSV**, a group at the end of the tab:
   - Sequence playback (run multiple scenarios in order, each with its own delay)
   - Scheduled playback at a set time — one-off, or **Repeat daily**
-  - CSV data-driven runs (one scenario execution per CSV row)
+  - CSV data-driven runs (one scenario execution per CSV row). The CSV card opens by itself once, on the first popup after a run ends, to show its results; after that it stays as you leave it (it used to open on every popup for as long as the last run's results were kept). A run still going shows its progress at the top of the popup
 
 ### Tools
 (The tab was called **Data** until 1.0.29, and held the schedule and the CSV run too.)
@@ -90,15 +90,19 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - **DB Test Session** — opens `dbtest.html`: the changes recorded in Adminer and the SQL to undo them
 
 ### Capture
-- Screenshot: Visible, Full Page, Scroll (down / across), Segment (down / across), Element, Window — a line under the buttons says what each kind does
+- Screenshot: Visible, Full Page, Scroll (down / across), Segment (down / across), Element, Window — a line under the buttons says what each kind does. A Full Page capture starts from the top of the page and puts it back where it was afterwards, the zoom too
 - Crop/edit mode for all capture types
-- Image diff tool (pixel-level comparison)
-- Standalone image editor for any image from the clipboard or a file
+- **Every capture is copied to the clipboard** as well as saved (paste it with Ctrl+V), with no setting for it (`bg/screenshot/after-capture.js`). Only a focused page in a secure context may write the clipboard: the popup copies when it is open (a Full or Scroll capture keeps it open), otherwise the captured page's content script does (`COPY_IMAGE`), the editor copies what it saves, and the window-capture page copies its frame (without the watermark). A page that cannot — `http://` other than localhost, no focus, `chrome://` — leaves the toast or notification saying "not copied", and Recent captures can still copy it. A run's Screenshot steps, CSV shots and failure pictures are not copied
+- **Recent captures** under the buttons: the last 20 captures or 50 MB, newest first, kept in IndexedDB on this computer (`shared/recent-captures.js`; not in Backup / Restore). A click on one: 📋 Copy, ✂ Edit, ⬇ Save again (as the Settings save captures), 🔍 Compare with… (then a second one: Image Diff opens on the two), 🗑 Remove; Clear forgets the list, the files stay
+- **Image Diff** (pixel-level comparison, `shared/pixel-diff.js`): two files, or two Recent captures. Four ways to look — Pink (changed pixels in pink, the rest dimmed), ↔ Drag (A left of a line moved by dragging on the picture or with ← / →), ◑ Blink, ▥ Side by side. Pictures of two sizes are compared over the part they share, and a ⚠ line says so (the box can be unticked to count the rest as changed). **▭ Leave a box out**: boxes drawn on the picture (a clock, an ad) are left out of the count, and remembered for that pair of sizes (`diffIgnore_v1`, 20 pairs)
+- Standalone image editor for any image from the clipboard or a file. Its tools: crop, draw, rectangle, ellipse, arrow, text, blur, **① Step** (`N`: numbered circles, Undo takes the number back too), **▮ Redact** (`X`: a solid black box — blur only pixelates), **◎ Spotlight** (`S`: everything outside the box dimmed), rotate, flip. Undo keeps as many steps as fit in 400 MB (at least one): a 1000 × 40 000 full-page shot keeps 2, and the Undo button says so
 
 ### Highlight
 - Select text on a page to highlight it in one of 5 colours (yellow, green, pink, blue, orange), with an optional note per highlight
-- Highlights are re-applied automatically on the next visit (a `MutationObserver` re-runs restoration on late-loading content)
-- Browse, search, and filter every highlight by colour or by page; per-page and total counts
+- Highlights are **painted, not put into the page**: the CSS Custom Highlight API (`CSS.highlights`, a Range per highlight, `::highlight(pqa-hl-<colour>)`), so no `<mark>` is added and no text node is split — a page that later changes its own text node (React, Vue) shows its text whole. A click on a highlighted passage (hit-tested against the ranges) opens its edit panel, except while recording, when the click is a step the page must get
+- Text a page makes unselectable (`user-select: none`) can be highlighted while **Alt** is held; otherwise the page keeps its own `user-select`
+- Highlights are re-applied automatically on the next visit (a `MutationObserver`, running only on a page that has highlights, re-runs restoration on late-loading content)
+- Browse, search, and filter every highlight by colour or by page; per-page and total counts. A click on one of this page's highlights scrolls to it and closes the popup — or, when its text is no longer on the page, says so and leaves the popup open
 - **URL Patterns** — wildcards in path *and* subdomain (`site.com/*/settings`, `*.myapp.com/app/*`) group several pages under one shared set of highlights; a builder turns the current tab's URL into a pattern
   - Adding or removing a pattern re-groups what is already stored, so highlights never go missing when the rules change — each one records the page it was made on
   - A pattern that names no query string matches any query (`site.com/products` covers `?page=2`); one that names a query is matched against it

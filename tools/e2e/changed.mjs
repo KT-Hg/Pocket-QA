@@ -31,6 +31,10 @@ const RULES = [
   [['sqlcases/', 'sqltest.html', 'css/sqlcases.css'], ['pages']],
   [['content-highlight.js', 'popup/highlight.js', 'bg/handlers/highlight.js', 'shared/highlight-store.js',
     'css/popup/11-highlight.css', 'popup/scenarios/import-export.js'], ['pages']],
+  // A capture and what follows it: the clipboard, Recent captures, Image Diff, the editor.
+  [['bg/screenshot/', 'bg/screenshot.js', 'bg/handlers/capture.js', 'popup/capture/', 'popup/screenshots.js',
+    'shared/recent-captures.js', 'shared/pixel-diff.js', 'editor.js', 'editor.html', 'css/editor.css',
+    'capture-window.js', 'capture-window.html', 'css/popup/08-capture.css'], ['locate', 'capture']],
   [['popup/csv/', 'bg/handlers/csv.js', 'popup/lib/zip-writer.js'], ['csv', 'run']],
   [['popup/export/', 'popup/export-modal.js', 'popup/export-bookmarklet.js', 'popup/export-selenium.js',
     'popup/export-playwright.js', 'popup/export-robot.js', 'popup/export-java.js'], ['export', 'export-run']],

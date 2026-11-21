@@ -25,7 +25,8 @@
  *   ELEMENT PREVIEW                SHOW_ELEMENT / HIDE_ELEMENT: the popup's 👁 and the
  *                                  picked element's name outline or flash it
  *   FULL PAGE SCREENSHOT HELPER    GET_PAGE_DIMENSIONS, GET_ELEMENT_RECT, CHECK_CONDITION;
- *                                  MARK_ELEMENT / UNMARK_ELEMENT for the CDP steps
+ *                                  MARK_ELEMENT / UNMARK_ELEMENT for the CDP steps;
+ *                                  COPY_IMAGE puts a capture on the clipboard
  *   HOTKEYS                        the shortcut settings
  *   HOTKEY KEYDOWN                 FULL_CAPTURE_STATE (ESC cancels a capture), and the
  *                                  keydown handler that fires the hotkeys
@@ -2463,6 +2464,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  // Every capture the user takes goes onto the clipboard (bg/screenshot/after-capture.js),
+  // and only a focused page in a secure context may write it.
+  if (msg.type === 'COPY_IMAGE') {
+    if (!window.isSecureContext || !navigator.clipboard?.write) {
+      sendResponse({ error: 'an http:// page may not use the clipboard' });
+      return true;
+    }
+    const bytes = Uint8Array.from(atob(msg.base64), (c) => c.charCodeAt(0));
+    navigator.clipboard.write([new ClipboardItem({ 'image/png': new Blob([bytes], { type: 'image/png' }) })])
+      .then(() => sendResponse({ ok: true }),
+        (e) => sendResponse({ error: /focus/i.test(e?.message) ? 'the page was not focused' : (e?.message || 'copy failed') }));
+    return true;
+  }
+
   if (msg.type === 'GET_PAGE_DIMENSIONS') {
     const body = document.body;
     const html = document.documentElement;
@@ -2802,6 +2817,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 window.__pqaContent = {
+  // While recording, a click on a highlight is a step the page must get (content-highlight.js).
+  isRecording: () => _isRecording,
   safeSend, getAllSelectors, findElementWithFallback, _isDynamicId, _DYNAMIC_ID_RE,
   _extOverlay, _extTokens, _extRegisterThemed, _EXT_THEMES, _EXT_ACCENT, _extSpan, _EXT_DANGER, _extButton, _EXT_FONT,
 };

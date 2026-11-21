@@ -1172,6 +1172,19 @@
         <button id="diffScreenshots" class="secondary" style="font-size:11px;margin:0;padding:5px 12px;" title="Compare two screenshots and highlight differences">🔍 Image Diff</button>
         <button id="openImageEditor" class="btn-img-editor" title="Edit an image from clipboard or file">🖼 Image Editor</button>
       </div>
+
+      <!-- Recent captures (popup/capture/recent.js): the last captures taken, newest first -->
+      <div class="recent-caps" id="recentCaptures" hidden>
+        <div class="recent-head">
+          <span class="recent-title">Recent captures</span>
+          <span class="recent-stats" id="recentStats"></span>
+          <button type="button" class="recent-clear" id="recentClear" title="Forget every recent capture — the saved files stay">Clear</button>
+        </div>
+        <div class="recent-hint" id="recentHint" hidden></div>
+        <div class="recent-grid" id="recentGrid"></div>
+        <button type="button" class="recent-more" id="recentMore" hidden></button>
+      </div>
+      <span class="helper-text">Every capture is also copied to the clipboard: paste it with Ctrl+V.</span>
     </div>
 
   </div>
@@ -1739,10 +1752,18 @@
   <div id="diffModal" class="random-modal" role="dialog" aria-modal="true" aria-labelledby="diffModalTitle" aria-hidden="true" style="align-items:flex-start; padding-top:30px;">
     <div class="random-modal-content" style="width:380px; max-height:85vh; overflow-y:auto;">
       <h4 id="diffModalTitle" style="margin:0 0 10px;"><span aria-hidden="true">🔍</span> Image Diff</h4>
-      <label style="font-size:12px; color:var(--muted);">Image A (source)</label>
-      <input type="file" id="diffFileA" accept="image/*" style="margin-top:4px;" />
-      <label style="font-size:12px; color:var(--muted); margin-top:8px; display:block;">Image B (compare)</label>
-      <input type="file" id="diffFileB" accept="image/*" style="margin-top:4px;" />
+      <div id="diffFiles">
+        <label style="font-size:12px; color:var(--muted);">Image A (source)</label>
+        <input type="file" id="diffFileA" accept="image/*" style="margin-top:4px;" />
+        <label style="font-size:12px; color:var(--muted); margin-top:8px; display:block;">Image B (compare)</label>
+        <input type="file" id="diffFileB" accept="image/*" style="margin-top:4px;" />
+      </div>
+      <!-- Two Recent captures (popup/capture/recent.js → openDiffWith) instead of files -->
+      <div id="diffSources" class="diff-sources" hidden>
+        <div>A · <b id="diffNameA"></b></div>
+        <div>B · <b id="diffNameB"></b></div>
+        <button type="button" id="diffPickFiles" class="diff-link">Pick files instead</button>
+      </div>
       <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
         <label style="font-size:12px; white-space:nowrap;">Sensitivity</label>
         <input id="diffThreshold" type="range" min="1" max="50" value="10" style="flex:1; margin:0;" />
@@ -1752,10 +1773,23 @@
         <button id="diffRun" class="success" style="flex:1;">▶ Compare</button>
         <button id="diffClose" class="secondary" style="flex:0 0 auto; width:auto; padding:5px 12px;">✕</button>
       </div>
+      <!-- popup/capture/diff.js -->
       <div id="diffResult" style="display:none; margin-top:10px;">
-        <div id="diffStats" style="font-size:12px; color:var(--muted); margin-bottom:6px;"></div>
-        <img id="diffPreview" style="width:100%; border-radius:4px; border:1px solid var(--border);" />
-        <button id="diffDownload" class="secondary" style="margin-top:6px; font-size:12px; width:100%;">⬇ Save result</button>
+        <div id="diffSizeWarn" class="diff-warn" hidden></div>
+        <label class="diff-check" hidden><input type="checkbox" id="diffShared" checked /> Compare only the shared area</label>
+        <div id="diffViews" class="diff-views" role="group" aria-label="Show the comparison as">
+          <button type="button" data-view="pink" aria-pressed="true" title="Changed pixels in pink, the rest dimmed">Pink</button>
+          <button type="button" data-view="drag" aria-pressed="false" title="A on the left of the line, B on the right: drag on the picture, or ← →">↔ Drag</button>
+          <button type="button" data-view="blink" aria-pressed="false" title="A and B in turn">◑ Blink</button>
+          <button type="button" data-view="side" aria-pressed="false">▥ Side by side</button>
+        </div>
+        <div id="diffStage" class="diff-stage" tabindex="0"></div>
+        <div class="diff-ignore-row">
+          <button type="button" id="diffIgnoreBtn" class="secondary" title="Draw a box over what always changes (a clock, an ad); remembered for pictures of these sizes">▭ Leave a box out</button>
+          <span id="diffIgnoreList" class="diff-box-list"></span>
+        </div>
+        <div id="diffStats" style="font-size:12px; color:var(--muted); margin:6px 0;"></div>
+        <button id="diffDownload" class="secondary" style="font-size:12px; width:100%;">⬇ Save result</button>
       </div>
     </div>
   </div>

@@ -18,6 +18,7 @@
  *   csv         the CSV card's ZIP download
  *   api         the API Tests page
  *   pages       the SQL page, highlights, the import warning
+ *   capture     the clipboard, Recent captures and Image Diff after a capture
  *
  * Helpers more than one suite uses: tools/e2e/harness.mjs; the test pages: tools/e2e/test-pages.mjs.
  *
@@ -48,6 +49,7 @@ import { CHECKS as exportRunChecks, EXPORT_PAGE, saveExportState } from './e2e/e
 import { CHECKS as csvChecks } from './e2e/csv.mjs';
 import { CHECKS as apiChecks, apiRoute } from './e2e/api.mjs';
 import { CHECKS as pagesChecks } from './e2e/pages.mjs';
+import { CHECKS as captureChecks } from './e2e/capture.mjs';
 
 const ONLY = argValue('--only')?.split(',') || null;
 const SUITE = argValue('--suite')?.split(',') || null;
@@ -79,6 +81,7 @@ const SUITES = {
   'csv': csvChecks,
   'api': apiChecks,
   'pages': pagesChecks,
+  'capture': captureChecks,
 };
 
 /** Every check as [name, title, run, suite], suite by suite. */

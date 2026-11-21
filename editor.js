@@ -85,7 +85,10 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     { id:'toolEllipse', label:'Ellipse',             group:'Tools' },
     { id:'toolArrow',   label:'Arrow',               group:'Tools' },
     { id:'toolText',    label:'Text',                group:'Tools' },
-    { id:'toolBlur',    label:'Blur / redact',       group:'Tools' },
+    { id:'toolBlur',    label:'Blur',                group:'Tools' },
+    { id:'toolStep',    label:'Step number',         group:'Tools' },
+    { id:'toolRedact',  label:'Redact (solid box)',  group:'Tools' },
+    { id:'toolSpot',    label:'Spotlight',           group:'Tools' },
     { id:'rotateL',     label:'Rotate 90° left',     group:'Transform' },
     { id:'rotateR',     label:'Rotate 90° right',    group:'Transform' },
     { id:'flipH',       label:'Flip horizontal',     group:'Transform' },
@@ -111,6 +114,9 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     toolArrow:   { key:'a',     ctrl:false, alt:false },
     toolText:    { key:'t',     ctrl:false, alt:false },
     toolBlur:    { key:'b',     ctrl:false, alt:false },
+    toolStep:    { key:'n',     ctrl:false, alt:false },
+    toolRedact:  { key:'x',     ctrl:false, alt:false },
+    toolSpot:    { key:'s',     ctrl:false, alt:false },
     rotateL:     { key:'[',     ctrl:false, alt:false },
     rotateR:     { key:']',     ctrl:false, alt:false },
     flipH:       { key:'h',     ctrl:false, alt:false },
@@ -258,17 +264,32 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
   /* === 4. Undo / Redo === */
-  const undoStack = [], redoStack = [], MAX_UNDO = 20;
+  // Each step keeps the whole picture (w × h × 4 bytes), so the steps are counted
+  // by size: 20 copies of a 1000 × 40 000 full-page shot were 3.2 GB, enough to kill
+  // the tab. Undo and redo share UNDO_BYTES; one step is always kept.
+  const undoStack = [], redoStack = [];
+  const UNDO_BYTES = 400 * 1024 * 1024, MAX_UNDO = 100;
+  const snapBytes = (s) => s.w * s.h * 4;
 
-  function saveUndo() { undoStack.push(currentSnap()); if (undoStack.length > MAX_UNDO) undoStack.shift(); redoStack.length = 0; syncUR(); }
+  function trimUndo() {
+    let total = [...undoStack, ...redoStack].reduce((n, s) => n + snapBytes(s), 0);
+    while (undoStack.length > 1 && (total > UNDO_BYTES || undoStack.length > MAX_UNDO)) total -= snapBytes(undoStack.shift());
+    while (redoStack.length > 1 && total > UNDO_BYTES) total -= snapBytes(redoStack.shift());
+  }
+  /** How many steps Undo keeps for a picture this size. */
+  const undoRoom = () => Math.max(1, Math.min(MAX_UNDO, Math.floor(UNDO_BYTES / (workCanvas.width * workCanvas.height * 4))));
+
+  function saveUndo() { undoStack.push(currentSnap()); redoStack.length = 0; trimUndo(); syncUR(); }
   function currentSnap() {
-    return { w: workCanvas.width, h: workCanvas.height,
+    return { w: workCanvas.width, h: workCanvas.height, n: stepNo,
              d: workCtx.getImageData(0, 0, workCanvas.width, workCanvas.height) };
   }
   function restoreSnap(snap) {
     const sizeChanged = snap.w !== workCanvas.width || snap.h !== workCanvas.height;
     workCanvas.width = snap.w; workCanvas.height = snap.h;
     workCtx.putImageData(snap.d, 0, 0);
+    stepNo = snap.n ?? stepNo;
+    if (currentTool === "step") updateContextBar("step");
     cropSel = null;
     if (sizeChanged) { recalcFit(); zoomLevel = 1; updateZoomUI(); }
     applyCanvasSize(); render();
@@ -276,7 +297,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   function undo() {
     if(pendingShape) { discardPending(); return; } // Ctrl+Z with a pending shape → discard instead of undoing
     if (!undoStack.length) return;
-    redoStack.push(currentSnap()); restoreSnap(undoStack.pop()); syncUR();
+    redoStack.push(currentSnap()); restoreSnap(undoStack.pop()); trimUndo(); syncUR();
   }
   function redo() {
     if(pendingShape) commitPending(); // Commit any pending shape before redoing
@@ -359,7 +380,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
       tCtx.beginPath(); tCtx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); tCtx.stroke();
     } else if (tool === "arrow") {
       drawArrow(tCtx, p1c.cx, p1c.cy, p2c.cx, p2c.cy, lw);
-    } else if (tool === "blur") {
+    } else if (tool === "blur" || tool === "redact" || tool === "spot") {
       tCtx.strokeStyle="#94a3b8"; tCtx.lineWidth=1.5; tCtx.setLineDash([6,3]);
       const bx=Math.min(p1c.cx,p2c.cx), by=Math.min(p1c.cy,p2c.cy);
       tCtx.strokeRect(bx,by,Math.abs(p2c.cx-p1c.cx),Math.abs(p2c.cy-p1c.cy));
@@ -429,6 +450,57 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     workCtx.imageSmoothingEnabled=false;
     workCtx.drawImage(tmp,0,0,tmp.width,tmp.height,x,y,w,h);
     workCtx.imageSmoothingEnabled=true;
+    render();
+  }
+
+  /* === 8b. Step number / Redact / Spotlight === */
+  const regionOf = (p1w, p2w) => ({ x: Math.min(p1w.x, p2w.x), y: Math.min(p1w.y, p2w.y), w: Math.abs(p2w.x - p1w.x), h: Math.abs(p2w.y - p1w.y) });
+
+  /** Hidden for good: a solid box, unlike Blur, whose blocks can still give the text away. */
+  function applyRedact(p1w, p2w) {
+    const r = regionOf(p1w, p2w);
+    if (r.w < 4 || r.h < 4) return;
+    saveUndo();
+    workCtx.fillStyle = "#000";
+    workCtx.fillRect(r.x, r.y, r.w, r.h);
+    render();
+  }
+
+  /** Everything outside the box dimmed, the box outlined in the colour chosen. */
+  function applySpot(p1w, p2w) {
+    const r = regionOf(p1w, p2w);
+    if (r.w < 4 || r.h < 4) return;
+    saveUndo();
+    workCtx.save();
+    workCtx.fillStyle = "rgba(0,0,0,0.55)";
+    workCtx.beginPath();
+    workCtx.rect(0, 0, workCanvas.width, workCanvas.height);
+    workCtx.rect(r.x, r.y, r.w, r.h);
+    workCtx.fill("evenodd");
+    workCtx.lineWidth = strokeWidth; workCtx.strokeStyle = drawColor;
+    workCtx.strokeRect(r.x, r.y, r.w, r.h);
+    workCtx.restore();
+    render();
+  }
+
+  /** The next step number in a circle of the colour chosen; Undo takes the number back too. */
+  let stepNo = 0;
+  function placeStep(cx, cy) {
+    const p = toWork(cx, cy), rad = 9 + strokeWidth * 2;
+    saveUndo();
+    stepNo++;
+    workCtx.save();
+    workCtx.beginPath(); workCtx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+    workCtx.fillStyle = drawColor; workCtx.fill();
+    workCtx.lineWidth = 2; workCtx.strokeStyle = "#fff"; workCtx.stroke();
+    // Dark digits on a light colour (yellow), white ones on the rest.
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(drawColor.slice(i, i + 2), 16));
+    workCtx.fillStyle = (r * 0.299 + g * 0.587 + b * 0.114) > 160 ? "#111" : "#fff";
+    workCtx.font = `bold ${Math.round(rad * 1.1)}px system-ui, sans-serif`;
+    workCtx.textAlign = "center"; workCtx.textBaseline = "middle";
+    workCtx.fillText(String(stepNo), p.x, p.y + 1);
+    workCtx.restore();
+    updateContextBar("step");
     render();
   }
 
@@ -574,6 +646,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     if (spaceHeld)    { startPan(e); return; }
     const {cx,cy}=canvasPos(e);
     if (currentTool==="text") { if(pendingShape) commitPending(); showTextInput(cx,cy); return; }
+    if (currentTool==="step") { if(pendingShape) commitPending(); placeStep(cx,cy); return; }
     if (currentTool==="crop") {
       if(pendingShape) commitPending();
       const zone=getCropZone(cx,cy);
@@ -742,6 +815,10 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
       const p2w=toWork(cx,cy);
       if (currentTool==="blur") {
         applyBlur(annotStartW,p2w);
+      } else if (currentTool==="redact") {
+        applyRedact(annotStartW,p2w);
+      } else if (currentTool==="spot") {
+        applySpot(annotStartW,p2w);
       } else if (currentTool==="draw") {
         // Freehand path: commit immediately — no adjust phase needed.
         saveUndo();
@@ -917,7 +994,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
   }
 
   /* === 14. Tool wiring === */
-  const TOOLS=["crop","draw","rect","ellipse","arrow","text","blur"];
+  const TOOLS=["crop","draw","rect","ellipse","arrow","text","blur","step","redact","spot"];
   const TOOL_CURSORS={
     crop:"crosshair",
     draw:"url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><circle cx=%224%22 cy=%2220%22 r=%223.5%22 fill=%22%23ef4444%22 stroke=%22white%22 stroke-width=%221%22/></svg>') 4 20, crosshair",
@@ -925,9 +1002,13 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     ellipse:"crosshair",
     arrow:"crosshair",
     text:"url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><text x=%222%22 y=%2218%22 font-size=%2218%22 font-weight=%22bold%22 fill=%22%234f46e5%22 stroke=%22white%22 stroke-width=%220.5%22>T</text></svg>') 2 18, text",
+    step:"crosshair",
+    redact:"crosshair",
+    spot:"crosshair",
     blur:"url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22><rect x=%224%22 y=%224%22 width=%2216%22 height=%2216%22 rx=%222%22 fill=%22none%22 stroke=%22%2394a3b8%22 stroke-width=%221.5%22 stroke-dasharray=%223%22/></svg>') 12 12, crosshair"
   };
-  const TOOL_LABELS={crop:"Crop",draw:"Draw",rect:"Rectangle",ellipse:"Ellipse",arrow:"Arrow",text:"Text",blur:"Blur"};
+  const TOOL_LABELS={crop:"Crop",draw:"Draw",rect:"Rectangle",ellipse:"Ellipse",arrow:"Arrow",text:"Text",blur:"Blur",
+                     step:"Step number",redact:"Redact",spot:"Spotlight"};
   const TOOL_HINTS={
     crop:"Drag to select a crop area",
     draw:"Drag to draw freehand",
@@ -935,7 +1016,10 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     ellipse:"Drag to draw an ellipse",
     arrow:"Drag to draw an arrow",
     text:"Click to place text",
-    blur:"Drag to blur / redact a region",
+    blur:"Drag to blur a region — ▮ Redact hides it for good",
+    step:"Click to place the next step number",
+    redact:"Drag over what must not be seen: it is filled solid",
+    spot:"Drag around what matters: the rest is dimmed",
   };
 
   // Context bar: show relevant properties per tool
@@ -955,8 +1039,8 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
                 <option value="12"${strokeWidth===12?' selected':''}>12 px</option>
               </select></div>
               <span class="ctx-hint" id="ctxHint">Click to place text</span>`;
-    } else if (tool === "blur") {
-      html = '<span class="ctx-hint" id="ctxHint">Drag to blur / redact a region</span>';
+    } else if (tool === "blur" || tool === "redact") {
+      html = `<span class="ctx-hint" id="ctxHint">${TOOL_HINTS[tool]}</span>`;
     } else {
       // draw, rect, ellipse, arrow
       html = `<div class="ctx-group"><label>Color</label><input type="color" id="colorPick" value="${drawColor}" /></div>
@@ -967,7 +1051,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
                 <option value="8"${strokeWidth===8?' selected':''}>8 px</option>
                 <option value="12"${strokeWidth===12?' selected':''}>12 px</option>
               </select></div>
-              <span class="ctx-hint" id="ctxHint">${TOOL_HINTS[tool]}</span>`;
+              <span class="ctx-hint" id="ctxHint">${tool === "step" ? `Click to place step ${stepNo + 1}` : TOOL_HINTS[tool]}</span>`;
     }
     contextBar.innerHTML = html;
     // Re-wire inputs
@@ -1142,7 +1226,7 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
 
   /** Update sidebar button tooltips to reflect current shortcuts */
   function updateToolbarBadges() {
-    const toolIds = ["toolCrop","toolDraw","toolRect","toolEllipse","toolArrow","toolText","toolBlur"];
+    const toolIds = ["toolCrop","toolDraw","toolRect","toolEllipse","toolArrow","toolText","toolBlur","toolStep","toolRedact","toolSpot"];
     toolIds.forEach(id => {
       const btn = document.getElementById(id);
       if (!btn) return;
@@ -1165,6 +1249,9 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
       if (btn.dataset.tip !== undefined) btn.dataset.tip = `${base} (${sc})`;
       else btn.title = `${base} (${sc})`;
     });
+    // A big picture keeps fewer steps (UNDO_BYTES): say how many.
+    const room = undoRoom();
+    if (room < 20) document.getElementById("btnUndo").dataset.tip += ` — ${room} step${room > 1 ? "s" : ""} for a picture this big`;
   }
 
   document.getElementById("btnHelp").addEventListener("click", toggleHelp);
@@ -1248,6 +1335,9 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
     if (matchesShortcut(e, shortcuts.toolArrow))   { setTool("arrow"); return; }
     if (matchesShortcut(e, shortcuts.toolText))    { setTool("text"); return; }
     if (matchesShortcut(e, shortcuts.toolBlur))    { setTool("blur"); return; }
+    if (matchesShortcut(e, shortcuts.toolStep))    { setTool("step"); return; }
+    if (matchesShortcut(e, shortcuts.toolRedact))  { setTool("redact"); return; }
+    if (matchesShortcut(e, shortcuts.toolSpot))    { setTool("spot"); return; }
     if (matchesShortcut(e, shortcuts.rotateL))     { rotateWork(-90); return; }
     if (matchesShortcut(e, shortcuts.rotateR))     { rotateWork(90); return; }
     if (matchesShortcut(e, shortcuts.flipH))       { flipWork(true); return; }
@@ -1287,9 +1377,12 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
           return;
         }
         if (reply?.success) {
-          showSaveToast(okLabel);
-          const SAVED_THEN_CLOSE_MS = 1200; // the toast is seen, then the editor goes
-          setTimeout(() => window.close(), SAVED_THEN_CLOSE_MS);
+          // Every capture goes onto the clipboard; this one once it is edited and saved.
+          canvasToClipboard(canvas).then((copied) => {
+            showSaveToast(copied ? `${okLabel} · copied to clipboard` : `${okLabel} — not copied to the clipboard`, !copied);
+            const SAVED_THEN_CLOSE_MS = 1200; // the toast is seen, then the editor goes
+            setTimeout(() => window.close(), SAVED_THEN_CLOSE_MS);
+          });
           return;
         }
         restore();
@@ -1301,6 +1394,15 @@ function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabe
         showSaveToast(cancelled ? "Save cancelled" : ("Save failed — " + (reply?.error || "unknown")), true);
       },
     );
+  }
+
+  /** A canvas onto the clipboard as PNG; resolves whether it worked. */
+  async function canvasToClipboard(canvas) {
+    try {
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      return true;
+    } catch (_) { return false; }
   }
 
   const btnSaveCropEl = document.getElementById("btnSaveCrop");

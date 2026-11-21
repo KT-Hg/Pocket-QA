@@ -452,6 +452,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "tabs.setZoom [1,1]",
    "tabs.getZoom [1]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
@@ -478,6 +479,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "tabs.setZoom [1,1.25]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-04.png\",\"saveAs\":false}]"
   ],
@@ -497,6 +499,7 @@
   },
   "calls": [
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -520,6 +523,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"page.png\",\"saveAs\":true}]"
   ],
@@ -545,6 +549,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "tabs.setZoom [1,1]",
    "tabs.getZoom [1]",
    "tabs.getZoom [1]",
@@ -574,6 +579,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
    "tabs.setZoom [1,1.25]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-08.png\",\"saveAs\":false}]"
   ],
@@ -599,6 +605,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -674,6 +681,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":9000,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",{\\\"canvas\\\":\\\"800x4000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,800,560,0,0,800,560],[\\\"draw\\\",\\\"cap2\\\",0,0,800,560,0,560,800,560],[\\\"draw\\\",\\\"cap3\\\",0,0,800,560,0,1120,800,560],[\\\"draw\\\",\\\"cap4\\\",0,0,800,560,0,1680,800,560],[\\\"draw\\\",\\\"cap5\\\",0,0,800,560,0,2240,800,560],[\\\"draw\\\",\\\"cap6\\\",0,0,800,560,0,2800,800,560],[\\\"draw\\\",\\\"cap7\\\",0,0,800,560,0,3360,800,560],[\\\"draw\\\",\\\"cap8\\\",0,0,800,80,0,3920,800,80]]},0,0],[\\\"draw\\\",{\\\"canvas\\\":\\\"800x4000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap8\\\",0,80,800,480,0,0,800,480],[\\\"draw\\\",\\\"cap9\\\",0,0,800,560,0,480,800,560],[\\\"draw\\\",\\\"cap10\\\",0,0,800,560,0,1040,800,560],[\\\"draw\\\",\\\"cap11\\\",0,0,800,560,0,1600,800,560],[\\\"draw\\\",\\\"cap12\\\",0,0,800,560,0,2160,800,560],[\\\"draw\\\",\\\"cap13\\\",0,0,800,560,0,2720,800,560],[\\\"draw\\\",\\\"cap14\\\",0,0,800,560,0,3280,800,560],[\\\"draw\\\",\\\"cap15\\\",0,0,800,160,0,3840,800,160]]},0,4000],[\\\"draw\\\",{\\\"canvas\\\":\\\"800x1000\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap15\\\",0,160,800,400,0,0,800,400],[\\\"draw\\\",\\\"cap16\\\",0,0,800,560,0,400,800,560],[\\\"draw\\\",\\\"cap17\\\",0,0,800,40,0,960,800,40]]},0,8000]]}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-11.png\",\"saveAs\":false}]"
   ],
@@ -694,6 +702,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -865,6 +874,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":6251,\\\"h\\\":4251,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,1000,700,0,0,1000,700],[\\\"draw\\\",\\\"cap2\\\",0,0,1000,700,1000,0,1000,700],[\\\"draw\\\",\\\"cap3\\\",0,0,1000,700,2000,0,1000,700],[\\\"draw\\\",\\\"cap4\\\",0,0,1000,700,3000,0,1000,700],[\\\"draw\\\",\\\"cap5\\\",0,0,1000,700,4000,0,1000,700],[\\\"draw\\\",\\\"cap6\\\",0,0,1000,700,5000,0,1000,700],[\\\"draw\\\",\\\"cap7\\\",0,0,251,700,6000,0,251,700],[\\\"draw\\\",\\\"cap8\\\",0,0,1000,700,0,700,1000,700],[\\\"draw\\\",\\\"cap9\\\",0,0,1000,700,1000,700,1000,700],[\\\"draw\\\",\\\"cap10\\\",0,0,1000,700,2000,700,1000,700],[\\\"draw\\\",\\\"cap11\\\",0,0,1000,700,3000,700,1000,700],[\\\"draw\\\",\\\"cap12\\\",0,0,1000,700,4000,700,1000,700],[\\\"draw\\\",\\\"cap13\\\",0,0,1000,700,5000,700,1000,700],[\\\"draw\\\",\\\"cap14\\\",0,0,251,700,6000,700,251,700],[\\\"draw\\\",\\\"cap15\\\",0,0,1000,700,0,1400,1000,700],[\\\"draw\\\",\\\"cap16\\\",0,0,1000,700,1000,1400,1000,700],[\\\"draw\\\",\\\"cap17\\\",0,0,1000,700,2000,1400,1000,700],[\\\"draw\\\",\\\"cap18\\\",0,0,1000,700,3000,1400,1000,700],[\\\"draw\\\",\\\"cap19\\\",0,0,1000,700,4000,1400,1000,700],[\\\"draw\\\",\\\"cap20\\\",0,0,1000,700,5000,1400,1000,700],[\\\"draw\\\",\\\"cap21\\\",0,0,251,700,6000,1400,251,700],[\\\"draw\\\",\\\"cap22\\\",0,0,1000,700,0,2100,1000,700],[\\\"draw\\\",\\\"cap23\\\",0,0,1000,700,1000,2100,1000,700],[\\\"draw\\\",\\\"cap24\\\",0,0,1000,700,2000,2100,1000,700],[\\\"draw\\\",\\\"cap25\\\",0,0,1000,700,3000,2100,1000,700],[\\\"draw\\\",\\\"cap26\\\",0,0,1000,700,4000,2100,1000,700],[\\\"draw\\\",\\\"cap27\\\",0,0,1000,700,5000,2100,1000,700],[\\\"draw\\\",\\\"cap28\\\",0,0,251,700,6000,2100,251,700],[\\\"draw\\\",\\\"cap29\\\",0,0,1000,700,0,2800,1000,700],[\\\"draw\\\",\\\"cap30\\\",0,0,1000,700,1000,2800,1000,700],[\\\"draw\\\",\\\"cap31\\\",0,0,1000,700,2000,2800,1000,700],[\\\"draw\\\",\\\"cap32\\\",0,0,1000,700,3000,2800,1000,700],[\\\"draw\\\",\\\"cap33\\\",0,0,1000,700,4000,2800,1000,700],[\\\"draw\\\",\\\"cap34\\\",0,0,1000,700,5000,2800,1000,700],[\\\"draw\\\",\\\"cap35\\\",0,0,251,700,6000,2800,251,700],[\\\"draw\\\",\\\"cap36\\\",0,0,1000,700,0,3500,1000,700],[\\\"draw\\\",\\\"cap37\\\",0,0,1000,700,1000,3500,1000,700],[\\\"draw\\\",\\\"cap38\\\",0,0,1000,700,2000,3500,1000,700],[\\\"draw\\\",\\\"cap39\\\",0,0,1000,700,3000,3500,1000,700],[\\\"draw\\\",\\\"cap40\\\",0,0,1000,700,4000,3500,1000,700],[\\\"draw\\\",\\\"cap41\\\",0,0,1000,700,5000,3500,1000,700],[\\\"draw\\\",\\\"cap42\\\",0,0,251,700,6000,3500,251,700],[\\\"draw\\\",\\\"cap43\\\",0,0,1000,51,0,4200,1000,51],[\\\"draw\\\",\\\"cap44\\\",0,0,1000,51,1000,4200,1000,51],[\\\"draw\\\",\\\"cap45\\\",0,0,1000,51,2000,4200,1000,51],[\\\"draw\\\",\\\"cap46\\\",0,0,1000,51,3000,4200,1000,51],[\\\"draw\\\",\\\"cap47\\\",0,0,1000,51,4000,4200,1000,51],[\\\"draw\\\",\\\"cap48\\\",0,0,1000,51,5000,4200,1000,51],[\\\"draw\\\",\\\"cap49\\\",0,0,251,51,6000,4200,251,51]]}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-14.png\",\"saveAs\":false}]"
   ],
@@ -996,6 +1006,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1019,6 +1030,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]"
   ],
   "console": [],
@@ -1236,6 +1248,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1259,6 +1272,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "windows.create [{\"url\":\"chrome-extension://testextensionid/editor.html?crop=00000000-0000-4000-8000-000000000004\",\"type\":\"popup\"}]",
    "windows.update [9,{\"state\":\"maximized\"}]"
@@ -1279,6 +1293,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1302,6 +1317,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"cap_full_2026-01-15_09-00-35.png\",\"saveAs\":true}]"
   ],
@@ -1321,6 +1337,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1344,6 +1361,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-37.png\",\"saveAs\":false}]"
   ],
@@ -1363,6 +1381,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "tabs.setZoom [1,1]",
    "tabs.getZoom [1]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
@@ -1384,6 +1403,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "tabs.setZoom [1,1]",
    "tabs.getZoom [1]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
@@ -1405,6 +1425,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "tabs.setZoom [1,1]",
    "tabs.getZoom [1]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
@@ -1423,7 +1444,8 @@
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
-   "tabs.setZoom [1,1.25]"
+   "tabs.setZoom [1,1.25]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]"
   ],
   "console": [],
   "zoom": {
@@ -1442,6 +1464,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1465,6 +1488,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-41.png\",\"saveAs\":false}]"
   ],
@@ -1485,6 +1509,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1508,6 +1533,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-43.png\",\"saveAs\":false}]"
   ],
@@ -1527,6 +1553,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1549,7 +1576,8 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-sticky';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll('*')) {\\n      if (el.hasAttribute(ATTR)) {\\n        let keep = {};\\n        try { keep = JSON.parse(el.getAttribute(ATTR)) || {}; } catch (_) { /* unreadable: clear what we set */ }\\n        for (const p of ['position', 'top', 'right', 'bottom', 'left']) {\\n          const [value, priority] = keep[p] || ['', ''];\\n          if (value) el.style.setProperty(p, value, priority); else el.style.removeProperty(p);\\n        }\\n        el.removeAttribute(ATTR);\\n      }\\n      if (el.shadowRoot) visit(el.shadowRoot);\\n    }\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
-   "debugger.detach [{\"tabId\":1}]"
+   "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]"
   ],
   "console": [],
   "zoom": {
@@ -1567,6 +1595,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "tabs.setZoom [1,1]",
    "tabs.getZoom [1]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
@@ -1598,7 +1627,8 @@
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
-   "tabs.setZoom [1,1.25]"
+   "tabs.setZoom [1,1.25]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]"
   ],
   "console": [],
   "zoom": {
@@ -1616,6 +1646,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1632,7 +1663,8 @@
    "debugger.detach [{\"tabId\":1}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
-   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]"
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]"
   ],
   "console": [],
   "zoom": {
@@ -1650,6 +1682,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1676,7 +1709,8 @@
    "debugger.detach [{\"tabId\":1}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
-   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]"
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]"
   ],
   "console": [],
   "zoom": {
@@ -1696,6 +1730,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1729,6 +1764,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1680,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0,800,560,0,0,800,560],[\\\"draw\\\",\\\"cap2\\\",0,0,800,560,0,560,800,560],[\\\"draw\\\",\\\"cap3\\\",0,0,800,560,0,1120,800,560]]}›\",\"filename\":\"screenshots/2026-01-15/cap_full_2026-01-15_09-00-53.png\",\"saveAs\":false}]"
   ],
@@ -1748,6 +1784,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "tabs.setZoom [1,1]",
    "tabs.getZoom [1]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
@@ -1775,7 +1812,8 @@
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
-   "tabs.setZoom [1,1.25]"
+   "tabs.setZoom [1,1.25]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]"
   ],
   "console": [],
   "zoom": {
@@ -1793,6 +1831,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1820,7 +1859,8 @@
    "debugger.detach [{\"tabId\":1}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
-   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]"
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]"
   ],
   "console": [],
   "zoom": {
@@ -1838,6 +1878,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -1866,7 +1907,8 @@
    "debugger.detach [{\"tabId\":1}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
-   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]"
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]"
   ],
   "console": [],
   "zoom": {
@@ -2512,8 +2554,9 @@
    "tabs.get [3]",
    "tabs.getZoom [1]",
    "scripting.executeScript [{\"target\":{\"tabId\":3},\"func\":\"ƒ\"}]",
-   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "tabs.captureVisibleTab [2,{\"format\":\"png\"}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.captureVisibleTab [2,{\"format\":\"png\"}]",
    "scripting.executeScript [{\"target\":{\"tabId\":3},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
@@ -2540,6 +2583,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/q1_full_2026-01-15_09-01-12.png\",\"saveAs\":false}]",
    "tabs.get [1]",
@@ -2632,6 +2676,7 @@
   "calls": [
    "storage.sync.get [[\"screenshotTypeInName\"]]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -2655,6 +2700,7 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/after-close_full_2026-01-15_09-01-16.png\",\"saveAs\":false}]"
   ],
@@ -2875,10 +2921,12 @@
   "step": "compare screenshots",
   "done": true,
   "result": {
-   "diffUrl": "‹png {\"w\":5,\"h\":3,\"tag\":\"canvas\",\"ops\":[[\"putImageData\",5,3,10950,0,0]]}›",
-   "changed": 15,
-   "total": 15,
-   "pct": "100.00"
+   "diffUrl": "‹png {\"w\":4,\"h\":2,\"tag\":\"canvas\",\"ops\":[[\"putImageData\",4,2,5840,0,0]]}›",
+   "changed": 8,
+   "total": 8,
+   "pct": "100.00",
+   "sizeA": {"w":4,"h":3},
+   "sizeB": {"w":5,"h":2}
   },
   "calls": [],
   "console": [],
@@ -2895,7 +2943,9 @@
    "diffUrl": "‹png {\"w\":3,\"h\":3,\"tag\":\"canvas\",\"ops\":[[\"putImageData\",3,3,3630,0,0]]}›",
    "changed": 0,
    "total": 9,
-   "pct": "0.00"
+   "pct": "0.00",
+   "sizeA": {"w":3,"h":3},
+   "sizeB": {"w":3,"h":3}
   },
   "calls": [],
   "console": [],
@@ -2956,7 +3006,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"cap_2026-01-15_09-01-19.png"}
+   {"success":true,"filename":"cap_2026-01-15_09-01-19.png","copyError":"this page cannot write to the clipboard"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
@@ -2967,7 +3017,8 @@
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-19.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-19.png\"}}]"
+   "tabs.sendMessage [1,{\"type\":\"COPY_IMAGE\",\"base64\":\"‹base64 {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\"},{\"frameId\":0}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-19.png\",\"copyError\":\"this page cannot write to the clipboard\"}}]"
   ],
   "console": [],
   "zoom": {
@@ -3108,7 +3159,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"cap_2026-01-15_09-01-22.png"}
+   {"success":true,"filename":"cap_2026-01-15_09-01-22.png","copyError":"this page cannot write to the clipboard"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
@@ -3119,9 +3170,10 @@
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-22.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-22.png\"}}]",
+   "tabs.sendMessage [1,{\"type\":\"COPY_IMAGE\",\"base64\":\"‹base64 {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\"},{\"frameId\":0}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-22.png\",\"copyError\":\"this page cannot write to the clipboard\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
-   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Screenshot saved\",\"message\":\"cap_2026-01-15_09-01-22.png\"}]"
+   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Screenshot saved\",\"message\":\"cap_2026-01-15_09-01-22.png — not copied: this page cannot write to the clipboard. Copy it from Capture → Recent\"}]"
   ],
   "console": [],
   "zoom": {
@@ -3142,12 +3194,13 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"full-name.png"}
+   {"success":true,"filename":"full-name.png","copyError":"this page cannot write to the clipboard"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
    "tabs.sendMessage [1,{\"type\":\"FULL_CAPTURE_STATE\",\"active\":true},{\"frameId\":0}]",
    "tabs.getZoom [1]",
+   "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "tabs.sendMessage [1,{\"type\":\"GET_PAGE_DIMENSIONS\"},{\"frameId\":0}]",
    "debugger.detach [{\"tabId\":1}]",
@@ -3171,9 +3224,11 @@
    "debugger.sendCommand [{\"tabId\":1},\"Runtime.evaluate\",{\"expression\":\"(() => {\\n  const ATTR = 'data-pqa-lazy';\\n  const visit = (root) => {\\n    for (const el of root.querySelectorAll(`[${ATTR}]`)) {\\n      el.setAttribute('loading', el.getAttribute(ATTR) || 'lazy');\\n      el.removeAttribute(ATTR);\\n    }\\n    for (const host of root.querySelectorAll('*')) if (host.shadowRoot) visit(host.shadowRoot);\\n  };\\n  visit(document);\\n})()\",\"awaitPromise\":false}]",
    "debugger.sendCommand [{\"tabId\":1},\"Emulation.clearDeviceMetricsOverride\",{}]",
    "debugger.detach [{\"tabId\":1}]",
+   "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\",\"args\":[0,0]}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/full-name.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"full-name.png\"}}]",
+   "tabs.sendMessage [1,{\"type\":\"COPY_IMAGE\",\"base64\":\"‹base64 {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\"},{\"frameId\":0}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"full-name.png\",\"copyError\":\"this page cannot write to the clipboard\"}}]",
    "tabs.sendMessage [1,{\"type\":\"FULL_CAPTURE_STATE\",\"active\":false},{\"frameId\":0}]"
   ],
   "console": [],
@@ -3195,7 +3250,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"cap_scrollV_2026-01-15_09-01-24.png"}
+   {"success":true,"filename":"cap_scrollV_2026-01-15_09-01-24.png","copyError":"this page cannot write to the clipboard"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
@@ -3225,10 +3280,11 @@
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_scrollV_2026-01-15_09-01-24.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_scrollV_2026-01-15_09-01-24.png\"}}]",
+   "tabs.sendMessage [1,{\"type\":\"COPY_IMAGE\",\"base64\":\"‹base64 {\\\"w\\\":800,\\\"h\\\":1500,\\\"tag\\\":\\\"cap1\\\"}›\"},{\"frameId\":0}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_scrollV_2026-01-15_09-01-24.png\",\"copyError\":\"this page cannot write to the clipboard\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
    "tabs.sendMessage [1,{\"type\":\"FULL_CAPTURE_STATE\",\"active\":false},{\"frameId\":0}]",
-   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Vertical scroll screenshot saved\",\"message\":\"cap_scrollV_2026-01-15_09-01-24.png\"}]"
+   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Vertical scroll screenshot saved\",\"message\":\"cap_scrollV_2026-01-15_09-01-24.png — not copied: this page cannot write to the clipboard. Copy it from Capture → Recent\"}]"
   ],
   "console": [],
   "zoom": {
@@ -3295,7 +3351,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"screenshot_elem_2026-01-15_09-01-26.png"}
+   {"success":true,"filename":"screenshot_elem_2026-01-15_09-01-26.png","copyError":"this page cannot write to the clipboard"}
   ],
   "calls": [
    "storage.sync.get [[\"screenshotSaveMode\",\"screenshotPrefix\"]]",
@@ -3330,9 +3386,10 @@
    "debugger.detach [{\"tabId\":1}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\",\"filename\":\"screenshot_elem_2026-01-15_09-01-26.png\",\"saveAs\":true}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"screenshot_elem_2026-01-15_09-01-26.png\"}}]",
+   "tabs.sendMessage [1,{\"type\":\"COPY_IMAGE\",\"base64\":\"‹base64 {\\\"w\\\":300,\\\"h\\\":200,\\\"tag\\\":\\\"canvas\\\",\\\"ops\\\":[[\\\"draw\\\",\\\"cap1\\\",0,0]]}›\"},{\"frameId\":0}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"screenshot_elem_2026-01-15_09-01-26.png\",\"copyError\":\"this page cannot write to the clipboard\"}}]",
    "storage.sync.get [[\"notifyOnCapture\"]]",
-   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Element screenshot saved\",\"message\":\"screenshot_elem_2026-01-15_09-01-26.png\"}]"
+   "notifications.create [\"hotkey_capture\",{\"type\":\"basic\",\"iconUrl\":\"chrome-extension://testextensionid/icons/icon48.png\",\"title\":\"Element screenshot saved\",\"message\":\"screenshot_elem_2026-01-15_09-01-26.png — not copied: this page cannot write to the clipboard. Copy it from Capture → Recent\"}]"
   ],
   "console": [],
   "storage": {
@@ -3760,7 +3817,7 @@
    "‹undefined›"
   ],
   "responses": [
-   {"success":true,"filename":"cap_2026-01-15_09-01-33.png"}
+   {"success":true,"filename":"cap_2026-01-15_09-01-33.png","copyError":"this page cannot write to the clipboard"}
   ],
   "calls": [
    "storage.local.get [[\"lastUpdateAt\",\"updateAvailableSince\",\"remoteConfig\"]]",
@@ -3772,7 +3829,8 @@
    "scripting.executeScript [{\"target\":{\"tabId\":1},\"func\":\"ƒ\"}]",
    "storage.local.get [[\"watermarkEnabled\",\"watermarkFormat\",\"watermarkFontSize\"]]",
    "downloads.download [{\"url\":\"‹png {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\",\"filename\":\"screenshots/2026-01-15/cap_2026-01-15_09-01-33.png\",\"saveAs\":false}]",
-   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-33.png\"}}]"
+   "tabs.sendMessage [1,{\"type\":\"COPY_IMAGE\",\"base64\":\"‹base64 {\\\"w\\\":800,\\\"h\\\":600,\\\"tag\\\":\\\"visible2\\\"}›\"},{\"frameId\":0}]",
+   "runtime.sendMessage [{\"type\":\"SCREENSHOT_RESULT\",\"result\":{\"success\":true,\"filename\":\"cap_2026-01-15_09-01-33.png\",\"copyError\":\"this page cannot write to the clipboard\"}}]"
   ],
   "console": [],
   "storage": {

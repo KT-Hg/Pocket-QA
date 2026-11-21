@@ -4,6 +4,14 @@
  */
 
 import { showToast } from './utils.js';
+import { copyRecentToClipboard } from './capture/recent.js';
+
+/** What became of the clipboard copy every capture makes, as the end of the toast. */
+function copyNote(r) {
+  if (r?.copied) return ' · copied to clipboard';
+  if (r?.copyError) return ` — not copied: ${r.copyError}. 📋 Copy it under Recent captures`;
+  return '';
+}
 
 export function initNotices() {
   /* === Message Listeners === */
@@ -18,10 +26,18 @@ export function initNotices() {
     } else if (result?.cropping) {
       // Nothing is saved yet: the editor saves, and says so itself.
       showToast('Opening editor…', 'info');
-    } else if (result?.partial) {
-      showToast('Saved partial capture: ' + (result.filename || 'screenshot'), 'success');
     } else if (result?.success) {
-      showToast('Saved: ' + (result.filename || 'screenshot'), 'success');
+      const saved = (result.partial ? 'Saved partial capture: ' : 'Saved: ') + (result.filename || 'screenshot');
+      // The popup is open, so it is the focused page that can write the clipboard
+      // (bg/screenshot/after-capture.js): it copies the capture from Recent.
+      if (result.copyBy === 'popup' && result.recentId != null) {
+        copyRecentToClipboard(result.recentId).then(
+          () => showToast(`${saved} · copied to clipboard`, 'success'),
+          (e) => showToast(`${saved} — not copied: ${e.message}`, 'warn'),
+        );
+      } else {
+        showToast(saved + copyNote(result), result.copyError ? 'warn' : 'success');
+      }
     }
   });
   // Show an inline error toast whenever a playback action fails so the user knows

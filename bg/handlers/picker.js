@@ -12,6 +12,7 @@ import { updateBadge } from '../badge.js';
 import { sendCaptureNotification } from '../notify.js';
 import { takeElementScreenshot, reportCaptureResult } from '../screenshot.js';
 import { readCaptureSettings } from '../screenshot/settings.js';
+import { afterCapture } from '../screenshot/after-capture.js';
 import { isTabOn } from '../tabs.js';
 import { runPickCancelled, runPickOn, runPicked } from '../playback/run-pick.js';
 
@@ -93,12 +94,13 @@ export const pickerHandlers = {
           readCaptureSettings(({ saveMode, prefix }) => {
             // Use takeElementScreenshot so zoom normalization and coordinate re-query run inside CDP session
             takeElementScreenshot(tabId, {
-              selector: request.selector, saveMode, prefix, crop, returnBase64: false,
+              selector: request.selector, saveMode, prefix, crop, returnBase64: true,
               skipDownload: false, selectors: request.selectors, frameId: request.frameId,
             })
               // The popup closed itself for the pick, so fromHotkey: true is right
               // where reportCaptureResult cannot ask the browser.
               .catch((e) => ({ error: e.message }))
+              .then((result) => afterCapture(tabId, result, "Element", { fromHotkey: true }))
               .then((result) => reportCaptureResult(result, { fromHotkey: true, label: "Element screenshot" }));
           });
         }

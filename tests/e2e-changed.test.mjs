@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 
 const { suitesFor } = await import('../tools/e2e/changed.mjs');
 
-const SUITES = ['locate', 'run', 'editor', 'vars', 'record', 'export', 'export-run', 'csv', 'api', 'pages'];
+const SUITES = ['locate', 'run', 'editor', 'vars', 'record', 'export', 'export-run', 'csv', 'api', 'pages', 'capture'];
 const run = (...paths) => suitesFor(paths, SUITES).suites;
 
 test('a file of one area runs its suites, in suite order', () => {

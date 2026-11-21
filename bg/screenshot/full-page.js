@@ -105,9 +105,19 @@ async function _takeFullPageScreenshot(tabId, {
   // (see the needsStitch note below).
   const origZoom = await new Promise(r => chrome.tabs.getZoom(tabId, r));
   const zoomAdjusted = !segmentClip && Math.abs(origZoom - 1) > 0.01;
+
+  // Where the user was reading, read before anything below scrolls the page: a full
+  // capture starts from the top (clearLeftoverTiling, prepareForCapture), and the
+  // page used to be left there afterwards. Given back once the zoom is back too.
+  const isFull = !segmentClip && scrollDir === 'full';
+  const startScroll = isFull ? await tabMsg(tabId, { type: 'GET_PAGE_DIMENSIONS' }) : null;
+  const scrollBack = async () => {
+    if (startScroll && !startScroll.failed) await scriptingExec(tabId, (x, y) => window.scrollTo(x, y), [startScroll.scrollX, startScroll.scrollY]);
+  };
+
   if (zoomAdjusted) await resetZoomTo100(tabId);
 
-  if (!segmentClip && scrollDir === 'full') await clearLeftoverTiling(tabId);
+  if (isFull) await clearLeftoverTiling(tabId);
 
   const dims = await tabMsg(tabId, { type: 'GET_PAGE_DIMENSIONS' });
   if (!dims || dims.failed) return { error: 'Could not get page dimensions' };
@@ -193,6 +203,7 @@ async function _takeFullPageScreenshot(tabId, {
     if (zoomAdjusted) {
       await new Promise(r => chrome.tabs.setZoom(tabId, origZoom, r));
     }
+    await scrollBack();
 
     if (!result?.data) return { error: 'CDP capture returned no data' };
 
@@ -219,6 +230,7 @@ async function _takeFullPageScreenshot(tabId, {
     if (zoomAdjusted) {
       await new Promise(r => chrome.tabs.setZoom(tabId, origZoom, r)).catch(() => {});
     }
+    await scrollBack();
     return cancelled ? { cancelled: true } : { error: e.message || 'Screenshot failed' };
   }
 }

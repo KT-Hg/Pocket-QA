@@ -38,6 +38,7 @@ import { takeVisibleScreenshot } from './screenshot/visible.js';
 import { takeFullPageScreenshot } from './screenshot/full-page.js';
 import { takeElementScreenshot } from './screenshot/element.js';
 import { runCountdown } from './screenshot/countdown.js';
+import { afterCapture } from './screenshot/after-capture.js';
 
 export {
   takeVisibleScreenshot, takeFullPageScreenshot, takeElementScreenshot,
@@ -91,10 +92,11 @@ function handleScreenshotRequest(request, sender, sendResponse) {
   if (request.type === 'TAKE_SCREENSHOT_ELEMENT') {
     readCaptureSettings(({ saveMode, prefix }) => {
       takeElementScreenshot(tabId, {
-        selector: request.selector, saveMode, prefix, crop: !!request.crop, returnBase64: false,
+        selector: request.selector, saveMode, prefix, crop: !!request.crop, returnBase64: true,
         skipDownload: false, selectors: request.selectors, selectorType: request.selectorType,
       })
         .catch((e) => ({ error: e.message }))
+        .then((result) => afterCapture(tabId, result, 'Element', { fromHotkey: !!request.fromHotkey }))
         .then((result) => {
           sendResponse(result);
           reportCaptureResult(result, { fromHotkey: !!request.fromHotkey, label: 'Element screenshot' });
@@ -110,6 +112,8 @@ function handleScreenshotRequest(request, sender, sendResponse) {
       TAKE_SCREENSHOT_SCROLL_V: 'vertical',
       TAKE_SCREENSHOT_SCROLL_H: 'horizontal',
     };
+    // What Recent captures calls each one.
+    const KINDS = { TAKE_SCREENSHOT: 'Page', TAKE_SCREENSHOT_FULL: 'Full', TAKE_SCREENSHOT_SCROLL_V: 'Down', TAKE_SCREENSHOT_SCROLL_H: 'Across' };
     // Named per capture kind so a hotkey notification says which shortcut fired.
     const LABELS = {
       TAKE_SCREENSHOT:          'Screenshot',
@@ -124,13 +128,15 @@ function handleScreenshotRequest(request, sender, sendResponse) {
     if (isFull) tabMsg(tabId, { type: 'FULL_CAPTURE_STATE', active: true }).catch(() => {});
     const task = isFull
       ? takeFullPageScreenshot(tabId, {
-        saveMode, prefix, requestedFilename: request.filename, crop,
+        saveMode, prefix, requestedFilename: request.filename, crop, returnBase64: true,
         scrollDir: dirMap[request.type],
       })
-      : takeVisibleScreenshot(tabId, { saveMode, prefix, requestedFilename: request.filename, crop });
+      : takeVisibleScreenshot(tabId, { saveMode, prefix, requestedFilename: request.filename, crop, returnBase64: true });
     // A thrown capture is reported like a returned error: with the popup closed
     // (countdown, hotkey) the notification is the only place it can show up.
-    task.catch((e) => ({ error: e.message })).then((result) => {
+    task.catch((e) => ({ error: e.message }))
+      .then((result) => afterCapture(tabId, result, KINDS[request.type], { fromHotkey: !!request.fromHotkey }))
+      .then((result) => {
       sendResponse(result);
       reportCaptureResult(result, { fromHotkey: !!request.fromHotkey, label: LABELS[request.type] || 'Screenshot' });
     })
