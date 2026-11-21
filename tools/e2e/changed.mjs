@@ -31,6 +31,10 @@ const RULES = [
   [['sqlcases/', 'sqltest.html', 'css/sqlcases.css'], ['pages']],
   [['content-highlight.js', 'popup/highlight.js', 'bg/handlers/highlight.js', 'shared/highlight-store.js',
     'css/popup/11-highlight.css', 'popup/scenarios/import-export.js'], ['pages']],
+  // A capture and what follows it: the clipboard, Recent captures, Image Diff, the editor.
+  [['bg/screenshot/', 'bg/screenshot.js', 'bg/handlers/capture.js', 'popup/capture/', 'popup/screenshots.js',
+    'shared/recent-captures.js', 'shared/pixel-diff.js', 'editor.js', 'editor.html', 'css/editor.css',
+    'capture-window.js', 'capture-window.html', 'css/popup/08-capture.css'], ['locate', 'capture']],
   [['popup/csv/', 'bg/handlers/csv.js', 'popup/lib/zip-writer.js'], ['csv', 'run']],
   [['popup/export/', 'popup/export-modal.js', 'popup/export-bookmarklet.js', 'popup/export-selenium.js',
     'popup/export-playwright.js', 'popup/export-robot.js', 'popup/export-java.js'], ['export', 'export-run']],
@@ -40,6 +44,8 @@ const RULES = [
   [['popup/variables.js', 'css/popup/03-variables.css'], ['vars']],
   [['popup/record/recorder.js', 'bg/handlers/recording.js'], ['record']],
   [['popup/record/picker.js', 'bg/handlers/picker.js'], ['editor', 'record']],
+  // 📱 Run as under Loop: played and checked by the run suite (run-as).
+  [['popup/scenarios/run-as.js'], ['run']],
   [['popup/record/', 'popup/scenarios/', 'bg/handlers/folders.js', 'css/popup/02-action-list.css',
     'css/popup/04-lists-cards-forms.css', 'css/popup/12-switch-blocks.css'], ['editor', 'vars']],
   [['css/popup/07-switch-loop-csv.css'], ['editor', 'csv']],

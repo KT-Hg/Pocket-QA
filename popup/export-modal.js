@@ -14,7 +14,8 @@ import { showToast, lockScroll, unlockScroll, escHtml, getUsedVarNames } from '.
 import { trapFocus } from './ui/focus.js';
 import { isAlwaysSwitch } from '../shared/switch-blocks.js';
 import { normalizeVarName } from '../shared/var-name.js';
-import { activeValue, parseRandomSpec, parsePickSpec, previewRandom } from '../shared/var-spec.js';
+import { activeValue, parseRandomSpec, parsePickSpec, randomValue } from '../shared/var-spec.js';
+import { runAsOf } from '../shared/run-as.js';
 import { downloadAlso, downloadBlob, safeFileName } from './lib/download.js';
 import { highlightLines } from './export/highlight.js';
 
@@ -44,7 +45,7 @@ const PREFIX = 'export';
 const byId = (suffix) => document.getElementById(PREFIX + suffix);
 
 // What the modal shows: the format that opened it (its cfg), the scenario, the code.
-const run = { cfg: null, code: '', scenarioName: '', actions: [], variables: {}, options: {}, releaseFocus: null };
+const run = { cfg: null, code: '', scenarioName: '', actions: [], variables: {}, options: {}, runAs: null, releaseFocus: null };
 let modalWired = false;
 
 /**
@@ -226,7 +227,8 @@ const fileName = () => run.cfg.fileName(exportFileBase(run.scenarioName), run.op
 // now, and show it: Copy and Download take what is shown.
 function generate() {
   run.options = run.cfg.readOptions();
-  const result = run.cfg.generate(run.scenarioName, run.actions, run.variables, run.options);
+  // 📱 The scenario's Run as (shared/run-as.js) is played the same way by the exported code.
+  const result = run.cfg.generate(run.scenarioName, run.actions, run.variables, { ...run.options, runAs: run.runAs });
   run.code = result.code;
   render(result);
 }
@@ -325,6 +327,7 @@ function load(done) {
   chrome.runtime.sendMessage({ type: 'GET_SCENARIOS' }, res => {
     const scenario = (res?.scenarios || {})[scenarioId];
     run.actions = scenario?.actions || [];
+    run.runAs = runAsOf(scenario?.runAs);
     chrome.runtime.sendMessage({ type: 'GET_VARIABLES' }, varRes => {
       const allVariables = varRes?.variables || {};
       const usedNames = getUsedVarNames(run.actions);
@@ -559,7 +562,7 @@ function renderVariables(noVarsEl, listEl, vars) {
     let icon, badgeLabel, badgeCls, preview;
     if (isRand) {
       icon = '🎲'; badgeLabel = 'Random'; badgeCls = 'rand';
-      preview = previewRandom(spec.type, spec.length);
+      preview = randomValue(spec);
     } else if (isPick) {
       icon = '⚄'; badgeLabel = `Pick (${pick.length})`; badgeCls = 'rand';
       preview = pick.map(v => (v === '' ? '∅ blank' : v)).join(' | ');
@@ -607,6 +610,7 @@ export const ACT_TYPE_INFO = {
   readdom:            { icon: '📖', label: 'readdom',    cls: 'readdom' },
   switch:             { icon: '🔄', label: 'switch',     cls: 'wait' },
   uploadFile:         { icon: '📎', label: 'upload',     cls: 'upload' },
+  switchTab:          { icon: '↗',  label: 'tab',        cls: 'nav' },
 };
 
 /** What a row of the Actions tab says an action does, after its label if it has one. */
@@ -636,6 +640,7 @@ export function actionDesc(a) {
     case 'screenshot_element': return sel || 'element';
     case 'dropdown':           return a.pick ? `${sel} → item #${a.pick.index ?? '?'}` : sel;
     case 'screenshot_tovar':   return `→ \${${normalizeVarName(a.varName) || 'screenshot'}}`;
+    case 'switchTab':          return a.tabTarget === 'back' ? `↩ back${a.closeTab ? ', closing this tab' : ''}` : '↗ the new tab';
     case 'input': {
       const v = a.value ? ` = "${String(a.value).slice(0, 15)}"` : '';
       return `${sel}${v}`;

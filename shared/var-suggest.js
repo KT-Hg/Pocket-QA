@@ -10,6 +10,7 @@
 import { listEntries, parseListSpec } from './var-name.js';
 import { variableType } from './var-order.js';
 import { activeValueText, parseRandomSpec } from './var-spec.js';
+import { DATA_KINDS, dataDescription } from './test-data.js';
 
 // Pick options / Fallback values a row shows; the rest are counted as "+N".
 const LIST_CHIPS = 3;
@@ -87,7 +88,10 @@ export function varValueDetail(v) {
   }
   const r = t === 'r' ? parseRandomSpec(spec) : null;
   if (r) {
-    const text = r.type === 'datetime' ? 'date-time' : `${r.length} ${RANDOM_TEXT[r.type] || RANDOM_TEXT.alphanumeric}`;
+    let text;
+    if (DATA_KINDS.includes(r.type)) text = dataDescription(r);
+    else if (r.type === 'datetime') text = 'date-time';
+    else text = `${r.length} ${RANDOM_TEXT[r.type] || RANDOM_TEXT.alphanumeric}`;
     return { chips: [text], more: 0, chain: false, spec };
   }
   return { text: spec.length > TEXT_CHARS ? `${spec.slice(0, TEXT_CHARS)}…` : spec, spec };

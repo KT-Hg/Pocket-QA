@@ -172,6 +172,13 @@
   margin-top: 5px;
 }
 
+/* 📱 Run as, under Loop */
+.run-as-row { display: flex; align-items: center; gap: 5px; margin-top: 5px; }
+.run-as-row .loop-chip-label { flex: 0 0 auto; min-width: 46px; }
+.run-as-row select { min-width: 0; }
+.run-as-note { color: var(--primary); font-size: 11px; margin: 6px 0 2px; }
+.run-as-note[hidden] { display: none; }
+
 .loop-chip {
   display: flex;
   align-items: center;

@@ -166,7 +166,7 @@ export const dataIoHandlers = {
       // unrelated tabs, and a stale checkpoint pops a false "resume?" banner.
       "activatedTabs", "playbackCheckpoint",
       // Bulk transient run data — large, and meaningless once the run is over.
-      "_csvRows", "csvSessionData", "csvRunResults", "csvSsVarOrder",
+      "_csvRows", "csvSessionData", "csvRunResults", "csvSsVarOrder", "csvDoneShown",
       // Half-finished popup interactions.
       "pendingEdit", "manualFormDraft", "pendingRecordScenarioId",
       "elemShotPickPending", "elemShotPickCrop",

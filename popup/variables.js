@@ -6,7 +6,8 @@ import { ui } from './ui-state.js';
 import { showToast, showConfirm, lockScroll, unlockScroll, getDragAfterElement } from './utils.js';
 import { listEntries, normalizeVarName, parseListSpec } from '../shared/var-name.js';
 import { normalizeVariableSort, orderNames, variableComparator } from '../shared/var-order.js';
-import { configValue } from '../shared/var-spec.js';
+import { configValue, parseRandomSpec, randomSpecString, randomValue } from '../shared/var-spec.js';
+import { DATA_KINDS, dataDescription } from '../shared/test-data.js';
 
 /* ── Parsers ─────────────────────────────────────────────────────────────── */
 
@@ -21,7 +22,11 @@ function _parsePick(val) {
 
 function _parseRandom(val) {
   const m = typeof val === 'string' && val.match(RANDOM_RE);
-  return m ? { type: m[1], length: m[2] } : null;
+  if (m && !DATA_KINDS.includes(m[1])) return { type: m[1], length: m[2] };
+  // A test-data kind (shared/test-data.js): its fields as the modal keeps them, as text.
+  const spec = typeof val === 'string' ? parseRandomSpec(val) : null;
+  if (!spec || !DATA_KINDS.includes(spec.type)) return null;
+  return Object.fromEntries(Object.entries(spec).map(([k, v]) => [k, k === 'type' ? v : String(v)]));
 }
 
 function _parseFallback(val) {
@@ -88,6 +93,7 @@ function _typeLetter(t) {
 function _valueText(cfg) {
   const t = cfg.activeType || 's';
   if (t === 'r') {
+    if (DATA_KINDS.includes(cfg.r?.type)) return dataDescription(parseRandomSpec(randomSpecString(cfg.r))) || cfg.r.type;
     return cfg.r?.type === 'datetime'
       ? 'YYYY-MM-DD_HH-MM-SS'
       : `${cfg.r?.type || 'alphanumeric'} · ${cfg.r?.length || '8'}`;
@@ -584,9 +590,54 @@ const _getFallbackValues   = () => _getListValues('fallback');
 
 /* ── Length row visibility ───────────────────────────────────────────────── */
 
+// The Random kind's own fields: Length for the character kinds, the test-data kinds' fields for those.
+const _DATA_ROWS = { email: 'rndDomainRow', name: 'rndLangRow', int: 'rndRangeRow', date: 'rndDateRow' };
+// The Random fields and the config keys they keep.
+const _RANDOM_FIELDS = { length: 'randomLength', domain: 'randomDomain', lang: 'randomLang', min: 'randomMin', max: 'randomMax', days: 'randomDays', format: 'randomFormat' };
+const _RANDOM_DEFAULTS = { length: '8', domain: 'example.test', lang: 'vi', min: '1', max: '100', days: '1', format: 'dd/MM/yyyy' };
+
 function _updateLengthRow(type) {
   const row = document.getElementById('rndLengthRow');
-  if (row) row.style.display = type === 'datetime' ? 'none' : '';
+  if (row) row.style.display = type === 'datetime' || DATA_KINDS.includes(type) ? 'none' : '';
+  for (const [kind, id] of Object.entries(_DATA_ROWS)) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = kind !== type;
+  }
+  _showSample();
+}
+
+/** The Random tab's fields as a config's `r`: every field kept, so switching kind loses none. */
+function _readRandom() {
+  const r = { type: document.getElementById('randomType')?.value || 'alphanumeric' };
+  for (const [key, id] of Object.entries(_RANDOM_FIELDS)) r[key] = document.getElementById(id)?.value ?? _RANDOM_DEFAULTS[key];
+  return r;
+}
+
+function _fillRandom(r = {}) {
+  const type = document.getElementById('randomType');
+  if (type) type.value = r.type || 'alphanumeric';
+  for (const [key, id] of Object.entries(_RANDOM_FIELDS)) {
+    const el = document.getElementById(id);
+    if (el) el.value = r[key] ?? _RANDOM_DEFAULTS[key];
+  }
+  _updateLengthRow(type?.value || 'alphanumeric');
+}
+
+/** What is wrong with the test-data fields, or '' — the spec they make must read back. */
+function _randomError(r) {
+  if (!DATA_KINDS.includes(r.type) || parseRandomSpec(randomSpecString(r))) return '';
+  if (r.type === 'email') return 'Domain: a name like example.test';
+  if (r.type === 'int') return 'From and To: whole numbers, From not greater than To';
+  if (r.type === 'date') return 'Days from today: a whole number';
+  return 'These settings do not make a value';
+}
+
+/** A value the Random tab's settings make now: what a run would type. */
+function _showSample() {
+  const out = document.getElementById('randomSample');
+  if (!out) return;
+  const spec = parseRandomSpec(randomSpecString(_readRandom()));
+  out.textContent = spec ? randomValue(spec) : '—';
 }
 
 /* ── Mode switching ──────────────────────────────────────────────────────── */
@@ -615,8 +666,6 @@ function _openModal(editRow = null) {
 
   const modal      = document.getElementById('randomModal');
   const varName    = document.getElementById('randomVarName');
-  const rndType    = document.getElementById('randomType');
-  const rndLen     = document.getElementById('randomLength');
   const title      = document.getElementById('randomModalTitle');
   const confirmBtn = document.getElementById('confirmRandom');
 
@@ -632,9 +681,7 @@ function _openModal(editRow = null) {
     const sv = document.getElementById('staticValue');
     if (sv) sv.value = cfg.s || '';
 
-    if (rndType) rndType.value = cfg.r?.type   || 'alphanumeric';
-    if (rndLen)  rndLen.value  = cfg.r?.length  || '8';
-    _updateLengthRow(cfg.r?.type || 'alphanumeric');
+    _fillRandom(cfg.r);
 
     // doFocus=false — all 4 tabs are populated at once, only the active tab should receive focus
     const pickList = document.getElementById('pickValuesList');
@@ -659,9 +706,7 @@ function _openModal(editRow = null) {
 
     const sv = document.getElementById('staticValue');
     if (sv) sv.value = '';
-    if (rndType) rndType.value = 'alphanumeric';
-    if (rndLen)  rndLen.value  = '8';
-    _updateLengthRow('alphanumeric');
+    _fillRandom({ type: 'alphanumeric' });
 
     const pickList = document.getElementById('pickValuesList');
     if (pickList) { pickList.innerHTML = ''; _addPickValueRow('', false); _addPickValueRow('', false); }
@@ -752,7 +797,6 @@ export function initVariables() {
   const modal      = document.getElementById('randomModal');
   const varName    = document.getElementById('randomVarName');
   const rndType    = document.getElementById('randomType');
-  const rndLen     = document.getElementById('randomLength');
   const cancelBtn  = document.getElementById('cancelRandom');
   const confirmBtn = document.getElementById('confirmRandom');
 
@@ -766,6 +810,8 @@ export function initVariables() {
   });
 
   rndType?.addEventListener('change', () => _updateLengthRow(rndType.value));
+  for (const id of Object.values(_RANDOM_FIELDS)) document.getElementById(id)?.addEventListener('input', _showSample);
+  document.getElementById('randomResample')?.addEventListener('click', _showSample);
 
   _initDragArea();
   // A mouse pick lets go of focus by itself — shared/ui/calm-focus.js.
@@ -796,8 +842,7 @@ export function initVariables() {
 
     // Read ALL tabs regardless of which is active — this is what preserves config across switches
     const staticVal    = document.getElementById('staticValue')?.value || '';
-    const randTypeVal  = rndType?.value || 'alphanumeric';
-    const randLenVal   = rndLen?.value  || '8';
+    const random       = _readRandom();
     const pickVals     = _getPickValues();
     const fallbackVals = _getFallbackValues();
 
@@ -805,12 +850,15 @@ export function initVariables() {
       if (fallbackVals.length < 2) { showToast('Add at least 2 fallback values (a Blank counts)', 'error'); return; }
     } else if (_rndMode === 'pick') {
       if (pickVals.length < 2) { showToast('Add at least 2 values to Pick list (a Blank counts)', 'error'); return; }
+    } else if (_rndMode === 'string') {
+      const err = _randomError(random);
+      if (err) { showToast(err, 'error'); return; }
     }
 
     const cfg = {
       activeType: _MODE_TO_TYPE[_rndMode] || 's',
       s: staticVal,
-      r: { type: randTypeVal, length: randLenVal },
+      r: random,
       p: pickVals.length     ? pickVals     : ['', ''],
       f: fallbackVals.length ? fallbackVals : ['', ''],
     };

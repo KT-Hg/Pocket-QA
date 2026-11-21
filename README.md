@@ -11,11 +11,11 @@ A Chrome Manifest V3 extension that records browser interactions and replays the
 | Category | Capabilities |
 |---|---|
 | **Recording** | `click` and `input` events (input debounced to one action per field). All other action types are added manually. |
-| **Playback** | Single scenario, sequence, loop N×, scheduled (one-off or daily), CSV data-driven; runs inside iframes and resumes after a mid-playback page reload |
-| **Actions** | 17 action types including upload file, conditions, assertions, switch branching, readDOM, JS script |
+| **Playback** | Single scenario, sequence, loop N×, scheduled (one-off or daily), CSV data-driven; runs inside iframes and resumes after a mid-playback page reload; **part of a scenario** from the list's row numbers (from / up to / only a step); follows a **new tab** the page opens (↗ / ↩); **📱 Run as** a phone or tablet and on a slower network |
+| **Actions** | 18 action types including upload file, conditions, assertions, switch branching, readDOM, JS script, switch tab |
 | **Action list** | Drag to reorder (a Switch or Condition takes the actions under it along), **＋** in the gap between rows to add an action right there, Copy / Paste a Switch or Condition with the actions under it (**📋** in a gap pastes right there), Undo / Redo |
 | **Run result** | Every run ends with a verdict — ✓ Passed / ✗ Failed / ⚠ Test broken / ⏹ Stopped — in its notification, on the badge and on the popup's **Last run** card, with a **bug report** (Markdown + screenshot) to paste into an issue; the card also shows the scenario's last runs as dots (**Flaky?** / **Failing since …**) and 🩹 the steps whose locators no longer agree, with one click to take them again |
-| **Variables** | 4 types: Static, Random (alpha/numeric/alphanumeric/datetime), Pick, Fallback — `${varName}` substitution across selectors, values, URLs, and scripts |
+| **Variables** | 4 types: Static, Random (alpha/numeric/alphanumeric/datetime, and test data: email, phone, full name, number between, date ± days, UUID), Pick, Fallback — `${varName}` substitution across selectors, values, URLs, and scripts |
 | **Upload File** | Inject local files into `<input type="file">` or drag-and-drop zones; supports multiple files and `${variable}` filenames |
 | **Screenshot** | Visible, full page, scroll (V/H), segment, element, whole OS window — with crop editor, standalone image editor, image diff, and watermark |
 | **Highlight** | Select text on any page to highlight it in 5 colours with notes; auto-restored on revisit, scoped by URL patterns |
@@ -79,7 +79,7 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - **Run several · on a schedule · from a CSV**, a group at the end of the tab:
   - Sequence playback (run multiple scenarios in order, each with its own delay)
   - Scheduled playback at a set time — one-off, or **Repeat daily**
-  - CSV data-driven runs (one scenario execution per CSV row)
+  - CSV data-driven runs (one scenario execution per CSV row). The CSV card opens by itself once, on the first popup after a run ends, to show its results; after that it stays as you leave it (it used to open on every popup for as long as the last run's results were kept). A run still going shows its progress at the top of the popup
 
 ### Tools
 (The tab was called **Data** until 1.0.29, and held the schedule and the CSV run too.)
@@ -90,15 +90,19 @@ The popup has five tabs, reorderable by drag-and-drop. The last active tab is re
 - **DB Test Session** — opens `dbtest.html`: the changes recorded in Adminer and the SQL to undo them
 
 ### Capture
-- Screenshot: Visible, Full Page, Scroll (down / across), Segment (down / across), Element, Window — a line under the buttons says what each kind does
+- Screenshot: Visible, Full Page, Scroll (down / across), Segment (down / across), Element, Window — a line under the buttons says what each kind does. A Full Page capture starts from the top of the page and puts it back where it was afterwards, the zoom too
 - Crop/edit mode for all capture types
-- Image diff tool (pixel-level comparison)
-- Standalone image editor for any image from the clipboard or a file
+- **Every capture is copied to the clipboard** as well as saved (paste it with Ctrl+V), with no setting for it (`bg/screenshot/after-capture.js`). Only a focused page in a secure context may write the clipboard: the popup copies when it is open (a Full or Scroll capture keeps it open), otherwise the captured page's content script does (`COPY_IMAGE`), the editor copies what it saves, and the window-capture page copies its frame (without the watermark). A page that cannot — `http://` other than localhost, no focus, `chrome://` — leaves the toast or notification saying "not copied", and Recent captures can still copy it. A run's Screenshot steps, CSV shots and failure pictures are not copied
+- **Recent captures** under the buttons: the last 20 captures or 50 MB, newest first, kept in IndexedDB on this computer (`shared/recent-captures.js`; not in Backup / Restore). A click on one: 📋 Copy, ✂ Edit, ⬇ Save again (as the Settings save captures), 🔍 Compare with… (then a second one: Image Diff opens on the two), 🗑 Remove; Clear forgets the list, the files stay
+- **Image Diff** (pixel-level comparison, `shared/pixel-diff.js`): two files, or two Recent captures. Four ways to look — Pink (changed pixels in pink, the rest dimmed), ↔ Drag (A left of a line moved by dragging on the picture or with ← / →), ◑ Blink, ▥ Side by side. Pictures of two sizes are compared over the part they share, and a ⚠ line says so (the box can be unticked to count the rest as changed). **▭ Leave a box out**: boxes drawn on the picture (a clock, an ad) are left out of the count, and remembered for that pair of sizes (`diffIgnore_v1`, 20 pairs)
+- Standalone image editor for any image from the clipboard or a file. Its tools: crop, draw, rectangle, ellipse, arrow, text, blur, **① Step** (`N`: numbered circles, Undo takes the number back too), **▮ Redact** (`X`: a solid black box — blur only pixelates), **◎ Spotlight** (`S`: everything outside the box dimmed), rotate, flip. Undo keeps as many steps as fit in 400 MB (at least one): a 1000 × 40 000 full-page shot keeps 2, and the Undo button says so
 
 ### Highlight
 - Select text on a page to highlight it in one of 5 colours (yellow, green, pink, blue, orange), with an optional note per highlight
-- Highlights are re-applied automatically on the next visit (a `MutationObserver` re-runs restoration on late-loading content)
-- Browse, search, and filter every highlight by colour or by page; per-page and total counts
+- Highlights are **painted, not put into the page**: the CSS Custom Highlight API (`CSS.highlights`, a Range per highlight, `::highlight(pqa-hl-<colour>)`), so no `<mark>` is added and no text node is split — a page that later changes its own text node (React, Vue) shows its text whole. A click on a highlighted passage (hit-tested against the ranges) opens its edit panel, except while recording, when the click is a step the page must get
+- Text a page makes unselectable (`user-select: none`) can be highlighted while **Alt** is held; otherwise the page keeps its own `user-select`
+- Highlights are re-applied automatically on the next visit (a `MutationObserver`, running only on a page that has highlights, re-runs restoration on late-loading content)
+- Browse, search, and filter every highlight by colour or by page; per-page and total counts. A click on one of this page's highlights scrolls to it and closes the popup — or, when its text is no longer on the page, says so and leaves the popup open
 - **URL Patterns** — wildcards in path *and* subdomain (`site.com/*/settings`, `*.myapp.com/app/*`) group several pages under one shared set of highlights; a builder turns the current tab's URL into a pattern
   - Adding or removing a pattern re-groups what is already stored, so highlights never go missing when the rules change — each one records the page it was made on
   - A pattern that names no query string matches any query (`site.com/products` covers `?page=2`); one that names a query is matched against it
@@ -150,6 +154,7 @@ with its own setting. A Switch into another scenario takes that scenario's setti
 | `navigate` | Go to URL (`chrome.tabs.update`) |
 | `wait` | Pause for N milliseconds |
 | `script` | Run arbitrary JavaScript via CDP (bypasses page CSP) |
+| `switchTab` | **↗** play on in the tab the page just opened (`tabTarget: 'new'`, waits up to `timeout` ms, 10 s by default), or **↩** back to the tab that opened this one (`tabTarget: 'back'`, `closeTab` closes this one first) — see [Following a new tab](#following-a-new-tab-) |
 
 ### Control Flow
 | Type | Description |
@@ -300,6 +305,55 @@ what it recorded and what it found this run, and takes the locators again from t
 **Take locators again**) or from the other one (**Use “…”**) — written with `UPDATE_ACTION`, one Undo. Not offered
 when the step's locators use `${…}`, or when the step changed since the run.
 
+### Pick it (🎯)
+
+A step that cannot find its element (click, input, hover, dropdown, Read DOM, Upload File, an element screenshot —
+not a Drag & drop, nor a step with a Child Condition) pauses on the page's prompt with **🎯 Pick it** beside Retry /
+Skip / Stop. The form's picker starts on the page (`START_PICK_MODE` with `forRun`, so the popup's form keeps its own
+picked element); the element clicked is outlined and named, and the prompt asks **Save & go on** (its locators, as the
+form's 🎯 takes them, written into the step with `mutateScenarioActions`: one Undo; a selector type chosen in the form
+is dropped), **This run only**, **🎯 Pick again** or **Cancel** (back to Retry / Skip / Stop). Either way the run plays
+the step again on the picked element, and the loops and CSV rows after it use it too. A step of another scenario a
+Switch went into is saved there. Not saved when the step changed since the run began (said in a notification). The
+Last run card lists the steps picked again (`lastRun.picks`). `bg/playback/run-pick.js`.
+
+### Part of a scenario (▶ on the row numbers)
+
+A saved scenario's row number is a button (▶ on hover): **Play from #N**, **Play #1–#N** (then stop: the page stays as
+#N left it), **Play only #N**; a number clicked, then **Shift + click** on another, plays the steps between them —
+`PLAY_RANGE { scenarioId, from, to, prelude }`, on the active tab, through `playActionsOnTab` with
+`startFromIndex` / `endAtIndex`. Starting inside a Switch block case plays that case, then goes on after the block, as
+a Resume does. A Read DOM or Screenshot → Variable step left out sets its variable only in a run, so when the part uses
+it the popup asks first, with **Play #k first** ticked (`prelude`). The run is kept as the Last run with `part`
+(“▶ #8–#9 only”, and in the bug report) and never in the run history. `popup/run/play-range.js`.
+
+### Run as (📱)
+
+**Run as**, under Loop, keeps a device and a network on the scenario (`runAs: { device, network }`,
+`SET_SCENARIO_RUN_AS`; `shared/run-as.js`): iPhone SE, iPhone 14, Pixel 7, Galaxy S20, iPad, iPad Pro — screen size,
+pixel ratio, mobile, touch and user agent — and Fast 4G, 3G, Slow 3G (DevTools' presets) or Offline. A run of it holds a
+debugger session on its tab for as long as it plays (`bg/cdp/run-session.js`: `Emulation.setDeviceMetricsOverride`,
+`setUserAgentOverride`, `setTouchEmulationEnabled`, `Network.emulateNetworkConditions`), so Chrome shows its
+“started debugging” bar. Play, Resume, a part, each scenario of a Sequence (its own Run as) and a CSV run use it; a
+Switch into another scenario keeps the first one's. The other CDP steps on that tab — Script, Dropdown, Upload File,
+full-page and element screenshots — use the run's session and leave it attached; a full-page capture gives the device
+back afterwards. The run panel and the Last run card say it (“📱 iPhone 14 · Slow 3G”). A page with no viewport meta
+lays out 980 px wide, as on a phone; playback clicks are mouse events, not taps.
+
+### Following a new tab (↗)
+
+**Recording:** a tab the recorded tab opens (`tabs.onCreated`, `openerTabId`) that the user goes to (`tabs.onActivated`)
+is followed: the scenario gets `{ type: 'switchTab', tabTarget: 'new' }` and the recording moves there. Back to the
+tab that opened it, or that tab closed: `tabTarget: 'back'` (with `closeTab: true` when it was closed). The click that
+opened the tab can reach the worker after it did: steps from the tab just left are taken for 3 s more, before the ↗.
+
+**Playback:** `playActionsOnTab` keeps the run's tab as a shared `{ id, stack, opened, used, closedBack }`
+(`bg/playback/steps/switch-tab.js`): ↗ takes the first tab opened from the current one since the run began that no step
+took yet, waiting up to the step's time, activates it and waits for its page to answer; ↩ (closing the tab when asked)
+returns to the tab it came from. The failure prompt, the screenshot, the checkpoint and the run panel follow the current
+tab. A tab the page closes itself while the run is on it (a sign-in popup, done) sends the run back by itself, and the
+↩ step after it has nothing to do. The first tab closing still ends the run.
+
 ### Bug report
 
 On the card of a run that failed or broke, **📋 Bug report** opens the report to paste into an issue tracker
@@ -357,6 +411,7 @@ The file name keeps letters of any language (`đăng_nhập_selenium.py`).
 | Step recorded inside an iframe | frames of the same site ⚠ | ✓ page, then its frames | ✓ page, then its frames | ✓ page, then its frames | ✓ page, then its frames |
 | Switch block on a variable (its cases ranges of this scenario) | ✓ `if / else if` | ✓ `if / elif` | ✓ `if / else if` | ✓ `IF / ELSE IF` | ✓ `if / else if` |
 | Switch to another scenario, to action #N, Always | — | — | — | — | — |
+| Switch tab (↗ new tab / ↩ back) | — (plays in one page) | ✓ `window_handles` | ✓ `context.on('page')` | ✓ `Switch Window    NEW` | ✓ `getWindowHandles` |
 | Assert (waited for up to 5 s; a false one fails the run at its end, not at once) | ✓ one alert at the end | ✓ `AssertionError` at the end | ✓ `expect.soft` + `poll` | ✓ `Run Keyword And Continue On Failure` | ✓ TestNG `SoftAssert` |
 
 What the formats share:
@@ -382,6 +437,14 @@ What the formats share:
 Headless runs get a 1920 × 1080 window, so a responsive page shows its desktop layout. The file's opening comment lists the variables it reads.
 
 **When a step fails**, the error names it and what it looked for — `Step 3: click — Sign in: no element found by …` — in the bookmarklet's alert, the script's `❌` line, the pytest, Robot and TestNG reports, and the Playwright report, where each step is a `test.step`. The page as the step left it is saved: `<file name>_failure.png` (Selenium script and pytest, beside the file; Robot, in its output folder), `<Class>_failure.png` (Java, where the test runs), a screenshot and a trace in `test-results/` (Playwright).
+
+**📱 Run as and test data.** A scenario's **Run as** is exported as the same CDP commands a run sends
+(`popup/export/run-as-code.js`): Selenium `execute_cdp_cmd`, Robot through the driver of SeleniumLibrary, Java
+`HasCdp.executeCdpCommand` — right after the browser starts, Chrome and Edge only (Firefox and Safari play as they are,
+and the export warns); Playwright takes the device through `test.use` (`viewport`, `deviceScaleFactor`, `isMobile`,
+`hasTouch`, `userAgent`) and the network through a CDP session. The bookmarklet cannot (a warning). Random **test data**
+variables (email, phone, name, number, date, UUID) are drawn in the exported code by the same rules and lists as in a
+run (`popup/export/test-data-code.js`).
 
 **A data file (CSV)** — the *Data file* setting of pytest, Playwright, Robot and Java — runs the test once per row of a CSV read beside the test file (Java: in the folder the test runs in, a TestNG `@DataProvider`; Robot: through DataDriver, below): each column sets the variable of its name (over the Variables tab's value), and a column no variable has is a variable too. The file is read as the extension reads a CSV (delimiter detected, quoted values).
 
@@ -983,6 +1046,7 @@ Priority (highest → lowest):
 |---|---|---|
 | Static | Plain string | Used as-is |
 | Random | `{random:alpha\|numeric\|alphanumeric\|datetime:len}` | Generated fresh each run; `datetime` → `YYYY-MM-DD_HH-MM-SS` |
+| Random — test data | `{random:email:example.test}`, `{random:phone:vn}`, `{random:name:vi\|en}`, `{random:int:100:500}`, `{random:date:+1:dd/MM/yyyy}`, `{random:uuid}` | `qa_k3x9m2@example.test`; 03/05/07/08/09 + 8 digits; a Vietnamese or English full name; a whole number in the range; today ± N days (formats `dd/MM/yyyy`, `yyyy-MM-dd`, `MM/dd/yyyy`, `dd-MM-yyyy`, `dd.MM.yyyy`, the machine's time zone); a v4 UUID — `shared/test-data.js`, drawn by the same rules in every code export |
 | Pick | `{pick:val1\|val2\|val3}` | One value chosen randomly per run; CSV column overrides |
 | Fallback | `{fallback:A\|B\|C}` | Tries A→B→C in order with Child Condition; sticky per run |
 

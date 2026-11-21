@@ -1,7 +1,13 @@
 /**
  * content-highlight.js — the highlight engine: text highlights and notes on the
- * page (HL_* messages from the popup's Highlight tab): the tooltip, the marks,
+ * page (HL_* messages from the popup's Highlight tab): the tooltip, the painting,
  * restore on load and on page changes, URL patterns.
+ *
+ * Highlights are painted with the CSS Custom Highlight API (CSS.highlights): a
+ * Range per highlight, one Highlight per colour, styled by ::highlight() rules.
+ * The page's DOM is never touched. Its text nodes used to be split and wrapped in
+ * <mark>, and a page that kept a reference to its text node (React, Vue) and later
+ * changed it showed garbage: "Total: $40.00 due today42.00 due today".
  *
  * A classic script, not in the manifest: the worker injects it (HL_LOAD) into a
  * frame whose content.js asks for it, which happens only while highlighting is
@@ -42,19 +48,17 @@ function _hlCtxOk() { return !!chrome.runtime?.id; }
 let _hlEnabled      = true;
 let _hlObserver     = null;
 let _hlRestoreTimer = null;
-// Page changes are waited out this long before marks are restored.
+// Page changes are waited out this long before highlights are restored.
 const HL_RESTORE_DEBOUNCE_MS = 600;
 let _hlStyleEl      = null;
 
 /**
- * Override user-select:none so text in any element can be selected for highlighting.
- * Uses high-specificity selectors (0,1,2) to beat site rules like h1.class (0,1,1).
- *
- * Draggables are excluded. A site's `user-select: none` is usually not there to
- * stop you copying — on Trello/Jira/Figma-style boards it is what makes dragging
- * work, and forcing text selection back on turned every card drag into a text
- * smear. Highlighting is on by default, so this hit users who never opened the
- * feature, on every page they visited.
+ * Override user-select:none so text in any element can be selected for highlighting
+ * — only while Alt is held. It used to be on for every element of every page from
+ * load, so a page under test behaved unlike it does for its users (a button's label
+ * became selectable, a drag on a board smeared text).
+ * High-specificity selectors (0,1,2) beat site rules like h1.class (0,1,1);
+ * draggables are left alone.
  */
 const _HL_SELECT_CSS = [
   'html body *:not([draggable="true"]):not([draggable="true"] *)',
@@ -69,50 +73,91 @@ function _hlInjectStyle() {
   (document.head || document.documentElement).appendChild(_hlStyleEl);
 }
 
-/**
- * Suspend the override for the duration of a drag.
- *
- * The selector above cannot catch libraries that implement dragging with plain
- * mouse events on non-[draggable] nodes (react-beautiful-dnd, SortableJS, most
- * canvas apps). Those sites set `user-select: none` on an ancestor and rely on
- * it; the override is dropped while a native drag is in flight and restored when
- * it ends, so both behaviours can coexist.
- */
-function _hlBindDragGuard() {
-  const suspend = () => { if (_hlEnabled) _hlRemoveStyle(); };
-  const restore = () => { if (_hlEnabled) _hlInjectStyle(); };
-  document.addEventListener('dragstart', suspend, true);
-  document.addEventListener('dragend',   restore, true);
-  document.addEventListener('drop',      restore, true);
-}
-_hlBindDragGuard();
-
 function _hlRemoveStyle() {
   _hlStyleEl?.remove();
   _hlStyleEl = null;
 }
 
+document.addEventListener('keydown', (e) => { if (e.key === 'Alt' && _hlEnabled) _hlInjectStyle(); }, true);
+document.addEventListener('keyup', (e) => { if (e.key === 'Alt') _hlRemoveStyle(); }, true);
+window.addEventListener('blur', _hlRemoveStyle);
+
+/**
+ * Watch the page for content that comes late (or comes back), only while it has
+ * highlights: a page with none no longer reads the store on every change it makes.
+ */
+function _hlObserve(on) {
+  if (on && _hlEnabled && !_hlObserver) {
+    _hlObserver = new MutationObserver(() => {
+      clearTimeout(_hlRestoreTimer);
+      _hlRestoreTimer = setTimeout(() => { if (_hlCtxOk()) _hlRestore(); }, HL_RESTORE_DEBOUNCE_MS);
+    });
+    _hlObserver.observe(document.documentElement, { childList: true, subtree: true });
+  } else if (!on && _hlObserver) {
+    _hlObserver.disconnect();
+    _hlObserver = null;
+  }
+}
+
 function _hlSetEnabled(on) {
   _hlEnabled = on;
   if (on) {
-    _hlInjectStyle();
-    if (!_hlObserver) {
-      _hlObserver = new MutationObserver(() => {
-        clearTimeout(_hlRestoreTimer);
-        _hlRestoreTimer = setTimeout(() => { if (_hlCtxOk()) _hlRestore(); }, HL_RESTORE_DEBOUNCE_MS);
-      });
-      _hlObserver.observe(document.documentElement, { childList: true, subtree: true });
-      _hlRestore();
-    }
+    _hlRestore();
   } else {
     _hlRemoveStyle();
-    if (_hlObserver) {
-      _hlObserver.disconnect();
-      _hlObserver = null;
-      _hlHideTip();
-    }
+    _hlObserve(false);
+    _hlHideTip();
     _hlHideNotePop();
   }
+}
+
+// ── Painting ──
+// id → { range, color, note, hidden, text }: what is painted, rebuilt into the
+// CSS.highlights registry by _hlPaint.
+const _hlLive = new Map();
+const _HL_NAMES = ['yellow', 'green', 'pink', 'blue', 'orange'];
+const _HL_FLASH_MS = 1200; // how long a scrolled-to highlight stays lit
+let _hlPaintStyle = null;
+
+function _hlPaint() {
+  if (!globalThis.CSS?.highlights) return;
+  const shown = [..._hlLive.values()].filter((h) => !h.hidden);
+  const set = (name, ranges) => {
+    if (ranges.length) CSS.highlights.set(name, new Highlight(...ranges));
+    else CSS.highlights.delete(name);
+  };
+  for (const c of _HL_NAMES) set(`pqa-hl-${c}`, shown.filter((h) => (_HL_NAMES.includes(h.color) ? h.color : 'yellow') === c).map((h) => h.range));
+  set('pqa-hl-note', shown.filter((h) => h.note).map((h) => h.range));
+
+  // The ::highlight() rules, in a <style> of ours — only once there is something
+  // to paint: a page with no highlights gets nothing at all.
+  if (!_hlPaintStyle?.isConnected && !shown.length) return;
+  const css = _HL_NAMES.map((c) => `::highlight(pqa-hl-${c}){background-color:${_hlBg(c)}}`).join('')
+    + '::highlight(pqa-hl-note){text-decoration:underline dotted;text-underline-offset:2px}'
+    + '::highlight(pqa-hl-flash){background-color:#6366f1;color:#fff}';
+  if (!_hlPaintStyle?.isConnected) {
+    _hlPaintStyle = document.createElement('style');
+    _hlPaintStyle.setAttribute('data-hl-ui', '1');
+    (document.head || document.documentElement).appendChild(_hlPaintStyle);
+  }
+  if (_hlPaintStyle.textContent !== css) _hlPaintStyle.textContent = css;
+}
+
+/** The highlight painted under (x, y), or null. */
+function _hlAt(x, y) {
+  for (const [id, h] of _hlLive) {
+    if (h.hidden) continue;
+    for (const r of h.range.getClientRects()) {
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return id;
+    }
+  }
+  return null;
+}
+
+/** Whether a painted range still holds its text in the page. */
+function _hlRangeOk(h) {
+  const r = h?.range;
+  return !!r && r.startContainer.isConnected && r.endContainer.isConnected && r.toString().trim() === h.text;
 }
 
 // ── URL pattern normalisation ──
@@ -153,17 +198,12 @@ function _hlNormalizeUrl(url) {
   return _hlCanonicalUrl(url);
 }
 
-// Unwrap every highlight mark without touching storage — used when the storage
+// Forget every painted highlight without touching storage — used when the storage
 // key changes under us (pattern added/removed) and the page must be re-painted
 // from the new bucket.
-function _hlUnwrapAll() {
-  document.querySelectorAll('mark[data-hl-id]').forEach(m => {
-    const p = m.parentNode;
-    if (!p) return;
-    while (m.firstChild) p.insertBefore(m.firstChild, m);
-    p.removeChild(m);
-  });
-  document.body?.normalize();
+function _hlForgetAll() {
+  _hlLive.clear();
+  _hlPaint();
 }
 
 // Patterns changed → this page's storage key may have moved. Repaint from the
@@ -174,12 +214,12 @@ const HL_PATTERN_REFRESH_MS = 150;
 function _hlRefreshForPatterns() {
   clearTimeout(_hlPatternRefreshTimer);
   _hlPatternRefreshTimer = setTimeout(() => {
-    // Runs even when highlighting is off: marks already painted stay on the page
-    // in that state, so leaving them behind would show the old bucket's set.
+    // Runs even when highlighting is off: highlights already painted stay on the
+    // page in that state, so leaving them would show the old bucket's set.
     if (!_hlCtxOk()) return;
     _hlHideTip();
     _hlHideNotePop();
-    _hlUnwrapAll();
+    _hlForgetAll();
     _hlRestore();
   }, HL_PATTERN_REFRESH_MS);
 }
@@ -489,9 +529,9 @@ function _hlShowTip(rect) {
 }
 
 // ── Show tooltip for an existing highlight (edit mode) — opened by clicking it ──
-function _hlShowEditTipFor(mark) {
-  const id = mark.dataset.hlId;
-  if (!id) return;
+function _hlShowEditTipFor(id) {
+  const live = _hlLive.get(id);
+  if (!live) return;
   _hlGetPage(list => {
     const h = list.find(x => x.id === id);
     if (!h) return;
@@ -506,7 +546,7 @@ function _hlShowEditTipFor(mark) {
     _hlSetSwatchSel(h.color);
     _hlHideNotePop();
     _hlTip.style.display = 'flex';
-    _hlPositionTip(mark.getBoundingClientRect());
+    _hlPositionTip(live.range.getBoundingClientRect());
   });
 }
 
@@ -514,10 +554,8 @@ function _hlShowEditTipFor(mark) {
 function _hlEditSetColor(color) {
   if (!_hlTipEditId) return;
   const id = _hlTipEditId;
-  document.querySelectorAll(`[data-hl-id="${id}"]`).forEach(m => {
-    m.dataset.hlColor = color;
-    if (!m.dataset.hlHidden) m.style.setProperty('background-color', _hlBg(color), 'important');
-  });
+  const live = _hlLive.get(id);
+  if (live) { live.color = color; _hlPaint(); }
   _hlSetSwatchSel(color);
   _hlEdit([{ op: 'set', id, fields: { color } }]);
 }
@@ -547,7 +585,8 @@ document.addEventListener('mouseup', e => {
     if (!_hlEnabled) return;
     if (e.target?.closest?.('[data-hl-ui]')) return;
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) { _hlHideTip(); return; }
+    // A click on a highlight opens its edit tooltip (the click listener below).
+    if (!sel || sel.isCollapsed) { if (!_hlAt(e.clientX, e.clientY)) _hlHideTip(); return; }
     const text = sel.toString().trim();
     if (!text) { _hlHideTip(); return; }
     const range = sel.getRangeAt(0);
@@ -563,6 +602,20 @@ document.addEventListener('mousedown', e => {
   if (!e.target?.closest?.('[data-hl-ui]')) _hlHideTip();
 }, true);
 
+// A click on a highlight → its edit tooltip (colour / note / delete), and the page
+// does not get the click, as it did not when the highlight was a <mark>. Not while
+// recording: there the click is a step, and the page must act on it.
+document.addEventListener('click', e => {
+  if (!_hlEnabled || e.button !== 0 || e.altKey || !_hlLive.size) return;
+  if (e.target?.closest?.('[data-hl-ui]') || window.__pqaContent.isRecording?.()) return;
+  if (!window.getSelection()?.isCollapsed) return;
+  const id = _hlAt(e.clientX, e.clientY);
+  if (!id) return;
+  e.preventDefault();
+  e.stopPropagation();
+  _hlShowEditTipFor(id);
+}, true);
+
 /* ── Note hover bubble — shows ONLY the note text (not the edit tooltip) ──
    Features: fade in/out, hover-intent delay, an arrow pointing at the mark,
    and an interactive body (hover in to select/copy text or click links). */
@@ -571,7 +624,7 @@ const _HL_NOTE_HIDE_DELAY = 200;   // ms grace to cross the gap into the bubble
 // The tooltip's swatch colours, as the bubble's accent — links the bubble
 // visually to the highlight it belongs to.
 const _HL_NOTE_ACCENT = _HL_SWATCHES;
-let _hlNotePopMark = null;          // mark the bubble is currently showing for
+let _hlNotePopId = null;            // highlight the bubble is currently showing for
 let _hlNotePopShowT = null;
 let _hlNotePopHideT = null;
 
@@ -671,8 +724,7 @@ function _hlNotePopEl() {
   return d;
 }
 
-function _hlPositionNotePop(pop, mark) {
-  const r  = mark.getBoundingClientRect();
+function _hlPositionNotePop(pop, r) {
   const pw = pop.offsetWidth || 220, ph = pop.offsetHeight || 48;
   const markCx = r.left + r.width / 2;
 
@@ -724,17 +776,18 @@ function _hlLinkifyNote(text) {
   return frag;
 }
 
-function _hlShowNotePop(mark) {
-  const note = mark.dataset.hlNoteText;
+function _hlShowNotePop(id) {
+  const h = _hlLive.get(id);
+  const note = h?.note;
   if (!note) return;
   const pop = _hlNotePopEl();
-  _hlNotePopMark = mark;
+  _hlNotePopId = id;
   pop._body.textContent = '';
   pop._body.appendChild(_hlLinkifyNote(note));
   // Tint the header dot to match the highlight's colour.
-  if (pop._dot) pop._dot.style.background = _HL_NOTE_ACCENT[mark.dataset.hlColor] || _HL_NOTE_ACCENT.yellow;
+  if (pop._dot) pop._dot.style.background = _HL_NOTE_ACCENT[h.color] || _HL_NOTE_ACCENT.yellow;
   pop.style.display = 'block';
-  _hlPositionNotePop(pop, mark);
+  _hlPositionNotePop(pop, h.range.getBoundingClientRect());
   // Trigger the fade/slide-in on the next frame.
   requestAnimationFrame(() => {
     pop.style.opacity = '1';
@@ -743,11 +796,11 @@ function _hlShowNotePop(mark) {
 }
 
 // Show after a short hover so a quick mouse pass doesn't flicker the bubble.
-function _hlScheduleShowNotePop(mark) {
+function _hlScheduleShowNotePop(id) {
   clearTimeout(_hlNotePopHideT);
-  if (_hlNotePopMark === mark && _hlNotePop?.style.display === 'block') return;
+  if (_hlNotePopId === id && _hlNotePop?.style.display === 'block') return;
   clearTimeout(_hlNotePopShowT);
-  _hlNotePopShowT = setTimeout(() => _hlShowNotePop(mark), _HL_NOTE_SHOW_DELAY);
+  _hlNotePopShowT = setTimeout(() => _hlShowNotePop(id), _HL_NOTE_SHOW_DELAY);
 }
 
 function _hlScheduleHideNotePop() {
@@ -759,7 +812,7 @@ function _hlScheduleHideNotePop() {
 function _hlHideNotePop() {
   clearTimeout(_hlNotePopShowT);
   clearTimeout(_hlNotePopHideT);
-  _hlNotePopMark = null;
+  _hlNotePopId = null;
   if (!_hlNotePop) return;
   const pop = _hlNotePop;
   pop.style.opacity = '0';
@@ -769,25 +822,28 @@ function _hlHideNotePop() {
 }
 
 // Hover a highlight that has a note → show the note bubble (unless the edit
-// tooltip is already open for it).
-document.addEventListener('mouseover', e => {
-  if (!_hlEnabled) return;
-  const mark = e.target?.closest?.('mark[data-hl-note="1"]');
-  if (!mark) return;
-  if (_hlTipMode === 'edit' && _hlTip?.style.display === 'flex' &&
-      _hlTipEditId === mark.dataset.hlId) return;
-  _hlScheduleShowNotePop(mark);
-}, true);
-
-document.addEventListener('mouseout', e => {
-  const from = e.target?.closest?.('mark[data-hl-note="1"]');
-  if (!from) return;
-  const to = e.relatedTarget?.closest?.('mark[data-hl-note="1"]');
-  if (to && to === from) return;   // still within the same mark's children
-  // Moving into the bubble itself? Its own mouseenter keeps it open.
-  if (e.relatedTarget && _hlNotePop?.contains(e.relatedTarget)) return;
-  // Also cancels any pending show, so a quick pass never flickers the bubble.
-  _hlScheduleHideNotePop();
+// tooltip is already open for it). Nothing to hover: the painted ranges are hit
+// by the pointer's position, once a frame at most.
+let _hlHoverId = null;
+let _hlMoveRaf = 0;
+let _hlLastMove = null;
+document.addEventListener('mousemove', e => {
+  if (!_hlEnabled || !_hlLive.size) return;
+  _hlLastMove = e;
+  if (_hlMoveRaf) return;
+  _hlMoveRaf = requestAnimationFrame(() => {
+    _hlMoveRaf = 0;
+    const ev = _hlLastMove;
+    // Into the bubble itself: its own mouseenter keeps it open.
+    if (_hlNotePop?.contains(ev.target)) return;
+    const id = _hlAt(ev.clientX, ev.clientY);
+    const withNote = id && _hlLive.get(id)?.note ? id : null;
+    if (withNote === _hlHoverId) return;
+    _hlHoverId = withNote;
+    if (!withNote) { _hlScheduleHideNotePop(); return; }
+    if (_hlTipMode === 'edit' && _hlTip?.style.display === 'flex' && _hlTipEditId === withNote) return;
+    _hlScheduleShowNotePop(withNote);
+  });
 }, true);
 
 // ── Build CSS selector for the element containing the selection ──
@@ -828,7 +884,7 @@ function _hlFindRangeIn(root, text) {
   const nodes = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(n) {
-      return n.parentElement?.closest('mark[data-hl-id]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      return n.parentElement?.closest('[data-hl-ui]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
     },
   });
   let node;
@@ -862,7 +918,7 @@ function _hlGetFlatCtx(range) {
   const nodes = [];
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(n) {
-      return n.parentElement?.closest('mark[data-hl-id]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      return n.parentElement?.closest('[data-hl-ui]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
     },
   });
   let n;
@@ -878,7 +934,7 @@ function _hlGetFlatCtx(range) {
   return flat.slice(Math.max(0, start - 10), start + range.toString().length + 40);
 }
 
-// ── Apply highlight — wraps each text node individually to handle complex DOM ──
+// ── Apply highlight — a Range painted under the colour chosen ──
 function _hlApply(color) {
   if (!_hlRange) return;
   const text = _hlRange.toString().trim();
@@ -895,27 +951,17 @@ function _hlApply(color) {
     ? getAllSelectors(_containerEl)
     : null;
 
-  let segments = _hlGetTextNodes(_hlRange);
+  // The range painted is the text itself, as a restore will find it again. The
+  // stored Range goes stale if the page re-renders between the selection and the
+  // colour (common on SPAs): then the text is found in the live DOM instead.
+  let range = null;
+  if (_hlRange.startContainer.isConnected && _containerEl?.isConnected) range = _hlFindRangeIn(_containerEl, text) || _hlRange.cloneRange();
+  else range = _hlFindRange(text, anchor, parentSel);
+  if (!range) { _hlHideTip(); return; }
 
-  // The stored Range goes stale if the page mutates the DOM between the user
-  // selecting the text and picking a colour (common on SPAs that re-render on
-  // selection). Re-locate the text in the live DOM instead of dropping it.
-  if (!segments.length) {
-    const fresh = _hlFindRange(text, anchor, parentSel);
-    if (fresh) segments = _hlGetTextNodes(fresh);
-  }
-
-  if (!segments.length) { _hlHideTip(); return; }
-
-  segments.forEach(({ node, start, end }) => {
-    const mark = _hlMark(id, color, note);
-    if (end < node.length) node.splitText(end);
-    const target = start > 0 ? node.splitText(start) : node;
-    if (!target.parentNode) return;
-    target.parentNode.insertBefore(mark, target);
-    mark.appendChild(target);
-  });
-
+  _hlLive.set(id, { range, color, note, hidden: false, text });
+  _hlPaint();
+  _hlObserve(true);
   window.getSelection().removeAllRanges();
 
   // srcUrl records the real page this highlight was made on. The storage key
@@ -936,95 +982,25 @@ function _hlApply(color) {
   _hlNoteSaveBtn.style.display = '';
   _hlDelBtn.style.display      = 'inline-flex';
   _hlSetSwatchSel(color);
-  const newMark = document.querySelector(`[data-hl-id="${id}"]`);
-  if (newMark) _hlPositionTip(newMark.getBoundingClientRect());
+  _hlPositionTip(range.getBoundingClientRect());
 }
 
-// ── Collect text nodes within a Range, skipping existing highlights/UI ──
-function _hlGetTextNodes(range) {
-  const nodes = [];
-  const ancestor = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
-    ? range.commonAncestorContainer.parentNode
-    : range.commonAncestorContainer;
-  const walker = document.createTreeWalker(ancestor, NodeFilter.SHOW_TEXT, {
-    acceptNode(n) {
-      return n.parentElement?.closest('mark[data-hl-id]')
-        ? NodeFilter.FILTER_REJECT
-        : NodeFilter.FILTER_ACCEPT;
-    },
-  });
-  let node;
-  while ((node = walker.nextNode())) {
-    if (!range.intersectsNode(node)) continue;
-    const start = node === range.startContainer ? range.startOffset : 0;
-    const end   = node === range.endContainer   ? range.endOffset   : node.length;
-    if (start < end) nodes.push({ node, start, end });
-  }
-  return nodes;
-}
-
-function _hlMark(id, color, note) {
-  const m = document.createElement('mark');
-  m.setAttribute('data-hl-id', id);
-  m.setAttribute('data-hl-color', color);
-  m.setAttribute('data-hl-ui', '1');
-  let css = `background-color:${_hlBg(color)} !important;background-image:none !important;color:inherit !important;border-radius:2px;padding:0 !important;margin:0 !important;cursor:pointer;`;
-  // A note is surfaced as a dotted underline; the text shows in a hover bubble.
-  if (note) {
-    css += 'text-decoration:underline dotted !important;text-underline-offset:2px;';
-    m.dataset.hlNote = '1';
-    m.dataset.hlNoteText = note;
-  }
-  m.style.cssText = css;
-  // Click an existing highlight → open the edit tooltip (colour / note / delete).
-  m.addEventListener('click', (e) => {
-    if (!_hlEnabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-    _hlShowEditTipFor(m);
-  });
-  return m;
-}
-
-// ── Apply / clear a note's visual cue on all marks of one highlight ──
-// Note text lives in data-hl-note-text and is shown via a hover bubble.
+// ── A note's dotted underline follows the note ──
 function _hlApplyNote(id, note) {
-  document.querySelectorAll(`[data-hl-id="${id}"]`).forEach(m => {
-    if (note) {
-      m.dataset.hlNote = '1';
-      m.dataset.hlNoteText = note;
-      m.style.setProperty('text-decoration', 'underline dotted', 'important');
-      m.style.setProperty('text-underline-offset', '2px');
-    } else {
-      delete m.dataset.hlNote;
-      delete m.dataset.hlNoteText;
-      m.style.removeProperty('text-decoration');
-      m.style.removeProperty('text-underline-offset');
-    }
-  });
+  const live = _hlLive.get(id);
+  if (live) { live.note = note; _hlPaint(); }
 }
 
-// ── Remove — handles multiple marks from text-node wrapping ──
+// ── Remove ──
 function _hlRemove(id) {
-  document.querySelectorAll(`[data-hl-id="${id}"]`).forEach(mark => {
-    const p = mark.parentNode;
-    if (!p) return;
-    while (mark.firstChild) p.insertBefore(mark.firstChild, mark);
-    p.removeChild(mark);
-    p.normalize();
-  });
+  _hlLive.delete(id);
+  _hlPaint();
   _hlEdit([{ op: 'remove', id }]);
 }
 
 // ── Clear page ──
 function _hlClear() {
-  document.querySelectorAll('[data-hl-id]').forEach(m => {
-    const p = m.parentNode;
-    if (!p) return;
-    while (m.firstChild) p.insertBefore(m.firstChild, m);
-    p.removeChild(m);
-  });
-  document.body?.normalize();
+  _hlForgetAll();
   _hlEdit([{ op: 'clear' }]);
 }
 
@@ -1049,7 +1025,7 @@ function _hlFindRange(text, anchor = '', parentSel = '') {
   const nodes = [];
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(n) {
-      return n.parentElement?.closest('mark[data-hl-id]')
+      return n.parentElement?.closest('[data-hl-ui]')
         ? NodeFilter.FILTER_REJECT
         : NodeFilter.FILTER_ACCEPT;
     },
@@ -1110,7 +1086,13 @@ function _hlFindRange(text, anchor = '', parentSel = '') {
 const _hlRestoringIds = new Set();
 
 async function _hlRestoreOne(h) {
-  if (document.querySelector(`[data-hl-id="${h.id}"]`)) return;
+  const live = _hlLive.get(h.id);
+  // Still where it was: take the stored colour, note and on/off, which another
+  // tab or the popup may have changed.
+  if (live && _hlRangeOk(live)) {
+    Object.assign(live, { color: h.color, note: h.note || '', hidden: !!h.disabled });
+    return;
+  }
   if (_hlRestoringIds.has(h.id)) return;
   _hlRestoringIds.add(h.id);
 
@@ -1127,25 +1109,12 @@ async function _hlRestoreOne(h) {
 
     // Strategy 2: parentSel + anchor (legacy / fallback)
     if (!range) range = _hlFindRange(h.text, h.anchor || '', h.parentSel || '');
-    if (!range) return;
-
-    const segments = _hlGetTextNodes(range);
-    if (!segments.length) return;
-    segments.forEach(({ node, start, end }) => {
-      const mark = _hlMark(h.id, h.color, h.note);
-      // A highlight disabled from the popup stays saved but must come back
-      // unpainted, the same state HL_SET_HIDDEN leaves it in; otherwise every
-      // reload paints it again until it is toggled off a second time.
-      if (h.disabled) {
-        mark.style.setProperty('background-color', 'transparent', 'important');
-        mark.dataset.hlHidden = '1';
-      }
-      if (end < node.length) node.splitText(end);
-      const target = start > 0 ? node.splitText(start) : node;
-      if (!target.parentNode) return;
-      target.parentNode.insertBefore(mark, target);
-      mark.appendChild(target);
-    });
+    // Not on the page (any more): nothing painted. The page was never changed, so
+    // there is nothing to undo either.
+    if (!range) { _hlLive.delete(h.id); return; }
+    // A highlight disabled from the popup stays saved but is not painted, the
+    // state HL_SET_HIDDEN leaves it in.
+    _hlLive.set(h.id, { range, color: h.color, note: h.note || '', hidden: !!h.disabled, text: h.text });
   } finally {
     _hlRestoringIds.delete(h.id);
   }
@@ -1154,26 +1123,34 @@ async function _hlRestoreOne(h) {
 // ── Restore all highlights for the current page ──
 function _hlRestore() {
   _hlGetPage(async list => {
+    // Gone from the store (deleted in the popup, or from another tab): not painted.
+    const ids = new Set(list.map(h => h.id));
+    for (const id of [..._hlLive.keys()]) if (!ids.has(id)) _hlLive.delete(id);
     await Promise.all(list.map(h => _hlRestoreOne(h)));
+    _hlPaint();
+    _hlObserve(list.length > 0);
 
     // Entries saved before srcUrl existed carry no record of their origin page.
     // One that just restored here demonstrably belongs to this page, so stamp
     // it — that keeps it re-groupable when patterns change later.
-    const orphans = list.filter(h => !h.srcUrl && document.querySelector(`[data-hl-id="${h.id}"]`));
+    const orphans = list.filter(h => !h.srcUrl && _hlLive.has(h.id));
     if (orphans.length) _hlEdit(orphans.map(h => ({ op: 'set', id: h.id, fields: { srcUrl: location.href } })));
   });
 }
 
-// ── Scroll to ──
+// ── Scroll to, then light it up for a moment ──
+let _hlFlashTimer = null;
 function _hlScrollTo(id) {
-  const m = document.querySelector(`[data-hl-id="${id}"]`);
-  if (!m) return false;
-  m.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  const prev = m.style.outline;
-  m.style.outline = '2.5px solid #6366f1';
-  m.style.outlineOffset = '2px';
-  const FLASH_MS = 1200; // how long the scrolled-to mark stays outlined
-  setTimeout(() => { m.style.outline = prev; m.style.outlineOffset = ''; }, FLASH_MS);
+  const h = _hlLive.get(id);
+  if (!h || !_hlRangeOk(h)) return false;
+  h.range.startContainer.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (globalThis.CSS?.highlights) {
+    const flash = new Highlight(h.range);
+    flash.priority = 1;
+    CSS.highlights.set('pqa-hl-flash', flash);
+    clearTimeout(_hlFlashTimer);
+    _hlFlashTimer = setTimeout(() => CSS.highlights.delete('pqa-hl-flash'), _HL_FLASH_MS);
+  }
   return true;
 }
 
@@ -1215,25 +1192,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     sendResponse({ ok: true });
     return false;
   }
-  if (msg.type === 'HL_SET_HIDDEN') {
-    document.querySelectorAll(`[data-hl-id="${msg.id}"]`).forEach(m => {
-      m.style.setProperty('background-color', 'transparent', 'important');
-      m.dataset.hlHidden = '1';
-    });
-    sendResponse({ ok: true }); return false;
-  }
-  if (msg.type === 'HL_RESTORE') {
-    document.querySelectorAll(`[data-hl-id="${msg.id}"]`).forEach(m => {
-      delete m.dataset.hlHidden;
-      m.style.setProperty('background-color', _hlBg(m.dataset.hlColor), 'important');
-    });
-    sendResponse({ ok: true }); return false;
-  }
-  if (msg.type === 'HL_UPDATE_COLOR') {
-    document.querySelectorAll(`[data-hl-id="${msg.id}"]`).forEach(m => {
-      m.dataset.hlColor = msg.color;
-      if (!m.dataset.hlHidden) m.style.setProperty('background-color', _hlBg(msg.color), 'important');
-    });
+  if (msg.type === 'HL_SET_HIDDEN' || msg.type === 'HL_RESTORE' || msg.type === 'HL_UPDATE_COLOR') {
+    const live = _hlLive.get(msg.id);
+    if (live) {
+      if (msg.type === 'HL_UPDATE_COLOR') live.color = msg.color;
+      else live.hidden = msg.type === 'HL_SET_HIDDEN';
+      _hlPaint();
+    }
     sendResponse({ ok: true }); return false;
   }
   if (msg.type === 'HL_UPDATE_NOTE') {

@@ -916,8 +916,20 @@ export function initHighlight() {
           if (e.target.closest('.btn-row')) return;
           chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
             if (!tab?.id) return;
-            chrome.tabs.sendMessage(tab.id, { type: 'HL_SCROLL_TO', id: h.id });
-            window.close();
+            // Closed only once the page has it in view: the popup used to close
+            // whatever came back, so a highlight whose text is no longer on the page
+            // did nothing at all, with nothing said.
+            // The top frame's answer: the list is the highlights stored under the tab's URL.
+            chrome.tabs.sendMessage(tab.id, { type: 'HL_SCROLL_TO', id: h.id }, { frameId: 0 }, (res) => {
+              if (chrome.runtime.lastError || res == null) {
+                showToast('This page is not showing highlights — reload it, or turn Highlight on', 'warn');
+              } else if (res.found) {
+                window.close();
+              } else {
+                const text = h.text.length > 40 ? h.text.slice(0, 40) + '…' : h.text;
+                showToast(`“${text}” is not on this page now — the text changed. Edit or delete it here`, 'warn');
+              }
+            });
           });
         });
       }

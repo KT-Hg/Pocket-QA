@@ -13,6 +13,8 @@ import { ignoreLastError } from '../last-error.js';
 import { sendCaptureNotification } from '../notify.js';
 import { loadOverlays } from '../tabs.js';
 import { readCaptureSettings } from '../screenshot/settings.js';
+import { afterCapture } from '../screenshot/after-capture.js';
+import { addRecent } from '../../shared/recent-captures.js';
 
 // After a zoom reset, the page gets this long to reflow before the selection starts.
 const ZOOM_SETTLE_MS = 300;
@@ -97,6 +99,10 @@ export const captureHandlers = {
           chrome.downloads.search({ id }, (items) => sendCaptureNotification(
             'Screenshot saved', (items?.[0]?.filename || request.downloadPath).split(/[\\/]/).pop(), 'hotkey_capture',
           ));
+          // The edited picture joins Recent captures; the editor has put it on the clipboard.
+          fetch(request.dataUrl).then((r) => r.blob())
+            .then((blob) => addRecent({ blob, kind: 'Edited', name: String(request.downloadPath).split(/[\\/]/).pop() }))
+            .catch(() => { /* Recent is a convenience: the file is saved */ });
         }
         respond(result);
       };
@@ -127,7 +133,8 @@ export const captureHandlers = {
 
   /* --- Image diff --- */
   COMPARE_SCREENSHOTS(request, sender, sendResponse) {
-    compareScreenshots(request.dataUrlA, request.dataUrlB, request.threshold ?? 10)
+    const ignore = Array.isArray(request.ignore) ? request.ignore : [];
+    compareScreenshots(request.dataUrlA, request.dataUrlB, request.threshold ?? 10, { ignore, sharedOnly: request.sharedOnly !== false })
       .then(result => sendResponse(result))
       .catch(e => sendResponse({ error: e.message }));
     return true;
@@ -171,9 +178,10 @@ export const captureHandlers = {
       const { yStart, yEnd, xStart, xEnd } = request;
       const segClip = { x: xStart, y: yStart, width: xEnd - xStart, height: yEnd - yStart };
       takeFullPageScreenshot(tabId, {
-        saveMode, prefix, requestedFilename: null, crop, scrollDir: 'full', returnBase64: false,
+        saveMode, prefix, requestedFilename: null, crop, scrollDir: 'full', returnBase64: true,
         skipDownload: false, segmentClip: segClip, segmentDir: dir,
       })
+        .then((result) => afterCapture(tabId, result, 'Segment', { fromHotkey }))
         .then(result => {
           reportCaptureResult(result, { fromHotkey, label: "Segment screenshot" });
         })

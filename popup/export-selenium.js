@@ -5,6 +5,11 @@ import { normalizeVarName, normalizeVarRef, writtenVarNames } from '../shared/va
 import { patternVarNames, patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { mark } from './export/steps.js';
+import { pyTestDataExpr, pyTestDataImports } from './export/test-data-code.js';
+import { pyRunAsLines, warnRunAsBrowser } from './export/run-as-code.js';
+import { PY_TABS_HELPER, pySwitchTabLine } from './export/switch-tab-code.js';
+import { runAsText } from '../shared/run-as.js';
+import { DATA_KINDS } from '../shared/test-data.js';
 import {
   ASSERT_POLL_MS, ASSERT_WAIT_MS, assertExpected, assertType, exportVariables, inFrame, locatorsFor, pickLabel, undefinedVarNames,
   uploadPaths, walkActions, warnUndefinedVars,
@@ -353,9 +358,13 @@ function _setInputHelperPy() {
 }
 
 // The line that starts the browser (_start_browser); Safari has no headless mode, which is a warning.
-function driverPy(driverType, headless, warnings) {
+function driverPy(driverType, headless, warnings, runAs = null, tabs = false) {
   if (headless && driverType === 'Safari') warnings.add('Safari has no headless mode — the script opens a window');
-  return ['driver = _start_browser()'];
+  warnRunAsBrowser(runAs, driverType, warnings);
+  // 📱 Run as: the run's CDP commands, right after the browser starts (export/run-as-code.js).
+  return ['driver = _start_browser()', ...(runAsText(runAs) ? ['_run_as(driver)'] : []),
+    // ↗ Switch tab: the tabs there are now are not new.
+    ...(tabs ? ['_tabs["seen"].update(driver.window_handles)'] : [])];
 }
 
 /**
@@ -776,6 +785,13 @@ function actionLines(action, step, stepDelay, elTimeout, ctx) {
       break;
     }
 
+    case 'switchTab': {
+      out.push(`# Step ${stepNum}: ${action.tabTarget === 'back' ? 'back to the tab this one came from' : 'switch to the new tab'}${lbl}`);
+      out.push(pySwitchTabLine(action));
+      if (delay > 0) out.push(`time.sleep(${delay})`);
+      break;
+    }
+
     case 'wait': {
       const ms = msToSec(waitMs(action));
       out.push(`# Step ${stepNum}: wait${lbl}`);
@@ -990,7 +1006,7 @@ function stepLines(stepDelay, elTimeout, ctx) {
  *   steps: what became of each enabled action (popup/export/steps.js).
  */
 export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) {
-  const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false } = opts;
+  const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false, runAs = null } = opts;
   const pytest = opts.output === 'pytest';
   // A CSV file of rows to run with: pytest only, a test per row.
   const dataFile = pytest ? String(opts.dataFile || '').trim() : '';
@@ -1010,9 +1026,12 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   const needsRandom       = Object.keys(randomSpecs).length > 0 || Object.keys(pickSpecs).length > 0;
   const needsDatetime     = Object.values(randomSpecs).some(s => s.type === 'datetime');
+  // Test-data kinds (shared/test-data.js): a Date needs timedelta, a UUID the uuid module.
+  const testData          = pyTestDataImports(Object.values(randomSpecs).filter((s) => DATA_KINDS.includes(s.type)));
   const needsActionChains = enabled.some(a => ['hover', 'dragdrop'].includes(a.type));
   const needsCondition    = enabled.some(a => a.type === 'condition' || a.type === 'assert');
   const needsChildCond    = enabled.some(a => a.conditions && typeof a.conditions === 'object');
+  const usesTabs          = enabled.some(a => a.type === 'switchTab');
   const needsExtract      = enabled.some(a => a.type === 'readdom' && patternVarNames(a.pattern).length);
   const needsJsEscape     = enabled.some(a => a.type === 'script' && scriptUsesVars(a));
   const needsDropdownPick = enabled.some(a => a.type === 'dropdown' && a.pick);
@@ -1045,7 +1064,9 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   if (needsRandom)   { out.push('import random'); out.push('import string'); }
   else if (needsDropdownPick) out.push('import random');
   if (needsExtract || needsDropdownPick) out.push('import re');
-  if (needsDatetime)  out.push('from datetime import datetime');
+  if (testData.date) out.push('from datetime import datetime, timedelta');
+  else if (needsDatetime) out.push('from datetime import datetime');
+  if (testData.uuid) out.push('import uuid');
   if (pytest) out.push('import pytest');
   out.push('from urllib.parse import urlsplit, urlunsplit');
   out.push('from selenium import webdriver');
@@ -1070,6 +1091,7 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
 
   // ── Runtime helpers ──
   out.push(..._envHelpersPy(driverType, headless));
+  out.push(...pyRunAsLines(runAs));
   out.push('');
   out.push('');
   out.push(..._saveFailureHelperPy());
@@ -1107,6 +1129,11 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
   if (needsJsEscape) {
     out.push(..._jsEscapeHelperPy());
+    out.push('');
+    out.push('');
+  }
+  if (usesTabs) {
+    out.push(...PY_TABS_HELPER);
     out.push('');
     out.push('');
   }
@@ -1184,6 +1211,10 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
         varLines.push(`${safe} = ${value(k, 'datetime.now().strftime("%Y-%m-%d_%H-%M-%S")')}`);
         continue;
       }
+      if (DATA_KINDS.includes(spec.type)) {
+        varLines.push(`${safe} = ${value(k, pyTestDataExpr(spec))}`);
+        continue;
+      }
       let charset;
       if (spec.type === 'alpha') charset = 'string.ascii_letters';
       else if (spec.type === 'numeric') charset = 'string.digits';
@@ -1225,10 +1256,10 @@ export function generateSeleniumPy(scenarioName, actions, variables, opts = {}) 
   }
 
   if (pytest) {
-    out.push(...pytestLines(driverPy(driverType, headless, warnings), testFunctionName(scenarioName),
+    out.push(...pytestLines(driverPy(driverType, headless, warnings, runAs, usesTabs), testFunctionName(scenarioName),
       [...startLines, ...varLines, ...bodyLines], dataFile));
   } else {
-    out.push(...driverPy(driverType, headless, warnings));
+    out.push(...driverPy(driverType, headless, warnings, runAs, usesTabs));
     // implicitly_wait is intentionally omitted — it conflicts with WebDriverWait/EC.
     out.push('');
     out.push(...startLines, ...varLines);

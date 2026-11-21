@@ -9,6 +9,8 @@ import { sendAlertNotification } from '../notify.js';
 import { ignoreLastError } from '../last-error.js';
 import { loadOverlays, tabMsg, waitForTabLoad } from '../tabs.js';
 import { markStopped } from '../run-state.js';
+import { canPick, pickForRun, pickedName, savePicked, withPicked } from './run-pick.js';
+import { selectorStrings } from '../../shared/var-name.js';
 
 // How often an open prompt checks whether the run was stopped elsewhere.
 const STOP_POLL_MS = 250;
@@ -48,6 +50,10 @@ export function notifyActionFailed(index, action, reason, { toPopup = true, scen
 export const FAIL_RETRY = 'retry';
 export const FAIL_SKIP  = 'skip';
 export const FAIL_STOP  = 'stop';
+// 🎯 Pick it (run-pick.js): pick the element, then use it — saved, or for this run only.
+const FAIL_PICK = 'pick';
+const PICK_SAVE = 'pickSave';
+const PICK_ONCE = 'pickOnce';
 
 /** One attempt at showing the prompt: resolves to { choice } or { error }. */
 function _promptInPage(tabId, info) {
@@ -101,6 +107,44 @@ async function _askOnFailure(tabId, info) {
 }
 
 /**
+ * 🎯 Pick it: the user clicks the element on the page, then answers Save & go on,
+ * This run only, Pick again or Cancel. Used (either way): the run's step `i` has
+ * the picked locators, the run keeps a note of it (state.playback.picks, for the
+ * Last run card) — true, and the step is played again. `otherId`: the scenario a
+ * Switch went into that the step belongs to; none: the one played.
+ */
+async function _pickAndUse(tabId, i, actions, info, otherId) {
+  const scenarioId = otherId || state.playback.scenarioId || null;
+  for (;;) {
+    const picked = await pickForRun(tabId, i);
+    if (!picked || !state.playback.active) return false;
+    chrome.tabs.sendMessage(tabId, { type: 'SHOW_ELEMENT', mode: 'flash', selectors: picked.selectors, selector: picked.selectors.css },
+      { frameId: picked.frameId }, ignoreLastError);
+    const hasVars = selectorStrings(actions[i]).some((s) => s.includes('${'));
+    const answer = await _askOnFailure(tabId, {
+      ...info,
+      confirmPick: {
+        picked: pickedName(picked), canSave: !!scenarioId,
+        note: hasVars ? "The ${…} in the step's locators goes: the new ones are the picked element's, as they are now." : '',
+      },
+    });
+    if (answer === FAIL_PICK) continue;
+    if (answer !== PICK_SAVE && answer !== PICK_ONCE) return false;
+    const was = actions[i];
+    const saved = answer === PICK_SAVE && await savePicked(scenarioId, i, was, picked);
+    actions[i] = withPicked(was, picked);
+    (state.playback.picks ||= []).push({
+      index: i + 1, type: was.type, label: was.label || '', picked: pickedName(picked), saved,
+      ...(answer === PICK_SAVE && !saved ? { notSaved: true } : {}), ...(otherId ? { scenarioId: otherId } : {}),
+    });
+    if (answer === PICK_SAVE && !saved) {
+      sendAlertNotification(`⚠ Action ${i + 1} not saved`, 'The step changed since the run started — the picked element is used for this run only', 'action_pick');
+    }
+    return true;
+  }
+}
+
+/**
  * A failure the run goes on past without asking — a false Assert. `facts` adds
  * to the record: `kind` (shared/verdict.js), what was expected and found.
  */
@@ -130,13 +174,20 @@ export async function onActionFailed({ tabId, i, actions, action, reason, failed
   );
 
   const csv = state.csvPlayback.active;
-  const choice = await _askOnFailure(tabId, {
+  const info = {
     index: i, total: actions.length, reason: r,
     actionType: action?.type || '', label: action?.label || '',
     scenarioName: scenarioName || state.playback.scenarioName || '',
     row: csv ? state.csvPlayback.currentRow + 1 : null,
     rows: csv ? state.csvPlayback.rows?.length || 0 : null,
-  });
+    canPick: canPick(actions?.[i]),
+  };
+  let choice;
+  for (;;) {
+    choice = await _askOnFailure(tabId, info);
+    if (choice !== FAIL_PICK) break;
+    if (await _pickAndUse(tabId, i, actions, info, facts.scenarioId || null)) { choice = FAIL_RETRY; break; }
+  }
 
   // "Run paused" is no longer true: answered, or no page could ask and the run
   // goes on (outside a CSV run, notifyActionFailed below says so instead).

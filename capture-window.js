@@ -477,9 +477,23 @@ async function grabFrame(streamId, beforeShot) {
  * dialog down before the user could choose a folder. Saving is reported by
  * notification instead, since nothing of ours is left on screen by then.
  */
-function deliver(dataUrl) {
-  return chrome.runtime.sendMessage({ type: 'WINDOW_CAPTURE_RESULT', dataUrl, crop: CROP })
+async function deliver(dataUrl) {
+  // Every capture goes onto the clipboard (bg/screenshot/after-capture.js); this
+  // window is the focused page that can write it. ✂ Edit leaves it to the editor's save.
+  const copy = CROP ? {} : await copyFrame(dataUrl);
+  return chrome.runtime.sendMessage({ type: 'WINDOW_CAPTURE_RESULT', dataUrl, crop: CROP, ...copy })
     .catch(() => null);
+}
+
+/** The frame on the clipboard: { copied } or { copyError }. Without the watermark the worker stamps later. */
+async function copyFrame(dataUrl) {
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    return { copied: true };
+  } catch (e) {
+    return { copyError: /focus/i.test(e?.message || '') ? 'the capture window was not focused' : (e?.message || 'copy failed') };
+  }
 }
 
 async function startCapture() {

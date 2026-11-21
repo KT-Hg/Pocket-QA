@@ -1,5 +1,6 @@
 /**
- * screenshots.js — Screenshot button wiring, segment capture, element picker, image diff.
+ * screenshots.js — Screenshot button wiring, segment capture, element picker; Recent
+ * captures and Image Diff (popup/capture/) are started from here.
  *
  * This module is purely UI-side: it delegates all actual capture work to the
  * background service worker via chrome.runtime.sendMessage. The popup closes
@@ -10,7 +11,8 @@
  */
 
 import { showToast, safeSendTabMessage, isEligibleTab } from './utils.js';
-import { updateRangeFill } from './settings.js';
+import { initDiff } from './capture/diff.js';
+import { initRecent } from './capture/recent.js';
 import { ignoreLastError } from '../bg/last-error.js';
 
 /* === Screenshot Capture === */
@@ -127,62 +129,7 @@ function openWindowCapture(crop) {
   window.close();
 }
 
-/* === Image Diff === */
-
-function initDiff() {
-  const modal     = document.getElementById('diffModal');
-  const openBtn   = document.getElementById('diffScreenshots');
-  const closeBtn  = document.getElementById('diffClose');
-  const runBtn    = document.getElementById('diffRun');
-  const slider    = document.getElementById('diffThreshold');
-  const sliderVal = document.getElementById('diffThresholdVal');
-  const result    = document.getElementById('diffResult');
-  const stats     = document.getElementById('diffStats');
-  const preview   = document.getElementById('diffPreview');
-  const dlBtn     = document.getElementById('diffDownload');
-  if (!modal) return;
-
-  slider?.addEventListener('input', () => { if (sliderVal) sliderVal.textContent = slider.value; updateRangeFill(slider); });
-  if (slider) updateRangeFill(slider);
-
-  openBtn?.addEventListener('click', () => modal.classList.add('show'));
-  closeBtn?.addEventListener('click', () => modal.classList.remove('show'));
-
-  const readFile = (input) => new Promise((resolve, reject) => {
-    const f = input?.files?.[0];
-    if (!f) { reject(new Error('No file selected')); return; }
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(f);
-  });
-
-  runBtn?.addEventListener('click', async () => {
-    try {
-      runBtn.disabled = true; runBtn.textContent = 'Processing…';
-      const [a, b] = await Promise.all([
-        readFile(document.getElementById('diffFileA')),
-        readFile(document.getElementById('diffFileB')),
-      ]);
-      const threshold = parseInt(slider?.value || '10', 10);
-      const res = await chrome.runtime.sendMessage({ type: 'COMPARE_SCREENSHOTS', dataUrlA: a, dataUrlB: b, threshold });
-      if (res?.error) { showToast(res.error, 'error'); return; }
-      result.style.display = '';
-      stats.textContent = `Diff: ${res.changed.toLocaleString()} px (${res.pct}% of total area)`;
-      preview.src = res.diffUrl;
-      dlBtn.onclick = () => {
-        const link = document.createElement('a');
-        link.href = res.diffUrl; link.download = `diff_${Date.now()}.png`; link.click();
-      };
-    } catch (e) {
-      showToast(e.message, 'error');
-    } finally {
-      runBtn.disabled = false; runBtn.textContent = '▶ Compare';
-    }
-  });
-}
-
-/** Attach all screenshot button listeners and initialise the image-diff modal. */
+/** Attach all screenshot button listeners; start Image Diff and Recent captures. */
 export function initScreenshots() {
   /* Screenshot buttons */
   document.getElementById('screenshotVisible') ?.addEventListener('click', () => takeScreenshotWithCrop('TAKE_SCREENSHOT'));
@@ -233,6 +180,7 @@ export function initScreenshots() {
     if (action && captureActionMap[action]) captureActionMap[action]();
   });
 
-  /* Image diff */
+  /* Image diff, Recent captures */
   initDiff();
+  initRecent();
 }

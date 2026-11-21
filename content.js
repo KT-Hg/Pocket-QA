@@ -25,7 +25,8 @@
  *   ELEMENT PREVIEW                SHOW_ELEMENT / HIDE_ELEMENT: the popup's 👁 and the
  *                                  picked element's name outline or flash it
  *   FULL PAGE SCREENSHOT HELPER    GET_PAGE_DIMENSIONS, GET_ELEMENT_RECT, CHECK_CONDITION;
- *                                  MARK_ELEMENT / UNMARK_ELEMENT for the CDP steps
+ *                                  MARK_ELEMENT / UNMARK_ELEMENT for the CDP steps;
+ *                                  COPY_IMAGE puts a capture on the clipboard
  *   HOTKEYS                        the shortcut settings
  *   HOTKEY KEYDOWN                 FULL_CAPTURE_STATE (ESC cancels a capture), and the
  *                                  keydown handler that fires the hotkeys
@@ -1931,12 +1932,11 @@ function _extOverlay({
   }
 
   buttons.forEach((spec) => {
-    const danger = spec.tone === 'danger';
-    const b = _extButton(spec.label, danger
-      ? { bg: _EXT_DANGER, color: '#ffffff', border: _EXT_DANGER, bold: true }
-      : {});
+    // 'danger' (Stop) and 'accent' (the answer most take) keep their colours in either theme.
+    const fill = { danger: _EXT_DANGER, accent: _EXT_ACCENT }[spec.tone];
+    const b = _extButton(spec.label, fill ? { bg: fill, color: '#ffffff', border: fill, bold: true } : {});
     if (spec.onClick) b.addEventListener('click', spec.onClick);
-    if (!danger) themedBtns.push(b);
+    if (!fill) themedBtns.push(b);
     btns[spec.key || spec.label] = b;
   });
 
@@ -1988,6 +1988,10 @@ function _extOverlay({
 ───────────────────────────────────────────────────────────────────────────── */
 
 let _pickerBar = null;
+// A pick for a run's failed step (🎯 Pick it, bg/playback/run-pick.js): it goes back to
+// the run, not to the popup's form, so lastPicked* in storage is left alone.
+let _pickForRun = false;
+let _pickerIdleLabel = null;
 
 // START_PICK_MODE reaches every frame of the tab (this script runs in all of
 // them), and every frame must pick: an element inside an iframe is picked in
@@ -2013,7 +2017,7 @@ function showPickerBar() {
     variant: 'bar',
     // Headers and nav sit right under a top bar; the user must still reach them.
     dodge: true,
-    label: _PICKER_IDLE_LABEL,
+    label: _pickerIdleLabel || _PICKER_IDLE_LABEL,
     onCancel: _cancelPick,
   }).mount();
 }
@@ -2035,16 +2039,20 @@ function _setPickerLabel(text) {
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'START_PICK_MODE') {
+    _pickForRun = msg.forRun === true;
+    _pickerIdleLabel = _pickForRun && typeof msg.label === 'string' ? msg.label.slice(0, _PICKER_LABEL_MAX) : null;
     pickerMode = true;
     document.body.style.cursor = 'crosshair';
     showPickerBar();
   }
   if (msg.type === 'STOP_PICK_MODE') {
     pickerMode = false;
+    _pickForRun = false;
+    _pickerIdleLabel = null;
     clearPickerUI();
   }
   if (msg.type === 'PICKER_HOVER' && _pickerBar && pickerMode) {
-    _pickerBar.setLabel(String(msg.label || _PICKER_IDLE_LABEL).slice(0, _PICKER_LABEL_MAX));
+    _pickerBar.setLabel(String(msg.label || _pickerIdleLabel || _PICKER_IDLE_LABEL).slice(0, _PICKER_LABEL_MAX));
   }
 });
 
@@ -2118,6 +2126,14 @@ document.addEventListener('click', (event) => {
 
   // What the popup's Picked line calls it, so the user knows which element it was.
   const label = _previewLabel(el);
+  if (_pickForRun) {
+    safeSend({ type: 'ELEMENT_PICKED', forRun: true, selector: selectors.css, selectors, label });
+    _pickForRun = false;
+    _pickerIdleLabel = null;
+    pickerMode = false;
+    clearPickerUI();
+    return;
+  }
   try { chrome.storage.local.set({ lastPickedSelector: selectors.css, lastPickedSelectors: selectors, lastPickedFrameId: _myFrameId, lastPickedLabel: label }); } catch (_) { /* context invalidated: ELEMENT_PICKED below still carries the selector */ }
   safeSend({ type: 'ELEMENT_PICKED', selector: selectors.css, selectors, rect: pickedRect, frameId: _myFrameId, label });
   pickerMode = false;
@@ -2445,6 +2461,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'UNMARK_ELEMENT') {
     _unmarkTarget();
     sendResponse({ ok: true });
+    return true;
+  }
+
+  // Every capture the user takes goes onto the clipboard (bg/screenshot/after-capture.js),
+  // and only a focused page in a secure context may write it.
+  if (msg.type === 'COPY_IMAGE') {
+    if (!window.isSecureContext || !navigator.clipboard?.write) {
+      sendResponse({ error: 'an http:// page may not use the clipboard' });
+      return true;
+    }
+    const bytes = Uint8Array.from(atob(msg.base64), (c) => c.charCodeAt(0));
+    navigator.clipboard.write([new ClipboardItem({ 'image/png': new Blob([bytes], { type: 'image/png' }) })])
+      .then(() => sendResponse({ ok: true }),
+        (e) => sendResponse({ error: /focus/i.test(e?.message) ? 'the page was not focused' : (e?.message || 'copy failed') }));
     return true;
   }
 
@@ -2787,6 +2817,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 window.__pqaContent = {
+  // While recording, a click on a highlight is a step the page must get (content-highlight.js).
+  isRecording: () => _isRecording,
   safeSend, getAllSelectors, findElementWithFallback, _isDynamicId, _DYNAMIC_ID_RE,
   _extOverlay, _extTokens, _extRegisterThemed, _EXT_THEMES, _EXT_ACCENT, _extSpan, _EXT_DANGER, _extButton, _EXT_FONT,
 };

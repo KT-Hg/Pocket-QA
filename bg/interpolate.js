@@ -4,9 +4,8 @@
  * takes one, script code escaped.
  */
 
-import { formatStamp } from '../shared/time-format.js';
 import { SELECTOR_KEYS, normalizeVarRef, parseListSpec } from '../shared/var-name.js';
-import { MAX_RANDOM_LENGTH, RANDOM_CHARSETS, activeValueText } from '../shared/var-spec.js';
+import { activeValueText, parseRandomSpec, randomValue } from '../shared/var-spec.js';
 
 /* ── Variable Interpolation ─────────────────────────────────────────────────── */
 
@@ -14,15 +13,10 @@ export function resolveRandomVars(vars) {
   const result = {};
   for (const [k, rawV] of Object.entries(vars)) {
     const v = activeValueText(rawV);
-    const m = typeof v === 'string' && v.match(/^\{random:(\w+):(\d+)\}$/);
-    if (m) {
-      if (m[1] === 'datetime') {
-        result[k] = formatStamp(new Date());
-      } else {
-        const charset = RANDOM_CHARSETS[m[1]] || RANDOM_CHARSETS.alphanumeric;
-        const len = Math.min(parseInt(m[2], 10), MAX_RANDOM_LENGTH);
-        result[k] = Array.from({ length: len }, () => charset[Math.floor(Math.random() * charset.length)]).join('');
-      }
+    // A Random spec, character kinds and test data alike (shared/var-spec.js, shared/test-data.js).
+    const spec = parseRandomSpec(v);
+    if (spec) {
+      result[k] = randomValue(spec);
     } else {
       // {pick:val1|val2|val3} — randomly pick one value from the pipe-separated list.
       // In CSV runs, CSV column values override baseVars before resolveRandomVars is called,

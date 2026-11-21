@@ -10,7 +10,8 @@ import { buildBugReport } from '../../shared/bug-report.js';
 import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY, RUN_HISTORY_KEY } from '../../shared/storage-keys.js';
 import { formatStamp } from '../../shared/time-format.js';
 import { activeValueText } from '../../shared/var-spec.js';
-import { verdictLabel } from '../../shared/verdict.js';
+import { partSpan, verdictLabel } from '../../shared/verdict.js';
+import { runAsText } from '../../shared/run-as.js';
 import { scenarioList } from '../dom.js';
 import { downloadBlob, safeFileName } from '../lib/download.js';
 import { previewActions } from '../record/preview.js';
@@ -87,14 +88,36 @@ function _render(card, run, dismissedAt, history) {
   const name = card.querySelector('.lr-name');
   name.textContent = run.scenarioName || run.scenarioId || '';
   name.title = name.textContent;
-  const how = [run.resumed && 'resumed', run.loops > 1 && `${run.loops} loops`].filter(Boolean);
+  // A part (▶ on the row numbers, run/play-range.js): its steps, and no history.
+  const how = [run.part && `▶ ${partSpan(run.part)} only`, runAsText(run.runAs), run.resumed && 'resumed', run.loops > 1 && `${run.loops} loops`].filter(Boolean);
   card.querySelector('.lr-when').textContent = [...how, _ago(run.endedAt)].join(' · ');
   card.querySelector('.lr-failures').replaceChildren(...(run.failures || []).map((f) => _failureButton(run, f)));
   // A report tells a failure: a run that passed, or stopped with none, has nothing to report.
   const report = document.getElementById('lastRunBugReport');
   if (report) report.hidden = status !== 'failed' && status !== 'broken';
+  _renderPicks(run);
   renderNotesLine(run);
   renderHistory(history);
+}
+
+/** 🎯 The steps whose element was picked again on their failure prompt, and whether it was saved. */
+function _renderPicks(run) {
+  const list = document.getElementById('lastRunPicks');
+  if (!list) return;
+  const picks = run.picks || [];
+  list.hidden = !picks.length;
+  list.replaceChildren(...picks.map((p) => {
+    const li = document.createElement('li');
+    let how = 'this run only';
+    if (p.saved) how = 'saved in the step';
+    else if (p.notSaved) how = 'not saved: the step changed since the run began';
+    const where = p.scenarioId ? ` in "${ui.scenariosCache?.[p.scenarioId]?.name || p.scenarioId}"` : '';
+    const how2 = document.createElement('span');
+    how2.className = 'lr-pick-how';
+    how2.textContent = ` — ${how}`;
+    li.append(`🎯 #${p.index}${where} ${p.label || p.type} → ${p.picked}`, how2);
+    return li;
+  }));
 }
 
 /** The browser, the OS and Pocket QA's version, for the report. */

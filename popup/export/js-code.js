@@ -4,6 +4,8 @@
  * names the identifiers its own code declares; the rest is shared.
  */
 
+import { DATA_KINDS } from '../../shared/test-data.js';
+import { jsTestDataFn } from './test-data-code.js';
 import { CHILD_COND_KEYS } from '../../shared/child-cond.js';
 
 /**
@@ -66,7 +68,9 @@ export function jsValue(ident) {
 }
 
 /** The source of a function that makes a Random variable's value. */
-export function randomFnJS(type, length) {
+export function randomFnJS(type, length, spec = null) {
+  // A test-data kind (shared/test-data.js): its own rules, from the spec.
+  if (spec && DATA_KINDS.includes(spec.type)) return jsTestDataFn(spec);
   // Must mirror resolveRandomVars() in bg/interpolate.js. The Variables modal offers a
   // "datetime" type that used to fall through to the alphanumeric branch here, so
   // an exported ${stamp} produced random junk instead of the run's timestamp.

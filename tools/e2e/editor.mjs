@@ -1010,6 +1010,11 @@ const roundtripFixtures = (otherId) => [
   { type: 'dropdown', selector: '#sel', selectors: { css: '#sel' }, delay: 500, clickThrough: false },
   { type: 'dragdrop', selector: '#a', selectors: { css: '#a' }, targetSelector: '#b', targetSelectors: { css: '#b' }, delay: 500, clickThrough: false },
   { type: 'uploadFile', selector: '#file', selectors: { css: '#file' }, uploadMode: 'input', folderPath: 'C:\\data', fileNames: ['a.pdf'], delay: 500, clickThrough: false },
+  // ↗ / ↩ Switch tab: the wait kept only when it is not 10 s; "close" only when going back.
+  { type: 'switchTab', tabTarget: 'new', delay: 500 },
+  { type: 'switchTab', tabTarget: 'new', timeout: 25000, delay: 500, label: 'Invoice' },
+  { type: 'switchTab', tabTarget: 'back', closeTab: true, delay: 500 },
+  { type: 'switchTab', tabTarget: 'back', delay: 500 },
 ];
 
 /** JSON with every object's keys sorted: chrome.storage hands nested objects back sorted. */

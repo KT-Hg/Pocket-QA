@@ -156,6 +156,8 @@
       <p class="lr-hint" hidden>No Assert ran, so nothing was checked. Add an <b>Assert</b> (Add Manual Action) to check the page shows what it should.</p>
       <ul class="lr-failures" aria-label="Failures of the last run"></ul>
       <!-- Steps whose other locators did not agree on their element (popup/run/locator-review.js) -->
+      <!-- Steps whose element was picked again on their failure prompt (🎯 Pick it) -->
+      <ul class="lr-picks" id="lastRunPicks" aria-label="Steps picked again during the run" hidden></ul>
       <div class="lr-notes" id="lastRunNotes" hidden>
         <span id="lastRunNotesText"></span>
         <button type="button" id="lastRunNotesReview" class="secondary lr-mini" title="What each locator found, and taking them again">Review</button>
@@ -179,6 +181,7 @@
         <button id="preview" class="secondary" style="flex: 1; font-size: 12px;">Preview Actions <span id="actionCount" class="count-badge" style="display:none;"></span></button>
       </div>
       <div id="scenarioClickThroughNote" class="ct-scenario-note" style="display:none;">⊘ Click through is off for this scenario — every action is checked</div>
+      <div id="scenarioRunAsNote" class="run-as-note" hidden></div>
       <ul id="actions" class="actions"></ul>
     </div>
 
@@ -204,6 +207,7 @@
           <option value="navigate">Navigate</option>
           <option value="wait">Wait</option>
           <option value="script">Run JS</option>
+          <option value="switchTab">Switch tab (new tab / back)</option>
         </optgroup>
         <optgroup label="Logic">
           <option value="condition">Condition (If)</option>
@@ -585,6 +589,22 @@
         </details>
       </div>
 
+      <!-- SWITCH TAB — ↗ the tab the page opened, or ↩ back (bg/playback/steps/switch-tab.js) -->
+      <div class="hidden-by-default" id="switchTabWrapper">
+        <div class="step-label" id="switchTabStepLabel">Tab</div>
+        <div class="form-grid">
+          <label class="form-label" for="switchTabTarget">Go to</label>
+          <select id="switchTabTarget">
+            <option value="new">↗ The new tab this one opens</option>
+            <option value="back">↩ Back to the tab that opened this one</option>
+          </select>
+          <label class="form-label" for="switchTabWait" id="switchTabWaitLabel">Wait up to</label>
+          <div class="form-inline" id="switchTabWaitRow"><input id="switchTabWait" type="number" min="1" max="120" value="10" style="width: 80px; flex: 0 0 80px;" /><span class="helper-text" style="margin: 0;">seconds for it to open</span></div>
+        </div>
+        <label class="form-check" id="switchTabCloseRow" style="display: none;"><input type="checkbox" id="switchTabClose" /> Close this tab first</label>
+        <span class="helper-text">A link with <code>target=_blank</code>, a sign-in popup, <code>window.open</code>: the steps after this one play in that tab. Recording adds these steps by itself.</span>
+      </div>
+
       <!-- VALUE FIELD — one box, a different thing per type (VALUE_BOX in
            record/form-table.js): its data-kind sizes it — see 02-action-list.css -->
       <div class="hidden-by-default" id="manualValueWrapper">
@@ -705,6 +725,12 @@
           <button id="showMoveSection" class="secondary loop-action-btn" title="Move to folder">⇄</button>
           <button id="scenarioClickThrough" class="secondary loop-action-btn ct-toggle" aria-pressed="false" title="Click through">⊘</button>
         </div>
+      </div>
+      <!-- 📱 Run as: the device and network the scenario plays as (shared/run-as.js; popup/scenarios/run-as.js) -->
+      <div class="run-as-row" id="runAsRow">
+        <span class="loop-chip-label">Run as</span>
+        <select id="runAsDevice" class="loop-delay-select" aria-label="Device the scenario plays as" title="Screen size, pixel ratio, touch and user agent of the run — through the debugger, whose bar Chrome shows while it runs"></select>
+        <select id="runAsNetwork" class="loop-delay-select" aria-label="Network the scenario plays on" title="Network speed of the run — Chrome DevTools' throttling"></select>
       </div>
 
       <div id="renameSection" style="display: none; margin-top: 6px;">
@@ -1146,6 +1172,19 @@
         <button id="diffScreenshots" class="secondary" style="font-size:11px;margin:0;padding:5px 12px;" title="Compare two screenshots and highlight differences">🔍 Image Diff</button>
         <button id="openImageEditor" class="btn-img-editor" title="Edit an image from clipboard or file">🖼 Image Editor</button>
       </div>
+
+      <!-- Recent captures (popup/capture/recent.js): the last captures taken, newest first -->
+      <div class="recent-caps" id="recentCaptures" hidden>
+        <div class="recent-head">
+          <span class="recent-title">Recent captures</span>
+          <span class="recent-stats" id="recentStats"></span>
+          <button type="button" class="recent-clear" id="recentClear" title="Forget every recent capture — the saved files stay">Clear</button>
+        </div>
+        <div class="recent-hint" id="recentHint" hidden></div>
+        <div class="recent-grid" id="recentGrid"></div>
+        <button type="button" class="recent-more" id="recentMore" hidden></button>
+      </div>
+      <span class="helper-text">Every capture is also copied to the clipboard: paste it with Ctrl+V.</span>
     </div>
 
   </div>
@@ -1541,15 +1580,49 @@
       <div id="rndStringSection" style="display:none">
         <label>Type:</label>
         <select id="randomType">
-          <option value="alpha">Letters Only (a-z, A-Z)</option>
-          <option value="numeric">Numbers Only (0-9)</option>
-          <option value="alphanumeric">Letters + Numbers</option>
-          <option value="datetime">Datetime (YYYY-MM-DD_HH-MM-SS)</option>
+          <optgroup label="Characters">
+            <option value="alpha">Letters Only (a-z, A-Z)</option>
+            <option value="numeric">Numbers Only (0-9)</option>
+            <option value="alphanumeric">Letters + Numbers</option>
+            <option value="datetime">Datetime (YYYY-MM-DD_HH-MM-SS)</option>
+          </optgroup>
+          <!-- Test data (shared/test-data.js): a new value each run, in exported code too -->
+          <optgroup label="Test data">
+            <option value="email">Email</option>
+            <option value="phone">Phone number (Vietnam)</option>
+            <option value="name">Full name</option>
+            <option value="int">Number between…</option>
+            <option value="date">Date (today ± days)</option>
+            <option value="uuid">UUID</option>
+          </optgroup>
         </select>
         <span id="rndLengthRow">
           <label>Length:</label>
           <input id="randomLength" type="number" value="8" min="1" max="50" />
         </span>
+        <div class="rnd-data-row" id="rndDomainRow" hidden>
+          <label for="randomDomain">Domain:</label>
+          <input id="randomDomain" placeholder="example.test" value="example.test" />
+        </div>
+        <div class="rnd-data-row" id="rndLangRow" hidden>
+          <label for="randomLang">Names:</label>
+          <select id="randomLang"><option value="vi">Vietnamese</option><option value="en">English</option></select>
+        </div>
+        <div class="rnd-data-row rnd-data-pair" id="rndRangeRow" hidden>
+          <label for="randomMin">From:</label><input id="randomMin" type="number" value="1" />
+          <label for="randomMax">To:</label><input id="randomMax" type="number" value="100" />
+        </div>
+        <div class="rnd-data-row rnd-data-pair" id="rndDateRow" hidden>
+          <label for="randomDays">Days from today:</label><input id="randomDays" type="number" value="1" title="0 = today, 1 = tomorrow, -1 = yesterday" />
+          <label for="randomFormat">Format:</label>
+          <select id="randomFormat">
+            <option>dd/MM/yyyy</option><option>yyyy-MM-dd</option><option>MM/dd/yyyy</option><option>dd-MM-yyyy</option><option>dd.MM.yyyy</option>
+          </select>
+        </div>
+        <div class="rnd-sample" id="rndSampleRow">
+          <span>Sample:</span><code id="randomSample"></code>
+          <button type="button" class="secondary" id="randomResample" title="Draw another — each run draws a new one">↻</button>
+        </div>
       </div>
 
       <!-- Pick from List panel -->
@@ -1679,10 +1752,18 @@
   <div id="diffModal" class="random-modal" role="dialog" aria-modal="true" aria-labelledby="diffModalTitle" aria-hidden="true" style="align-items:flex-start; padding-top:30px;">
     <div class="random-modal-content" style="width:380px; max-height:85vh; overflow-y:auto;">
       <h4 id="diffModalTitle" style="margin:0 0 10px;"><span aria-hidden="true">🔍</span> Image Diff</h4>
-      <label style="font-size:12px; color:var(--muted);">Image A (source)</label>
-      <input type="file" id="diffFileA" accept="image/*" style="margin-top:4px;" />
-      <label style="font-size:12px; color:var(--muted); margin-top:8px; display:block;">Image B (compare)</label>
-      <input type="file" id="diffFileB" accept="image/*" style="margin-top:4px;" />
+      <div id="diffFiles">
+        <label style="font-size:12px; color:var(--muted);">Image A (source)</label>
+        <input type="file" id="diffFileA" accept="image/*" style="margin-top:4px;" />
+        <label style="font-size:12px; color:var(--muted); margin-top:8px; display:block;">Image B (compare)</label>
+        <input type="file" id="diffFileB" accept="image/*" style="margin-top:4px;" />
+      </div>
+      <!-- Two Recent captures (popup/capture/recent.js → openDiffWith) instead of files -->
+      <div id="diffSources" class="diff-sources" hidden>
+        <div>A · <b id="diffNameA"></b></div>
+        <div>B · <b id="diffNameB"></b></div>
+        <button type="button" id="diffPickFiles" class="diff-link">Pick files instead</button>
+      </div>
       <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
         <label style="font-size:12px; white-space:nowrap;">Sensitivity</label>
         <input id="diffThreshold" type="range" min="1" max="50" value="10" style="flex:1; margin:0;" />
@@ -1692,10 +1773,23 @@
         <button id="diffRun" class="success" style="flex:1;">▶ Compare</button>
         <button id="diffClose" class="secondary" style="flex:0 0 auto; width:auto; padding:5px 12px;">✕</button>
       </div>
+      <!-- popup/capture/diff.js -->
       <div id="diffResult" style="display:none; margin-top:10px;">
-        <div id="diffStats" style="font-size:12px; color:var(--muted); margin-bottom:6px;"></div>
-        <img id="diffPreview" style="width:100%; border-radius:4px; border:1px solid var(--border);" />
-        <button id="diffDownload" class="secondary" style="margin-top:6px; font-size:12px; width:100%;">⬇ Save result</button>
+        <div id="diffSizeWarn" class="diff-warn" hidden></div>
+        <label class="diff-check" hidden><input type="checkbox" id="diffShared" checked /> Compare only the shared area</label>
+        <div id="diffViews" class="diff-views" role="group" aria-label="Show the comparison as">
+          <button type="button" data-view="pink" aria-pressed="true" title="Changed pixels in pink, the rest dimmed">Pink</button>
+          <button type="button" data-view="drag" aria-pressed="false" title="A on the left of the line, B on the right: drag on the picture, or ← →">↔ Drag</button>
+          <button type="button" data-view="blink" aria-pressed="false" title="A and B in turn">◑ Blink</button>
+          <button type="button" data-view="side" aria-pressed="false">▥ Side by side</button>
+        </div>
+        <div id="diffStage" class="diff-stage" tabindex="0"></div>
+        <div class="diff-ignore-row">
+          <button type="button" id="diffIgnoreBtn" class="secondary" title="Draw a box over what always changes (a clock, an ad); remembered for pictures of these sizes">▭ Leave a box out</button>
+          <span id="diffIgnoreList" class="diff-box-list"></span>
+        </div>
+        <div id="diffStats" style="font-size:12px; color:var(--muted); margin:6px 0;"></div>
+        <button id="diffDownload" class="secondary" style="font-size:12px; width:100%;">⬇ Save result</button>
       </div>
     </div>
   </div>

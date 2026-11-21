@@ -7,6 +7,7 @@
 
 import { state } from '../state.js';
 import { getScenarios, setScenarios, generateId, getStack, runExclusive } from '../storage.js';
+import { runAsOf } from '../../shared/run-as.js';
 
 export const scenariosHandlers = {
   /* --- Scenario CRUD --- */
@@ -96,6 +97,21 @@ export const scenariosHandlers = {
       else scenario.clickThrough = false;
       await setScenarios(scenarios);
       sendResponse({ success: true, clickThrough: scenario.clickThrough !== false });
+    });
+    return true;
+  },
+
+  /** 📱 Run as (shared/run-as.js): the device and network the scenario plays as; none = as the browser is. */
+  SET_SCENARIO_RUN_AS(request, sender, sendResponse) {
+    runExclusive(async () => {
+      const scenarios = await getScenarios();
+      const scenario = scenarios[request.scenarioId];
+      if (!scenario) { sendResponse({ success: false }); return; }
+      const runAs = runAsOf(request.runAs);
+      if (runAs) scenario.runAs = runAs;
+      else delete scenario.runAs;
+      await setScenarios(scenarios);
+      sendResponse({ success: true, runAs });
     });
     return true;
   },

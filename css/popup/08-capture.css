@@ -192,3 +192,62 @@
   margin-top: 0;
 }
 
+
+/* === Recent captures (popup/capture/recent.js) === */
+.recent-caps { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.recent-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.recent-title { font-size: 11px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; }
+.recent-stats { font-size: 11px; color: var(--muted); }
+.recent-clear, .recent-more, .diff-link {
+  width: auto; margin: 0 0 0 auto; padding: 1px 8px; font-size: 11px; font-weight: 600;
+  background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; box-shadow: none;
+}
+.recent-clear:hover, .recent-more:hover, .diff-link:hover { color: var(--primary); border-color: var(--primary); transform: none; }
+.recent-more { display: block; margin: 6px auto 0; }
+.recent-hint { margin: 0 0 6px; padding: 3px 6px; border-radius: 4px; font-size: 11px; color: var(--text);
+  background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.recent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.recent-shot {
+  display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; min-width: 0; width: 100%;
+  background: transparent; border: none; box-shadow: none; color: var(--muted); font-size: 10px; font-weight: 500; text-align: center; cursor: pointer;
+}
+.recent-shot:hover:not(:disabled) { transform: none; background: transparent; }
+.recent-shot img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; object-position: top; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+.recent-shot:hover img, .recent-shot:focus-visible img { outline: 2px solid var(--primary); outline-offset: 0; }
+.recent-shot.picked img { outline: 3px solid var(--warning); }
+.recent-shot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* === Image Diff (popup/capture/diff.js) === */
+.diff-sources { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.diff-sources b { color: var(--text); font-weight: 600; }
+.diff-sources .diff-link { margin: 4px 0 0; align-self: flex-start; }
+.diff-warn { margin-bottom: 6px; padding: 4px 6px; border-radius: 4px; font-size: 11.5px; color: var(--text);
+  background: color-mix(in srgb, var(--warning) 16%, transparent); }
+.random-modal label.diff-check { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 12px; color: var(--text); }
+.diff-check input { width: auto; margin: 0; }
+.diff-views { display: flex; gap: 4px; margin-bottom: 6px; }
+.diff-views button { flex: 1; margin: 0; padding: 3px 4px; font-size: 11px; font-weight: 600; background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 5px; box-shadow: none; }
+.diff-views button[aria-pressed="true"] { background: var(--primary-fill); border-color: var(--primary-fill); color: #fff; }
+.diff-stage { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: #fff; }
+.diff-stage:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.diff-stage.view-side { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--border); }
+.diff-stage figure { margin: 0; background: var(--card); }
+.diff-stage figcaption { padding: 2px 4px; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diff-stage img { display: block; width: 100%; user-select: none; }
+.diff-pic { position: relative; touch-action: none; }
+.diff-pic .diff-over { position: absolute; top: 0; left: 0; width: 100%; }
+.view-drag .diff-pic { cursor: ew-resize; }
+.drawing .diff-pic { cursor: crosshair; }
+.diff-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--primary); box-shadow: 0 0 0 1px #fff; pointer-events: none; }
+.diff-tag { position: absolute; top: 4px; padding: 0 5px; border-radius: 3px; font-size: 10px; font-weight: 700; color: #fff; background: rgba(0, 0, 0, 0.6); pointer-events: none; }
+.diff-tag.a { left: 4px; } .diff-tag.b { right: 4px; }
+.diff-box { position: absolute; border: 2px dashed var(--warning); background: color-mix(in srgb, var(--warning) 18%, transparent); pointer-events: none; }
+.diff-ignore-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
+.diff-ignore-row #diffIgnoreBtn { width: auto; margin: 0; padding: 3px 8px; font-size: 11px; }
+.diff-ignore-row #diffIgnoreBtn.on { border-color: var(--warning); color: var(--text); background: color-mix(in srgb, var(--warning) 16%, transparent); }
+.diff-box-list { display: contents; }
+.diff-box-chip { width: auto; margin: 0; padding: 1px 6px; font-size: 10.5px; font-weight: 500; background: var(--secondary-bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; box-shadow: none; }
+/* Their own display rules above would beat the hidden attribute. */
+.recent-caps[hidden], .recent-caps [hidden], #diffModal [hidden] { display: none; }

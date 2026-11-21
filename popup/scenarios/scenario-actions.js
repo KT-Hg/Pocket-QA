@@ -8,6 +8,7 @@ import { showFieldError } from '../record/picked-selectors.js';
 import { ui } from '../ui-state.js';
 import { showConfirm, showToast } from '../utils.js';
 import { loadScenarios } from './scenario-list.js';
+import { showRunAs } from './run-as.js';
 
 /* === ENABLE / DISABLE === */
 
@@ -21,8 +22,11 @@ export function toggleScenarioActions(enabled) {
     doMoveToFolder,
     document.getElementById("showMoveSection"),
     document.getElementById("scenarioClickThrough"),
+    document.getElementById("runAsDevice"),
+    document.getElementById("runAsNetwork"),
   ].filter(Boolean).forEach((btn) => (btn.disabled = !enabled));
   _showClickThrough();
+  showRunAs();
 
   // Hide rename/move panels when selection cleared
   if (!enabled) {

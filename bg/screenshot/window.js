@@ -24,6 +24,8 @@ import { sendCaptureNotification } from '../notify.js';
 import { updateBadge } from '../badge.js';
 import { ignoreLastError } from '../last-error.js';
 import { fromExtensionPage } from '../sender.js';
+import { addRecent } from '../../shared/recent-captures.js';
+import { copyNote } from './report.js';
 
 /**
  * Fallback size, used only the first time — big enough for Chrome's window
@@ -164,7 +166,9 @@ async function handleCaptureResult({ dataUrl, crop }) {
   const res = await downloadDataUrl(stamped, downloadPath, saveMode === 'ask');
   if (res.cancelled) return { cancelled: true };
   if (res.error) return { error: res.error };
-  return { success: true, filename };
+  const blob = await (await fetch(stamped)).blob();
+  const recentId = await addRecent({ blob, kind: 'Window', name: filename }).catch(() => null);
+  return recentId == null ? { success: true, filename } : { success: true, filename, recentId };
 }
 
 const WINDOW_CAPTURE_TYPES = ['OPEN_WINDOW_CAPTURE', 'WINDOW_CAPTURE_RESULT', 'RESTORE_BADGE'];
@@ -195,6 +199,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         dataUrl: request.dataUrl,
         crop:    !!request.crop,
       }).catch((e) => ({ error: e.message || 'Saving the capture failed' }));
+      // The capture window copied the frame before it went (capture-window.js deliver).
+      if (result.success && request.copied) result.copied = true;
+      else if (result.success && request.copyError) result.copyError = request.copyError;
 
       chrome.runtime.sendMessage({ type: 'SCREENSHOT_RESULT', result }).catch(() => {});
       // The capture window is gone and the popup was closed on click, so a
@@ -204,7 +211,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       // used to be the one success notification that ignored every Settings
       // toggle. Both branches share one id so a retry replaces the failure notice.
       if (result.error) sendCaptureNotification('Window capture failed', result.error, 'window_capture');
-      else if (result.filename) sendCaptureNotification('Window capture saved', result.filename, 'window_capture');
+      else if (result.filename) sendCaptureNotification('Window capture saved', `${result.filename}${copyNote(result)}`, 'window_capture');
     })();
     return; // answered synchronously above
   }

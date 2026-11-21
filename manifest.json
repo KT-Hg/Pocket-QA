@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Pocket QA",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "description": "Record & replay web tests with asserts, branching, variables and CSV data; API & SQL tests, DB rollback, Selenium/Playwright export",
 
   "permissions": [

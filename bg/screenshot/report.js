@@ -23,7 +23,7 @@ import { sendCaptureNotification } from '../notify.js';
  * Whether the toolbar popup is open to show the SCREENSHOT_RESULT toast.
  * runtime.getContexts arrived in Chrome 116; before it, `fromHotkey` stays the guess.
  */
-async function _popupOpen(fromHotkey) {
+export async function popupOpen(fromHotkey = false) {
   if (!chrome.runtime.getContexts) return !fromHotkey;
   const popups = await chrome.runtime.getContexts({ contextTypes: ['POPUP'] }).catch(() => []);
   return popups.length > 0;
@@ -39,7 +39,7 @@ async function _popupOpen(fromHotkey) {
  */
 export async function reportCaptureResult(result, { fromHotkey = false, label = 'Screenshot' } = {}) {
   chrome.runtime.sendMessage({ type: 'SCREENSHOT_RESULT', result }).catch(() => {});
-  if (await _popupOpen(fromHotkey)) return;
+  if (await popupOpen(fromHotkey)) return;
   const r = result || {};
   // The user dismissed the Save As dialog. They know what they did; announcing it
   // as an outcome would be noise, and announcing it as a failure would be wrong.
@@ -49,5 +49,15 @@ export async function reportCaptureResult(result, { fromHotkey = false, label = 
   if (r.error) sendCaptureNotification(`${label} failed`, r.error, 'hotkey_capture');
   // `cropping` means the crop editor window just opened — that IS the feedback,
   // and the real save happens later inside the editor.
-  else if (!r.cropping) sendCaptureNotification(`${label} saved${r.partial ? ' (partial)' : ''}`, r.filename || 'Saved', 'hotkey_capture');
+  else if (!r.cropping) sendCaptureNotification(`${label} saved${r.partial ? ' (partial)' : ''}`, `${r.filename || 'Saved'}${copyNote(r)}`, 'hotkey_capture');
+}
+
+/**
+ * What became of the clipboard copy every capture makes (after-capture.js), as
+ * the end of a toast or notification line: nothing when it was not tried.
+ */
+export function copyNote(r) {
+  if (r?.copied) return ' · copied to clipboard';
+  if (r?.copyError) return ` — not copied: ${r.copyError}. Copy it from Capture → Recent`;
+  return '';
 }

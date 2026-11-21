@@ -29,7 +29,7 @@ export function initCsvRestore() {
   (function restoreCsvSession() {
     chrome.runtime.sendMessage({ type: "GET_CSV_STATUS" }, (csvStatus) => {
       const isActive = !!csvStatus?.active;
-      chrome.storage.local.get(["csvSessionData", "csvExportFormat"], (stored) => {
+      chrome.storage.local.get(["csvSessionData", "csvExportFormat", "csvDoneShown"], (stored) => {
         const session = stored.csvSessionData;
         if (!session) return;
 
@@ -53,7 +53,14 @@ export function initCsvRestore() {
 
           if (previewEl) previewEl.textContent = `${session.rows.length} rows, columns: ${session.headers.join(", ")} ↩ restored`;
 
-          setCardOpen(csvCard, true);
+          // Opened for news only: the first popup after a run ended. It used to open
+          // on every popup open for as long as the last run's results were kept —
+          // for good, after any CSV run — over the user's own open / closed choice.
+          // A run still going shows its progress at the top of the popup.
+          if (!isActive && !stored.csvDoneShown) {
+            setCardOpen(csvCard, true);
+            chrome.storage.local.set({ csvDoneShown: true });
+          }
 
           if (isActive) {
             if (status) status.textContent = "";

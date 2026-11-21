@@ -16,6 +16,10 @@ import { normalizeVarRef, writtenVarNames } from '../shared/var-name.js';
 import { patternRegexSource } from '../shared/text-pattern.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
+import { javaTestDataArgs } from './export/test-data-code.js';
+import { javaRunAsCode, warnRunAsBrowser } from './export/run-as-code.js';
+import { JAVA_TABS_HELPER, javaSwitchTabLine } from './export/switch-tab-code.js';
+import { DATA_KINDS } from '../shared/test-data.js';
 import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
 import {
@@ -101,6 +105,18 @@ function jsConstant(name, src) {
   const lines = src.split('\n');
   return [`    static final String ${name} = String.join("\\n",`,
     ...lines.map((l, k) => `        ${javaText(l)}${k < lines.length - 1 ? ',' : ');'}`)];
+}
+
+/**
+ * What the browser's start gets besides: 📱 Run as (the run's CDP commands, export/run-as-code.js)
+ * and ↗ Switch tab (the tabs there are now are not new) — { helpers, setUp } lines.
+ */
+function setUpExtras(runAs, uses) {
+  const runAsCode = javaRunAsCode(runAs);
+  return {
+    helpers: runAsCode ? ['', runAsCode] : [],
+    setUp: [...(runAsCode ? ['        runAs(driver);'] : []), ...(uses.has('tabs') ? ['        seenTabs.addAll(driver.getWindowHandles());'] : [])],
+  };
 }
 
 // The class's own code every test has: the browser, the site, finding an element as the extension does.
@@ -346,6 +362,36 @@ const STEP_HELPERS = {
     static String now() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
     }`],
+  // A Random test-data variable (Pocket QA's shared/test-data.js), drawn as the extension draws it.
+  testData: [[], String.raw`    /** A Random test-data variable's value: kind email, phone, name, int, date or uuid, then its settings. */
+    static String testData(String kind, String... args) {
+        ThreadLocalRandom r = ThreadLocalRandom.current();
+        StringBuilder s = new StringBuilder();
+        switch (kind) {
+            case "email":
+                s.append("qa_");
+                for (int k = 0; k < 6; k++) s.append("abcdefghijklmnopqrstuvwxyz0123456789".charAt(r.nextInt(36)));
+                return s.append('@').append(args[0]).toString();
+            case "phone":
+                s.append(new String[] { "03", "05", "07", "08", "09" }[r.nextInt(5)]);
+                for (int k = 0; k < 8; k++) s.append(r.nextInt(10));
+                return s.toString();
+            case "int":
+                return String.valueOf(r.nextLong(Long.parseLong(args[0]), Long.parseLong(args[1]) + 1));
+            case "date":
+                return java.time.LocalDate.now().plusDays(Long.parseLong(args[0])).format(DateTimeFormatter.ofPattern(args[1]));
+            case "uuid":
+                return java.util.UUID.randomUUID().toString();
+            default: // name: one word of each list, the lists "a|b|c"
+                for (String part : args) {
+                    String[] words = part.split("\\|");
+                    if (s.length() > 0) s.append(' ');
+                    s.append(words[r.nextInt(words.length)]);
+                }
+                return s.toString();
+        }
+    }`],
+  tabs: [[], JAVA_TABS_HELPER],
   pickVar: [[], String.raw`    /** A Pick variable's value: one of them, at random. */
     static String pick(String... values) {
         return values[ThreadLocalRandom.current().nextInt(values.length)];
@@ -430,6 +476,10 @@ const STEP_LINES = {
     `WebElement ${s.el}t = find(${locsJava(locatorsFor(a, true))});`,
     `new Actions(driver).dragAndDrop(${s.el}s, ${s.el}t).perform();`],
   navigate: (a) => [`driver.get(url(${valueJava(a.value || a.url)}));`],
+  switchTab: (a, s) => {
+    s.ctx.uses.add('tabs');
+    return [javaSwitchTabLine(a)];
+  },
   wait: (a) => [`Thread.sleep(${Math.round(waitMs(a))});`],
   script: (a, s) => {
     const code = String(a.code || a.value || '').trim();
@@ -489,6 +539,7 @@ function stepWhat(a) {
     case 'dropdown': return a.pick ? `dropdown → item #${pickLabel(a)}` : 'open dropdown (freeze)';
     case 'dragdrop': return 'drag & drop';
     case 'script': return 'execute script';
+    case 'switchTab': return a.tabTarget === 'back' ? 'back to the tab this one came from' : 'switch to the new tab';
     case 'assert': return `assert — ${a.conditionType || 'elementExists'}`;
     case 'screenshot': return 'screenshot (visible)';
     case 'screenshot_full': return 'screenshot (full page)';
@@ -596,6 +647,11 @@ function variableLines(enabled, variables, { staticVars, randomSpecs, pickSpecs,
     if (spec.type === 'datetime') {
       uses.add('now');
       declare(k, `var(${javaText(k)}, now())`);
+      continue;
+    }
+    if (DATA_KINDS.includes(spec.type)) {
+      uses.add('testData');
+      declare(k, `var(${javaText(k)}, testData(${javaTestDataArgs(spec).map(javaText).join(', ')}))`);
       continue;
     }
     uses.add('random');
@@ -805,7 +861,8 @@ function helperLines(uses, frames) {
  * @returns {{ code: string, stats: { total, supported, skipped }, steps: object[], warnings: string[] }}
  */
 export function generateJava(scenarioName, actions, variables, opts = {}) {
-  const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false } = opts;
+  // runAs: none (undefined) is as the browser is.
+  const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false, runAs } = opts;
   const dataFile = String(opts.dataFile || '').trim();
   const driverType = DRIVER_TYPES.has(opts.driverType) ? opts.driverType : 'Chrome';
   const all = actions || [];
@@ -813,10 +870,13 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
   const warnings = new Set();
   const steps = [];
   const vars = exportVariables(variables, enabled, javaIdent, 'Java', warnings);
+  warnRunAsBrowser(runAs, driverType, warnings);
+  warnRunAsBrowser(runAs, driverType, warnings);
   if (headless && driverType === 'Safari') warnings.add('Safari has no headless mode — the test opens a window');
   const frames = enabled.some(inFrame) ? 'all' : 'none';
   const ctx = { all, layout: getSwitchLayout(all), warnings, steps, stepDelay, uses: new Set(), frames, driverType };
   const body = stepLines(ctx);
+  const startExtras = setUpExtras(runAs, ctx.uses);
   const varLines = variableLines(enabled, variables, vars, ctx.uses, !!dataFile);
 
   // The start page, unless the scenario opens one first (waits aside).
@@ -848,10 +908,12 @@ export function generateJava(scenarioName, actions, variables, opts = {}) {
     '',
     ...helperLines(ctx.uses, frames === 'all'),
     ...data.helpers,
+    ...startExtras.helpers,
     '',
     '    @BeforeMethod',
     '    public void setUp() {',
     '        driver = startBrowser();',
+    ...startExtras.setUp,
     '        driver.manage().timeouts().scriptTimeout(TIMEOUT.plusSeconds(5));',
     '    }',
     '',

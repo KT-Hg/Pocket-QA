@@ -12,6 +12,7 @@ import { markSessionClosed } from '../cdp/session.js';
 import { DEEP_RECT_FN, deepFindExpr } from '../cdp/deep-find.js';
 import { tabMsg } from '../tabs.js';
 import { attachDebugger, cdpRaf, measureViewport, DETACH_SETTLE_MS, TILE_SETTLE_MS } from './cdp.js';
+import { detachUnlessHeld } from '../cdp/run-session.js';
 import { openCropUI } from './crop.js';
 import { downloadDataUrl } from './download.js';
 import { buildDateFolder, buildScreenshotFilename, typeTagEnabled } from './filename.js';
@@ -125,7 +126,7 @@ async function _takeElementScreenshot(tabId, {
     let dataUrl = await stitchTiles(tiles, rect.width, rect.height);
 
     await cdpEval(tabId, CDP_SHOW_SCROLLBAR);
-    await new Promise((r) => chrome.debugger.detach({ tabId }, r));
+    await detachUnlessHeld(tabId);
     await new Promise(r => setTimeout(r, DETACH_SETTLE_MS));
 
     if (Math.abs(origZoom - 1) > 0.01) {
@@ -155,7 +156,7 @@ async function _takeElementScreenshot(tabId, {
   } catch (e) {
     // See _takeFullPageScreenshot's catch (full-page.js): restore via chrome.scripting so the
     // page recovers even if the debugger detached mid-capture (e.g. ESC / banner).
-    await new Promise((r) => chrome.debugger.detach({ tabId }, () => { void chrome.runtime.lastError; r(); }));
+    await detachUnlessHeld(tabId);
     markSessionClosed(tabId);
     await restorePageDom(tabId);
     // restorePageDom clears the tiling transform but not the scroll position, which the

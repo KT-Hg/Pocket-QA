@@ -72,7 +72,7 @@ function autoCreateMissingVariables(action) {
 // Types that don't require a selector field
 const TYPES_NO_SELECTOR_REQUIRED = new Set([
   "script", "navigate", "screenshot", "screenshot_full",
-  "screenshot_tovar", "wait", "switch"
+  "screenshot_tovar", "wait", "switch", "switchTab"
 ]);
 
 function validateActionForm(type, selector, delayVal) {
@@ -252,6 +252,18 @@ function _buildSwitch(action) {
   if (errors.length) { showToast(errors[0], "error"); return false; }
 }
 
+/** ↗ a new tab (and how long to wait for it, when not 10 s) or ↩ back (closing this one, when ticked). */
+function _buildSwitchTab(action) {
+  action.tabTarget = document.getElementById("switchTabTarget")?.value === "back" ? "back" : "new";
+  if (action.tabTarget === "back") {
+    if (document.getElementById("switchTabClose")?.checked) action.closeTab = true;
+    return;
+  }
+  const secs = parseInt(document.getElementById("switchTabWait")?.value, 10);
+  if (!(secs >= 1 && secs <= 120)) { showToast("Wait up to: 1 to 120 seconds", "error"); return false; }
+  if (secs !== 10) action.timeout = secs * 1000;
+}
+
 /**
  * What each type adds from its own fields. A builder returns false, after its
  * toast, when a field it needs is missing. They run before the Child Condition
@@ -267,6 +279,7 @@ const TYPE_BUILDERS = new Map([
   ["condition",        _buildCondition],
   ["assert",           _buildCheck],
   ["switch",           _buildSwitch],
+  ["switchTab",        _buildSwitchTab],
 ]);
 
 function buildActionFromForm(type, selector, value, delayVal) {

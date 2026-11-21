@@ -393,6 +393,46 @@ export async function checkRecordOtherTab(ctx) {
   }
 }
 
+// ↗ A link opening a new tab while recording: the recording follows it (↗ step), a click
+// there is recorded, closing it comes back (↩ step that closes), and a click on the
+// first tab is recorded after. Then the same with the user going back without closing.
+export async function checkRecordNewTab(ctx) {
+  const addLink = `document.body.insertAdjacentHTML('beforeend', '<a id="newTabLink" href="/page?child" target="_blank">open</a>')`;
+  const shape = (actions) => actions.map((a) => [a.type, a.tabTarget, a.closeTab && 'close', a.selector].filter(Boolean).join(' '));
+  await reloadTestPage(ctx);
+  await ctx.web.evaluate(addLink);
+  let child = null;
+  const closed = await record(ctx, 'e2e record new tab', async () => {
+    await clickAt(ctx, '#newTabLink');
+    child = await ctx.browser.pageOpenedAt(`${ctx.base}/page?child`, 5_000);
+    await child.bringToFront();
+    await sleep(PAGE_SETTLE_MS);
+    await clickAt({ web: child }, '#choiceB');
+    await sleep(SETTLE_MS);
+    await child.close();
+    await sleep(SETTLE_MS);
+    await ctx.web.bringToFront();
+    await clickAt(ctx, '#choiceA');
+  });
+  check(JSON.stringify(shape(closed.actions)) === JSON.stringify(['click #newTabLink', 'switchTab new', 'click #choiceB', 'switchTab back close', 'click #choiceA']),
+    'a tab the recorded tab opens is followed (↗), closing it comes back (↩, closing it)', shape(closed.actions));
+
+  await reloadTestPage(ctx);
+  await ctx.web.evaluate(addLink);
+  const kept = await record(ctx, 'e2e record new tab kept', async () => {
+    await clickAt(ctx, '#newTabLink');
+    child = await ctx.browser.pageOpenedAt(`${ctx.base}/page?child`, 5_000);
+    await child.bringToFront();
+    await sleep(PAGE_SETTLE_MS);
+    await ctx.web.bringToFront();
+    await sleep(SETTLE_MS * 2);
+    await clickAt(ctx, '#choiceA');
+  });
+  await closeQuietly(child);
+  check(JSON.stringify(shape(kept.actions)) === JSON.stringify(['click #newTabLink', 'switchTab new', 'switchTab back', 'click #choiceA']),
+    'going back to the first tab without closing the new one records ↩ that leaves it open', shape(kept.actions));
+}
+
 /** A real click in the middle of `selector` with Alt held (CDP modifiers: Alt = 1). */
 async function altClickAt(ctx, selector) {
   const { x, y } = await ctx.web.evaluate(`(() => {
@@ -500,6 +540,7 @@ export const CHECKS = [
   ['record-checkbox', 'Ticking a checkbox while recording', checkRecordCheckbox],
   ['record-input-order', 'Typing, then a click at once', checkRecordInputOrder],
   ['record-other-tab', 'Recording ignores the other tabs', checkRecordOtherTab],
+  ['record-new-tab', '↗ Recording follows a tab the page opens, and comes back', checkRecordNewTab],
   ['record-names', 'Recorded steps named after their elements; "not found" in words', checkRecordNames],
   ['recording-pill', 'Recording shows on the page and in the popup; Stop on the page', checkRecordingPill],
   ['record-check', '✓ Check while recording adds an Assert', checkRecordCheck],

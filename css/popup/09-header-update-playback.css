@@ -575,6 +575,10 @@ body[data-running] .last-run { display: none; }
 /* 🩹 steps whose locators did not agree (popup/run/locator-review.js) */
 .lr-notes { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 0; padding: 2px 6px; font-size: 12px; }
 .lr-notes[hidden] { display: none; }
+.lr-picks { margin: 4px 0 0; padding: 0 6px; list-style: none; font-size: 12px; }
+.lr-picks[hidden] { display: none; }
+.lr-picks li { margin: 2px 0; }
+.lr-picks .lr-pick-how { color: var(--muted); }
 .lr-mini { width: auto; flex: 0 0 auto; margin: 0; padding: 2px 10px; font-size: 11px; }
 .locator-review-content { width: min(440px, 94vw); max-height: 88vh; overflow-y: auto; }
 .lrv-intro { margin: 0 0 8px; font-size: 11px; color: var(--muted); }

@@ -146,6 +146,8 @@ export function initCsvState() {
 
     // Persist CSV data so popup can restore session after reopen
     chrome.storage.local.set({ csvSessionData: { headers: ui.csvParsed.headers, rows: ui.csvParsed.rows } });
+    // This run's results open the card once, on the first popup after it ends (csv-restore.js).
+    chrome.storage.local.remove("csvDoneShown");
 
     const exportFormat = document.getElementById("csvExportFormat")?.value || "csv";
 

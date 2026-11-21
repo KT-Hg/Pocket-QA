@@ -9,7 +9,7 @@
 import { state, clearCsvState } from '../state.js';
 import { updateBadge } from '../badge.js';
 import { fromExtensionPage } from '../sender.js';
-import { startPlayback, startPlaybackFromCheckpoint, startSequence } from '../playback.js';
+import { startPlayRange, startPlayback, startPlaybackFromCheckpoint, startSequence } from '../playback.js';
 import { runPanelState } from '../run-panel.js';
 import { markStopped } from '../run-state.js';
 
@@ -65,6 +65,14 @@ export const playbackHandlers = {
   /* --- Playback dispatch --- */
   START_PLAYBACK_SCENARIO(request, sender, sendResponse) {
     startPlayback(request.scenarioId, request.loopCount || 1, request.loopDelay || 0);
+    sendResponse({ started: true });
+    return;
+  },
+
+  // Actions #from…#to of a scenario (the popup's row numbers, 1-based); `prelude`:
+  // 0-based steps before `from` played first (the ones setting variables the part uses).
+  PLAY_RANGE(request, sender, sendResponse) {
+    startPlayRange(request.scenarioId, Number(request.from), Number(request.to), request.prelude || []);
     sendResponse({ started: true });
     return;
   },

@@ -7,6 +7,7 @@
 
 import { ignoreLastError } from '../last-error.js';
 import { deepFindExpr } from './deep-find.js';
+import { attachOrReuse } from './run-session.js';
 
 // How long an upload may take before it is given up (and the session detached).
 // The error messages say the same number of seconds.
@@ -42,8 +43,7 @@ export function setFileDropZoneViaCdp(tabId, dropSelector, filePaths) {
     const _safeResolve = () => { clearTimeout(_safetyTimer); resolve(); };
     const _safeReject  = (msg) => { clearTimeout(_safetyTimer); reject(new Error(msg)); };
 
-    chrome.debugger.attach({ tabId }, '1.3', () => {
-      const alreadyAttached = !!chrome.runtime.lastError;
+    attachOrReuse(tabId, (alreadyAttached) => {
 
       const detach = () => {
         if (!alreadyAttached) {
@@ -158,8 +158,7 @@ export function setFileInputViaCdp(tabId, selector, filePaths) {
     const _safeResolve = () => { clearTimeout(_safetyTimer); resolve(); };
     const _safeReject  = (msg) => { clearTimeout(_safetyTimer); reject(new Error(msg)); };
 
-    chrome.debugger.attach({ tabId }, '1.3', () => {
-      const alreadyAttached = !!chrome.runtime.lastError;
+    attachOrReuse(tabId, (alreadyAttached) => {
 
       const detach = () => {
         if (!alreadyAttached) {

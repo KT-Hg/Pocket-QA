@@ -2,6 +2,8 @@
  * cdp/script.js — running a Script action through CDP (bypasses the page CSP).
  */
 
+import { runHolds } from './run-session.js';
+
 /**
  * Resolves to `{ error }` when the script could not run or threw, else `{}`.
  * awaitPromise is off, so a promise the script leaves rejected is not seen.
@@ -17,6 +19,11 @@ export async function runScriptViaCdp(tabId, code) {
     return {};
   };
   return new Promise((resolve) => {
+    // A run playing as a device (cdp/run-session.js) holds the session: run in it, leave it attached.
+    if (runHolds(tabId)) {
+      chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', { expression, awaitPromise: false }, (res) => resolve(outcome(res)));
+      return;
+    }
     chrome.debugger.attach({ tabId }, '1.3', () => {
       if (chrome.runtime.lastError) {
         // Already attached from a previous operation — reuse the session. Any

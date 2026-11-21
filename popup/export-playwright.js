@@ -25,6 +25,8 @@ import {
   SET_INPUT_JS, CHECK_COND_JS, CONDITION_TYPES, FIND_CHILD_JS, READ_VAL_JS, PICK_ITEM_JS, DROP_BRIDGE_JS, DROP_FILES_JS,
 } from './export/page-js.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
+import { playwrightRunAs } from './export/run-as-code.js';
+import { PW_TABS_HELPER, pwSwitchTabLine } from './export/switch-tab-code.js';
 
 // What the generated spec declares for itself, beside the JS reserved words.
 const RESERVED = new Set(['test', 'expect', 'page', 'TIMEOUT', '_find', '_first', '_input', '_setInput', '_js', '_SCRIPT_INPUT_TYPES',
@@ -284,6 +286,10 @@ function uploadLines(a, s) {
  */
 const STEP_LINES = {
   navigate: (a, s) => [`// Step ${s.n}: navigate${s.lbl}`, `await page.goto(_url(${valueJS(a.url || a.value)}));`],
+  switchTab: (a, s) => {
+    s.ctx.uses.add('tabs');
+    return [`// Step ${s.n}: ${a.tabTarget === 'back' ? 'back to the tab this one came from' : 'switch to the new tab'}${s.lbl}`, pwSwitchTabLine(a)];
+  },
   click:    (a, s) => [`// Step ${s.n}: click${s.lbl}`, ...s.find(), `await ${s.el}.click();`],
   hover:    (a, s) => [`// Step ${s.n}: hover${s.lbl}`, ...s.find(), `await ${s.el}.hover();`],
   input:    (a, s) => {
@@ -450,7 +456,7 @@ function variableLines(variables, { staticVars, randomSpecs, pickSpecs, written 
     const random = randomSpecs[k];
     const pick = pickSpecs[k];
     let value = JSON.stringify(staticVars[k]);
-    if (random) value = `(${randomFnJS(random.type, random.length)})()`;
+    if (random) value = `(${randomFnJS(random.type, random.length, random)})()`;
     else if (pick) value = `${JSON.stringify(pick)}[Math.floor(Math.random() * ${pick.length})]`;
     const env = `_var(${JSON.stringify(k)}, ${value})`;
     declare(ident(k), csv ? `_row[${JSON.stringify(k)}] ?? ${env}` : env);
@@ -476,17 +482,20 @@ function helperLines(body, uses, dataFile) {
     [uses.has('assert'), ASSERT_HELPER],
     [uses.has('input'), INPUT_HELPER],
     [uses.has('js'), JS_HELPER],
+    [uses.has('tabs'), PW_TABS_HELPER],
   ];
   return used.filter(([on]) => on).flatMap(([, src]) => [src, '']);
 }
 
 // The test of `lines`; with a data file, one test per row of it, named "<scenario> #<row>".
-function testBlock(scenarioName, lines, dataFile) {
+function testBlock(scenarioName, lines, dataFile, tabs = false) {
   const indent = (l) => (l === '' ? '' : `  ${l}`);
   const test = [
-    `test(${JSON.stringify(String(scenarioName))}${dataFile ? " + ' #' + (n + 1)" : ''}, async ({ page }) => {`,
+    `test(${JSON.stringify(String(scenarioName))}${dataFile ? " + ' #' + (n + 1)" : ''}, async ({ page${tabs ? ', context' : ''} }) => {`,
     '  // A scenario takes as long as its steps; each one waits for TIMEOUT at most.',
     '  test.setTimeout(0);',
+    // ↗ Switch tab: the pages the context opens, from the test's start.
+    ...(tabs ? ['  const _tabs = _watchTabs(context);'] : []),
     ...lines.map(indent),
     '});',
   ];
@@ -504,6 +513,8 @@ function testBlock(scenarioName, lines, dataFile) {
  */
 export function generatePlaywright(scenarioName, actions, variables, opts = {}) {
   const { stepDelay = 300, elTimeout = 10000, startUrl = '' } = opts;
+  // 📱 Run as: Playwright's own device emulation, and the network through CDP (export/run-as-code.js).
+  const runAs = playwrightRunAs(opts.runAs);
   // A CSV file of rows to run with: a test per row.
   const dataFile = String(opts.dataFile || '').trim();
   const all = actions || [];
@@ -529,10 +540,10 @@ export function generatePlaywright(scenarioName, actions, variables, opts = {}) 
   out.push('');
   // A failed test keeps a screenshot and a trace of the page (test-results/).
   out.push('// How long a step waits for its element, as set in the export.', `const TIMEOUT = ${elTimeout};`,
-    "test.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure' });", '');
+    `test.use({ actionTimeout: TIMEOUT, screenshot: 'only-on-failure', trace: 'retain-on-failure'${runAs.use ? `, ${runAs.use}` : ''} });`, '');
   out.push(...helperLines(body, ctx.uses, dataFile));
   const csv = dataFile ? { fromColumns: undefinedVarNames(enabled, variables), written: enabled.flatMap((a) => writtenVarNames(a)) } : null;
-  out.push(...testBlock(scenarioName, [...variableLines(variables, vars, csv), ...start, ...body], dataFile));
+  out.push(...testBlock(scenarioName, [...runAs.lines, ...variableLines(variables, vars, csv), ...start, ...body], dataFile, ctx.uses.has('tabs')));
 
   warnUndefinedVars(enabled, variables, warnings, dataFile);
   const skipped = steps.filter((s) => s.status === 'skip').length;

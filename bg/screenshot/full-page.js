@@ -21,6 +21,7 @@ import { tabMsg } from '../tabs.js';
 import { uint8ToBase64 } from './base64.js';
 import { CaptureCancelled, cancelledCaptures } from './cancel.js';
 import { attachDebugger, cdpRaf, measureViewport, DETACH_SETTLE_MS, RAF_TIMEOUT_MS, TILE_SETTLE_MS } from './cdp.js';
+import { detachUnlessHeld } from '../cdp/run-session.js';
 import { openCropUI } from './crop.js';
 import { downloadDataUrl } from './download.js';
 import { buildDateFolder, buildScreenshotFilename, typeTagEnabled } from './filename.js';
@@ -104,9 +105,19 @@ async function _takeFullPageScreenshot(tabId, {
   // (see the needsStitch note below).
   const origZoom = await new Promise(r => chrome.tabs.getZoom(tabId, r));
   const zoomAdjusted = !segmentClip && Math.abs(origZoom - 1) > 0.01;
+
+  // Where the user was reading, read before anything below scrolls the page: a full
+  // capture starts from the top (clearLeftoverTiling, prepareForCapture), and the
+  // page used to be left there afterwards. Given back once the zoom is back too.
+  const isFull = !segmentClip && scrollDir === 'full';
+  const startScroll = isFull ? await tabMsg(tabId, { type: 'GET_PAGE_DIMENSIONS' }) : null;
+  const scrollBack = async () => {
+    if (startScroll && !startScroll.failed) await scriptingExec(tabId, (x, y) => window.scrollTo(x, y), [startScroll.scrollX, startScroll.scrollY]);
+  };
+
   if (zoomAdjusted) await resetZoomTo100(tabId);
 
-  if (!segmentClip && scrollDir === 'full') await clearLeftoverTiling(tabId);
+  if (isFull) await clearLeftoverTiling(tabId);
 
   const dims = await tabMsg(tabId, { type: 'GET_PAGE_DIMENSIONS' });
   if (!dims || dims.failed) return { error: 'Could not get page dimensions' };
@@ -192,6 +203,7 @@ async function _takeFullPageScreenshot(tabId, {
     if (zoomAdjusted) {
       await new Promise(r => chrome.tabs.setZoom(tabId, origZoom, r));
     }
+    await scrollBack();
 
     if (!result?.data) return { error: 'CDP capture returned no data' };
 
@@ -218,6 +230,7 @@ async function _takeFullPageScreenshot(tabId, {
     if (zoomAdjusted) {
       await new Promise(r => chrome.tabs.setZoom(tabId, origZoom, r)).catch(() => {});
     }
+    await scrollBack();
     return cancelled ? { cancelled: true } : { error: e.message || 'Screenshot failed' };
   }
 }
@@ -520,7 +533,8 @@ async function restoreAfterCapture(tabId) {
   await new Promise((resolve) => {
     chrome.debugger.sendCommand({ tabId }, 'Emulation.clearDeviceMetricsOverride', {}, resolve);
   });
-  await new Promise((resolve) => chrome.debugger.detach({ tabId }, resolve));
+  // A run playing as a device keeps its session, and gets its device back (cdp/run-session.js).
+  await detachUnlessHeld(tabId);
   await new Promise(r => setTimeout(r, DETACH_SETTLE_MS));
 }
 
@@ -542,7 +556,7 @@ async function restoreAfterError(tabId, scrollX, scrollY) {
   await new Promise((resolve) => {
     chrome.debugger.sendCommand({ tabId }, 'Emulation.clearDeviceMetricsOverride', {}, () => { void chrome.runtime.lastError; resolve(); });
   });
-  await new Promise((resolve) => chrome.debugger.detach({ tabId }, () => { void chrome.runtime.lastError; resolve(); }));
+  await detachUnlessHeld(tabId);
   markSessionClosed(tabId);
   await restorePageDom(tabId);
 }

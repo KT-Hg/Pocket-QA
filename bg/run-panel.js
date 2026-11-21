@@ -13,6 +13,8 @@
 
 import { state } from './state.js';
 import { tabMsg } from './tabs.js';
+import { partSpan } from '../shared/verdict.js';
+import { runAsText } from '../shared/run-as.js';
 
 // How long a screenshot waits for the page to say the panel is off the screen.
 const HIDE_TIMEOUT_MS = 1500;
@@ -34,6 +36,8 @@ export function runWords(run) {
   if (run.kind === 'sequence') head = `Sequence ${run.item}/${run.items} · ${head}`;
   else if (run.kind === 'csv') head = `CSV row ${run.item}/${run.items} · ${head}`;
   else if (run.loops > 1) head = `${head} · loop ${run.loop}/${run.loops}`;
+  if (run.part) head = `${head} · ${partSpan(run.part)}`;
+  if (run.env) head = `${head} · ${run.env}`;
   let counter = run.steps ? `step ${run.step}/${run.steps}` : '';
   if (run.waiting) counter = 'next…';
   else if (run.paused) counter = `step ${run.step} failed`;
@@ -57,6 +61,10 @@ export function runPanelState() {
     paused: !!p.failPrompt,
     // Between two CSV rows or sequence items: the next one has not started.
     waiting: !p.active,
+    // Part of a scenario (PLAY_RANGE): { from, to }, 1-based.
+    ...(p.part ? { part: p.part } : {}),
+    // 📱 Run as: the device and network it plays as (shared/run-as.js).
+    ...(p.runAs ? { env: runAsText(p.runAs) } : {}),
   };
   if (csv) Object.assign(run, { kind: 'csv', item: (state.csvPlayback.currentRow ?? 0) + 1, items: state.csvPlayback.rows.length });
   else if (seq) Object.assign(run, { kind: 'sequence', item: (state.sequencePlayback.currentIndex ?? 0) + 1, items: state.sequencePlayback.runList.length });

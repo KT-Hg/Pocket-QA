@@ -12,11 +12,19 @@ import { updateBadge } from '../badge.js';
 import { sendCaptureNotification } from '../notify.js';
 import { takeElementScreenshot, reportCaptureResult } from '../screenshot.js';
 import { readCaptureSettings } from '../screenshot/settings.js';
+import { afterCapture } from '../screenshot/after-capture.js';
 import { isTabOn } from '../tabs.js';
+import { runPickCancelled, runPickOn, runPicked } from '../playback/run-pick.js';
 
 /* --- Element picker passthrough --- */
 function pickMode(request, sender, sendResponse) {
   const { type } = request;
+  // A run's 🎯 Pick it cancelled on its page (Esc, the bar's ✕): the run asks again.
+  if (type === 'STOP_PICK_MODE' && sender.tab?.id != null && runPickOn(sender.tab.id)) {
+    runPickCancelled();
+    sendResponse({ sent: true });
+    return;
+  }
   state.pickMode = (type === "START_PICK_MODE");
   updateBadge();
   const tabId = targetTab(request, sender);
@@ -48,6 +56,12 @@ export const pickerHandlers = {
 
   /* --- Element picked → reopen popup or trigger element screenshot --- */
   ELEMENT_PICKED(request, sender, sendResponse) {
+    // A pick for a run's failed step goes back to that run (playback/run-pick.js), never to the form.
+    if (request.forRun) {
+      if (sender.tab?.id != null && runPickOn(sender.tab.id)) runPicked(request, sender.frameId);
+      sendResponse({ received: true });
+      return;
+    }
     state.pickMode = false;
     updateBadge();
     // Every frame of the tab was picking; the one picked from has stopped, the
@@ -80,12 +94,13 @@ export const pickerHandlers = {
           readCaptureSettings(({ saveMode, prefix }) => {
             // Use takeElementScreenshot so zoom normalization and coordinate re-query run inside CDP session
             takeElementScreenshot(tabId, {
-              selector: request.selector, saveMode, prefix, crop, returnBase64: false,
+              selector: request.selector, saveMode, prefix, crop, returnBase64: true,
               skipDownload: false, selectors: request.selectors, frameId: request.frameId,
             })
               // The popup closed itself for the pick, so fromHotkey: true is right
               // where reportCaptureResult cannot ask the browser.
               .catch((e) => ({ error: e.message }))
+              .then((result) => afterCapture(tabId, result, "Element", { fromHotkey: true }))
               .then((result) => reportCaptureResult(result, { fromHotkey: true, label: "Element screenshot" }));
           });
         }
