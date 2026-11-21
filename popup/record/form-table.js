@@ -128,6 +128,15 @@ export const TYPE_FIELDS = new Map([
         fromDraft: (st) => st.switchMode || "var" },
     ],
   }],
+  // ↗ / ↩ (bg/playback/steps/switch-tab.js): the wait in seconds in the form, in ms in the action.
+  ["switchTab", {
+    wrapper: "switchTabWrapper",
+    fields: [
+      { id: "switchTabTarget", prop: "tabTarget", empty: "new" },
+      { id: "switchTabWait",   empty: "10", fromAction: (a) => String(Math.round((Number(a.timeout) || 10_000) / 1000)) },
+      { id: "switchTabClose",  prop: "closeTab", check: true },
+    ],
+  }],
   // "Choose item #" lives under `action.pick` — shared/dropdown-pick.js.
   ["dropdown", {
     wrapper: "dropdownWrapper",

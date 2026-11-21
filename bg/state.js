@@ -17,6 +17,12 @@ export const state = {
   recording: false,
   recordingTabId: null,
   recordingScenarioId: null,
+  // ↗ A recording follows a tab its tab opens (handlers/recording.js): the tabs it came
+  // from, the tabs opened from the recorded one (id → opener), and the tab it just left,
+  // whose last click may still be on its way ({ tabId, until, index }).
+  recordingTabStack: [],
+  recordingChildTabs: {},
+  recordingGrace: null,
   pickMode: false,
   // pendingCrop moved to a per-window token map in bg/screenshot.js — a single
   // slot could not survive an editor reload or two crops opened back to back.
@@ -145,6 +151,8 @@ export async function persistRecordingState() {
       rec_recording:  state.recording,
       rec_scenarioId: state.recordingScenarioId,
       rec_tabId:      state.recordingTabId,
+      rec_tabStack:   state.recordingTabStack,
+      rec_children:   state.recordingChildTabs,
       rec_actions:    state.currentActions,
       rec_timestamp:  Date.now(),
     });
@@ -176,12 +184,14 @@ async function _restoreRecordingState() {
   if (!chrome.storage?.session) return;
   try {
     const res = await chrome.storage.session.get([
-      'rec_recording', 'rec_scenarioId', 'rec_tabId', 'rec_actions', 'rec_timestamp',
+      'rec_recording', 'rec_scenarioId', 'rec_tabId', 'rec_actions', 'rec_timestamp', 'rec_tabStack', 'rec_children',
     ]);
     if (res.rec_recording && res.rec_timestamp && Date.now() - res.rec_timestamp < 1_800_000) {
       state.recording = true;
       state.recordingScenarioId = res.rec_scenarioId || null;
       state.recordingTabId = res.rec_tabId ?? null;
+      state.recordingTabStack = Array.isArray(res.rec_tabStack) ? res.rec_tabStack : [];
+      state.recordingChildTabs = res.rec_children && typeof res.rec_children === 'object' ? res.rec_children : {};
       state.currentActions = res.rec_actions || [];
       chrome.runtime.sendMessage({
         type: 'RECORDING_RESTORED',

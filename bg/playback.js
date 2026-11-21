@@ -14,13 +14,14 @@ import { resolveRandomVars, interpolateAction } from './interpolate.js';
 import { getActiveTabId, getTabUrl } from './tabs.js';
 // The steps load bg/screenshot.js, whose listeners have always registered at this point.
 import { STEPS, runOnPage, STOP } from './playback/steps/index.js';
+import { moveRunTo } from './playback/steps/switch-tab.js';
 import { ssWrite, ssClear, csvResultWrite, csvResultClear, csvResultReadAll } from './idb-screenshots.js';
 import { beginDbGuard, endDbGuard } from './dbguard.js';
 import { anyBlocks, getSwitchLayout, hasBlock, blockEnd, continueIndex, resumeSegments } from '../shared/switch-blocks.js';
 import { normalizeVarName, normalizeVarRef, selectorStrings, writtenVarNames } from '../shared/var-name.js';
 import { pickStrings } from '../shared/dropdown-pick.js';
 import { CHILD_COND_KEYS } from '../shared/child-cond.js';
-import { failCountsText, runVerdict, tallyText, tallyVerdicts, verdictLabel } from '../shared/verdict.js';
+import { failCountsText, partSpan, runVerdict, tallyText, tallyVerdicts, verdictLabel } from '../shared/verdict.js';
 import { LAST_RUN_KEY, LAST_RUN_SHOT_KEY, RUN_HISTORY_KEY } from '../shared/storage-keys.js';
 import { historyEntry, pushHistory } from '../shared/run-history.js';
 import { captureFailureShot } from './screenshot/capture-tab.js';
@@ -29,6 +30,8 @@ import { isAnyPlaybackActive, runClaimed, runPause } from './run-state.js';
 import { startKeepalive, stopKeepalive } from './playback/keepalive.js';
 import { notifyActionFailed, onActionFailed, recordFailure, FAIL_RETRY, FAIL_STOP } from './playback/failure-prompt.js';
 import { closeOpenSessions } from './cdp/session.js';
+import { holdRunSession, releaseRunSession } from './cdp/run-session.js';
+import { runAsText } from '../shared/run-as.js';
 
 /* ── Concurrency Guard ──────────────────────────────────────────────────────── */
 
@@ -197,18 +200,50 @@ function _saveCheckpoint(frames, tabId) {
  * that scenario's, and without it the popup told it on the step of that number
  * of the scenario that was played.
  */
-function _failureRecorders(tabId, actions, failedActions, { evidence, scenarioId }) {
+function _failureRecorders(tabOf, actions, failedActions, { evidence, scenarioId }) {
+  // tabOf(): the tab the run plays on now — a ↗ Switch tab step moves it (steps/switch-tab.js).
   const firstFacts = async () => (evidence && !failedActions?.length
-    ? { ...(await _evidence(tabId, evidence)), ...(scenarioId ? { nested: true } : {}) }
+    ? { ...(await _evidence(tabOf(), evidence)), ...(scenarioId ? { nested: true } : {}) }
     : {});
   const where = async () => (scenarioId
     ? { scenarioId, scenarioName: (await getScenarios())[scenarioId]?.name || scenarioId }
     : {});
   return {
     fail: async (i, action, reason, record) =>
-      onActionFailed({ tabId, i, actions, action, reason, failedActions, record, facts: { ...(await where()), ...(await firstFacts()) } }),
+      onActionFailed({ tabId: tabOf(), i, actions, action, reason, failedActions, record, facts: { ...(await where()), ...(await firstFacts()) } }),
     recordFail: async (i, action, reason, facts) =>
       recordFailure({ i, action, reason, failedActions, facts: { ...facts, ...(await where()), ...(await firstFacts()) } }),
+  };
+}
+
+/**
+ * The run's tabs while `playActionsOnTab` plays (`tabRef`, steps/switch-tab.js): the tab
+ * it is on closing ends the run (`ctx.tabClosed`) — unless a ↗ step went there and the
+ * page closed it (a sign-in popup, done): then back to the tab that opened it. The call
+ * that started the run's tab (`own`) also keeps the tabs the run's tabs open, for ↗.
+ * Returns what stops watching.
+ */
+function _watchRunTabs(tabRef, ctx, own) {
+  const onRemoved = (removedTabId) => {
+    if (removedTabId !== tabRef.id) {
+      const k = tabRef.stack.indexOf(removedTabId);
+      if (k >= 0) tabRef.stack.splice(k, 1);
+      return;
+    }
+    if (tabRef.stack.length) {
+      tabRef.closedBack++;
+      moveRunTo(tabRef, tabRef.stack.pop());
+      return;
+    }
+    ctx.tabClosed = true;
+    state.playback.active = false;
+  };
+  const onCreated = (t) => { if (t?.openerTabId != null) tabRef.opened.push({ id: t.id, opener: t.openerTabId }); };
+  chrome.tabs.onRemoved.addListener(onRemoved);
+  if (own) chrome.tabs.onCreated.addListener(onCreated);
+  return () => {
+    chrome.tabs.onRemoved.removeListener(onRemoved);
+    if (own) chrome.tabs.onCreated.removeListener(onCreated);
   };
 }
 
@@ -223,11 +258,14 @@ function _failureRecorders(tabId, actions, failedActions, { evidence, scenarioId
  * `evidence`: a Play or Resume's { trace, loop, shot } — see _evidence.
  * `notes`: a Play or Resume's 🩹 notes — the steps whose other locators did not
  * agree on their element (content.js _locatorNote), for the Last run card.
+ * `tab`: the run's tab as a Switch case played one level up has it (steps/switch-tab.js):
+ * { id, stack, opened, used, closedBack } — `id` moves with a ↗ Switch tab step, and
+ * the levels share it. None: this call starts it on `tabId`.
  */
 export async function playActionsOnTab(tabId, actions, {
   vars = null, screenshotsResult = null, forceAutoSave = false, skipDownload = false,
   startFromIndex = 0, failedActions = null, depth = 0, endAtIndex = null, frames = null, strict = false,
-  screenshotNames = null, evidence = null, notes = null,
+  screenshotNames = null, evidence = null, notes = null, tab = null,
 } = {}) {
   if (depth > 10) {
     console.error('[PLAYBACK] Max switch/nested-scenario depth (10) exceeded — aborting branch');
@@ -236,8 +274,9 @@ export async function playActionsOnTab(tabId, actions, {
   }
 
   const resolvedVars = resolveRandomVars(vars !== null ? vars : await getVariables());
+  const tabRef = tab || { id: tabId, stack: [], opened: [], used: new Set(), closedBack: 0 };
   // The tab the run plays on, for its panel there (bg/run-panel.js).
-  state.playback.tabId = tabId;
+  state.playback.tabId = tabRef.id;
 
   // Where the run is, for the checkpoint: the scenario it started from, then each
   // other scenario a Switch case went into, innermost last. A block case plays
@@ -248,13 +287,12 @@ export async function playActionsOnTab(tabId, actions, {
   // The run, as every step sees it (bg/playback/steps/). tabClosed and selfJumps
   // (Switch → "this scenario" hops taken in this run) change as it goes.
   const ctx = {
-    tabId, actions, resolvedVars, screenshotsResult, screenshotNames, forceAutoSave, skipDownload,
+    tab: tabRef, actions, resolvedVars, screenshotsResult, screenshotNames, forceAutoSave, skipDownload,
     tabClosed: false, selfJumps: 0, strict,
   };
-  const _onTabRemoved = (removedTabId) => {
-    if (removedTabId === tabId) { ctx.tabClosed = true; state.playback.active = false; }
-  };
-  chrome.tabs.onRemoved.addListener(_onTabRemoved);
+  // The tab the steps play on now: a ↗ Switch tab step moves it.
+  Object.defineProperty(ctx, 'tabId', { get: () => tabRef.id, enumerable: true });
+  const _unwatchTabs = _watchRunTabs(tabRef, ctx, !tab);
 
   // Only scenarios that use Switch blocks pay for the layout; without one every
   // Switch and Condition step takes exactly its old path.
@@ -266,7 +304,7 @@ export async function playActionsOnTab(tabId, actions, {
   // The other scenario these actions are of, if a Switch went into one; a block
   // case shares its scenario's frames.
   const _otherId = _frames.findLast((f) => f.scenarioId)?.scenarioId;
-  const { fail, recordFail } = _failureRecorders(tabId, actions, failedActions, { evidence, scenarioId: _otherId });
+  const { fail, recordFail } = _failureRecorders(() => tabRef.id, actions, failedActions, { evidence, scenarioId: _otherId });
 
   // Sticky fallback resolution: if the content script resolved a {fallback:...}
   // variable, persist the winning value into resolvedVars so every subsequent
@@ -287,11 +325,11 @@ export async function playActionsOnTab(tabId, actions, {
     // variables are a copy.
     // `other`: the case plays another scenario — { scenarioId } for a new
     // checkpoint frame, and its own "Click through" (`strict`), which then applies.
-    playNested: (acts, nestedVars, start, end, other = null) => playActionsOnTab(tabId, acts, {
+    playNested: (acts, nestedVars, start, end, other = null) => playActionsOnTab(tabRef.id, acts, {
       vars: nestedVars, screenshotsResult, screenshotNames, forceAutoSave, skipDownload, startFromIndex: start,
       failedActions, depth: depth + 1, endAtIndex: end, strict: other ? other.strict : strict,
       frames: other ? [..._frames, { scenarioId: other.scenarioId, actionIndex: start, endAtIndex: end }] : _frames,
-      evidence, notes,
+      evidence, notes, tab: tabRef,
     }),
   });
 
@@ -305,7 +343,7 @@ export async function playActionsOnTab(tabId, actions, {
       // Persist a checkpoint after every action so the popup can offer resume
       // if the tab reloads mid-playback (e.g. from a navigate action).
       _frame.actionIndex = i;
-      _saveCheckpoint(_frames, tabId);
+      _saveCheckpoint(_frames, tabRef.id);
 
       try {
         const action = interpolateAction(actions[i], resolvedVars);
@@ -334,13 +372,29 @@ export async function playActionsOnTab(tabId, actions, {
       }
     }
   } finally {
-    chrome.tabs.onRemoved.removeListener(_onTabRemoved);
+    _unwatchTabs();
     if (ctx.tabClosed) {
-      chrome.runtime.sendMessage({ type: 'PLAYBACK_TAB_CLOSED', tabId }).catch(() => {});
+      chrome.runtime.sendMessage({ type: 'PLAYBACK_TAB_CLOSED', tabId: tabRef.id }).catch(() => {});
       sendAlertNotification('⚠ Playback Stopped', 'Tab was closed — playback stopped', 'tab_closed');
     }
   }
   return resolvedVars;
+}
+
+/* ── 📱 Run as ─────────────────────────────────────────────────────────────── */
+
+/**
+ * The scenario's device and network (shared/run-as.js) for the run on `tabId`,
+ * held until releaseRunSession(); kept on state.playback for the run panel. The
+ * browser refusing (DevTools open on the tab): said, and the run plays as it is.
+ */
+async function _holdRunAs(tabId, scenario) {
+  const res = await holdRunSession(tabId, scenario?.runAs);
+  if (res?.error) {
+    sendAlertNotification('⚠ Run as', `Could not play as ${runAsText(scenario.runAs)}: ${res.error} — playing as the browser is`, 'run_as');
+  }
+  if (res?.held) state.playback.runAs = res.held;
+  return res?.held || null;
 }
 
 /* ── Single Scenario Playback ───────────────────────────────────────────────── */
@@ -410,6 +464,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
   updateBadge();
   chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
   await startKeepalive();
+  const runAs = await _holdRunAs(tabId, scenario);
   // Collected so the completion notification can say whether "finished" means
   // "finished cleanly". Sequence and CSV runs already reported their failure
   // counts; single and resumed runs claimed success no matter how many actions
@@ -442,6 +497,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
     completed = state.playback.active;
   } finally {
     await stopKeepalive();
+    await releaseRunSession();
     await closeOpenSessions();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.playback.active = false;
@@ -452,7 +508,7 @@ async function _resumeScenario(scenarioId, fromIndex, tabId, nested) {
     updateBadge();
     chrome.storage.local.remove('playbackCheckpoint');
     _saveLastRun(scenarioId, scenarios, {
-      startedAt, loops: 1, completed, verdict, failures: failedActions, shot: evidence.shot, resumed: true, notes,
+      startedAt, loops: 1, completed, verdict, failures: failedActions, shot: evidence.shot, resumed: true, notes, runAs,
     });
     await _addHistory(scenarioId, actions, { how: 'resume', startedAt, verdict, failures: failedActions });
     await _notifyVerdict(`"${scenario.name}"`, verdict,
@@ -477,6 +533,10 @@ function _saveLastRun(scenarioId, scenarios, run) {
     scenarioId, scenarioName: scenario.name || scenarioId, startedAt: run.startedAt, endedAt: Date.now(),
     loops: run.loops, completed: run.completed, verdict: run.verdict, failures: run.failures,
     ...(run.resumed ? { resumed: true } : {}),
+    ...(run.part ? { part: run.part } : {}),
+    ...(run.runAs ? { runAs: run.runAs } : {}),
+    // 🎯 Steps whose element was picked again on their failure prompt (playback/run-pick.js).
+    ...(state.playback.picks?.length ? { picks: state.playback.picks } : {}),
     ...(run.notes?.length ? { notes: run.notes } : {}),
     // As saved, before variables: the report tells the steps, the scenario may change after.
     actions: scenario.actions || [],
@@ -550,6 +610,7 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId, how) 
   updateBadge();
   chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
   await startKeepalive();
+  const runAs = await _holdRunAs(tabId, scenario);
 
   // Accumulates across every loop iteration, so a 10-loop run reports the total.
   const failedActions = [];
@@ -579,17 +640,97 @@ async function _playScenario(scenarioId, loopCount, loopDelay, givenTabId, how) 
     completed = state.playback.active;
   } finally {
     await stopKeepalive();
+    await releaseRunSession();
     await closeOpenSessions();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.playback.active = false;
     const verdict = _endVerdict(failedActions, completed);
     updateBadge();
     chrome.storage.local.remove('playbackCheckpoint');
-    _saveLastRun(scenarioId, scenarios, { startedAt, loops, completed, verdict, failures: failedActions, shot: evidence.shot, notes });
+    _saveLastRun(scenarioId, scenarios, { startedAt, loops, completed, verdict, failures: failedActions, shot: evidence.shot, notes, runAs });
     await _addHistory(scenarioId, actions, { how, startedAt, verdict, failures: failedActions });
     await _notifyVerdict(`"${scenario.name}"`, verdict, completed
       ? `"${scenario.name}" finished${loops > 1 ? ` (${loops} loops)` : ''}`
       : `"${scenario.name}" stopped before its end`);
+    await endDbGuard(dbGuard);
+  }
+}
+
+/* ── Part of a scenario ─────────────────────────────────────────────────────── */
+
+/**
+ * Play actions #from…#to (1-based, as the list numbers them) of a scenario on the
+ * active tab, from the popup's row numbers: to try a step again without playing
+ * the steps before it. `prelude`: 0-based indices before `from` played first —
+ * the Read DOM / Screenshot → Variable steps whose variables the part uses.
+ * A part is not a run of the scenario: it is kept as the Last run (with `part`)
+ * but not in the run history, whose Flaky? / Failing since read whole runs.
+ */
+export async function startPlayRange(scenarioId, from, to, prelude = []) {
+  if (refuseIfRecording()) return;
+  if (!(await runClaimed(() => _playRange(scenarioId, from, to, prelude)))) _notifyAlreadyRunning();
+}
+
+async function _playRange(scenarioId, from, to, prelude) {
+  _ssSettings = null;
+  _checksRun = 0;
+  const scenarios = await getScenarios();
+  const scenario  = scenarios[scenarioId];
+  const actions   = scenario?.actions || [];
+  const first = Math.max(0, Math.floor(from) - 1);
+  const last  = Math.min(actions.length - 1, Math.floor(to) - 1);
+  if (!scenario || !(first <= last)) return;
+  const tabId = await getActiveTabId();
+  if (!tabId) {
+    chrome.runtime.sendMessage({ type: 'PLAYBACK_NO_TAB' }).catch(() => {});
+    sendAlertNotification('⚠ No Active Tab', 'No active tab found — open a tab and try again', 'no_tab');
+    return;
+  }
+  const part = { from: first + 1, to: last + 1 };
+  const name = scenario.name || scenarioId;
+  const dbGuard = await beginDbGuard(`${name} · #${part.from}–#${part.to}`);
+  if (dbGuard && dbGuard.refused) return;
+  state.playback = {
+    active: true, tabId, scenarioId, scenarioName: name, originalScenarioName: name,
+    actionIndex: first, totalActions: actions.length, loopCurrent: 1, loopTotal: 1, part,
+  };
+  updateBadge();
+  chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
+  await startKeepalive();
+  const runAs = await _holdRunAs(tabId, scenario);
+  const failedActions = [];
+  const evidence = { trace: [], loop: 1, shot: null };
+  const notes = [];
+  const startedAt = Date.now();
+  const strict = scenario.clickThrough === false;
+  const common = { screenshotsResult: null, forceAutoSave: false, skipDownload: false, failedActions, strict, evidence, notes };
+  let completed = false;
+  try {
+    let vars = null;
+    const before = [...new Set((Array.isArray(prelude) ? prelude : []).filter((n) => Number.isInteger(n) && n >= 0 && n < first))].sort((a, b) => a - b);
+    for (const i of before) {
+      if (!state.playback.active) break;
+      vars = await playActionsOnTab(tabId, actions, { ...common, vars, startFromIndex: i, endAtIndex: i });
+    }
+    // Starting inside a Switch block case: that case, then on at its continueAt — as a Resume.
+    for (const seg of resumeSegments(actions, first)) {
+      if (!state.playback.active || seg.start > last) break;
+      const end = seg.end == null ? last : Math.min(seg.end, last);
+      vars = await playActionsOnTab(tabId, actions, { ...common, vars, startFromIndex: seg.start, endAtIndex: end });
+    }
+    completed = state.playback.active;
+  } finally {
+    await stopKeepalive();
+    await releaseRunSession();
+    await closeOpenSessions();
+    chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
+    state.playback.active = false;
+    const verdict = _endVerdict(failedActions, completed);
+    updateBadge();
+    chrome.storage.local.remove('playbackCheckpoint');
+    _saveLastRun(scenarioId, scenarios, { startedAt, loops: 1, completed, verdict, failures: failedActions, shot: evidence.shot, notes, part, runAs });
+    const span = partSpan(part);
+    await _notifyVerdict(`"${name}" ${span}`, verdict, `"${name}" ${span} ${completed ? 'finished' : 'stopped before its end'}`);
     await endDbGuard(dbGuard);
   }
 }
@@ -615,10 +756,16 @@ async function _playSequenceItem(tabId, scenarioId, scenario, sequenceGoesOn) {
   };
   const failures = [];
   const startedAt = Date.now();
-  await playActionsOnTab(tabId, actions, {
-    vars: null, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
-    startFromIndex: 0, failedActions: failures, strict: scenario.clickThrough === false,
-  });
+  // Each scenario of a Sequence plays as its own Run as says.
+  await _holdRunAs(tabId, scenario);
+  try {
+    await playActionsOnTab(tabId, actions, {
+      vars: null, screenshotsResult: null, forceAutoSave: false, skipDownload: false,
+      startFromIndex: 0, failedActions: failures, strict: scenario.clickThrough === false,
+    });
+  } finally {
+    await releaseRunSession();
+  }
   // Still active: this scenario ran to its end — not stopped, its tab not closed.
   const completed = state.playback.active && sequenceGoesOn();
   state.playback.active = false;
@@ -695,6 +842,7 @@ async function _playSequence(runList) {
   } finally {
     chrome.tabs.onRemoved.removeListener(_onSeqTabRemoved);
     await stopKeepalive();
+    await releaseRunSession();
     await closeOpenSessions();
     chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.sequencePlayback.active = false;
@@ -866,6 +1014,8 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
     chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
     await startKeepalive();
     keepaliveOn = true;
+    // One Run as for every row: the scenario's.
+    const runAs = await _holdRunAs(tabId, scenario);
 
     for (let i = startRowIndex; i < rows.length; i++) {
       if (!state.csvPlayback.active) break;
@@ -881,7 +1031,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
         active: true, tabId, scenarioId,
         scenarioName: scenario.name || scenarioId,
         originalScenarioName: scenario.name || scenarioId,
-        actionIndex: 0, totalActions: actions.length,
+        actionIndex: 0, totalActions: actions.length, ...(runAs ? { runAs } : {}),
       };
       const screenshotsResult = {};
       const screenshotNames   = {};
@@ -956,6 +1106,7 @@ async function _playCsv(scenarioId, rows, delayBetween, exportFormat, startRowIn
     console.error('[CSV] Run aborted by an unexpected error:', err);
   } finally {
     if (keepaliveOn) stopKeepalive();
+    await releaseRunSession();
     await closeOpenSessions();
     if (tabId != null) chrome.tabs.update(tabId, { autoDiscardable: true }).catch(() => {});
     state.csvPlayback.active = false;

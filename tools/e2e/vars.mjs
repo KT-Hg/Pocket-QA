@@ -191,7 +191,54 @@ export async function checkVarRename(ctx) {
   await reloadTestPage(ctx);
 }
 
+// 🧪 Random → Test data: a Date variable (tomorrow, dd/MM/yyyy) and an Email one made
+// in the modal; a bad range refused; the rows say what they make; a played Input types
+// tomorrow's date and an address of that domain.
+export async function checkTestData(ctx) {
+  await ctx.send({ type: 'SAVE_VARIABLES', variables: {}, order: [] });
+  const popup = await openPopup(ctx);
+  await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabData"]').click()`);
+  const add = (name, kind, fields) => popup.evaluate(`(() => {
+    document.getElementById('addVariableRow').click();
+    document.getElementById('rndTabString').click();
+    document.getElementById('randomVarName').value = ${JSON.stringify(name)};
+    const t = document.getElementById('randomType'); t.value = ${JSON.stringify(kind)}; t.dispatchEvent(new Event('change'));
+    for (const [id, v] of Object.entries(${JSON.stringify(fields)})) { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input')); }
+    const sample = document.getElementById('randomSample').textContent;
+    document.getElementById('confirmRandom').click();
+    return { sample, open: document.getElementById('randomModal').classList.contains('show'), toast: document.getElementById('toast').textContent };
+  })()`);
+  const bad = await add('n', 'int', { randomMin: '9', randomMax: '3' });
+  check(bad.open && /From not greater than To/.test(bad.toast), 'a range whose From is greater than To is refused', bad);
+  await popup.evaluate(`document.getElementById('cancelRandom').click()`);
+  const date = await add('d', 'date', { randomDays: '1', randomFormat: 'dd/MM/yyyy' });
+  await sleep(SETTLE_MS);
+  const mail = await add('m', 'email', { randomDomain: 'shop.test' });
+  await sleep(SETTLE_MS * 2);
+  const t = new Date(); t.setDate(t.getDate() + 1);
+  const tomorrow = `${String(t.getDate()).padStart(2, '0')}/${String(t.getMonth() + 1).padStart(2, '0')}/${t.getFullYear()}`;
+  const rows = await popup.evaluate(`[...document.querySelectorAll('li.var-row')].map((li) => li.dataset.key + ': ' + li.querySelector('.vr-val').firstChild.textContent)`);
+  const stored = (await ctx.send({ type: 'GET_VARIABLES' })).variables;
+  check(date.sample === tomorrow && /^qa_[a-z0-9]{6}@shop\.test$/.test(mail.sample)
+    && rows.includes('d: Date · today +1 · dd/MM/yyyy') && rows.includes('m: Email · @shop.test')
+    && stored.d?.r?.type === 'date' && stored.m?.r?.domain === 'shop.test',
+  'the modal makes a Date and an Email variable, shows a sample and says what each makes', { date, mail, rows, stored });
+  // The popup opens on the tab it was left on: Record & Play, for the checks after this one.
+  await popup.evaluate(`document.querySelector('.tab-btn[data-tab="tabRecord"]').click()`);
+  await sleep(SETTLE_MS);
+  await popup.close();
+
+  await reloadTestPage(ctx);
+  const id = await makeScenario(ctx, 'e2e test data', [
+    { type: 'input', selector: '#out', selectors: { css: '#out' }, value: '${d}', delay: 0 },
+    { type: 'input', selector: '#big', selectors: { css: '#big' }, value: '${m}', delay: 0 },
+  ]);
+  const page = await play(ctx, id);
+  check(page.out === tomorrow && /^qa_[a-z0-9]{6}@shop\.test$/.test(page.big || ''), 'a run types tomorrow\'s date and an address of the domain', page);
+}
+
 export const CHECKS = [
+  ['test-data', '🧪 Random test data: Date and Email variables, made and played', checkTestData],
   ['suggest', 'Variable suggestions in the popup', checkSuggest],
   ['var-name-guard', 'A variable name already taken, or one no ${…} can reach', checkVarNameGuard],
   ['var-rename', 'A variable renamed in the Tools tab, and in the scenarios using it', checkVarRename],

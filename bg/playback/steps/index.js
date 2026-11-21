@@ -12,6 +12,7 @@ import { runCondition } from './condition.js';
 import { runAssert } from './assert.js';
 import { runSwitch } from './switch.js';
 import { runUploadFile } from './upload.js';
+import { runSwitchTab } from './switch-tab.js';
 
 export { runOnPage } from './dom.js';
 export { STOP } from './flow.js';
@@ -37,4 +38,5 @@ export const STEPS = new Map([
   ['assert', runAssert],
   ['switch', runSwitch],
   ['uploadFile', runUploadFile],
+  ['switchTab', runSwitchTab],
 ]);

@@ -19,6 +19,10 @@ import { CHILD_COND_KEYS } from '../shared/child-cond.js';
 import { cssEscape } from '../shared/css-escape.js';
 import { waitMs, stepDelayMs } from '../shared/wait-ms.js';
 import { mark } from './export/steps.js';
+import { pyTestDataExpr } from './export/test-data-code.js';
+import { robotRunAsLines, warnRunAsBrowser } from './export/run-as-code.js';
+import { ROBOT_TABS_KEYWORDS, robotSwitchTabLine } from './export/switch-tab-code.js';
+import { DATA_KINDS } from '../shared/test-data.js';
 import {
   ASSERT_POLL_MS, ASSERT_WAIT_MS, assertExpected, assertType, exportVariables, inFrame, locatorsFor, pickLabel, readTargets,
   undefinedVarNames, uploadPaths, walkActions, warnUndefinedVars,
@@ -346,6 +350,10 @@ const STEP_LINES = {
     `\${${s.el}_t}=    Find Element    ${locsRobot(locatorsFor(a, true))}`,
     `Drag And Drop    \${${s.el}_s}    \${${s.el}_t}`],
   navigate: (a) => [`\${PQA_URL}=    Site URL    ${valueRobot(a.value || a.url)}`, 'Go To    ${PQA_URL}'],
+  switchTab: (a, s) => {
+    s.ctx.uses.add('tabs');
+    return [robotSwitchTabLine(a)];
+  },
   wait: (a) => [`Sleep    ${secs(waitMs(a))}`],
   script: (a, s) => {
     const code = String(a.code || a.value || '').trim();
@@ -403,6 +411,7 @@ function stepWhat(a) {
     case 'dropdown': return a.pick ? `dropdown → item #${pickLabel(a)}` : 'open dropdown (freeze)';
     case 'dragdrop': return 'drag & drop';
     case 'script': return 'execute script';
+    case 'switchTab': return a.tabTarget === 'back' ? 'back to the tab this one came from' : 'switch to the new tab';
     case 'assert': return `assert — ${a.conditionType || 'elementExists'}`;
     case 'screenshot': return 'screenshot (visible)';
     case 'screenshot_full': return 'screenshot (full page)';
@@ -515,6 +524,7 @@ function variableLines({ staticVars, randomSpecs, pickSpecs, written }, csv = nu
     if (!fresh(k)) continue;
     let expr;
     if (spec.type === 'datetime') expr = "datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')";
+    else if (DATA_KINDS.includes(spec.type)) expr = pyTestDataExpr(spec, { robot: true });
     else {
       const charset = { alpha: 'string.ascii_letters', numeric: 'string.digits' }[spec.type] || 'string.ascii_letters + string.digits';
       expr = `''.join(random.choices(${charset}, k=${spec.length}))`;
@@ -653,8 +663,23 @@ function settingsLines(name, envVars, dataFile) {
  * @param {string}  opts.dataFile   - a CSV file: a test per row (DataDriver, through ROBOT_READER_FILE)
  * @returns {{ code: string, stats: { total, supported, skipped }, steps: object[], warnings: string[] }}
  */
+/**
+ * What the test gets besides its steps for 📱 Run as (the "Run As" keyword, right after the
+ * browser starts) and ↗ Switch tab (its keywords, and the tabs a test came from, emptied
+ * at each test — a row its own): { start, keywords, variables } lines.
+ */
+function startExtras(runAs, uses) {
+  const runAsKeyword = robotRunAsLines(runAs);
+  const tabs = uses.has('tabs');
+  return {
+    start: [...(runAsKeyword.length ? ['Run As'] : []), ...(tabs ? ['Evaluate    $PQA_TABS.clear()'] : [])],
+    keywords: [...(runAsKeyword.length ? [runAsKeyword.join('\n').trimEnd()] : []), ...(tabs ? [ROBOT_TABS_KEYWORDS] : [])],
+    variables: tabs ? ['@{PQA_TABS}'] : [],
+  };
+}
+
 export function generateRobot(scenarioName, actions, variables, opts = {}) {
-  const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false } = opts;
+  const { stepDelay = 500, elTimeout = 10000, startUrl = '', headless = false, runAs = null } = opts;
   const dataFile = String(opts.dataFile || '').trim();
   const driverType = DRIVER_TYPES.has(opts.driverType) ? opts.driverType : 'Chrome';
   const all = actions || [];
@@ -662,6 +687,7 @@ export function generateRobot(scenarioName, actions, variables, opts = {}) {
   const warnings = new Set();
   const steps = [];
   const vars = exportVariables(variables, enabled, robotIdent, 'Robot', warnings);
+  warnRunAsBrowser(runAs, driverType, warnings);
   warnOneToRobot(variables, warnings);
   if (headless && driverType === 'Safari') warnings.add('Safari has no headless mode — the test opens a window');
   const frames = enabled.some(inFrame) ? 'all' : 'none';
@@ -679,8 +705,9 @@ export function generateRobot(scenarioName, actions, variables, opts = {}) {
   const stepKeyword = (u) => (u === 'condition' && frames === 'all'
     ? STEP_KEYWORDS[u].replace('${el}=    Locate    @{locators}', '${el}=    Locate In Frames    @{locators}') : STEP_KEYWORDS[u]);
   const name = String(scenarioName ?? '').trim();
-  const testBody = ['Start Browser', ...[...setup, ...(setup.length ? [''] : []), ...startLines(enabled, startUrl), ...bodyLines]];
-  const keywords = [...data.keywords(testBody), BASE_KEYWORDS, findElementKeyword(frames === 'all'), ...(frames === 'all' ? [FRAMES_KEYWORDS] : []),
+  const extras = startExtras(runAs, ctx.uses);
+  const testBody = ['Start Browser', ...extras.start, ...[...setup, ...(setup.length ? [''] : []), ...startLines(enabled, startUrl), ...bodyLines]];
+  const keywords = [...data.keywords(testBody), BASE_KEYWORDS, ...extras.keywords, findElementKeyword(frames === 'all'), ...(frames === 'all' ? [FRAMES_KEYWORDS] : []),
     ...Object.keys(STEP_KEYWORDS).filter((u) => ctx.uses.has(u)).map(stepKeyword)];
 
   const out = [
@@ -693,6 +720,7 @@ export function generateRobot(scenarioName, actions, variables, opts = {}) {
     `\${PQA_HEADLESS}     ${headless ? 1 : 0}`,
     '${PQA_AT}           ${EMPTY}',
     '${PQA_FIRST_ORIGIN}    ${None}',
+    ...extras.variables,
     ...helpers.map((h, k) => `${k ? '...' : '&{PQA_B64}'}${' '.repeat(k ? 17 : 10)}${h}=${base64(PAGE_CALLS[h])}`),
     ...table,
     '',

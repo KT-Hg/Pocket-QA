@@ -4,7 +4,7 @@
  */
 
 import { conditionType, conditionWrapper, manualActionType, manualValue, pickedSelectorsInfo, pickedSelectorsWrap } from '../dom.js';
-import { CONDITION_FORM_TYPES, CONDITION_NO_SELECTOR, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, updateDropdownForm, updateStepLabels, updateConditionFieldsVisibility } from './form-fields.js';
+import { CONDITION_FORM_TYPES, CONDITION_NO_SELECTOR, TYPES_CHILD_CONDITION, TYPES_NO_SELECTOR, updateDropdownForm, updateStepLabels, updateConditionFieldsVisibility, updateSwitchTabForm } from './form-fields.js';
 import { VALUE_BOX, showClickThroughFor } from './form-table.js';
 import { renderConditionRunTo } from './preview.js';
 import { refreshSwitchContext, refreshSwitchForm, populateSwitchScenarioSelect } from './switch-case-builder.js';
@@ -114,6 +114,12 @@ export function initValueMemory() {
 
     const uploadFileWrapper = document.getElementById("uploadFileWrapper");
     if (uploadFileWrapper) uploadFileWrapper.style.display = type === "uploadFile" ? "block" : "none";
+
+    const switchTabWrapper = document.getElementById("switchTabWrapper");
+    if (switchTabWrapper) {
+      switchTabWrapper.style.display = type === "switchTab" ? "block" : "none";
+      if (type === "switchTab") updateSwitchTabForm();
+    }
 
     const childConditionWrapper = document.getElementById("childConditionWrapper");
     if (childConditionWrapper) {

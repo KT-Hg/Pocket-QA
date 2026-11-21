@@ -203,6 +203,7 @@ export function installChromeFake({ startTime = RealDate.UTC(2026, 0, 15, 9, 0, 
       setZoom: (...args) => cbOrPromise('tabs.setZoom', args, () => { zoom[args[0]] = args[1]; }),
       onUpdated: event('tabs.onUpdated'),
       onRemoved: event('tabs.onRemoved'),
+      onCreated: event('tabs.onCreated'),
       onActivated: event('tabs.onActivated'),
     },
     alarms: {

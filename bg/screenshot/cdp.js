@@ -4,6 +4,7 @@
  */
 
 import { isSessionOpen, markSessionClosed } from '../cdp/session.js';
+import { runHolds } from '../cdp/run-session.js';
 
 // A detach is given this long to finish before anything else touches the tab.
 export const DETACH_SETTLE_MS = 300;
@@ -21,6 +22,8 @@ export const TILE_SETTLE_MS = 30;
  * update the tracker; otherwise probe silently (stale external session).
  */
 export async function attachDebugger(tabId) {
+  // A run playing as a device holds the tab's session (cdp/run-session.js): use it as it is.
+  if (runHolds(tabId)) return;
   if (isSessionOpen(tabId)) {
     await new Promise(r => chrome.debugger.detach({ tabId }, () => { void chrome.runtime.lastError; r(); }));
     markSessionClosed(tabId);

@@ -28,7 +28,7 @@ const ACTION_ICONS = {
   click: '🖱', input: '⌨', navigate: '🔗', script: '⚡', hover: '👆',
   wait: '⏱', condition: '❓', assert: '✅', switch: '🔀', dragdrop: '↕', readdom: '📖',
   screenshot: '📷', screenshot_full: '📄', screenshot_element: '📌', screenshot_tovar: '📸',
-  dropdown: '🔽', uploadFile: '📂'
+  dropdown: '🔽', uploadFile: '📂', switchTab: '↗'
 };
 
 export function getActionIcon(type) {
@@ -107,10 +107,22 @@ function _closeModal(modal, releaseFocus, extra) {
 }
 
 /** `link`: { label, onClick } — a link under the question; it closes the dialog, then runs onClick. */
-export function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabel = '', link = null } = {}) {
+export function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false, okLabel = '', link = null, check = null } = {}) {
   const modal = document.getElementById('confirmModal');
   document.getElementById('confirmModalTitle').textContent = title;
-  document.getElementById('confirmModalMsg').textContent = msg;
+  const msgEl = document.getElementById('confirmModalMsg');
+  msgEl.textContent = msg;
+  // `check`: { label, checked } — a checkbox under the message; onConfirm gets whether it is ticked.
+  let box = null;
+  if (check) {
+    const label = document.createElement('label');
+    label.className = 'form-check confirm-modal-check';
+    box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = !!check.checked;
+    label.append(box, ` ${check.label}`);
+    msgEl.append(label);
+  }
   const input = document.getElementById('confirmModalInput');
   if (input) input.style.display = 'none';
   const okBtn = document.getElementById('confirmModalOk');
@@ -130,7 +142,7 @@ export function showConfirm(msg, onConfirm, { title = 'Confirm', danger = false,
   const releaseFocus = trapFocus(modal);
   const close = () => _closeModal(modal, releaseFocus);
   cancelBtn.onclick = close;
-  okBtn.onclick = () => { close(); onConfirm(); };
+  okBtn.onclick = () => { const ticked = box ? box.checked : undefined; close(); onConfirm(ticked); };
   if (linkBtn && link) linkBtn.onclick = () => { close(); link.onClick(); };
 }
 

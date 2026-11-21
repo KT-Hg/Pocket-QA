@@ -8,7 +8,7 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 
 ## Còn lại sau đợt sửa review (2026-10)
 
-- **`content.js` có 2.814 dòng** (`wc -l`; từ 3.343; 2.273 trước khi thêm Element preview — 👁 và tên phần tử đã pick;
+- **`content.js` có 2.829 dòng** (`wc -l`; 2.814 trước plan 23 — thêm 15 dòng cho 🎯 Pick it lúc chạy; từ 3.343; 2.273 trước khi thêm Element preview — 👁 và tên phần tử đã pick;
   2.623 trước plan 22, thêm khoảng 70 dòng cho 🩹 `_locatorNote` và 120 dòng cho ✓ Check lúc ghi — menu của nó nằm ở
   `content-overlays.js`). Đợt plan 9 chuyển countdown, prompt khi action lỗi và thanh
   segment sang `content-overlays.js`, worker chỉ nạp khi cần (2.278 → 2.040), rồi thêm khoảng 100 dòng cho
@@ -57,8 +57,10 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 - **Ảnh Visible chụp trong lúc đang ghi có cả khung `● Recording — Pocket QA`** ở góc dưới phải. Ảnh Full page,
   Scroll, Segment và Element thì ẩn nó như mọi overlay của extension.
 
-- **Recorder chỉ ghi tab bắt đầu ghi.** Link mở sang tab mới thì thao tác ở tab đó không được ghi. Trước đây ghi được
-  nhưng phát lại chạy trên tab ban đầu, tức là sai tab.
+- **Recorder ghi tab bắt đầu ghi, và tab nó mở ra (plan 23, ↗ Switch tab).** Tab do tab đang ghi mở ra được theo khi
+  người dùng chuyển sang nó (`tabs.onActivated`); tab mở ngầm (Ctrl + click) chưa được theo cho tới lúc đó. Thao tác ở
+  một tab khác bất kỳ vẫn không được ghi. Chỉ đổi focus giữa hai cửa sổ (không đổi tab đang hiện của cửa sổ nào) thì
+  không có `onActivated`, nên không ghi bước ↩ — đóng tab con, hoặc bấm vào tab cha, thì có.
 - **Các bước đi qua CDP chỉ với tới frame cùng origin với trang:** Upload File, mở Dropdown và đo phần tử khi chụp ảnh
   phần tử. Frame khác origin chạy ở tiến trình khác; `chrome.debugger` chỉ gửi lệnh tới đó được từ Chrome 125, còn
   `minimum_chrome_version` là 109. Ở frame đó Upload File và chụp phần tử báo lỗi nói rõ lý do; Dropdown được mở bằng
@@ -92,6 +94,21 @@ Bug và giới hạn đã thấy nhưng chưa sửa. Mỗi mục nên sửa ở 
 - **✓ Check lúc ghi (plan 22):** khi đã bấm ✓ Check, trang chỉ đổi con trỏ thành dấu thập, chưa viền phần tử dưới chuột.
   Listener capture đặt ở `window` của trang vẫn thấy `pointerdown` / `mousedown` của cú bấm chọn; listener ở document
   trở xuống thì không.
+- **▶ Chạy một đoạn (plan 23):** chỉ hỏi về biến của Read DOM / Screenshot → Variable bị bỏ qua. Trạng thái khác mà các
+  bước trước tạo ra (đăng nhập, giỏ hàng, trang đang mở) thì không biết: trang phải đang ở đúng chỗ. Không có nút "Go on"
+  sau Play #1–#N: muốn đi tiếp thì Play from #N+1.
+- **🎯 Pick it (plan 23):** không có cho Drag & drop (hai phần tử), bước có Child Condition (selector là phần tử cha), Assert
+  (Assert sai không dừng run) và bước không có phần tử. Locator có `${…}` bị thay bằng locator cố định của phần tử đã
+  chọn (khung xác nhận nói trước). Thứ tự locator vẫn như lúc pick bằng form.
+- **📱 Run as (plan 23):** click của playback là sự kiện chuột, không phải chạm — trang chỉ nghe `touchstart` thì không
+  phản ứng. Thiết bị / mạng chỉ áp cho tab run bắt đầu; tab mới mà bước ↗ đi tới chạy như trình duyệt. DevTools đang mở
+  trên tab thì Chrome không cho gắn debugger: run báo và chạy như trình duyệt. Thanh vàng "started debugging" hiện suốt
+  lần chạy. Bản export: Selenium / Robot / Java chỉ Chrome và Edge (CDP); Bookmarklet không có.
+- **↗ Switch tab (plan 23):** Resume sau khi tab con tải lại chạy tiếp trên tab đó nhưng mất danh sách tab đã đi qua, nên
+  bước ↩ sau đó báo lỗi "No tab to go back to". Hai tab mở gần như cùng lúc: bước ↗ lấy tab mở trước. Bookmarklet bỏ qua
+  bước này.
+- **🧪 Dữ liệu thử (plan 23):** ngày theo múi giờ của máy chạy (bản export: máy chạy code). Danh sách họ / tên nhỏ (15 họ,
+  10 đệm, 20 tên tiếng Việt; 12 + 12 tiếng Anh) nên tên có thể trùng giữa các lần chạy; email và UUID thì gần như không.
 
 ## Cố ý giữ (không coi là bug)
 

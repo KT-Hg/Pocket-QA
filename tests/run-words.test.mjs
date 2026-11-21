@@ -31,3 +31,8 @@ test('a sequence and a CSV run count their items; between two, "next…" and the
 test('no name: "Scenario"', () => {
   assert.equal(runWords(scenario({ scenario: '' })).head, 'Scenario');
 });
+
+test('a part of a scenario (▶ from the row numbers) says which steps', () => {
+  assert.equal(runWords(scenario({ part: { from: 8, to: 9 } })).head, 'Checkout · #8–#9');
+  assert.equal(runWords(scenario({ part: { from: 4, to: 4 } })).head, 'Checkout · #4');
+});

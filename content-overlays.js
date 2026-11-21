@@ -139,35 +139,64 @@ function _showFailPrompt(msg, respond) {
     'all:initial', 'display:flex', 'justify-content:flex-end', 'gap:6px', 'margin-top:4px',
   ].join(';');
 
+  // 🎯 Pick it: the element the step should use, clicked on the page now (the worker's
+  // bg/playback/run-pick.js), then confirmed here — `msg.confirmPick` — before it is used.
+  const pick = msg.confirmPick;
+  if (pick) {
+    head.replaceChildren(
+      _extSpan('🎯', ['font-size:15px', 'flex:0 0 auto']),
+      _extSpan(`Use this for action ${msg.index + 1}?`, ['font-weight:700']),
+    );
+  }
+  const buttons = pick
+    ? [
+      ...(pick.canSave ? [{ key: 'pickSave', label: 'Save & go on', tone: 'accent', title: 'Keep the new element in the step and run it again', onClick: () => _closeFailPrompt('pickSave') }] : []),
+      { key: 'pickOnce', label: 'This run only', title: 'Run the step on this element now; the scenario keeps its old one', onClick: () => _closeFailPrompt('pickOnce') },
+      { key: 'pick', label: '🎯 Pick again', title: 'Click another element', onClick: () => _closeFailPrompt('pick') },
+      { key: 'pickCancel', label: 'Cancel', title: 'Back to Retry / Skip / Stop', onClick: () => _closeFailPrompt('pickCancel') },
+    ]
+    : [
+      { key: 'retry', label: '↻ Retry', title: 'Run this action again', onClick: () => _closeFailPrompt('retry') },
+      ...(msg.canPick ? [{ key: 'pick', label: '🎯 Pick it', title: 'Click the element this step should use, on the page', onClick: () => _closeFailPrompt('pick') }] : []),
+      { key: 'skip',  label: '⏭ Skip', title: 'Record it as failed and go on to the next action', onClick: () => _closeFailPrompt('skip') },
+      { key: 'stop',  label: '■ Stop', tone: 'danger', title: 'Record it as failed and end the run', onClick: () => _closeFailPrompt('stop') },
+    ];
+  const lines = pick
+    ? [
+      _failPromptLine(`Picked: ${pick.picked}`, ['font-weight:600']),
+      _failPromptLine(`Step: ${what}`, ['opacity:0.75']),
+      pick.note ? _failPromptLine(pick.note, ['font-size:11px', 'opacity:0.75']) : null,
+    ]
+    : [
+      what ? _failPromptLine(what, ['opacity:0.75']) : null,
+      _failPromptLine(msg.reason || 'Action failed', ['max-height:120px', 'overflow:auto']),
+    ];
+
   const handle = _extOverlay({
     id: '__action_failed_prompt',
     variant: 'panel',
     hint: null,
-    buttons: [
-      { key: 'retry', label: '↻ Retry', onClick: () => _closeFailPrompt('retry') },
-      { key: 'skip',  label: '⏭ Skip',  onClick: () => _closeFailPrompt('skip') },
-      { key: 'stop',  label: '■ Stop', tone: 'danger', onClick: () => _closeFailPrompt('stop') },
-    ],
+    buttons,
     content: [
       head,
-      what  ? _failPromptLine(what, ['opacity:0.75']) : null,
-      _failPromptLine(msg.reason || 'Action failed', ['max-height:120px', 'overflow:auto']),
+      ...lines,
       where ? _failPromptLine(where, ['font-size:11px', 'opacity:0.6']) : null,
       row,
     ],
     extra: [
       'display:flex', 'top:16px', 'left:50%', 'transform:translateX(-50%)',
-      'width:min(420px, calc(100vw - 32px))',
+      'width:min(440px, calc(100vw - 32px))',
     ],
   });
 
   // The template appends buttons straight onto the panel's column; they belong
   // on one row under the text. Moving the nodes keeps their theme repaint.
-  const { retry, skip, stop } = handle.buttons;
-  retry.title = 'Run this action again';
-  skip.title  = 'Record it as failed and go on to the next action';
-  stop.title  = 'Record it as failed and end the run';
-  row.append(retry, skip, stop);
+  row.style.flexWrap = 'wrap';
+  for (const spec of buttons) {
+    const b = handle.buttons[spec.key];
+    b.title = spec.title;
+    row.append(b);
+  }
 
   _failPrompt = { handle, respond };
   handle.mount();

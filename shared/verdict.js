@@ -12,6 +12,12 @@
  * Pure — no chrome.*.
  */
 
+/** A part of a scenario played from the row numbers ({ from, to }, 1-based): "#8–#9", or "#4" alone. */
+export function partSpan(part) {
+  if (!part) return '';
+  return part.from === part.to ? `#${part.from}` : `#${part.from}–#${part.to}`;
+}
+
 const LABELS = {
   passed:  '✓ Passed',
   failed:  '✗ Failed',

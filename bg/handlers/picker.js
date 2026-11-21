@@ -13,10 +13,17 @@ import { sendCaptureNotification } from '../notify.js';
 import { takeElementScreenshot, reportCaptureResult } from '../screenshot.js';
 import { readCaptureSettings } from '../screenshot/settings.js';
 import { isTabOn } from '../tabs.js';
+import { runPickCancelled, runPickOn, runPicked } from '../playback/run-pick.js';
 
 /* --- Element picker passthrough --- */
 function pickMode(request, sender, sendResponse) {
   const { type } = request;
+  // A run's 🎯 Pick it cancelled on its page (Esc, the bar's ✕): the run asks again.
+  if (type === 'STOP_PICK_MODE' && sender.tab?.id != null && runPickOn(sender.tab.id)) {
+    runPickCancelled();
+    sendResponse({ sent: true });
+    return;
+  }
   state.pickMode = (type === "START_PICK_MODE");
   updateBadge();
   const tabId = targetTab(request, sender);
@@ -48,6 +55,12 @@ export const pickerHandlers = {
 
   /* --- Element picked → reopen popup or trigger element screenshot --- */
   ELEMENT_PICKED(request, sender, sendResponse) {
+    // A pick for a run's failed step goes back to that run (playback/run-pick.js), never to the form.
+    if (request.forRun) {
+      if (sender.tab?.id != null && runPickOn(sender.tab.id)) runPicked(request, sender.frameId);
+      sendResponse({ received: true });
+      return;
+    }
     state.pickMode = false;
     updateBadge();
     // Every frame of the tab was picking; the one picked from has stopped, the

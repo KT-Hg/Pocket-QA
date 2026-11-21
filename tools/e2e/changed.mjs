@@ -40,6 +40,8 @@ const RULES = [
   [['popup/variables.js', 'css/popup/03-variables.css'], ['vars']],
   [['popup/record/recorder.js', 'bg/handlers/recording.js'], ['record']],
   [['popup/record/picker.js', 'bg/handlers/picker.js'], ['editor', 'record']],
+  // 📱 Run as under Loop: played and checked by the run suite (run-as).
+  [['popup/scenarios/run-as.js'], ['run']],
   [['popup/record/', 'popup/scenarios/', 'bg/handlers/folders.js', 'css/popup/02-action-list.css',
     'css/popup/04-lists-cards-forms.css', 'css/popup/12-switch-blocks.css'], ['editor', 'vars']],
   [['css/popup/07-switch-loop-csv.css'], ['editor', 'csv']],

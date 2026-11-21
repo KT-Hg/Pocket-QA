@@ -152,11 +152,14 @@
 }
 .action-input .type { color: #34d399; }
 
-.action-navigate {
+/* ↗ Switch tab goes somewhere, as a Navigate does. */
+.action-navigate,
+.action-switchTab {
   border-left: 4px solid #f59e0b;
   background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%);
 }
-.action-navigate .type { color: #fbbf24; }
+.action-navigate .type,
+.action-switchTab .type { color: #fbbf24; }
 
 .action-script {
   border-left: 4px solid var(--secondary);
@@ -690,3 +693,27 @@
 @supports not (color: color-mix(in srgb, red 50%, blue)) {
   .insert-point-note { background: var(--secondary-bg); }
 }
+
+/* ▶ on a saved scenario's row numbers: play from / up to / only that step (popup/run/play-range.js). */
+#actions li.action > .index[role="button"] { position: relative; border-radius: 4px; cursor: pointer; }
+#actions li.action > .index[role="button"]:hover,
+#actions li.action > .index[role="button"]:focus-visible { color: transparent; background: var(--secondary-bg); outline: none; }
+#actions li.action > .index[role="button"]:hover::after,
+#actions li.action > .index[role="button"]:focus-visible::after {
+  content: "▶"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--primary); font-size: 9px;
+}
+#actions li.action.pr-anchor > .index { color: #fff; background: var(--primary); }
+.pr-menu {
+  position: absolute; z-index: 1200; display: flex; flex-direction: column; gap: 1px; min-width: 210px; padding: 4px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); font-size: 12px;
+}
+.pr-menu button {
+  width: 100%; margin: 0; padding: 5px 8px; text-align: left; font-size: 12px; font-weight: 500;
+  background: transparent; color: var(--text); border: none; border-radius: 6px; box-shadow: none;
+}
+.pr-menu button:hover, .pr-menu button:focus-visible { background: var(--secondary-bg); outline: none; }
+.pr-menu .pr-hint { padding: 4px 8px 2px; font-size: 11px; color: var(--muted); }
+.confirm-modal-check { display: flex; align-items: flex-start; margin-top: 10px; text-align: left; }
+.confirm-modal-check input { margin-top: 2px; }

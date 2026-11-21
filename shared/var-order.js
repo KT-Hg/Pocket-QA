@@ -3,6 +3,7 @@
 // it) and by the popup (popup/variables.js).
 
 import { parseListSpec } from './var-name.js';
+import { isRandomSpec } from './var-spec.js';
 
 /** Sort modes of the Variables table; `custom` is the order rows were dragged into. */
 export const VARIABLE_SORTS = ['custom', 'createdDesc', 'createdAsc', 'updatedDesc', 'nameAsc', 'nameDesc', 'type'];
@@ -40,7 +41,7 @@ export function variableType(v) {
   if (typeof v !== 'string') return 's';
   if (parseListSpec('fallback', v)) return 'f';
   if (parseListSpec('pick', v))     return 'p';
-  if (/^\{random:\w+:\d+\}$/.test(v)) return 'r';
+  if (isRandomSpec(v)) return 'r';
   return 's';
 }
 

@@ -12,7 +12,7 @@
  */
 
 import { conditionSkip } from './switch-blocks.js';
-import { verdictLabel, failCountsText } from './verdict.js';
+import { verdictLabel, failCountsText, partSpan } from './verdict.js';
 import { normalizeVarName } from './var-name.js';
 import { formatStamp } from './time-format.js';
 import { waitMs } from './wait-ms.js';
@@ -121,6 +121,9 @@ const SENTENCES = {
   screenshot_element: (a) => `Take a screenshot of ${_target(a)}`,
   screenshot_tovar:   (a) => `Take a screenshot into ${_code(`\${${normalizeVarName(a.varName)}}`)}`,
   uploadFile:         _uploadText,
+  switchTab:          (a) => (a.tabTarget === 'back'
+    ? `${a.closeTab ? 'Close this tab and go' : 'Go'} back to the tab that opened it`
+    : 'Go to the new tab the page opened'),
 };
 
 /** A step in words, with its label; `showValues`: what was typed, uploaded or scripted. */
@@ -209,6 +212,7 @@ function _head(run, first, env) {
     _when(first.at ?? run.endedAt),
     run.loops > 1 && first.loop ? `loop ${first.loop} of ${run.loops}` : '',
     run.resumed ? 'resumed' : '',
+    run.part ? `steps ${partSpan(run.part)} only (the steps before were not played)` : '',
   ].filter(Boolean).join(' · ');
   const counts = failCountsText(run.verdict || {});
   return [

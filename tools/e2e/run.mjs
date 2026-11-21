@@ -12,7 +12,7 @@
 
 import { readdirSync } from 'node:fs';
 import { sleep } from '../lib/cdp-browser.mjs';
-import { PAGE_SETTLE_MS, POLL_MS, POPUP_SETTLE_MS, SETTLE_MS, check, clickAt, fail, makeScenario, openPopup, pageSoon, play, record, reloadTestPage } from './harness.mjs';
+import { PAGE_SETTLE_MS, POLL_MS, POPUP_SETTLE_MS, SETTLE_MS, check, clickAt, closeQuietly, fail, makeScenario, openPopup, pageSoon, play, record, reloadTestPage, showScenario } from './harness.mjs';
 
 // The overlays content.js does not carry (content-overlays.js): loaded by the worker
 // only for a countdown, a failed-action prompt or a segment capture.
@@ -570,7 +570,195 @@ export async function checkRunHistory(ctx) {
   await ctx.send({ type: 'DELETE_SCENARIO', scenarioId: other });
 }
 
+// ▶ on the row numbers: click #3, Shift+click #4 → asked about ${lbl}, which #2
+// (Read DOM) sets → played with #2 first; then "Play only #5" from #5's menu.
+// Only those steps act on the page; the Last run says which part; no history.
+export async function checkPlayRange(ctx) {
+  await reloadTestPage(ctx);
+  const id = await makeScenario(ctx, 'e2e play range', [
+    { type: 'click', selector: '#bg2', selectors: { css: '#bg2' }, delay: 0 },
+    { type: 'readdom', selector: '#agreeLabel', selectors: { css: '#agreeLabel' }, varName: 'lbl', readFrom: 'text', delay: 0 },
+    { type: 'click', selector: '#choiceA', selectors: { css: '#choiceA' }, delay: 0 },
+    { type: 'input', selector: '#out', selectors: { css: '#out' }, value: '${lbl}', delay: 0 },
+    { type: 'click', selector: '#choiceB', selectors: { css: '#choiceB' }, delay: 0 },
+  ]);
+  const runEnds = async () => {
+    for (let waited = 0; waited < 15_000; waited += POLL_MS) {
+      await sleep(POLL_MS);
+      if (waited > 800 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing) break;
+    }
+    await sleep(SETTLE_MS);
+    return ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get(['lastRun', 'runHistory'], (x) => r({ part: x.lastRun?.part,
+      sid: x.lastRun?.scenarioId, status: x.lastRun?.verdict?.status, history: (x.runHistory?.[${JSON.stringify(id)}] || []).length })))`);
+  };
+  const pageNow = () => ctx.web.evaluate(`({ log: window.__log.filter((l) => !l.startsWith('key ')), out: document.getElementById('out').value })`);
+
+  let popup = await openPopup(ctx);
+  await showScenario(popup, id);
+  const index = (n) => `document.querySelector('#actions li.action[data-index="${n - 1}"] > .index')`;
+  const asButton = await popup.evaluate(`${index(3)}.getAttribute('role')`);
+  await popup.evaluate(`${index(3)}.click()`);
+  await sleep(SETTLE_MS);
+  const menu = await popup.evaluate(`[...document.querySelectorAll('.pr-menu button')].map((b) => b.textContent)`);
+  check(asButton === 'button' && JSON.stringify(menu) === '["▶ Play from #3","▶ Play #1–#3","▶ Play only #3"]',
+    'a saved scenario\'s row number opens Play from / up to / only that step', { asButton, menu });
+  await popup.evaluate(`${index(4)}.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }))`);
+  await sleep(SETTLE_MS);
+  const ask = await popup.evaluate(`({ open: document.getElementById('confirmModal').classList.contains('show'),
+    title: document.getElementById('confirmModalTitle').textContent, msg: document.getElementById('confirmModalMsg').textContent,
+    ticked: document.querySelector('#confirmModalMsg input[type=checkbox]')?.checked })`);
+  check(ask.open && ask.title === 'Play #3–#4?' && /#2 set \$\{lbl\} only in a run/.test(ask.msg) && ask.ticked === true,
+    'Shift+click a second number asks about the variable a left-out Read DOM sets', ask);
+  await ctx.web.bringToFront();
+  await popup.evaluate(`document.getElementById('confirmModalOk').click()`).catch(() => { /* the popup closes itself */ });
+  const part = await runEnds();
+  const page1 = await pageNow();
+  check(JSON.stringify(page1.log) === '["choiceA visible"]' && page1.out === 'Agree'
+    && part.part?.from === 3 && part.part?.to === 4 && part.sid === id && part.history === 0,
+  '#3–#4 plays those two (with #2 first for ${lbl}), is kept as the Last run with its part, not in the history', { page1, part });
+  await closeQuietly(popup);
+
+  await reloadTestPage(ctx);
+  popup = await openPopup(ctx);
+  await showScenario(popup, id);
+  const card = await popup.evaluate(`document.querySelector('#lastRunCard .lr-when').textContent`);
+  check(/^▶ #3–#4 only · /.test(card), 'the Last run card says which steps the part played', card);
+  await popup.evaluate(`${index(5)}.click()`);
+  await sleep(SETTLE_MS);
+  await ctx.web.bringToFront();
+  await popup.evaluate(`[...document.querySelectorAll('.pr-menu button')].find((b) => b.textContent === '▶ Play only #5').click()`).catch(() => { /* closes */ });
+  const only = await runEnds();
+  const page2 = await pageNow();
+  check(JSON.stringify(page2.log) === '["choiceB visible"]' && page2.out === '' && only.part?.from === 5 && only.part?.to === 5,
+    '"Play only #5" plays #5 alone', { page2, only });
+  await closeQuietly(popup);
+}
+
+// 🎯 Pick it: step #1's element is gone (#nope); on its prompt, Pick it → a real click on
+// #choiceA → "Save & go on": the run plays #choiceA, then #2, and the step keeps #choiceA.
+// Again with "This run only": the run goes on, the scenario keeps #nope. The form's
+// picked element (lastPicked*) is never touched. On a tab of its own: content.js logs the
+// missing element as a console error, which the suite's last check counts on the test tab.
+export async function checkPickOnFailure(ctx) {
+  const web = await ctx.browser.openPage(`${ctx.base}/page`, { width: 1000, height: 700 });
+  await sleep(PAGE_SETTLE_MS);
+  const scenario = (name) => makeScenario(ctx, name, [
+    { type: 'click', selector: '#nope', selectors: { css: '#nope' }, label: 'Choose A', timeout: 1500, delay: 0 },
+    { type: 'click', selector: '#choiceB', selectors: { css: '#choiceB' }, delay: 0 },
+  ]);
+  const prompt = () => web.evaluate(`(() => { const p = document.getElementById('__action_failed_prompt');
+    return p ? { text: p.textContent, buttons: [...p.querySelectorAll('button')].map((b) => b.textContent) } : null; })()`);
+  const press = (label) => web.evaluate(`[...document.querySelectorAll('#__action_failed_prompt button')].find((b) => b.textContent === ${JSON.stringify(label)})?.click()`);
+  const waitFor = async (fn, ms = 10_000) => { let v = null; for (let w = 0; !v && w < ms; w += POLL_MS) { v = await fn(); if (!v) await sleep(POLL_MS); } return v; };
+  const stored = (id) => ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get(['scenarios', 'lastRun', 'lastPickedSelector'], (x) => r({
+    css: x.scenarios[${JSON.stringify(id)}].actions[0].selectors.css, picks: x.lastRun?.picks, status: x.lastRun?.verdict?.status,
+    formPick: x.lastPickedSelector ?? null })))`);
+  const runOnce = async (id, answer) => {
+    await web.reload();
+    await sleep(PAGE_SETTLE_MS);
+    await web.bringToFront();
+    await ctx.send({ type: 'START_PLAYBACK_SCENARIO', scenarioId: id });
+    const first = await waitFor(async () => (await prompt())?.buttons.includes('🎯 Pick it') && prompt());
+    await press('🎯 Pick it');
+    const bar = await waitFor(() => web.evaluate(`document.getElementById('__picker_bar')?.textContent || null`));
+    await clickAt({ web }, '#choiceA');
+    const confirm = await waitFor(async () => { const p = await prompt(); return p?.text.includes('Use this for action 1?') ? p : null; });
+    await press(answer);
+    for (let w = 0; w < 10_000; w += POLL_MS) { await sleep(POLL_MS); if (w > 500 && !(await ctx.send({ type: 'GET_EXTENSION_STATUS' }))?.playing) break; }
+    await sleep(SETTLE_MS);
+    const log = await web.evaluate(`window.__log.filter((l) => !l.startsWith('key '))`);
+    return { first, bar, confirm, log, after: await stored(id) };
+  };
+
+  const before = (await stored(await scenario('e2e pick probe'))).formPick;
+  const a = await runOnce(await scenario('e2e pick save'), 'Save & go on');
+  check(JSON.stringify(a.first?.buttons) === '["↻ Retry","🎯 Pick it","⏭ Skip","■ Stop"]' && /action 1 should use/.test(a.bar || ''),
+    'a failed step\'s prompt offers 🎯 Pick it, which starts the picker on the page', { first: a.first, bar: a.bar });
+  check(/Picked: button “choiceA”/.test(a.confirm?.text || '') && JSON.stringify(a.confirm?.buttons) === '["Save & go on","This run only","🎯 Pick again","Cancel"]',
+    'the picked element is named, with Save & go on / This run only / Pick again / Cancel', a.confirm);
+  check(JSON.stringify(a.log) === '["choiceA visible","choiceB visible"]' && a.after.css === '#choiceA' && a.after.status === 'passed'
+    && a.after.picks?.[0]?.saved === true && a.after.picks[0].index === 1,
+  'Save & go on: the step plays on the picked element, keeps it, and the run passes', { log: a.log, after: a.after });
+  const b = await runOnce(await scenario('e2e pick once'), 'This run only');
+  check(JSON.stringify(b.log) === '["choiceA visible","choiceB visible"]' && b.after.css === '#nope' && b.after.picks?.[0]?.saved === false,
+    'This run only: the run goes on with the picked element, the scenario keeps its own', { log: b.log, after: b.after });
+  check(b.after.formPick === before, 'a pick for a run leaves the form\'s picked element alone', { before, after: b.after.formPick });
+  await closeQuietly(web);
+  await ctx.web.bringToFront();
+}
+
+// 📱 Run as: iPhone 14 + Slow 3G, chosen in the popup. The page loads behind 2 s of
+// latency, on a 390 px screen with an iPhone's user agent (a page with no viewport
+// meta lays out 980 px wide, as on a phone), and stays so after a Script step and a
+// full-page capture (both use the run's debugger session); after the run it is the
+// browser's again. As the browser is, nothing is attached.
+export async function checkRunAs(ctx) {
+  await ctx.ext.evaluate(`chrome.storage.sync.set({ screenshotSaveMode: 'auto', screenshotPrefix: 'e2e' })`);
+  const facts = (field) => ({ type: 'script', code: `document.getElementById('${field}').value = screen.width + ' ' + /iPhone/.test(navigator.userAgent) + ' ' + Math.round(performance.getEntriesByType('navigation')[0].responseStart)`, delay: 0 });
+  const id = await makeScenario(ctx, 'e2e run as', [
+    { type: 'navigate', url: `${ctx.base}/page`, delay: 0 },
+    facts('out'),
+    { type: 'screenshot_full', delay: 0 },
+    facts('big'),
+  ]);
+  const popup = await openPopup(ctx);
+  await showScenario(popup, id);
+  const options = await popup.evaluate(`[...document.querySelectorAll('#runAsDevice option, #runAsNetwork option')].map((o) => o.value)`);
+  await popup.evaluate(`(() => {
+    const d = document.getElementById('runAsDevice'); d.value = 'iphone14'; d.dispatchEvent(new Event('change'));
+    const n = document.getElementById('runAsNetwork'); n.value = 'slow3g'; n.dispatchEvent(new Event('change'));
+  })()`);
+  await sleep(SETTLE_MS * 2);
+  const note = await popup.evaluate(`document.getElementById('scenarioRunAsNote').hidden ? null : document.getElementById('scenarioRunAsNote').textContent`);
+  const stored = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('scenarios', (x) => r(x.scenarios[${JSON.stringify(id)}].runAs)))`);
+  check(options.includes('iphone14') && options.includes('slow3g') && /Plays as 📱 iPhone 14 · Slow 3G/.test(note || '')
+    && stored?.device === 'iphone14' && stored?.network === 'slow3g', 'Run as is chosen under Loop and kept on the scenario', { note, stored });
+  await closeQuietly(popup);
+
+  const page = await play(ctx, id);
+  const [w1, ios1, wait1] = String(page.out).split(' ');
+  const [w2, ios2] = String(page.big).split(' ');
+  const after = await ctx.web.evaluate(`screen.width + ' ' + /iPhone/.test(navigator.userAgent)`);
+  const lastRun = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('lastRun', (x) => r(x.lastRun?.runAs)))`);
+  check(w1 === '390' && ios1 === 'true' && Number(wait1) >= 1900, 'the run plays as an iPhone 14 behind Slow 3G latency', page);
+  check(w2 === '390' && ios2 === 'true', 'it stays an iPhone after a Script step and a full-page capture', page.big);
+  check(!after.startsWith('390 ') && after.endsWith(' false') && lastRun?.device === 'iphone14', 'after the run the page is the browser\'s again; the Last run says how it played', { after, lastRun });
+
+  // As the browser is again: no debugger, the window's width.
+  await ctx.send({ type: 'SET_SCENARIO_RUN_AS', scenarioId: id, runAs: null });
+  const plain = await play(ctx, id);
+  check(!String(plain.out).startsWith('390 ') && String(plain.out).includes(' false '), 'without Run as the run plays as the browser is', plain.out);
+}
+
+// ↗ Switch tab, played: a link opens the child tab; the run goes there, clicks #choiceB
+// (the child keeps its log in localStorage, shared with the first tab), comes back
+// closing it, and clicks #choiceA on the first tab. The child tab is gone after.
+export async function checkSwitchTabPlay(ctx) {
+  await reloadTestPage(ctx);
+  await ctx.web.evaluate(`localStorage.removeItem('childLog')`);
+  const id = await makeScenario(ctx, 'e2e switch tab', [
+    { type: 'script', code: `document.body.insertAdjacentHTML('beforeend', '<a id="newTabLink" href="/page?child" target="_blank">open</a>')`, delay: 0 },
+    { type: 'click', selector: '#newTabLink', selectors: { css: '#newTabLink' }, delay: 0 },
+    { type: 'switchTab', tabTarget: 'new', delay: 0 },
+    { type: 'click', selector: '#choiceB', selectors: { css: '#choiceB' }, delay: 0 },
+    { type: 'script', code: `localStorage.setItem('childLog', location.search + ' ' + window.__log.filter((l) => !l.startsWith('key ')).join(','))`, delay: 0 },
+    { type: 'switchTab', tabTarget: 'back', closeTab: true, delay: 0 },
+    { type: 'click', selector: '#choiceA', selectors: { css: '#choiceA' }, delay: 0 },
+  ]);
+  const page = await play(ctx, id);
+  const childLog = await ctx.web.evaluate(`localStorage.getItem('childLog')`);
+  const children = await ctx.ext.evaluate(`new Promise((r) => chrome.tabs.query({ url: ${JSON.stringify(`${ctx.base}/page?child*`)} }, (t) => r(t.length)))`);
+  const lastRun = await ctx.ext.evaluate(`new Promise((r) => chrome.storage.local.get('lastRun', (x) => r(x.lastRun?.verdict?.status)))`);
+  check(childLog === '?child choiceB visible' && JSON.stringify(page.log.filter((l) => !l.startsWith('key '))) === '["choiceA visible"]'
+    && children === 0 && lastRun === 'passed',
+  'the run plays on in the tab the page opened, then comes back and closes it', { childLog, log: page.log, children, lastRun });
+}
+
 export const CHECKS = [
+  ['switch-tab', '↗ Switch tab: play on in the new tab, then back', checkSwitchTabPlay],
+  ['run-as', '📱 Run as a device and on a slower network', checkRunAs],
+  ['pick-on-failure', '🎯 Pick it on a failed step\'s prompt', checkPickOnFailure],
+  ['play-range', '▶ Play from / up to / only a step, from the row numbers', checkPlayRange],
   ['locator-check', '🩹 Steps whose locators disagree, and taking them again', checkLocatorCheck],
   ['run-history', '📈 The last runs of a scenario on the Last run card', checkRunHistory],
   ['overlays', 'The countdown, failed-action prompt and segment bar, loaded when needed', checkOverlays],

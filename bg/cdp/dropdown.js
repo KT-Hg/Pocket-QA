@@ -4,6 +4,7 @@
 
 import { ignoreLastError } from '../last-error.js';
 import { markSessionClosed, markSessionOpen } from './session.js';
+import { attachOrReuse } from './run-session.js';
 import { DEEP_RECT_FN, deepFindExpr } from './deep-find.js';
 
 // Resolve after this long anyway, so a crashed renderer cannot hang the run.
@@ -32,8 +33,8 @@ export function openDropdownViaCdp(tabId, selector) {
       // the element still receives the trusted click event.
       void tab; // tab retained for potential future use (e.g. windowId checks)
       const focusAndOpen = () => {
-        chrome.debugger.attach({ tabId }, '1.3', () => {
-          const alreadyAttached = !!chrome.runtime.lastError;
+        // A run playing as a device (cdp/run-session.js) holds the session: used, never detached.
+        attachOrReuse(tabId, (alreadyAttached) => {
 
           let _doneCalled = false;
           const done = () => {

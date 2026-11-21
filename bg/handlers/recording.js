@@ -20,6 +20,73 @@ import { runPanelState } from '../run-panel.js';
 // A playback checkpoint younger than this is offered for resume when its tab reloads.
 const RESUME_OFFER_WINDOW_MS = 60_000;
 
+/* === ↗ FOLLOWING A NEW TAB ===
+ * A link with target=_blank, window.open, a sign-in popup: the recorded tab opens
+ * a tab, the user goes there — the recording goes with them, and the scenario gets
+ * a ↗ Switch tab step (bg/playback/steps/switch-tab.js). Back to the tab that
+ * opened it, or that tab closed: a ↩ step (closing the tab, when it was closed).
+ * The click that opened the tab can reach the worker after the tab did: actions
+ * of the tab just left are taken for GRACE_MS more, before the ↗ step.
+ */
+const GRACE_MS = 3_000;
+
+function _recordStep(action) {
+  const snapshot = [...state.currentActions];
+  state.currentActions.push(action);
+  pushUndo('current', snapshot);
+  persistRecordingState();
+  chrome.runtime.sendMessage({ type: 'RECORDED_ACTION', action }).catch(() => {});
+}
+
+/** The recording moves to `toTabId`, the scenario gets `action` (a switchTab). */
+function _follow(toTabId, action) {
+  state.recordingGrace = { tabId: state.recordingTabId, until: Date.now() + GRACE_MS, index: state.currentActions.length };
+  state.recordingTabId = toTabId;
+  _recordStep({ ...action, delay: 500 });
+  broadcastRecordingState(true);
+}
+
+// A tab event can be what wakes the worker: the recording saved before it slept comes back first.
+const _whenRestored = (fn) => (...args) => { restoreRecordingState().then(() => fn(...args)); };
+
+chrome.tabs.onCreated.addListener(_whenRestored((tab) => {
+  if (state.recording && tab?.openerTabId != null && tab.openerTabId === state.recordingTabId) {
+    state.recordingChildTabs[tab.id] = tab.openerTabId;
+    persistRecordingState();
+  }
+}));
+
+chrome.tabs.onActivated.addListener(_whenRestored(({ tabId } = {}) => {
+  if (!state.recording || state.recordingTabId == null || tabId == null || tabId === state.recordingTabId) return;
+  if (state.recordingChildTabs[tabId] === state.recordingTabId) {
+    state.recordingTabStack.push(state.recordingTabId);
+    _follow(tabId, { type: 'switchTab', tabTarget: 'new' });
+    return;
+  }
+  if (state.recordingTabStack.at(-1) !== tabId) return;
+  // Back to the tab that opened this one: closed on the way (closeTab), or still open.
+  const leaving = state.recordingTabId;
+  chrome.tabs.get(leaving, (t) => {
+    const gone = !!chrome.runtime.lastError || !t;
+    if (!state.recording || state.recordingTabId !== leaving || state.recordingTabStack.at(-1) !== tabId) return;
+    state.recordingTabStack.pop();
+    _follow(tabId, { type: 'switchTab', tabTarget: 'back', ...(gone ? { closeTab: true } : {}) });
+  });
+}));
+
+chrome.tabs.onRemoved.addListener(_whenRestored((tabId) => {
+  delete state.recordingChildTabs[tabId];
+  if (!state.recording || tabId !== state.recordingTabId || !state.recordingTabStack.length) return;
+  _follow(state.recordingTabStack.pop(), { type: 'switchTab', tabTarget: 'back', closeTab: true });
+}));
+
+/** A recording that starts or ends follows no tab. */
+function _resetFollow() {
+  state.recordingTabStack = [];
+  state.recordingChildTabs = {};
+  state.recordingGrace = null;
+}
+
 /* === RECORDING STATE FAN-OUT === */
 
 /**
@@ -115,12 +182,16 @@ export const recordingHandlers = {
     // no session is running, but a frame injected before the gate existed (or one
     // that missed the RECORDING_STATE broadcast) can still send; re-broadcasting
     // its payload would put page input values on the message bus for no reason.
-    if (!_recordsTab(sender.tab?.id) || state.pickMode) { sendResponse({ received: false }); return; }
+    // The tab a ↗ step just left: its last click may come after the step (_follow).
+    const grace = state.recordingGrace;
+    const late = !!grace && sender.tab?.id === grace.tabId && Date.now() < grace.until;
+    if ((!_recordsTab(sender.tab?.id) && !late) || state.pickMode) { sendResponse({ received: false }); return; }
     const act = fromExtensionPage(sender) ? request.action : _recordedFromPage(request.action, sender);
     if (!act) { sendResponse({ received: false }); return; }
     const snapshot = [...state.currentActions];
     if (act.delay == null) act.delay = 500;
-    state.currentActions.push(act);
+    if (late) state.currentActions.splice(grace.index++, 0, act);
+    else state.currentActions.push(act);
     pushUndo("current", snapshot);
     persistRecordingState(); // persist across SW suspend
     chrome.runtime.sendMessage({ type: 'RECORDED_ACTION', action: act }).catch(() => {});
@@ -199,6 +270,7 @@ export const recordingHandlers = {
       state.recording = true;
       state.recordingTabId = tabId;
       state.recordingScenarioId = scenarioId || null;
+      _resetFollow();
       state.currentActions = [];
       getStack("current").undo = [];
       getStack("current").redo = [];
@@ -232,13 +304,14 @@ export const recordingHandlers = {
     // on another tab went into the stream — it would have come back as data here).
     const fromExt = fromExtensionPage(sender);
     state.recording = false;
+    _resetFollow();
     const sid = state.recordingScenarioId;
     state.recordingScenarioId = null;
     updateBadge();
     broadcastRecordingState(false);
     // Remove session-storage snapshot — persisted only to survive SW suspend
     // during recording, no longer needed after stop.
-    chrome.storage.session?.remove?.(['rec_recording','rec_scenarioId','rec_tabId','rec_actions','rec_timestamp'], () => {});
+    chrome.storage.session?.remove?.(['rec_recording','rec_scenarioId','rec_tabId','rec_actions','rec_timestamp','rec_tabStack','rec_children'], () => {});
     if (sid) {
       const newActions = [...state.currentActions];
       state.currentActions = [];

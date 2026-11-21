@@ -29,6 +29,10 @@ export function getActionDisplayValue(a) {
     const target = a.selector && a.expectedValue ? `${a.selector} = "${a.expectedValue}"` : a.selector || a.expectedValue || "";
     return `${a.conditionType || 'elementExists'}: ${target}`;
   }
+  if (a.type === "switchTab") {
+    if (a.tabTarget === "back") return `↩ Back to the tab that opened this one${a.closeTab ? " · closes this one" : ""}`;
+    return `↗ New tab this one opens · waits ${Math.round((Number(a.timeout) || 10000) / 1000)} s`;
+  }
   if (a.type === "dragdrop") {
     return `${a.selector || "(no source)"} → ${a.targetSelector || "(no target)"}`;
   }
@@ -667,9 +671,15 @@ function createActionListItem(a, i, scenarioId, view = null) {
     ? `<span class="sw-toggle" role="button" tabindex="0" data-switch="${i}" aria-label="Collapse or expand the ${isBlockSwitch ? "Switch cases and block" : "actions this Condition guards"}" aria-expanded="true"><span class="chev" aria-hidden="true">▸</span></span>`
     : "";
 
-  const placeTitle = e?.chain.length ? ` title="${escHtml(_placeOf(e.chain, view.actions))}"` : "";
+  // A saved scenario's number is ▶: play from / to / only this step (run/play-range.js).
+  const place = e?.chain.length ? _placeOf(e.chain, view.actions) : "";
+  const playTip = scenarioId ? `Play from here, up to here or only this step — Shift+click another number: the steps between` : "";
+  // A row in a Switch block keeps its place as the tooltip; aria-label says what a click does.
+  const indexTitle = place || playTip;
+  const indexAttrs = (indexTitle ? ` title="${escHtml(indexTitle)}"` : "")
+    + (scenarioId ? ` role="button" tabindex="0" aria-haspopup="menu" aria-label="Play action ${escHtml(no)}…"` : "");
   li.innerHTML = `
-    <span class="index"${placeTitle}>${escHtml(no)}.</span>
+    <span class="index"${indexAttrs}>${escHtml(no)}.</span>
     <span class="type">${getActionIcon(a.type)}${escHtml(a.type)}${toggleHtml}</span>
     <span class="value" title="${a.label ? `${escHtml(a.label)}&#10;` : ""}${escHtml(value)}${escHtml(delayText)}">
       <span class="value-main">${warnHtml}${secretHtml}${clickThroughHtml}${escHtml(mainText)}${escHtml(delayText)}</span>

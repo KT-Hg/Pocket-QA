@@ -21,6 +21,7 @@ import { tabMsg } from '../tabs.js';
 import { uint8ToBase64 } from './base64.js';
 import { CaptureCancelled, cancelledCaptures } from './cancel.js';
 import { attachDebugger, cdpRaf, measureViewport, DETACH_SETTLE_MS, RAF_TIMEOUT_MS, TILE_SETTLE_MS } from './cdp.js';
+import { detachUnlessHeld } from '../cdp/run-session.js';
 import { openCropUI } from './crop.js';
 import { downloadDataUrl } from './download.js';
 import { buildDateFolder, buildScreenshotFilename, typeTagEnabled } from './filename.js';
@@ -520,7 +521,8 @@ async function restoreAfterCapture(tabId) {
   await new Promise((resolve) => {
     chrome.debugger.sendCommand({ tabId }, 'Emulation.clearDeviceMetricsOverride', {}, resolve);
   });
-  await new Promise((resolve) => chrome.debugger.detach({ tabId }, resolve));
+  // A run playing as a device keeps its session, and gets its device back (cdp/run-session.js).
+  await detachUnlessHeld(tabId);
   await new Promise(r => setTimeout(r, DETACH_SETTLE_MS));
 }
 
@@ -542,7 +544,7 @@ async function restoreAfterError(tabId, scrollX, scrollY) {
   await new Promise((resolve) => {
     chrome.debugger.sendCommand({ tabId }, 'Emulation.clearDeviceMetricsOverride', {}, () => { void chrome.runtime.lastError; resolve(); });
   });
-  await new Promise((resolve) => chrome.debugger.detach({ tabId }, () => { void chrome.runtime.lastError; resolve(); }));
+  await detachUnlessHeld(tabId);
   markSessionClosed(tabId);
   await restorePageDom(tabId);
 }

@@ -5,6 +5,7 @@
   "calls": [
    "tabs.onRemoved.addListener []",
    "storage.session.get [[\"undoStacks\"]]",
+   "debugger.onDetach.addListener []",
    "tabs.onRemoved.addListener []",
    "runtime.onMessage.addListener []",
    "debugger.onDetach.addListener []",
@@ -13,6 +14,9 @@
    "runtime.onMessage.addListener []",
    "windows.onRemoved.addListener []",
    "runtime.onMessage.addListener []",
+   "tabs.onCreated.addListener []",
+   "tabs.onActivated.addListener []",
+   "tabs.onRemoved.addListener []",
    "runtime.onMessage.addListener []",
    "runtime.onInstalled.addListener []",
    "storage.local.get [[\"schedules\"]]",
@@ -22,7 +26,7 @@
    "runtime.onUpdateAvailable.addListener []",
    "storage.onChanged.addListener []",
    "storage.local.get [[\"lastUpdateAt\",\"updateAvailableSince\",\"updateStatus\"]]",
-   "storage.session.get [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\"]]",
+   "storage.session.get [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\",\"rec_tabStack\",\"rec_children\"]]",
    "storage.session.get [[\"csv_pending\"]]",
    "alarms.onAlarm.addListener []",
    "runtime.onMessage.addListener []",
@@ -59,6 +63,9 @@
    "recording": false,
    "recordingTabId": null,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -254,7 +261,7 @@
    {"started":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s1\",\"rec_tabId\":1,\"rec_actions\":[],\"rec_timestamp\":1768467600000}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s1\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[],\"rec_timestamp\":1768467600000}]",
    "action.setBadgeText [{\"text\":\"REC\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#ef4444\"}]",
    "tabs.query [{}]",
@@ -265,12 +272,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"lastSelectedScenario":"s2","csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000}},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_actions":[],"rec_timestamp":1768467600000}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[],"rec_timestamp":1768467600000}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -298,7 +308,7 @@
    {"received":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s1\",\"rec_tabId\":1,\"rec_actions\":[{\"type\":\"hover\",\"selector\":\"#r1\",\"delay\":500}],\"rec_timestamp\":1768467600000}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s1\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[{\"type\":\"hover\",\"selector\":\"#r1\",\"delay\":500}],\"rec_timestamp\":1768467600000}]",
    "runtime.sendMessage [{\"type\":\"RECORDED_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#r1\",\"delay\":500}}]",
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[]],\"redo\":[]}}}]"
   ],
@@ -306,12 +316,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"lastSelectedScenario":"s2","csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000}},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_actions":[{"type":"hover","selector":"#r1","delay":500}],"rec_timestamp":1768467600000,"undoStacks":{"current":{"undo":[[]],"redo":[]}}}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"hover","selector":"#r1","delay":500}],"rec_timestamp":1768467600000,"undoStacks":{"current":{"undo":[[]],"redo":[]}}}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"hover","selector":"#r1","delay":500}],
    "undoStack": [],
@@ -339,7 +352,7 @@
    {"received":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s1\",\"rec_tabId\":1,\"rec_actions\":[{\"type\":\"hover\",\"selector\":\"#r1\",\"delay\":500},{\"type\":\"input\",\"selector\":\"#r2\",\"value\":\"v\",\"delay\":0}],\"rec_timestamp\":1768467600500}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s1\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[{\"type\":\"hover\",\"selector\":\"#r1\",\"delay\":500},{\"type\":\"input\",\"selector\":\"#r2\",\"value\":\"v\",\"delay\":0}],\"rec_timestamp\":1768467600500}]",
    "runtime.sendMessage [{\"type\":\"RECORDED_ACTION\",\"action\":{\"type\":\"input\",\"selector\":\"#r2\",\"value\":\"v\",\"delay\":0}}]",
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[],[{\"type\":\"hover\",\"selector\":\"#r1\",\"delay\":500}]],\"redo\":[]}}}]"
   ],
@@ -347,12 +360,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"lastSelectedScenario":"s2","csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000}},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}]],"redo":[]}}}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}]],"redo":[]}}}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],
    "undoStack": [],
@@ -440,6 +456,9 @@
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"hover","selector":"#r1","delay":500}],
    "undoStack": [],
@@ -472,6 +491,9 @@
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],
    "undoStack": [],
@@ -522,12 +544,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"lastSelectedScenario":"s2","csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000}},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}]],"redo":[]}}}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}]],"redo":[]}}}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],
    "undoStack": [],
@@ -561,12 +586,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"lastSelectedScenario":"s2","csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000}},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}]],"redo":[]}}}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}]],"redo":[]}}}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],
    "undoStack": [],
@@ -617,12 +645,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"lastSelectedScenario":"s2","csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000}},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}]],"redo":[]}}}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}]],"redo":[]}}}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true},{"type":"wait","value":"100"}],
    "undoStack": [],
@@ -673,12 +704,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"lastSelectedScenario":"s2","csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000}},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true},{"type":"wait","value":"100"}]],"redo":[]}}}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true},{"type":"wait","value":"100"}]],"redo":[]}}}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true}],
    "undoStack": [],
@@ -729,12 +763,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"lastSelectedScenario":"s2","csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000}},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true},{"type":"wait","value":"100"}],[{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true}]],"redo":[]}}}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"rec_recording":true,"rec_scenarioId":"s1","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],"rec_timestamp":1768467600500,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true},{"type":"wait","value":"100"}],[{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true}]],"redo":[]}}}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],
    "undoStack": [],
@@ -788,6 +825,9 @@
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": true,
    "currentActions": [{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],
    "undoStack": [],
@@ -841,6 +881,9 @@
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s1",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],
    "undoStack": [],
@@ -870,7 +913,7 @@
   "calls": [
    "action.setBadgeText [{\"text\":\"\"}]",
    "tabs.query [{}]",
-   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\"]]",
+   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\",\"rec_tabStack\",\"rec_children\"]]",
    "storage.local.get [[\"scenarios\"]]",
    "tabs.sendMessage [1,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
    "tabs.sendMessage [2,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
@@ -889,6 +932,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -934,7 +980,7 @@
   ],
   "calls": [
    "storage.local.get [[\"lastSelectedScenario\"]]",
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_actions\":[],\"rec_timestamp\":1768467604000}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[],\"rec_timestamp\":1768467604000}]",
    "action.setBadgeText [{\"text\":\"REC\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#ef4444\"}]",
    "tabs.query [{}]",
@@ -945,12 +991,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"lastSelectedScenario":"s2","csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000},"pendingRecordScenarioId":"s1"},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true},{"type":"wait","value":"100"}],[{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}]],"redo":[]}},"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_actions":[],"rec_timestamp":1768467604000}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"hover","selector":"#r1","delay":500}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0}],[{"type":"hover","selector":"#r1","delay":500},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0},{"type":"wait","value":"100"}],[{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true},{"type":"wait","value":"100"}],[{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"input","selector":"#r2","value":"v","delay":0,"disabled":true}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}]],"redo":[]}},"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[],"rec_timestamp":1768467604000}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s2",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -980,7 +1029,7 @@
   "calls": [
    "action.setBadgeText [{\"text\":\"\"}]",
    "tabs.query [{}]",
-   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\"]]",
+   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\",\"rec_tabStack\",\"rec_children\"]]",
    "storage.local.get [[\"scenarios\"]]",
    "tabs.sendMessage [1,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
    "tabs.sendMessage [2,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
@@ -999,6 +1048,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -1027,7 +1079,7 @@
   ],
   "calls": [
    "storage.local.get [[\"lastSelectedScenario\"]]",
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":null,\"rec_tabId\":1,\"rec_actions\":[],\"rec_timestamp\":1768467604500}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":null,\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[],\"rec_timestamp\":1768467604500}]",
    "action.setBadgeText [{\"text\":\"REC\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#ef4444\"}]",
    "tabs.query [{}]",
@@ -1038,12 +1090,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000},"pendingRecordScenarioId":"s2"},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]}},"rec_recording":true,"rec_scenarioId":null,"rec_tabId":1,"rec_actions":[],"rec_timestamp":1768467604500}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]}},"rec_recording":true,"rec_scenarioId":null,"rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[],"rec_timestamp":1768467604500}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -1071,7 +1126,7 @@
    {"received":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":null,\"rec_tabId\":1,\"rec_actions\":[{\"type\":\"hover\",\"selector\":\"#n\",\"delay\":500}],\"rec_timestamp\":1768467604500}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":null,\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[{\"type\":\"hover\",\"selector\":\"#n\",\"delay\":500}],\"rec_timestamp\":1768467604500}]",
    "runtime.sendMessage [{\"type\":\"RECORDED_ACTION\",\"action\":{\"type\":\"hover\",\"selector\":\"#n\",\"delay\":500}}]",
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[]],\"redo\":[]},\"s1\":{\"undo\":[[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"}]],\"redo\":[]},\"s2\":{\"undo\":[[]],\"redo\":[]}}}]"
   ],
@@ -1079,12 +1134,15 @@
   "storage": {
    "local": {"scenarios":{"s1":{"name":"Login","actions":[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],"folderId":"f1","createdAt":1,"updatedAt":2},"s2":{"name":"Empty","actions":[],"folderId":null,"createdAt":3},"s3":{"name":"Blocks","actions":[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],"folderId":"f1","createdAt":4}},"folders":{"f1":{"name":"Folder 1","createdAt":1}},"variables":{"user":"alice","role":{"activeType":"p","p":["a","b"]}},"schedules":[{"id":"sc1","scenarioId":"s2","time":"10:30","enabled":true,"repeat":true,"label":"Daily"},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":true,"repeat":false}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"a"},{"user":"b"}]},"lastUpdateAt":1768467600000,"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467600000},"pendingRecordScenarioId":"s2"},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"shot"},
-   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]}},"rec_recording":true,"rec_scenarioId":null,"rec_tabId":1,"rec_actions":[{"type":"hover","selector":"#n","delay":500}],"rec_timestamp":1768467604500}
+   "session": {"csv_pending":{"scenarioId":"s2","currentRow":1,"delayBetween":500,"exportFormat":"csv","timestamp":1768467599000},"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]}},"rec_recording":true,"rec_scenarioId":null,"rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"hover","selector":"#n","delay":500}],"rec_timestamp":1768467604500}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"hover","selector":"#n","delay":500}],
    "undoStack": [],
@@ -1114,7 +1172,7 @@
   "calls": [
    "action.setBadgeText [{\"text\":\"\"}]",
    "tabs.query [{}]",
-   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\"]]",
+   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\",\"rec_tabStack\",\"rec_children\"]]",
    "tabs.sendMessage [1,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
    "tabs.sendMessage [2,{\"type\":\"RECORDING_STATE\",\"recording\":false}]"
   ],
@@ -1128,6 +1186,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"hover","selector":"#n","delay":500}],
    "undoStack": [],
@@ -1468,6 +1529,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -2336,6 +2400,7 @@
    "action.setBadgeBackgroundColor [{\"color\":\"#f97316\"}]",
    "storage.local.get [[\"variables\",\"variableOrder\",\"variableSort\"]]",
    "tabs.onRemoved.addListener []",
+   "tabs.onCreated.addListener []",
    "storage.local.get [\"runHistory\"]",
    "storage.local.get [[\"scenarios\"]]",
    "storage.local.set [{\"runHistory\":{\"r1\":[{\"how\":\"sequence\",\"startedAt\":1768467607500,\"endedAt\":1768467607500,\"status\":\"passed\",\"fp\":\"w7k42t\"}]}}]",
@@ -2355,6 +2420,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -2432,6 +2500,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -2527,6 +2598,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -2644,6 +2718,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -3025,6 +3102,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -3093,6 +3173,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -3135,6 +3218,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": true,
    "currentActions": [],
    "undoStack": [],
@@ -3187,6 +3273,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": true,
    "currentActions": [],
    "undoStack": [],
@@ -3236,6 +3325,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": true,
    "currentActions": [],
    "undoStack": [],
@@ -3272,6 +3364,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": true,
    "currentActions": [],
    "undoStack": [],
@@ -3304,6 +3399,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": true,
    "currentActions": [],
    "undoStack": [],
@@ -3461,6 +3559,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": true,
    "currentActions": [],
    "undoStack": [],
@@ -3495,6 +3596,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": true,
    "currentActions": [],
    "undoStack": [],
@@ -3837,7 +3941,7 @@
    {"started":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_actions\":[],\"rec_timestamp\":1768467643130}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[],\"rec_timestamp\":1768467643130}]",
    "action.setBadgeText [{\"text\":\"REC\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#ef4444\"}]",
    "tabs.query [{}]",
@@ -3848,12 +3952,15 @@
   "storage": {
    "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"sc1","scenarioId":"s1","time":"7","enabled":false},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":false,"repeat":false},{"id":"scUrl","scenarioId":"s2","time":"08:00","enabled":true,"repeat":true,"url":"https://example.com/start"}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"https://example.com/page":[{"id":"h1","text":"alpha"},{"id":"h1b","text":"gamma"}],"example.com/b":[{"id":"h2","text":"beta"}]},"runHistory":{"r1":[{"how":"sequence","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"},{"how":"resume","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
-   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_actions":[],"rec_timestamp":1768467643130}
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[],"rec_timestamp":1768467643130}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s2",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -3917,7 +4024,7 @@
    {"received":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#go\",\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467643130}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#go\",\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467643130}]",
    "runtime.sendMessage [{\"type\":\"RECORDED_ACTION\",\"action\":{\"type\":\"click\",\"selector\":\"#go\",\"frameId\":0,\"delay\":500}}]",
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[]],\"redo\":[]},\"s1\":{\"undo\":[[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"},{\"type\":\"wait\",\"value\":\"5\"}]],\"redo\":[]},\"s2\":{\"undo\":[[]],\"redo\":[]},\"s3\":{\"undo\":[[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"hover\",\"selector\":\"#x\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\",\"disabled\":true},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}]],\"redo\":[]},\"00000000-0000-4000-8000-000000000012\":{\"undo\":[[]],\"redo\":[]}}}]"
   ],
@@ -3925,12 +4032,15 @@
   "storage": {
    "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"sc1","scenarioId":"s1","time":"7","enabled":false},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":false,"repeat":false},{"id":"scUrl","scenarioId":"s2","time":"08:00","enabled":true,"repeat":true,"url":"https://example.com/start"}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"https://example.com/page":[{"id":"h1","text":"alpha"},{"id":"h1b","text":"gamma"}],"example.com/b":[{"id":"h2","text":"beta"}]},"runHistory":{"r1":[{"how":"sequence","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"},{"how":"resume","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
-   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_actions":[{"type":"click","selector":"#go","frameId":0,"delay":500}],"rec_timestamp":1768467643130}
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"click","selector":"#go","frameId":0,"delay":500}],"rec_timestamp":1768467643130}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s2",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"click","selector":"#go","frameId":0,"delay":500}],
    "undoStack": [],
@@ -3960,7 +4070,7 @@
   "calls": [
    "action.setBadgeText [{\"text\":\"\"}]",
    "tabs.query [{}]",
-   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\"]]",
+   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\",\"rec_tabStack\",\"rec_children\"]]",
    "storage.local.get [[\"scenarios\"]]",
    "tabs.sendMessage [1,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
    "tabs.sendMessage [2,{\"type\":\"RECORDING_STATE\",\"recording\":false}]"
@@ -3975,6 +4085,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -4002,7 +4115,7 @@
    {"started":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_actions\":[],\"rec_timestamp\":1768467643630}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[],\"rec_timestamp\":1768467643630}]",
    "action.setBadgeText [{\"text\":\"REC\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#ef4444\"}]",
    "tabs.query [{}]",
@@ -4013,12 +4126,15 @@
   "storage": {
    "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"sc1","scenarioId":"s1","time":"7","enabled":false},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":false,"repeat":false},{"id":"scUrl","scenarioId":"s2","time":"08:00","enabled":true,"repeat":true,"url":"https://example.com/start"}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"https://example.com/page":[{"id":"h1","text":"alpha"},{"id":"h1b","text":"gamma"}],"example.com/b":[{"id":"h2","text":"beta"}]},"runHistory":{"r1":[{"how":"sequence","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"},{"how":"resume","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
-   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_actions":[],"rec_timestamp":1768467643630}
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[],"rec_timestamp":1768467643630}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s2",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -4080,7 +4196,7 @@
    {"received":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":{\"css\":\"#ok\",\"text\":\"OK\",\"textTag\":\"button\"},\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500}],\"rec_timestamp\":1768467643630}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":{\"css\":\"#ok\",\"text\":\"OK\",\"textTag\":\"button\"},\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500}],\"rec_timestamp\":1768467643630}]",
    "runtime.sendMessage [{\"type\":\"RECORDED_ACTION\",\"action\":{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":{\"css\":\"#ok\",\"text\":\"OK\",\"textTag\":\"button\"},\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500}}]",
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[]],\"redo\":[]},\"s1\":{\"undo\":[[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"},{\"type\":\"wait\",\"value\":\"5\"}]],\"redo\":[]},\"s2\":{\"undo\":[[]],\"redo\":[]},\"s3\":{\"undo\":[[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"hover\",\"selector\":\"#x\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\",\"disabled\":true},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}]],\"redo\":[]},\"00000000-0000-4000-8000-000000000012\":{\"undo\":[[]],\"redo\":[]}}}]"
   ],
@@ -4088,12 +4204,15 @@
   "storage": {
    "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"sc1","scenarioId":"s1","time":"7","enabled":false},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":false,"repeat":false},{"id":"scUrl","scenarioId":"s2","time":"08:00","enabled":true,"repeat":true,"url":"https://example.com/start"}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"https://example.com/page":[{"id":"h1","text":"alpha"},{"id":"h1b","text":"gamma"}],"example.com/b":[{"id":"h2","text":"beta"}]},"runHistory":{"r1":[{"how":"sequence","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"},{"how":"resume","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
-   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_actions":[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}],"rec_timestamp":1768467643630}
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}],"rec_timestamp":1768467643630}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s2",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}],
    "undoStack": [],
@@ -4121,7 +4240,7 @@
    {"received":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":{\"css\":\"#ok\",\"text\":\"OK\",\"textTag\":\"button\"},\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500},{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467644130}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":{\"css\":\"#ok\",\"text\":\"OK\",\"textTag\":\"button\"},\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500},{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467644130}]",
    "runtime.sendMessage [{\"type\":\"RECORDED_ACTION\",\"action\":{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500}}]",
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[],[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":\"…\",\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500}]],\"redo\":[]},\"s1\":{\"undo\":[[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"},{\"type\":\"wait\",\"value\":\"5\"}]],\"redo\":[]},\"s2\":{\"undo\":[[]],\"redo\":[]},\"s3\":{\"undo\":[[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"hover\",\"selector\":\"#x\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\",\"disabled\":true},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}]],\"redo\":[]},\"00000000-0000-4000-8000-000000000012\":{\"undo\":[[]],\"redo\":[]}}}]"
   ],
@@ -4129,12 +4248,15 @@
   "storage": {
    "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"sc1","scenarioId":"s1","time":"7","enabled":false},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":false,"repeat":false},{"id":"scUrl","scenarioId":"s2","time":"08:00","enabled":true,"repeat":true,"url":"https://example.com/start"}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"https://example.com/page":[{"id":"h1","text":"alpha"},{"id":"h1b","text":"gamma"}],"example.com/b":[{"id":"h2","text":"beta"}]},"runHistory":{"r1":[{"how":"sequence","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"},{"how":"resume","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
-   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_actions":[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500}],"rec_timestamp":1768467644130}
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500}],"rec_timestamp":1768467644130}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s2",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500}],
    "undoStack": [],
@@ -4162,7 +4284,7 @@
    {"received":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":{\"css\":\"#ok\",\"text\":\"OK\",\"textTag\":\"button\"},\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500},{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500},{\"type\":\"input\",\"selector\":\"#pw\",\"value\":\"s3cret\",\"secret\":true,\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467644630}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":{\"css\":\"#ok\",\"text\":\"OK\",\"textTag\":\"button\"},\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500},{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500},{\"type\":\"input\",\"selector\":\"#pw\",\"value\":\"s3cret\",\"secret\":true,\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467644630}]",
    "runtime.sendMessage [{\"type\":\"RECORDED_ACTION\",\"action\":{\"type\":\"input\",\"selector\":\"#pw\",\"value\":\"s3cret\",\"secret\":true,\"frameId\":0,\"delay\":500}}]",
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[],[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":\"…\",\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500}],[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":\"…\",\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500},{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500}]],\"redo\":[]},\"s1\":{\"undo\":[[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"},{\"type\":\"wait\",\"value\":\"5\"}]],\"redo\":[]},\"s2\":{\"undo\":[[]],\"redo\":[]},\"s3\":{\"undo\":[[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"hover\",\"selector\":\"#x\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\",\"disabled\":true},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}]],\"redo\":[]},\"00000000-0000-4000-8000-000000000012\":{\"undo\":[[]],\"redo\":[]}}}]"
   ],
@@ -4170,12 +4292,15 @@
   "storage": {
    "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"sc1","scenarioId":"s1","time":"7","enabled":false},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":false,"repeat":false},{"id":"scUrl","scenarioId":"s2","time":"08:00","enabled":true,"repeat":true,"url":"https://example.com/start"}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"https://example.com/page":[{"id":"h1","text":"alpha"},{"id":"h1b","text":"gamma"}],"example.com/b":[{"id":"h2","text":"beta"}]},"runHistory":{"r1":[{"how":"sequence","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"},{"how":"resume","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
-   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_actions":[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500}],"rec_timestamp":1768467644630}
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500}],"rec_timestamp":1768467644630}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s2",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500}],
    "undoStack": [],
@@ -4203,7 +4328,7 @@
    {"received":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":{\"css\":\"#ok\",\"text\":\"OK\",\"textTag\":\"button\"},\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500},{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500},{\"type\":\"input\",\"selector\":\"#pw\",\"value\":\"s3cret\",\"secret\":true,\"frameId\":0,\"delay\":500},{\"type\":\"assert\",\"conditionType\":\"textEquals\",\"expectedValue\":\"Saved\",\"selector\":\"#toast\",\"selectors\":{\"css\":\"#toast\",\"id\":\"toast\"},\"label\":\"Toast\",\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467645130}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":\"s2\",\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":{\"css\":\"#ok\",\"text\":\"OK\",\"textTag\":\"button\"},\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500},{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500},{\"type\":\"input\",\"selector\":\"#pw\",\"value\":\"s3cret\",\"secret\":true,\"frameId\":0,\"delay\":500},{\"type\":\"assert\",\"conditionType\":\"textEquals\",\"expectedValue\":\"Saved\",\"selector\":\"#toast\",\"selectors\":{\"css\":\"#toast\",\"id\":\"toast\"},\"label\":\"Toast\",\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467645130}]",
    "runtime.sendMessage [{\"type\":\"RECORDED_ACTION\",\"action\":{\"type\":\"assert\",\"conditionType\":\"textEquals\",\"expectedValue\":\"Saved\",\"selector\":\"#toast\",\"selectors\":{\"css\":\"#toast\",\"id\":\"toast\"},\"label\":\"Toast\",\"frameId\":0,\"delay\":500}}]",
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[],[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":\"…\",\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500}],[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":\"…\",\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500},{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500}],[{\"type\":\"click\",\"selector\":\"#ok\",\"selectors\":\"…\",\"label\":\"Confirm the order and pay now, Confirm the order and pay now\",\"frameId\":3,\"delay\":500},{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"x\",\"frameId\":0,\"delay\":500},{\"type\":\"input\",\"selector\":\"#pw\",\"value\":\"s3cret\",\"secret\":true,\"frameId\":0,\"delay\":500}]],\"redo\":[]},\"s1\":{\"undo\":[[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"},{\"type\":\"wait\",\"value\":\"5\"}]],\"redo\":[]},\"s2\":{\"undo\":[[]],\"redo\":[]},\"s3\":{\"undo\":[[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"hover\",\"selector\":\"#x\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\",\"disabled\":true},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}]],\"redo\":[]},\"00000000-0000-4000-8000-000000000012\":{\"undo\":[[]],\"redo\":[]}}}]"
   ],
@@ -4211,12 +4336,15 @@
   "storage": {
    "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"sc1","scenarioId":"s1","time":"7","enabled":false},{"id":"sc2","scenarioId":"s2","time":"25:99","enabled":true},{"id":"sc3","scenarioId":"s1","time":"08:00","enabled":false},{"id":"sc4","scenarioId":"s2","time":"09:15","enabled":false,"repeat":false},{"id":"scUrl","scenarioId":"s2","time":"08:00","enabled":true,"repeat":true,"url":"https://example.com/start"}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"a":1,"https://example.com/page":[{"id":"h1","text":"alpha"},{"id":"h1b","text":"gamma"}],"example.com/b":[{"id":"h2","text":"beta"}]},"runHistory":{"r1":[{"how":"sequence","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"},{"how":"resume","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
-   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_actions":[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500},{"type":"assert","conditionType":"textEquals","expectedValue":"Saved","selector":"#toast","selectors":{"css":"#toast","id":"toast"},"label":"Toast","frameId":0,"delay":500}],"rec_timestamp":1768467645130}
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":"s2","rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500},{"type":"assert","conditionType":"textEquals","expectedValue":"Saved","selector":"#toast","selectors":{"css":"#toast","id":"toast"},"label":"Toast","frameId":0,"delay":500}],"rec_timestamp":1768467645130}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": "s2",
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500},{"type":"assert","conditionType":"textEquals","expectedValue":"Saved","selector":"#toast","selectors":{"css":"#toast","id":"toast"},"label":"Toast","frameId":0,"delay":500}],
    "undoStack": [],
@@ -4335,7 +4463,7 @@
   "calls": [
    "action.setBadgeText [{\"text\":\"\"}]",
    "tabs.query [{}]",
-   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\"]]",
+   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\",\"rec_tabStack\",\"rec_children\"]]",
    "storage.local.get [[\"scenarios\"]]",
    "tabs.sendMessage [1,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
    "tabs.sendMessage [2,{\"type\":\"RECORDING_STATE\",\"recording\":false}]"
@@ -4350,6 +4478,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -4901,7 +5032,7 @@
   ],
   "calls": [
    "storage.local.get [[\"lastSelectedScenario\"]]",
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":null,\"rec_tabId\":1,\"rec_actions\":[],\"rec_timestamp\":1768467645630}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":null,\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[],\"rec_timestamp\":1768467645630}]",
    "action.setBadgeText [{\"text\":\"REC\"}]",
    "action.setBadgeBackgroundColor [{\"color\":\"#ef4444\"}]",
    "tabs.query [{}]",
@@ -4912,12 +5043,15 @@
   "storage": {
    "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000015":{"name":"Up","actions":[{"type":"uploadFile","selector":"#f","folderPath":"C:\\Users\\me\\.ssh","fileNames":["id_rsa"]},{"type":"uploadFile","selector":"#g","folderPath":"C:\\Users\\me\\.ssh","fileName":"known_hosts"},{"type":"script","code":"1"}],"folderId":null,"createdAt":1768467645630},"00000000-0000-4000-8000-000000000017":{"name":"A","actions":[{"type":"uploadFile","selector":"#f","folderPath":"D:\\data","fileNames":["a.csv"]}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467645630},"00000000-0000-4000-8000-000000000018":{"name":"B","actions":[{"type":"uploadFile","selector":"#f","folderPath":" E:\\x ","fileNames":["b"]},{"type":"click","selector":"#c"}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467645630},"sCt":{"name":"Ct","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}]},"00000000-0000-4000-8000-000000000019":{"name":"Ct (copy)","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}],"clickThrough":false,"createdAt":1768467645630}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500},"00000000-0000-4000-8000-000000000016":{"name":"Uploads","createdAt":1768467645630}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"scRestored","scenarioId":"s1","time":"05:30","enabled":true,"repeat":true}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"example.com/*":[{"id":"p1","text":"one","color":"green","srcUrl":"https://example.com/pop"},{"id":"p2","text":"two","srcUrl":"https://example.com/pop"}]},"runHistory":{"r1":[{"how":"sequence","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"},{"how":"resume","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3,"hl_patterns_v1":["example.com/*"],"lastSelectedScenario":null},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
-   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":null,"rec_tabId":1,"rec_actions":[],"rec_timestamp":1768467645630}
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500}],[{"type":"click","selector":"#ok","selectors":{"css":"#ok","text":"OK","textTag":"button"},"label":"Confirm the order and pay now, Confirm the order and pay now","frameId":3,"delay":500},{"type":"input","selector":"#q","value":"x","frameId":0,"delay":500},{"type":"input","selector":"#pw","value":"s3cret","secret":true,"frameId":0,"delay":500}]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":null,"rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[],"rec_timestamp":1768467645630}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [],
    "undoStack": [],
@@ -4962,7 +5096,7 @@
    {"received":true}
   ],
   "calls": [
-   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":null,\"rec_tabId\":1,\"rec_actions\":[{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"typed\",\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467645630}]",
+   "storage.session.set [{\"rec_recording\":true,\"rec_scenarioId\":null,\"rec_tabId\":1,\"rec_tabStack\":[],\"rec_children\":{},\"rec_actions\":[{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"typed\",\"frameId\":0,\"delay\":500}],\"rec_timestamp\":1768467645630}]",
    "runtime.sendMessage [{\"type\":\"RECORDED_ACTION\",\"action\":{\"type\":\"input\",\"selector\":\"#q\",\"value\":\"typed\",\"frameId\":0,\"delay\":500}}]",
    "storage.session.set [{\"undoStacks\":{\"current\":{\"undo\":[[]],\"redo\":[]},\"s1\":{\"undo\":[[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"}],[{\"type\":\"hover\",\"selector\":\"#a\"},{\"type\":\"input\",\"selector\":\"#b\",\"value\":\"${user}\"},{\"type\":\"wait\",\"value\":\"100\"},{\"type\":\"hover\",\"selector\":\"#r1b\"},{\"type\":\"wait\",\"value\":\"5\"}]],\"redo\":[]},\"s2\":{\"undo\":[[]],\"redo\":[]},\"s3\":{\"undo\":[[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"hover\",\"selector\":\"#x\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\"},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}],[{\"type\":\"switch\",\"switchVar\":\"${role}\",\"cases\":\"…\",\"disabled\":true},{\"type\":\"condition\",\"conditionType\":\"elementExists\",\"selector\":\"#y\",\"skipCount\":1},{\"type\":\"hover\",\"selector\":\"#z\"}]],\"redo\":[]},\"00000000-0000-4000-8000-000000000012\":{\"undo\":[[]],\"redo\":[]}}}]"
   ],
@@ -4970,12 +5104,15 @@
   "storage": {
    "local": {"scenarios":{"r1":{"name":"Restored","actions":[]},"00000000-0000-4000-8000-000000000012":{"name":"Array A renamed","actions":[{"type":"click","selector":"#both"}],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000013":{"name":"Array B","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000014":{"name":"Array C","actions":[],"folderId":null,"createdAt":1768467612630},"00000000-0000-4000-8000-000000000015":{"name":"Up","actions":[{"type":"uploadFile","selector":"#f","folderPath":"C:\\Users\\me\\.ssh","fileNames":["id_rsa"]},{"type":"uploadFile","selector":"#g","folderPath":"C:\\Users\\me\\.ssh","fileName":"known_hosts"},{"type":"script","code":"1"}],"folderId":null,"createdAt":1768467645630},"00000000-0000-4000-8000-000000000017":{"name":"A","actions":[{"type":"uploadFile","selector":"#f","folderPath":"D:\\data","fileNames":["a.csv"]}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467645630},"00000000-0000-4000-8000-000000000018":{"name":"B","actions":[{"type":"uploadFile","selector":"#f","folderPath":" E:\\x ","fileNames":["b"]},{"type":"click","selector":"#c"}],"folderId":"00000000-0000-4000-8000-000000000016","createdAt":1768467645630},"sCt":{"name":"Ct","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}]},"00000000-0000-4000-8000-000000000019":{"name":"Ct (copy)","actions":[{"type":"click","selector":"#a","clickThrough":false},{"type":"click","selector":"#b"}],"clickThrough":false,"createdAt":1768467645630}},"folders":{"00000000-0000-4000-8000-000000000005":{"name":"Imported","createdAt":1768467607500},"00000000-0000-4000-8000-000000000009":{"name":"F2","createdAt":1768467607500},"00000000-0000-4000-8000-000000000016":{"name":"Uploads","createdAt":1768467645630}},"variables":{"user":"bob","n":"1"},"schedules":[{"id":"scRestored","scenarioId":"s1","time":"05:30","enabled":true,"repeat":true}],"activatedTabs":[1],"csvSessionData":{"headers":["user"],"rows":[{"user":"z"}]},"updateStatus":{"state":"current","currentVersion":"1.0.20","latestVersion":"1.0.20","checkedAt":1768467612630},"pendingRecordScenarioId":"s2","variableOrder":["n","user"],"hl_v1":{"example.com/*":[{"id":"p1","text":"one","color":"green","srcUrl":"https://example.com/pop"},{"id":"p2","text":"two","srcUrl":"https://example.com/pop"}]},"runHistory":{"r1":[{"how":"sequence","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"},{"how":"resume","startedAt":1768467607500,"endedAt":1768467607500,"status":"passed","fp":"w7k42t"}]},"lastRun":{"scenarioId":"r1","scenarioName":"Restored","startedAt":1768467607500,"endedAt":1768467607500,"loops":1,"completed":true,"verdict":{"status":"passed","asserts":0,"broken":0},"failures":[],"resumed":true,"actions":[]},"csvSsVarOrder":[],"elemShotPickPending":true,"elemShotPickCrop":false,"lastUpdateAt":1768467612630,"screenshotCountdownEnabled":true,"screenshotCountdownSeconds":3,"hl_patterns_v1":["example.com/*"],"lastSelectedScenario":null},
    "sync": {"screenshotSaveMode":"auto","screenshotPrefix":"rest"},
-   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":null,"rec_tabId":1,"rec_actions":[{"type":"input","selector":"#q","value":"typed","frameId":0,"delay":500}],"rec_timestamp":1768467645630}
+   "session": {"csvInterruptNotified":1768467599000,"undoStacks":{"current":{"undo":[[]],"redo":[]},"s1":{"undo":[[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"}],[{"type":"hover","selector":"#a"},{"type":"input","selector":"#b","value":"${user}"},{"type":"wait","value":"100"},{"type":"hover","selector":"#r1b"},{"type":"wait","value":"5"}]],"redo":[]},"s2":{"undo":[[]],"redo":[]},"s3":{"undo":[[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","startAt":2,"endAt":2}]},{"type":"hover","selector":"#x"},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}]},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}],[{"type":"switch","switchVar":"${role}","cases":[{"value":"a","scenarioId":"__self__","empty":true}],"disabled":true},{"type":"condition","conditionType":"elementExists","selector":"#y","skipCount":1},{"type":"hover","selector":"#z"}]],"redo":[]},"00000000-0000-4000-8000-000000000012":{"undo":[[]],"redo":[]}},"_lastActiveTabId":1,"rec_recording":true,"rec_scenarioId":null,"rec_tabId":1,"rec_tabStack":[],"rec_children":{},"rec_actions":[{"type":"input","selector":"#q","value":"typed","frameId":0,"delay":500}],"rec_timestamp":1768467645630}
   },
   "state": {
    "recording": true,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"input","selector":"#q","value":"typed","frameId":0,"delay":500}],
    "undoStack": [],
@@ -5005,7 +5142,7 @@
   "calls": [
    "action.setBadgeText [{\"text\":\"\"}]",
    "tabs.query [{}]",
-   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\"]]",
+   "storage.session.remove [[\"rec_recording\",\"rec_scenarioId\",\"rec_tabId\",\"rec_actions\",\"rec_timestamp\",\"rec_tabStack\",\"rec_children\"]]",
    "tabs.sendMessage [1,{\"type\":\"RECORDING_STATE\",\"recording\":false}]",
    "tabs.sendMessage [2,{\"type\":\"RECORDING_STATE\",\"recording\":false}]"
   ],
@@ -5019,6 +5156,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"input","selector":"#q","value":"typed","frameId":0,"delay":500}],
    "undoStack": [],
@@ -5096,6 +5236,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"input","selector":"#q","value":"${who}"}],
    "undoStack": [],
@@ -5205,6 +5348,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"input","selector":"#q","value":"${who}"}],
    "undoStack": [],
@@ -5235,6 +5381,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"input","selector":"#q","value":"${who}"}],
    "undoStack": [],
@@ -5279,6 +5428,9 @@
    "recording": false,
    "recordingTabId": 1,
    "recordingScenarioId": null,
+   "recordingTabStack": [],
+   "recordingChildTabs": {},
+   "recordingGrace": null,
    "pickMode": false,
    "currentActions": [{"type":"input","selector":"#q","value":"${person}"}],
    "undoStack": [],

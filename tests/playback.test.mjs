@@ -45,14 +45,17 @@ let page = {};
 let conditions = {};
 let choices = [];
 let promptHook = null;
+// 🎯 Pick it: what the page does when asked to pick for a run (playback/run-pick.js).
+let pickHook = null;
 const take = (list) => (list.length > 1 ? list.shift() : list[0]);
 installTabMessages(fake, {
-  PLAY_ACTION: (msg) => {
+  PLAY_ACTION: (msg, tabId) => {
     const r = page[msg.action?.selector];
     if (Array.isArray(r)) return take(r);
-    if (typeof r === 'function') return r(msg);
+    if (typeof r === 'function') return r(msg, tabId);
     return r ?? {};
   },
+  PING: { type: 'PONG', ready: true },
   // true / false, the page's whole reply ({ result, error, found, actual }), a
   // list of replies (one per call, the last one repeats) or a function of the message.
   CHECK_CONDITION: (msg) => {
@@ -61,6 +64,7 @@ installTabMessages(fake, {
     if (typeof c === 'function') c = c(msg);
     return c && typeof c === 'object' ? c : { result: !!c };
   },
+  START_PICK_MODE: (msg) => { pickHook?.(msg); },
   ACTION_FAILED_PROMPT: (msg) => {
     promptHook?.(msg);
     const c = choices.shift();
@@ -183,7 +187,7 @@ snapshot({
   listeners: listenerShapes(fake, ['runtime.onMessage', 'tabs.onRemoved', 'tabs.onUpdated', 'debugger.onDetach', 'windows.onRemoved', 'alarms.onAlarm']),
 });
 
-const { playActionsOnTab, startPlayback, startPlaybackFromCheckpoint, startSequence, startCsvPlayback } = await import('../bg/playback.js');
+const { playActionsOnTab, startPlayback, startPlaybackFromCheckpoint, startSequence, startCsvPlayback, startPlayRange } = await import('../bg/playback.js');
 
 function idle() {
   state.playback = { active: false };
@@ -197,7 +201,7 @@ function idle() {
 async function run(step, fn, { setup, teardown, summary = false, budget = 600_000 } = {}) {
   idle();
   tabs.splice(0, tabs.length, ...START_TABS());
-  page = {}; conditions = {}; choices = []; promptHook = null;
+  page = {}; conditions = {}; choices = []; promptHook = null; pickHook = null;
   if (setup) setup();
   const box = { done: false };
   fn().then((v) => { box.done = true; box.value = v; }, (e) => { box.done = true; box.error = e?.message || String(e); });
@@ -1227,6 +1231,186 @@ test('a Play, a Resume, each scenario of a Sequence and a CSV run each add to th
 
 test('a Sequence keeps no notes (it has no Last run card)', () => {
   assert.deepEqual(notesOf['notes: a Sequence keeps none'], SENTINEL);
+});
+
+// ── 🎯 Pick it on a failed step's prompt ─────────────────────────────────────
+// The prompt answers "pick"; the page is asked to pick (START_PICK_MODE forRun) and
+// picks #picked in frame 0; the prompt then answers Save & go on (or This run only):
+// the step is played again on #picked, and saved or not.
+const { canPick, runPicked } = await import('../bg/playback/run-pick.js');
+const pickedOf = {};
+Object.assign(fake.data.local.scenarios, {
+  pkSave: { name: 'PkSave', actions: [{ type: 'click', selector: '#pkGone', selectors: { css: '#pkGone' }, label: 'Go', selectorType: 'css' }, hover('#pkNext')] },
+  pkOnce: { name: 'PkOnce', actions: [{ type: 'click', selector: '#pkGone', selectors: { css: '#pkGone' }, label: 'Go' }, hover('#pkNext')] },
+});
+const pickSetup = (answer) => () => {
+  page['#pkGone'] = { failed: true, error: 'Element not found' };
+  const prompts = [];
+  promptHook = (msg) => prompts.push({ canPick: msg.canPick, confirm: msg.confirmPick || null });
+  pickedOf.prompts = prompts;
+  choices = ['pick', answer];
+  pickHook = (msg) => { pickedOf.pickMsg = msg; setTimeout(() => runPicked({ selectors: { css: '#picked', text: 'Go!' }, label: { tag: 'button', name: 'Go!' } }, 0), 10); };
+};
+const pickEnd = (step) => () => {
+  pickedOf[step] = { stored: JSON.parse(JSON.stringify(fake.data.local.scenarios[step === 'pick: save' ? 'pkSave' : 'pkOnce'].actions[0])),
+    lastRun: JSON.parse(JSON.stringify(fake.data.local.lastRun)), prompts: pickedOf.prompts, pickMsg: pickedOf.pickMsg };
+};
+await run('pick: save', () => startPlayback('pkSave'), { setup: pickSetup('pickSave'), teardown: pickEnd('pick: save') });
+await run('pick: this run only', () => startPlayback('pkOnce'), { setup: pickSetup('pickOnce'), teardown: pickEnd('pick: this run only') });
+
+test('🎯 a failed step with an element offers Pick it; a picked one is confirmed by its name', () => {
+  const { prompts, pickMsg } = pickedOf['pick: save'];
+  assert.equal(prompts[0].canPick, true);
+  assert.deepEqual(prompts[1].confirm, { picked: 'button “Go!”', canSave: true, note: '' });
+  assert.equal(pickMsg.forRun, true);
+  assert.match(pickMsg.label, /action 1 should use/);
+});
+test('🎯 Save & go on: the step keeps the picked locators (its selector type dropped) and the run passes', () => {
+  const { stored, lastRun } = pickedOf['pick: save'];
+  assert.deepEqual(stored, { type: 'click', selector: '#picked', selectors: { css: '#picked', text: 'Go!' }, label: 'Go' });
+  assert.equal(lastRun.verdict.status, 'passed');
+  assert.deepEqual(lastRun.picks, [{ index: 1, type: 'click', label: 'Go', picked: 'button “Go!”', saved: true }]);
+});
+test('🎯 This run only: the run goes on, the scenario keeps its step', () => {
+  const { stored, lastRun } = pickedOf['pick: this run only'];
+  assert.equal(stored.selector, '#pkGone');
+  assert.equal(lastRun.verdict.status, 'passed');
+  assert.equal(lastRun.picks[0].saved, false);
+});
+test('🎯 Pick it: steps of one element only — not a Drag & drop, a Child Condition, a step with no element', () => {
+  assert.equal(canPick({ type: 'click', selector: '#a' }), true);
+  assert.equal(canPick({ type: 'screenshot_tovar', target: 'element', selector: '#a' }), true);
+  assert.equal(canPick({ type: 'screenshot_tovar', target: 'page' }), false);
+  assert.equal(canPick({ type: 'dragdrop', selector: '#a', targetSelector: '#b' }), false);
+  assert.equal(canPick({ type: 'click', selector: '#list', conditions: { textContains: 'John' } }), false);
+  assert.equal(canPick({ type: 'navigate', url: 'x' }), false);
+  assert.equal(canPick({ type: 'assert', selector: '#a' }), false);
+});
+
+// ── 📱 Run as ───────────────────────────────────────────────────────────────
+// A scenario with runAs: the run attaches once, sets the device and the network,
+// plays (a Script step uses that session and leaves it attached), then detaches.
+Object.assign(fake.data.local.scenarios, {
+  raPhone: { name: 'RaPhone', runAs: { device: 'iphone14', network: 'slow3g' }, actions: [{ type: 'script', code: '1' }, hover('#raAfter')] },
+});
+const raLog = {};
+await run('run as: a phone on Slow 3G', () => startPlayback('raPhone'), {
+  setup: () => { raLog.mark = fake.log.length; },
+  teardown: () => { raLog.calls = fake.log.slice(raLog.mark).filter((l) => l.startsWith('debugger.')).map((l) => l.replace(/ \[\{"tabId":1\}/, ' [').slice(0, 90)); raLog.lastRun = JSON.parse(JSON.stringify(fake.data.local.lastRun)); },
+});
+test('📱 Run as: attached once for the run, device and network set, a Script step keeps the session, detached at the end', () => {
+  const c = raLog.calls;
+  const at = (s) => c.findIndex((l) => l.includes(s));
+  assert.ok(at('debugger.attach') >= 0 && at('Emulation.setDeviceMetricsOverride') > at('debugger.attach'), c.join('\n'));
+  assert.ok(at('"width":390') > 0 && at('Network.emulateNetworkConditions') > 0 && at('"latency":2000') > 0, c.join('\n'));
+  const script = at('Runtime.evaluate');
+  const detaches = c.map((l, i) => (l.startsWith('debugger.detach') ? i : -1)).filter((i) => i >= 0);
+  assert.ok(script > at('Network.emulateNetworkConditions'), 'the Script runs after the device is set');
+  assert.ok(detaches.length && detaches.every((i) => i < at('debugger.attach') || i > script), 'nothing detaches between the device and the Script');
+  assert.deepEqual(raLog.lastRun.runAs, { device: 'iphone14', network: 'slow3g' });
+});
+test('📱 runAsOf / runAsText: known keys only', async () => {
+  const { runAsOf, runAsText } = await import('../shared/run-as.js');
+  assert.equal(runAsOf({ device: 'nope', network: '' }), null);
+  assert.deepEqual(runAsOf({ device: 'pixel7', network: 'zzz' }), { device: 'pixel7' });
+  assert.equal(runAsText({ device: 'iphone14', network: 'slow3g' }), '📱 iPhone 14 · Slow 3G');
+  assert.equal(runAsText({ network: 'offline' }), 'Offline');
+  assert.equal(runAsText(null), '');
+});
+
+// ── ↗ Switch tab ─────────────────────────────────────────────────────────────
+// #opener opens tab 3 (tabs.onCreated, opener 1); ↗ new plays on there; ↩ back
+// closes it and plays on in tab 1. A page that closes its own tab (#closer) sends
+// the run back by itself, and the ↩ step after it does nothing.
+const tabHits = {};
+const tabPage = (step) => () => {
+  const hits = tabHits[step] = [];
+  tabHits[`${step} mark`] = fake.log.length;
+  const hit = (sel) => (msg, tabId) => { hits.push(`${sel}@${tabId}`); return {}; };
+  for (const sel of ['#child', '#home']) page[sel] = hit(sel);
+  page['#opener'] = (msg, tabId) => {
+    hits.push(`#opener@${tabId}`);
+    tabs.push({ id: 3, windowId: 1, active: false, url: 'https://example.com/child', title: 'Child', status: 'complete' });
+    fake.events['tabs.onCreated'].forEach((fn) => fn({ id: 3, openerTabId: tabId }));
+    return {};
+  };
+  page['#closer'] = (msg, tabId) => {
+    hits.push(`#closer@${tabId}`);
+    setTimeout(() => fake.events['tabs.onRemoved'].forEach((fn) => fn(3, {})), 5);
+    return {};
+  };
+  choices = ['skip'];
+};
+const tabEnd = (step) => () => {
+  const log = fake.log.slice(tabHits[`${step} mark`]);
+  tabHits[step] = { hits: tabHits[step], failed: JSON.parse(JSON.stringify(fake.data.local.lastRun?.failures || [])),
+    removed: log.filter((l) => l.startsWith('tabs.remove ')), active: log.filter((l) => l.startsWith('tabs.update') && l.includes('"active":true')) };
+};
+const sw = (tabTarget, extra) => ({ type: 'switchTab', tabTarget, ...extra });
+Object.assign(fake.data.local.scenarios, {
+  stNew: { name: 'StNew', actions: [{ type: 'click', selector: '#opener' }, sw('new'), hover('#child'), sw('back', { closeTab: true }), hover('#home')] },
+  stNone: { name: 'StNone', actions: [sw('new', { timeout: 500 }), hover('#home')] },
+  stClosed: { name: 'StClosed', actions: [{ type: 'click', selector: '#opener' }, sw('new'), { type: 'click', selector: '#closer', delay: 50 }, sw('back', { closeTab: true }), hover('#home')] },
+});
+for (const [step, id] of [['tab: new, then back', 'stNew'], ['tab: none opens', 'stNone'], ['tab: the page closes it', 'stClosed']]) {
+  await run(step, () => startPlayback(id), { setup: tabPage(step), teardown: () => { tabEnd(step)(); tabs.splice(0, tabs.length, ...START_TABS()); } });
+}
+test('↗ a new tab the page opened: the run plays on there, then ↩ closes it and plays on where it was', () => {
+  const t = tabHits['tab: new, then back'];
+  assert.deepEqual(t.hits, ['#opener@1', '#child@3', '#home@1']);
+  assert.deepEqual(t.failed, []);
+  assert.equal(t.removed.length, 1);
+  assert.match(t.removed[0], /^tabs\.remove \[3/);
+  assert.ok(t.active.some((l) => l.includes('[3,')) && t.active.some((l) => l.includes('[1,')), t.active.join('\n'));
+});
+test('↗ no tab opened within the time: the step fails, and Skip goes on in the same tab', () => {
+  const t = tabHits['tab: none opens'];
+  assert.match(t.failed[0]?.reason || '', /No new tab opened by this one within 0\.5 s/);
+  assert.deepEqual(t.hits, ['#home@1']);
+});
+test('↗ a tab the page closes itself: the run goes back by itself, and the ↩ after it does nothing', () => {
+  const t = tabHits['tab: the page closes it'];
+  assert.deepEqual(t.hits, ['#opener@1', '#closer@3', '#home@1']);
+  assert.deepEqual(t.failed, []);
+  assert.equal(t.removed.length, 0);
+});
+
+// ── ▶ part of a scenario (PLAY_RANGE) ───────────────────────────────────────
+// The popup's row numbers play #from…#to on the active tab; `prelude` plays the
+// steps that set variables first. Kept as the Last run with `part`, never in the history.
+const partHits = {};
+const partEnd = (step) => () => { partHits[step].lastRun = JSON.parse(JSON.stringify(fake.data.local.lastRun ?? null)); };
+const partPage = (step) => () => {
+  const hits = partHits[step] = { order: [], history: (fake.data.local.runHistory?.pRange || []).length };
+  for (const sel of ['#p1', '#p2', '#p3', '#p5', '#A', '#B', '#C', '#D', '#E']) page[sel] = () => { hits.order.push(sel); return {}; };
+  page['#p4'] = (msg) => { hits.order.push(`#p4=${msg.action.value}`); return {}; };
+  page['#got'] = () => { hits.order.push('#got'); return { value: 'X-9' }; };
+};
+Object.assign(fake.data.local.scenarios, {
+  pRange: { name: 'PRange', actions: [
+    hover('#p1'), { type: 'readdom', selector: '#got', varName: 'got' }, hover('#p3'),
+    { type: 'input', selector: '#p4', value: '${got}' }, hover('#p5'),
+  ] },
+});
+await run('part: #3–#4', () => startPlayRange('pRange', 3, 4), { setup: partPage('part: #3–#4'), teardown: partEnd('part: #3–#4') });
+await run('part: #4 after the Read DOM it needs', () => startPlayRange('pRange', 4, 4, [1, 0, 9, 3]), { setup: partPage('part: #4 after the Read DOM it needs'), teardown: partEnd('part: #4 after the Read DOM it needs') });
+await run('part: inside a Switch block case', () => startPlayRange('sBlocks', 3, 6), { setup: partPage('part: inside a Switch block case'), teardown: partEnd('part: inside a Switch block case') });
+
+test('▶ a part plays only its steps, on the active tab, and is kept as the Last run with `part`', () => {
+  const p = partHits['part: #3–#4'];
+  assert.deepEqual(p.order, ['#p3', '#p4=${got}']);
+  assert.deepEqual(p.lastRun.part, { from: 3, to: 4 });
+  assert.equal(p.lastRun.scenarioId, 'pRange');
+});
+test('▶ a part never goes into the run history', () => {
+  assert.equal((fake.data.local.runHistory?.pRange || []).length, 0);
+});
+test('▶ the prelude plays only the steps before the part, once each, in order', () => {
+  assert.deepEqual(partHits['part: #4 after the Read DOM it needs'].order, ['#p1', '#got', '#p4=X-9']);
+});
+test('▶ a part starting inside a Switch block case finishes that case, then goes on after the block', () => {
+  // a = 1: case "1" is #2–#3; from #3 that is #B, then the block is left for #6 (#E).
+  assert.deepEqual(partHits['part: inside a Switch block case'].order, ['#B', '#E']);
 });
 
 // ── compare ─────────────────────────────────────────────────────────────────

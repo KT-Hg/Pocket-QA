@@ -15,6 +15,7 @@ import {
   PICK_ITEM_JS, QUERY_DEEP_JS,
 } from './export/page-js.js';
 import { JS_RESERVED, jsIdentifier, jsValue, jsConditions, randomFnJS } from './export/js-code.js';
+import { runAsText } from '../shared/run-as.js';
 
 const SKIPPED_TYPES = new Set([
   'screenshot', 'screenshot_full', 'screenshot_element', 'screenshot_tovar', 'switch'
@@ -356,9 +357,9 @@ function actionLines(action, step, ctx, top = false) {
 
     default:
       out.push(`// Step ${stepNum}: ${commentText(action.type)}${lbl} — [unsupported type, skipped]`);
-      mark(step, 'skip', action.type === 'uploadFile'
-        ? 'a bookmarklet cannot read local files'
-        : 'not an action type this version knows');
+      if (action.type === 'uploadFile') mark(step, 'skip', 'a bookmarklet cannot read local files');
+      else if (action.type === 'switchTab') mark(step, 'skip', 'a bookmarklet plays in one page: it cannot follow another tab');
+      else mark(step, 'skip', 'not an action type this version knows');
   }
 
   return out;
@@ -413,6 +414,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
   const { stepDelay = 300, elTimeout = 5000 } = opts;
 
   const warnings = new Set();
+  if (runAsText(opts.runAs)) warnings.add(`Run as ${runAsText(opts.runAs)} is not exported: a bookmarklet plays in the page as it is`);
   const enabled = (actions || []).filter(a => !a.disabled);
   // writtenVars: the names a step assigns to. screenshot_tovar's too, though the
   // step itself is skipped: without a declaration a later `${shot}` is a
@@ -540,7 +542,7 @@ export function generateBookmarklet(scenarioName, actions, variables, opts = {})
     out.push('  // --- RANDOM VARIABLE GENERATORS ---');
     for (const [k, spec] of Object.entries(randomSpecs)) {
       const safe = _sanitizeVarName(k);
-      out.push(`  const _gen_${safe} = ${randomFnJS(spec.type, spec.length)};`);
+      out.push(`  const _gen_${safe} = ${randomFnJS(spec.type, spec.length, spec)};`);
     }
   }
 

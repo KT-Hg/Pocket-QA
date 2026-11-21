@@ -144,3 +144,8 @@ test('a failure inside another scenario is told by the Switch that ran it', () =
   const named = buildBugReport({ ...nested, failures: [{ ...nested.failures[0], scenarioId: 'other', scenarioName: 'Pay' }] }, { env: ENV });
   assert.ok(named.includes(', step #3 in "Pay"') && named.includes('- **Failure:** ⚠ #3 in "Pay" click'), named);
 });
+
+test('a part played from the row numbers says so in When', () => {
+  const part = buildBugReport({ ...lastRun, loops: 1, part: { from: 4, to: 5 } }, { env: ENV });
+  assert.match(part, /- \*\*When:\*\* 2026-10-18 14:03:03 · steps #4–#5 only \(the steps before were not played\)/);
+});

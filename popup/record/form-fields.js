@@ -33,8 +33,18 @@ const CONDITION_VALUE_HINTS = {
 /* === Default delay (ms) for all new actions === */
 export const DEFAULT_DELAY_MS = "500";
 
+/** Switch tab: the wait shows for a new tab, "Close this tab first" for going back. */
+export function updateSwitchTabForm() {
+  const back = document.getElementById('switchTabTarget')?.value === 'back';
+  // style, not `hidden`: .form-inline / .form-label / .form-check set their own display.
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+  show('switchTabWaitRow', !back);
+  show('switchTabWaitLabel', !back);
+  show('switchTabCloseRow', back);
+}
+
 /* === Types that never need a selector === */
-export const TYPES_NO_SELECTOR = new Set(["navigate", "wait", "script", "screenshot", "screenshot_full", "switch"]);
+export const TYPES_NO_SELECTOR = new Set(["navigate", "wait", "script", "screenshot", "screenshot_full", "switch", "switchTab"]);
 
 // Types whose Selector can be a parent searched with a Child Condition.
 export const TYPES_CHILD_CONDITION = ["click", "input", "hover", "readdom"];
@@ -49,6 +59,7 @@ const _STEP_LABEL_TEXTS = {
   screenshotTovarStepLabel:'Save as',
   dragdropStepLabel:       'Drop on',
   switchStepLabel:         'Branch',
+  switchTabStepLabel:      'Tab',
   delayStepLabel:          'Delay',
   labelStepLabel:          'Label',
 };
@@ -87,6 +98,7 @@ const _STEP_ORDER = [
   ['screenshotTovarStepLabel', 'screenshotTovarWrapper'],
   ['dragdropStepLabel',        'dragdropWrapper'],
   ['switchStepLabel',          'switchWrapper'],
+  ['switchTabStepLabel',       'switchTabWrapper'],
   ['valueStepLabel',           'manualValueWrapper'],
   ['delayStepLabel',           'manualDelayWrapper'],
   ['labelStepLabel',           'manualLabelWrapper'],
@@ -241,6 +253,7 @@ export function initFormFields() {
   document.getElementById("readdomMatchCase")?.addEventListener("change", updateReaddomForm);
   // An upload's selector label follows its mode.
   document.getElementById("uploadMode")?.addEventListener("change", updateStepLabels);
+  document.getElementById("switchTabTarget")?.addEventListener("change", updateSwitchTabForm);
   // For screenshot_tovar: show selector section only when target = element
   document.getElementById("screenshotTovarTarget")?.addEventListener("change", function() {
     const selectorSection = document.getElementById("selectorSection");
